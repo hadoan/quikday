@@ -1,0 +1,27 @@
+FROM node:20-alpine AS base
+WORKDIR /app
+RUN npm i -g pnpm
+
+FROM base AS deps
+COPY pnpm-lock.yaml package.json pnpm-workspace.yaml turbo.json ./
+COPY apps/api/package.json apps/api/
+COPY packages/types/package.json packages/types/
+COPY packages/crypto/package.json packages/crypto/
+COPY packages/sdk/package.json packages/sdk/
+RUN pnpm install --frozen-lockfile || pnpm install
+
+FROM deps AS build
+COPY . .
+RUN pnpm --filter @runfast/types build && pnpm --filter @runfast/crypto build && pnpm --filter @runfast/sdk build
+RUN pnpm --filter @runfast/api prisma:gen
+RUN pnpm --filter @runfast/api build
+
+FROM node:20-alpine AS runner
+WORKDIR /app
+ENV NODE_ENV=production
+RUN npm i -g pnpm
+COPY --from=build /app/apps/api/dist ./apps/api/dist
+COPY --from=deps /app/node_modules ./node_modules
+COPY --from=build /app/apps/api/prisma ./apps/api/prisma
+CMD ["node", "apps/api/dist/main.js"]
+

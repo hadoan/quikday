@@ -1,0 +1,16 @@
+{
+  "name": "runfast",
+  "private": true,
+  "scripts": {
+    "dev": "turbo run dev",
+    "build": "turbo run build",
+    "lint": "turbo run lint",
+    "db:push": "pnpm --filter @runfast/api prisma db push",
+    "db:migrate": "pnpm --filter @runfast/api prisma migrate dev",
+    "seed": "pnpm --filter @runfast/api ts-node prisma/seed.ts",
+    "up": "docker compose up -d db redis && pnpm -w dev"
+  },
+  "devDependencies": { "turbo": "^2.1.0" },
+  "workspaces": ["apps/*", "packages/*"]
+}
+
