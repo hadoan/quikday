@@ -8,6 +8,7 @@ import { UndoCard } from "@/components/cards/UndoCard";
 import { OutputCard } from "@/components/cards/OutputCard";
 import { Sidebar } from "@/components/layout/Sidebar";
 import { ToolsPanel } from "@/components/layout/ToolsPanel";
+import { UserMenu } from "@/components/layout/UserMenu";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Button } from "@/components/ui/button";
 import { mockRuns, mockTools, mockStats } from "@/data/mockRuns";
@@ -16,11 +17,27 @@ import { Zap, Plug2 } from "lucide-react";
 const Index = () => {
   const [activeRunId, setActiveRunId] = useState(mockRuns[0].id);
   const [isToolsPanelOpen, setIsToolsPanelOpen] = useState(true);
+  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
   const activeRun = mockRuns.find((run) => run.id === activeRunId);
 
   const handleNewPrompt = (prompt: string) => {
     console.log("New prompt:", prompt);
     // In a real app, this would trigger the execution flow
+  };
+
+  const handleViewProfile = () => {
+    console.log("View profile");
+    // Navigate to profile page
+  };
+
+  const handleEditProfile = () => {
+    console.log("Edit profile");
+    // Navigate to edit profile page
+  };
+
+  const handleLogout = () => {
+    console.log("Logout");
+    // Handle logout
   };
 
   return (
@@ -29,6 +46,8 @@ const Index = () => {
         runs={mockRuns}
         activeRunId={activeRunId}
         onSelectRun={setActiveRunId}
+        collapsed={isSidebarCollapsed}
+        onToggleCollapse={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
       />
 
       <div className="flex-1 flex flex-col">
@@ -44,15 +63,22 @@ const Index = () => {
                 Conversational execution interface for founders and teams
               </p>
             </div>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => setIsToolsPanelOpen(!isToolsPanelOpen)}
-              className="gap-2"
-            >
-              <Plug2 className="h-4 w-4" />
-              Integrations
-            </Button>
+            <div className="flex items-center gap-3">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setIsToolsPanelOpen(!isToolsPanelOpen)}
+                className="gap-2"
+              >
+                <Plug2 className="h-4 w-4" />
+                Integrations
+              </Button>
+              <UserMenu
+                onViewProfile={handleViewProfile}
+                onEditProfile={handleEditProfile}
+                onLogout={handleLogout}
+              />
+            </div>
           </div>
         </header>
 
