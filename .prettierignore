@@ -1,0 +1,7 @@
+# Ignore artifacts
+node_modules
+dist
+build
+
+# Ignore prisma schema since parser may not be available in this environment
+**/*.prisma

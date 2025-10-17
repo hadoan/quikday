@@ -12,4 +12,3 @@ export abstract class BaseApp {
     res.status(404).json({ message: 'Not implemented' });
   }
 }
-

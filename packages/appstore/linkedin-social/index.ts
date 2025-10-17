@@ -27,4 +27,3 @@ export default function createApp(meta: AppMeta, deps: AppDeps) {
     }
   })();
 }
-

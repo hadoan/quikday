@@ -1,13 +1,13 @@
-import { CheckCircle2, Sparkles } from "lucide-react";
-import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
-import { ToolBadge } from "./ToolBadge";
+import { CheckCircle2, Sparkles } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
+import { ToolBadge } from './ToolBadge';
 
 export interface PlanData {
   intent: string;
   tools: string[];
   actions: string[];
-  mode: "plan";
+  mode: 'plan';
 }
 
 interface PlanCardProps {
@@ -27,7 +27,7 @@ export const PlanCard = ({ data, onConfirm }: PlanCardProps) => {
             <h3 className="font-semibold text-foreground mb-1">Plan</h3>
             <p className="text-sm text-muted-foreground">{data.intent}</p>
           </div>
-          
+
           <div className="space-y-2">
             <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
               Tools Required

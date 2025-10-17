@@ -1,11 +1,11 @@
-import { ToolBadge } from "@/components/cards/ToolBadge";
-import { Activity, TrendingUp, X } from "lucide-react";
-import { Card } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
+import { ToolBadge } from '@/components/cards/ToolBadge';
+import { Activity, TrendingUp, X } from 'lucide-react';
+import { Card } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
 
 interface Tool {
   name: string;
-  status: "connected" | "disconnected";
+  status: 'connected' | 'disconnected';
 }
 
 interface ToolsPanelProps {
@@ -27,12 +27,7 @@ export const ToolsPanel = ({ tools, stats, onClose }: ToolsPanelProps) => {
             Connected Tools
           </h3>
           {onClose && (
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={onClose}
-              className="h-6 w-6"
-            >
+            <Button variant="ghost" size="icon" onClick={onClose} className="h-6 w-6">
               <X className="h-4 w-4" />
             </Button>
           )}
@@ -58,15 +53,11 @@ export const ToolsPanel = ({ tools, stats, onClose }: ToolsPanelProps) => {
           <div className="space-y-2">
             <div className="flex justify-between items-center">
               <span className="text-sm text-muted-foreground">Runs</span>
-              <span className="text-lg font-bold text-primary">
-                {stats.runsToday}
-              </span>
+              <span className="text-lg font-bold text-primary">{stats.runsToday}</span>
             </div>
             <div className="flex justify-between items-center">
               <span className="text-sm text-muted-foreground">Success Rate</span>
-              <span className="text-lg font-bold text-success">
-                {stats.successRate}%
-              </span>
+              <span className="text-lg font-bold text-success">{stats.successRate}%</span>
             </div>
           </div>
         </Card>

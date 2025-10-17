@@ -6,8 +6,8 @@
   "scripts": {
     "build": "tsc -p tsconfig.json",
     "generate": "prisma generate",
-  "migrate:dev": "prisma migrate dev",
-  "migrate:create": "prisma migrate dev --create-only --name init",
+    "migrate:dev": "prisma migrate dev",
+    "migrate:create": "prisma migrate dev --create-only --name init",
     "migrate:deploy": "prisma migrate deploy",
     "seed": "ts-node --transpile-only ./seed.ts"
   },

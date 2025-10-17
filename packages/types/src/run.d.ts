@@ -1,4 +1,4 @@
-import { z } from "zod";
+import { z } from 'zod';
 export declare const PlanCard: any;
 export declare const ConfigCard: any;
 export declare const RunCard: any;

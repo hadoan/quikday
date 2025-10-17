@@ -1,5 +1,5 @@
-import { useState } from "react";
-import { User, Settings, LogOut, ChevronDown } from "lucide-react";
+import { useState } from 'react';
+import { User, Settings, LogOut, ChevronDown } from 'lucide-react';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -7,10 +7,10 @@ import {
   DropdownMenuLabel,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
-import { Button } from "@/components/ui/button";
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { useToast } from "@/hooks/use-toast";
+} from '@/components/ui/dropdown-menu';
+import { Button } from '@/components/ui/button';
+import { Avatar, AvatarFallback } from '@/components/ui/avatar';
+import { useToast } from '@/hooks/use-toast';
 
 interface UserMenuProps {
   user?: {
@@ -25,9 +25,9 @@ interface UserMenuProps {
 
 export const UserMenu = ({
   user = {
-    name: "John Doe",
-    email: "john@runfast.now",
-    initials: "JD",
+    name: 'John Doe',
+    email: 'john@runfast.now',
+    initials: 'JD',
   },
   onViewProfile,
   onEditProfile,
@@ -40,8 +40,8 @@ export const UserMenu = ({
       onLogout();
     } else {
       toast({
-        title: "Logged out",
-        description: "You have been successfully logged out",
+        title: 'Logged out',
+        description: 'You have been successfully logged out',
       });
     }
   };
@@ -74,7 +74,10 @@ export const UserMenu = ({
           <span>Edit Profile</span>
         </DropdownMenuItem>
         <DropdownMenuSeparator />
-        <DropdownMenuItem onClick={handleLogout} className="cursor-pointer text-destructive focus:text-destructive">
+        <DropdownMenuItem
+          onClick={handleLogout}
+          className="cursor-pointer text-destructive focus:text-destructive"
+        >
           <LogOut className="mr-2 h-4 w-4" />
           <span>Log out</span>
         </DropdownMenuItem>

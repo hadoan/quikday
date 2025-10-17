@@ -1,4 +1,4 @@
-import { PrismaClient } from "@prisma/client";
+import { PrismaClient } from '@prisma/client';
 
 const prisma = new PrismaClient();
 
@@ -7,9 +7,9 @@ async function main() {
   const team = await prisma.team.upsert({
     where: { id: 1 },
     update: {},
-    create: { name: "Runfast Dev Team" },
+    create: { name: 'Runfast Dev Team' },
   });
-  console.log("Seeded team:", team);
+  console.log('Seeded team:', team);
 }
 
 main()
@@ -20,4 +20,3 @@ main()
   .finally(async () => {
     await prisma.$disconnect();
   });
-

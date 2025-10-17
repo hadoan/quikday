@@ -9,10 +9,12 @@ import { PrismaService } from '@runfast/prisma';
   exports: [AppStoreRegistry],
 })
 export class IntegrationsModule implements OnModuleInit {
-  constructor(private readonly store: AppStoreRegistry, private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly store: AppStoreRegistry,
+    private readonly prisma: PrismaService
+  ) {}
 
   async onModuleInit() {
     await this.store.init({ prisma: this.prisma });
   }
 }
-

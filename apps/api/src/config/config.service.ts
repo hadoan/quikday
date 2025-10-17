@@ -1,5 +1,5 @@
-import { Injectable } from "@nestjs/common";
-import { z } from "zod";
+import { Injectable } from '@nestjs/common';
+import { z } from 'zod';
 
 const EnvSchema = z.object({
   PORT: z.string().optional(),
@@ -19,7 +19,6 @@ export class ConfigService {
   readonly env = EnvSchema.parse(process.env);
 
   get isKindeBypass(): boolean {
-    return this.env.KINDE_BYPASS === "true";
+    return this.env.KINDE_BYPASS === 'true';
   }
 }
-

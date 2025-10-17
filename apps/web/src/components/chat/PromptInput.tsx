@@ -1,8 +1,8 @@
-import { useState } from "react";
-import { Send, Sparkles } from "lucide-react";
-import { Button } from "@/components/ui/button";
-import { Textarea } from "@/components/ui/textarea";
-import { cn } from "@/lib/utils";
+import { useState } from 'react';
+import { Send, Sparkles } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { Textarea } from '@/components/ui/textarea';
+import { cn } from '@/lib/utils';
 
 interface PromptInputProps {
   onSubmit: (prompt: string) => void;
@@ -15,18 +15,18 @@ export const PromptInput = ({
   disabled = false,
   placeholder = "Type your intent... (e.g., 'Schedule a check-in with Sara tomorrow at 10')",
 }: PromptInputProps) => {
-  const [prompt, setPrompt] = useState("");
+  const [prompt, setPrompt] = useState('');
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (prompt.trim() && !disabled) {
       onSubmit(prompt);
-      setPrompt("");
+      setPrompt('');
     }
   };
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) {
+    if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) {
       e.preventDefault();
       handleSubmit(e);
     }
@@ -43,8 +43,8 @@ export const PromptInput = ({
             placeholder={placeholder}
             disabled={disabled}
             className={cn(
-              "min-h-[60px] resize-none border-0 bg-transparent p-0 focus-visible:ring-0 focus-visible:ring-offset-0",
-              "placeholder:text-muted-foreground"
+              'min-h-[60px] resize-none border-0 bg-transparent p-0 focus-visible:ring-0 focus-visible:ring-offset-0',
+              'placeholder:text-muted-foreground',
             )}
             rows={1}
           />
@@ -62,9 +62,7 @@ export const PromptInput = ({
           )}
         </Button>
       </div>
-      <p className="mt-2 text-xs text-muted-foreground text-center">
-        Press ⌘+Enter to run
-      </p>
+      <p className="mt-2 text-xs text-muted-foreground text-center">Press ⌘+Enter to run</p>
     </form>
   );
 };

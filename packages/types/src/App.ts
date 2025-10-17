@@ -1,4 +1,4 @@
-export type AppVariant = "social" | "email" | "crm" | "automation" | "other";
+export type AppVariant = 'social' | 'email' | 'crm' | 'automation' | 'other';
 
 export interface AppMeta {
   name: string;
@@ -16,4 +16,3 @@ export interface AppMeta {
   email?: string;
   dirName: string;
 }
-

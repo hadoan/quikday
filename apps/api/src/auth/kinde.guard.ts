@@ -1,7 +1,7 @@
-import { CanActivate, ExecutionContext, Injectable, UnauthorizedException } from "@nestjs/common";
-import jwksClient from "jwks-rsa";
-import jwt from "jsonwebtoken";
-import { ConfigService } from "../config/config.service";
+import { CanActivate, ExecutionContext, Injectable, UnauthorizedException } from '@nestjs/common';
+import jwksClient from 'jwks-rsa';
+import jwt from 'jsonwebtoken';
+import { ConfigService } from '../config/config.service';
 
 @Injectable()
 export class KindeGuard implements CanActivate {
@@ -12,19 +12,19 @@ export class KindeGuard implements CanActivate {
   constructor(private config: ConfigService) {}
 
   private getKey = (header: any, cb: (err: any, key?: string) => void) => {
-    if (!this.client) return cb(new Error("JWKS client not configured"));
+    if (!this.client) return cb(new Error('JWKS client not configured'));
     this.client.getSigningKey(header.kid, (err: any, key: any) => cb(err, key?.getPublicKey()));
   };
 
   async canActivate(ctx: ExecutionContext) {
     const req = ctx.switchToHttp().getRequest();
-    const auth = req.headers.authorization || "";
-    const token = auth.startsWith("Bearer ") ? auth.slice(7) : "";
-    if (!token) throw new UnauthorizedException("Missing token");
+    const auth = req.headers.authorization || '';
+    const token = auth.startsWith('Bearer ') ? auth.slice(7) : '';
+    if (!token) throw new UnauthorizedException('Missing token');
 
     if (this.config.isKindeBypass) {
       // In dev, trust any token and assign a minimal user payload
-      req.user = { sub: "dev-user", email: "dev@example.com" };
+      req.user = { sub: 'dev-user', email: 'dev@example.com' };
       return true;
     }
 
