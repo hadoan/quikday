@@ -1,6 +1,7 @@
 import { ToolBadge } from "@/components/cards/ToolBadge";
-import { Activity, TrendingUp } from "lucide-react";
+import { Activity, TrendingUp, X } from "lucide-react";
 import { Card } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
 
 interface Tool {
   name: string;
@@ -13,16 +14,29 @@ interface ToolsPanelProps {
     runsToday: number;
     successRate: number;
   };
+  onClose?: () => void;
 }
 
-export const ToolsPanel = ({ tools, stats }: ToolsPanelProps) => {
+export const ToolsPanel = ({ tools, stats, onClose }: ToolsPanelProps) => {
   return (
-    <div className="w-80 border-l border-border bg-sidebar h-screen flex flex-col p-6 space-y-6">
+    <div className="w-80 border-l border-border bg-sidebar h-screen flex flex-col p-6 space-y-6 animate-fade-in">
       <div>
-        <h3 className="text-sm font-semibold text-sidebar-foreground mb-4 flex items-center gap-2">
-          <Activity className="h-4 w-4" />
-          Connected Tools
-        </h3>
+        <div className="flex items-center justify-between mb-4">
+          <h3 className="text-sm font-semibold text-sidebar-foreground flex items-center gap-2">
+            <Activity className="h-4 w-4" />
+            Connected Tools
+          </h3>
+          {onClose && (
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={onClose}
+              className="h-6 w-6"
+            >
+              <X className="h-4 w-4" />
+            </Button>
+          )}
+        </div>
         <div className="space-y-2">
           {tools.map((tool) => (
             <div

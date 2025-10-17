@@ -9,11 +9,13 @@ import { OutputCard } from "@/components/cards/OutputCard";
 import { Sidebar } from "@/components/layout/Sidebar";
 import { ToolsPanel } from "@/components/layout/ToolsPanel";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { Button } from "@/components/ui/button";
 import { mockRuns, mockTools, mockStats } from "@/data/mockRuns";
-import { Zap } from "lucide-react";
+import { Zap, Plug2 } from "lucide-react";
 
 const Index = () => {
   const [activeRunId, setActiveRunId] = useState(mockRuns[0].id);
+  const [isToolsPanelOpen, setIsToolsPanelOpen] = useState(true);
   const activeRun = mockRuns.find((run) => run.id === activeRunId);
 
   const handleNewPrompt = (prompt: string) => {
@@ -42,6 +44,15 @@ const Index = () => {
                 Conversational execution interface for founders and teams
               </p>
             </div>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setIsToolsPanelOpen(!isToolsPanelOpen)}
+              className="gap-2"
+            >
+              <Plug2 className="h-4 w-4" />
+              Integrations
+            </Button>
           </div>
         </header>
 
@@ -84,7 +95,13 @@ const Index = () => {
         </div>
       </div>
 
-      <ToolsPanel tools={mockTools} stats={mockStats} />
+      {isToolsPanelOpen && (
+        <ToolsPanel
+          tools={mockTools}
+          stats={mockStats}
+          onClose={() => setIsToolsPanelOpen(false)}
+        />
+      )}
     </div>
   );
 };
