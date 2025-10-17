@@ -11,9 +11,9 @@ export class KindeGuard implements CanActivate {
 
   constructor(private config: ConfigService) {}
 
-  private getKey = (header: any, cb: any) => {
+  private getKey = (header: any, cb: (err: any, key?: string) => void) => {
     if (!this.client) return cb(new Error("JWKS client not configured"));
-    this.client.getSigningKey(header.kid, (err, key) => cb(err, key?.getPublicKey()));
+    this.client.getSigningKey(header.kid, (err: any, key: any) => cb(err, key?.getPublicKey()));
   };
 
   async canActivate(ctx: ExecutionContext) {
@@ -33,11 +33,10 @@ export class KindeGuard implements CanActivate {
         token,
         this.getKey,
         { audience: this.config.env.KINDE_AUDIENCE, issuer: this.config.env.KINDE_ISSUER_URL },
-        (err, decoded) => (err ? reject(err) : resolve(decoded))
+        (err: any, decoded: any) => (err ? reject(err) : resolve(decoded))
       );
     });
     req.user = payload;
     return true;
   }
 }
-

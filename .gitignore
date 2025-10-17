@@ -12,6 +12,13 @@ dist
 dist-ssr
 *.local
 
+# Turbo cache
+.turbo
+
+# Environment files
+.env
+*.env
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json

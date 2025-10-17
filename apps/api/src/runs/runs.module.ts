@@ -1,12 +1,13 @@
-import { Module } from "@nestjs/common";
+import { Module, forwardRef } from "@nestjs/common";
 import { RunsService } from "./runs.service";
 import { RunsController } from "./runs.controller";
 import { PrismaModule } from "../prisma/prisma.module";
 import { QueueModule } from "../queue/queue.module";
 import { TelemetryModule } from "../telemetry/telemetry.module";
+import { ConfigModule } from "../config/config.module";
 
 @Module({
-  imports: [PrismaModule, QueueModule, TelemetryModule],
+  imports: [PrismaModule, forwardRef(() => QueueModule), TelemetryModule, ConfigModule],
   providers: [RunsService],
   controllers: [RunsController],
   exports: [RunsService],

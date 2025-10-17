@@ -1,11 +1,15 @@
-import { Module } from "@nestjs/common";
+import { Module, forwardRef } from "@nestjs/common";
 import { BullModule } from "@nestjs/bullmq";
 import { ConfigModule } from "../config/config.module";
 import { ConfigService } from "../config/config.service";
 import { RunProcessor } from "./run.processor";
+import { RunsModule } from "../runs/runs.module";
+import { TelemetryModule } from "../telemetry/telemetry.module";
 
 @Module({
   imports: [
+    // avoid circular import by using forwardRef in RunsModule and here import RunsModule
+    forwardRef(() => RunsModule),
     ConfigModule,
     BullModule.forRootAsync({
       imports: [ConfigModule],
@@ -15,6 +19,7 @@ import { RunProcessor } from "./run.processor";
       inject: [ConfigService],
     }),
     BullModule.registerQueue({ name: "runs" }),
+    TelemetryModule,
   ],
   providers: [RunProcessor],
   exports: [BullModule],

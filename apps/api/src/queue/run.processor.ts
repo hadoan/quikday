@@ -1,15 +1,16 @@
-import { Processor, Process } from "@nestjs/bullmq";
+import { Processor, WorkerHost } from "@nestjs/bullmq";
 import { Job } from "bullmq";
 import { RunsService } from "../runs/runs.service";
 import { buildSocialGraph } from "../engine/social.graph";
 import { TelemetryService } from "../telemetry/telemetry.service";
 
 @Processor("runs")
-export class RunProcessor {
-  constructor(private runs: RunsService, private telemetry: TelemetryService) {}
+export class RunProcessor extends WorkerHost {
+  constructor(private runs: RunsService, private telemetry: TelemetryService) {
+    super();
+  }
 
-  @Process("execute")
-  async handle(job: Job<{ runId: string }>) {
+  async process(job: Job<{ runId: string }>) {
     const run = await this.runs.get(job.data.runId);
     await this.runs.updateStatus(run.id, "running");
 
@@ -27,4 +28,3 @@ export class RunProcessor {
     }
   }
 }
-

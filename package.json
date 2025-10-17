@@ -1,16 +1,24 @@
 {
   "name": "runfast",
   "private": true,
+  "packageManager": "pnpm@10.17.0",
   "scripts": {
-    "dev": "turbo run dev",
+    "dev": "dotenv -e .env -- turbo run dev",
+    "dev:api": "dotenv -e .env -- pnpm --filter @runfast/api dev",
+    "dev:web": "dotenv -e .env -- pnpm --filter ./apps/web dev",
     "build": "turbo run build",
     "lint": "turbo run lint",
-    "db:push": "pnpm --filter @runfast/api prisma db push",
-    "db:migrate": "pnpm --filter @runfast/api prisma migrate dev",
-    "seed": "pnpm --filter @runfast/api ts-node prisma/seed.ts",
+    "db:push": "dotenv -e .env -- pnpm --filter @runfast/api prisma db push",
+    "db:migrate": "dotenv -e .env -- pnpm --filter @runfast/api prisma migrate dev",
+    "seed": "dotenv -e .env -- pnpm --filter @runfast/api exec ts-node prisma/seed.ts",
     "up": "docker compose up -d db redis && pnpm -w dev"
   },
-  "devDependencies": { "turbo": "^2.1.0" },
-  "workspaces": ["apps/*", "packages/*"]
+  "devDependencies": {
+    "dotenv-cli": "^7.4.4",
+    "turbo": "^2.5.8"
+  },
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ]
 }
-

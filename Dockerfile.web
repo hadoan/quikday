@@ -4,6 +4,5 @@ RUN npm i -g pnpm
 COPY apps/web/package.json apps/web/pnpm-lock.yaml ./
 RUN pnpm install --frozen-lockfile || pnpm install
 COPY apps/web .
-EXPOSE 5173
+EXPOSE 8000
 CMD ["pnpm","dev","--host","0.0.0.0"]
-

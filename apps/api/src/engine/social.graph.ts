@@ -12,8 +12,8 @@ const execute = async (s: NodeState) => {
   return { ...s, logs, output: { ok: true, id: "ln_123" } };
 };
 export function buildSocialGraph() {
-  // Minimal graph with default channel
-  return new StateGraph<NodeState>({ channels: { default: { schema: undefined as any } } })
+  // Minimal graph; channel configuration not required for this simple state
+  return new StateGraph<NodeState>({} as any)
     .addNode("plan", plan)
     .addNode("config", configure)
     .addNode("authorize", authorize)
@@ -24,4 +24,3 @@ export function buildSocialGraph() {
     .addEdge("execute", END)
     .compile();
 }
-
