@@ -1,7 +1,7 @@
-import { PrismaService } from '../common/prisma.service';
+import { PrismaService as RunfastPrismaService } from '@runfast/prisma';
 
 export interface AppDeps {
-  prisma: PrismaService;
+  prisma: RunfastPrismaService;
   /* add logger, config, httpClient as needed */
 }
 

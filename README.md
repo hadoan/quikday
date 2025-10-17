@@ -30,6 +30,7 @@ A minimal yet production‑ready monorepo with a NestJS backend, LangGraph execu
   - `docker compose up -d db redis`
   - `pnpm db:push`  # Push Prisma schema to Postgres
   - `pnpm seed`     # Optional: seeds Team id=1 for testing
+  - NOTE: avoid resetting the database in dev if you have existing data. Instead create an initial migration (see below).
   - `pnpm dev`      # Starts API, packages watchers, and web dev server (via Turbo)
 
 Ports
@@ -59,6 +60,13 @@ Option B — Manual image build/run
 Notes
 - The API container expects `DATABASE_URL` and `REDIS_URL` to point at the compose services (e.g., `postgresql://postgres:pass@db:5432/runfast`, `redis://redis:6379`). When running outside compose network, use `localhost`.
 - Prisma migrations: this template uses `db push` in dev. For production, prefer `prisma migrate deploy`.
+ - Prisma migrations: this template uses `db push` in dev for convenience, but to adopt migrations (without resetting or pushing schema that may drop data), create a migration snapshot instead of running destructive resets.
+   - Create an initial migration locally without applying it automatically:
+     - `pnpm db:migrate:create`  # creates a migration file named `init` using current schema (create-only)
+   - To apply migrations in dev (only if you want Prisma to manage schema changes):
+     - `pnpm db:migrate`  # interactive `prisma migrate dev` (creates and applies migrations)
+   - For pushing schema changes immediately without migrations:
+     - `pnpm db:push`  # faster, but may not produce migration files and can be destructive
 
 
 **API Smoke Test**

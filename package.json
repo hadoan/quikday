@@ -10,12 +10,16 @@
     "lint": "turbo run lint",
     "db:push": "dotenv -e .env -- pnpm --filter @runfast/api prisma db push",
     "db:migrate": "dotenv -e .env -- pnpm --filter @runfast/api prisma migrate dev",
+    "db:migrate:create": "dotenv -e .env -- pnpm --filter @runfast/api prisma migrate dev --create-only --name init",
     "seed": "dotenv -e .env -- pnpm --filter @runfast/api exec ts-node prisma/seed.ts",
+    "db:reset": "bash ./scripts/db-reset.sh",
+    "db:studio": "dotenv -e .env -- pnpm --filter @runfast/api prisma studio",
     "up": "docker compose up -d db redis && pnpm -w dev"
   },
   "devDependencies": {
     "dotenv-cli": "^7.4.4",
-    "turbo": "^2.5.8"
+    "turbo": "^2.5.8",
+    "typescript": "5.6.3"
   },
   "workspaces": [
     "apps/*",

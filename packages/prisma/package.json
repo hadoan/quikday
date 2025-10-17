@@ -1,0 +1,25 @@
+{
+  "name": "@runfast/prisma",
+  "version": "0.0.1",
+  "main": "src/index.ts",
+  "types": "src/index.ts",
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "generate": "prisma generate",
+  "migrate:dev": "prisma migrate dev",
+  "migrate:create": "prisma migrate dev --create-only --name init",
+    "migrate:deploy": "prisma migrate deploy",
+    "seed": "ts-node --transpile-only ./seed.ts"
+  },
+  "dependencies": {
+    "@prisma/client": "^5.18.0",
+    "zod": "^3.23.8",
+    "@nestjs/common": "^10.4.2"
+  },
+  "devDependencies": {
+    "prisma": "^5.18.0",
+    "ts-node": "^10.9.2",
+    "typescript": "^5.6.3",
+    "@types/node": "^20.9.1"
+  }
+}
