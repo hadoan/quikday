@@ -9,6 +9,7 @@ import { OutputCard } from "@/components/cards/OutputCard";
 import { Sidebar } from "@/components/layout/Sidebar";
 import { ToolsPanel } from "@/components/layout/ToolsPanel";
 import { UserMenu } from "@/components/layout/UserMenu";
+import { ThemeToggle } from "@/components/theme/ThemeToggle";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Button } from "@/components/ui/button";
 import { mockRuns, mockTools, mockStats } from "@/data/mockRuns";
@@ -64,6 +65,7 @@ const Index = () => {
               </p>
             </div>
             <div className="flex items-center gap-3">
+              <ThemeToggle />
               <Button
                 variant="outline"
                 size="sm"
