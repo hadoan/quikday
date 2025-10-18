@@ -29,3 +29,12 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# Generated artifacts: source maps and build metadata
+# Ignore JavaScript/TypeScript source maps and declaration map files produced by builds
+**/*.js.map
+**/*.d.ts.map
+**/*.ts.map
+
+# If you want to ignore compiled JS next to TS sources, uncomment the following line:
+# **/*.js
