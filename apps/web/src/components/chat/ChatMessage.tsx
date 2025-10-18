@@ -17,10 +17,10 @@ export const ChatMessage = ({ role, children, className }: ChatMessageProps) => 
     >
       <div
         className={cn(
-          'max-w-[85%] rounded-xl px-5 py-3 transition-smooth',
+          'max-w-[85%] transition-smooth',
           role === 'user'
-            ? 'bg-primary text-primary-foreground ml-auto'
-            : 'bg-card border border-border shadow-sm',
+            ? 'bg-primary text-primary-foreground ml-auto rounded-xl px-5 py-3'
+            : 'w-full',
         )}
       >
         {children}

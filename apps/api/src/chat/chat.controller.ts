@@ -11,4 +11,9 @@ export class ChatController {
   complete(@Body() dto: { prompt: string; mode: 'plan' | 'auto'; teamId: number }) {
     return this.svc.handlePrompt(dto);
   }
+
+  @Post('agent')
+  agent(@Body() dto: { prompt: string }) {
+    return this.svc.runAgent(dto.prompt);
+  }
 }

@@ -1,8 +1,8 @@
 {
   "name": "@runfast/prisma",
   "version": "0.0.1",
-  "main": "src/index.ts",
-  "types": "src/index.ts",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
   "scripts": {
     "build": "tsc -p tsconfig.json",
     "generate": "prisma generate",

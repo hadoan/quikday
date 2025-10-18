@@ -29,6 +29,7 @@
     "@langchain/openai": "^0.3.7",
     "zod": "^3.23.8",
     "@runfast/types": "workspace:*",
+    "@runfast/agent": "workspace:*",
     "@runfast/crypto": "workspace:*",
     "@runfast/prisma": "workspace:*",
     "express": "^4.19.2"

@@ -1,6 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { z } from 'zod';
 import { PlanCard, ConfigCard, RunCard } from '@runfast/types';
+import { runAgent } from '@runfast/agent';
 import { RunsService } from '../runs/runs.service';
 
 @Injectable()
@@ -35,5 +36,10 @@ export class ChatService {
     await this.runs.enqueue(run.id);
     const runCard: z.infer<typeof RunCard> = { type: 'run', status: 'queued' };
     return { messages: [plan, cfg, runCard] };
+  }
+
+  async runAgent(prompt: string) {
+    const outputs = await runAgent(prompt);
+    return { messages: outputs };
   }
 }
