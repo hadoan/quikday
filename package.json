@@ -8,6 +8,7 @@
     "dev:web": "dotenv -e .env -- pnpm --filter ./apps/web dev",
     "build": "turbo run build",
     "lint": "turbo run lint",
+    "format": "prettier --write \"**/*.{js,ts,tsx,json,md,css,scss,html,prisma}\"",
     "db:push": "dotenv -e .env -- pnpm --filter @runfast/api prisma db push",
     "db:migrate": "dotenv -e .env -- pnpm --filter @runfast/api prisma migrate dev",
     "db:migrate:create": "dotenv -e .env -- pnpm --filter @runfast/api prisma migrate dev --create-only --name init",
@@ -19,7 +20,8 @@
   "devDependencies": {
     "dotenv-cli": "^7.4.4",
     "turbo": "^2.5.8",
-    "typescript": "5.6.3"
+    "typescript": "5.6.3",
+    "prettier": "^3.6.2"
   },
   "workspaces": [
     "apps/*",

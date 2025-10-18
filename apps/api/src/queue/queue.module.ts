@@ -1,10 +1,10 @@
-import { Module, forwardRef } from "@nestjs/common";
-import { BullModule } from "@nestjs/bullmq";
-import { ConfigModule } from "../config/config.module";
-import { ConfigService } from "../config/config.service";
-import { RunProcessor } from "./run.processor";
-import { RunsModule } from "../runs/runs.module";
-import { TelemetryModule } from "../telemetry/telemetry.module";
+import { Module, forwardRef } from '@nestjs/common';
+import { BullModule } from '@nestjs/bullmq';
+import { ConfigModule } from '../config/config.module';
+import { ConfigService } from '../config/config.service';
+import { RunProcessor } from './run.processor';
+import { RunsModule } from '../runs/runs.module';
+import { TelemetryModule } from '../telemetry/telemetry.module';
 
 @Module({
   imports: [
@@ -18,11 +18,10 @@ import { TelemetryModule } from "../telemetry/telemetry.module";
       }),
       inject: [ConfigService],
     }),
-    BullModule.registerQueue({ name: "runs" }),
+    BullModule.registerQueue({ name: 'runs' }),
     TelemetryModule,
   ],
   providers: [RunProcessor],
   exports: [BullModule],
 })
 export class QueueModule {}
-

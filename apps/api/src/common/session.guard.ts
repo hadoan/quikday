@@ -11,4 +11,3 @@ export class SessionGuard implements CanActivate {
     return true; // Allow by default in scaffold
   }
 }
-

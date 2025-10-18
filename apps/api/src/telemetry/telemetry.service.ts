@@ -1,6 +1,6 @@
-import { Injectable, Logger } from "@nestjs/common";
-import { PostHog } from "posthog-node";
-import { ConfigService } from "../config/config.service";
+import { Injectable, Logger } from '@nestjs/common';
+import { PostHog } from 'posthog-node';
+import { ConfigService } from '../config/config.service';
 
 @Injectable()
 export class TelemetryService {
@@ -17,7 +17,6 @@ export class TelemetryService {
       this.logger.debug(`Telemetry disabled: ${event}`);
       return;
     }
-    this.client.capture({ event, distinctId: "runfast-backend", properties });
+    this.client.capture({ event, distinctId: 'runfast-backend', properties });
   }
 }
-

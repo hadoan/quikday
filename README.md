@@ -7,8 +7,8 @@ A minimal yet production‑ready monorepo with a NestJS backend, LangGraph execu
 - Shared: Zod‑typed chat blocks (`@runfast/types`), AES‑GCM crypto helpers (`@runfast/crypto`), thin SDK (`@runfast/sdk`)
 - DX: pnpm + Turbo, Dockerfiles, and docker‑compose for DB/Redis
 
-
 **Repo Layout**
+
 - `apps/api` — NestJS backend (Prisma, BullMQ, Kinde Guard, LangGraph)
 - `apps/web` — Vite React app (example UI; bring your own auth integration)
 - `packages/types` — Zod schemas for chat blocks and run types
@@ -16,34 +16,35 @@ A minimal yet production‑ready monorepo with a NestJS backend, LangGraph execu
 - `packages/sdk` — Small fetch wrapper for API calls
 - Root configs: `pnpm-workspace.yaml`, `turbo.json`, `tsconfig.base.json`, `docker-compose.yml`, `Dockerfile.api`, `Dockerfile.web`
 
-
 **Environment**
+
 - Copy `.env.example` to `.env` and fill values. For local dev, `KINDE_BYPASS=true` lets you skip JWT validation.
 - Postgres and Redis run via Docker Compose.
 
-
 **Quick Start (Docker Compose + Local Dev)**
+
 - Requirements: Node 20+, pnpm, Docker, Docker Compose
 - Steps:
   - `cp .env.example .env`
   - `pnpm install`
   - `docker compose up -d db redis`
-  - `pnpm db:push`  # Push Prisma schema to Postgres
-  - `pnpm seed`     # Optional: seeds Team id=1 for testing
+  - `pnpm db:push` # Push Prisma schema to Postgres
+  - `pnpm seed` # Optional: seeds Team id=1 for testing
   - NOTE: avoid resetting the database in dev if you have existing data. Instead create an initial migration (see below).
-  - `pnpm dev`      # Starts API, packages watchers, and web dev server (via Turbo)
+  - `pnpm dev` # Starts API, packages watchers, and web dev server (via Turbo)
 
 Ports
+
 - API: `http://localhost:3000`
 - Web: `http://localhost:8000`
 - Postgres: `localhost:5432` (user `postgres`, password `pass`, DB `runfast`)
 - Redis: `localhost:6379`
 
-
 **Run Backend Fully in Docker (Optional)**
 You can also run the API inside Docker alongside Postgres and Redis.
 
 Option A — Use existing compose file
+
 - Edit `docker-compose.yml` and uncomment the `api` service.
 - Build and start:
   - `docker compose up -d --build db redis api`
@@ -51,6 +52,7 @@ Option A — Use existing compose file
   - `docker compose exec api pnpm --filter @runfast/api prisma db push`
 
 Option B — Manual image build/run
+
 - Build image:
   - `docker build -t runfast-api -f Dockerfile.api .`
 - Run with your env:
@@ -58,32 +60,33 @@ Option B — Manual image build/run
   - Or attach to compose network and link to `db`/`redis` services as needed.
 
 Notes
+
 - The API container expects `DATABASE_URL` and `REDIS_URL` to point at the compose services (e.g., `postgresql://postgres:pass@db:5432/runfast`, `redis://redis:6379`). When running outside compose network, use `localhost`.
 - Prisma migrations: this template uses `db push` in dev. For production, prefer `prisma migrate deploy`.
- - Prisma migrations: this template uses `db push` in dev for convenience, but to adopt migrations (without resetting or pushing schema that may drop data), create a migration snapshot instead of running destructive resets.
-   - Create an initial migration locally without applying it automatically:
-     - `pnpm db:migrate:create`  # creates a migration file named `init` using current schema (create-only)
-   - To apply migrations in dev (only if you want Prisma to manage schema changes):
-     - `pnpm db:migrate`  # interactive `prisma migrate dev` (creates and applies migrations)
-   - For pushing schema changes immediately without migrations:
-     - `pnpm db:push`  # faster, but may not produce migration files and can be destructive
-
+- Prisma migrations: this template uses `db push` in dev for convenience, but to adopt migrations (without resetting or pushing schema that may drop data), create a migration snapshot instead of running destructive resets.
+  - Create an initial migration locally without applying it automatically:
+    - `pnpm db:migrate:create` # creates a migration file named `init` using current schema (create-only)
+  - To apply migrations in dev (only if you want Prisma to manage schema changes):
+    - `pnpm db:migrate` # interactive `prisma migrate dev` (creates and applies migrations)
+  - For pushing schema changes immediately without migrations:
+    - `pnpm db:push` # faster, but may not produce migration files and can be destructive
 
 **API Smoke Test**
 With `KINDE_BYPASS=true`, you can use any bearer token locally:
+
 - Plan mode (returns [plan, config]):
   - `curl -sS -X POST http://localhost:3000/chat/complete \
-    -H "Authorization: Bearer dev" -H "Content-Type: application/json" \
-    -d '{"prompt":"schedule something","mode":"plan","teamId":1}' | jq` 
+-H "Authorization: Bearer dev" -H "Content-Type: application/json" \
+-d '{"prompt":"schedule something","mode":"plan","teamId":1}' | jq`
 - Auto mode (queues run and returns [plan, config, run]):
   - `curl -sS -X POST http://localhost:3000/chat/complete \
-    -H "Authorization: Bearer dev" -H "Content-Type: application/json" \
-    -d '{"prompt":"schedule something","mode":"auto","teamId":1}' | jq`
+-H "Authorization: Bearer dev" -H "Content-Type: application/json" \
+-d '{"prompt":"schedule something","mode":"auto","teamId":1}' | jq`
 - Fetch run by id:
   - `curl -sS -H "Authorization: Bearer dev" http://localhost:3000/runs/<RUN_ID> | jq`
 
-
 **Common Commands**
+
 - `pnpm db:push` — Push Prisma schema to DB
 - `pnpm db:migrate` — Create dev migration (interactive)
 - `pnpm seed` — Seed sample team (id=1)
@@ -91,8 +94,8 @@ With `KINDE_BYPASS=true`, you can use any bearer token locally:
 - `pnpm build` — Build all packages/apps
 - `pnpm up` — `docker compose up -d db redis` then run dev
 
-
 **What’s Implemented**
+
 - Endpoints:
   - `POST /chat/complete` — returns [plan, config] (plan) or [plan, config, run] (auto)
   - `POST /runs` — create run
@@ -104,15 +107,15 @@ With `KINDE_BYPASS=true`, you can use any bearer token locally:
 - Engine: LangGraph based minimal social graph
 - Telemetry: PostHog events `run_created`, `run_done`, `run_failed`
 
-
 **TODO / Stretch**
+
 - OAuth for providers under `/integrations`
 - Token encryption (AES‑GCM) using `@runfast/crypto`
 - Policy checks (`autoRun`, `requiresApproval`, `canUndo`)
 - Undo path and LangGraph checkpointer
 
-
 **Troubleshooting**
+
 - DB/Redis connection errors: ensure compose services are healthy (`docker compose ps`, `docker compose logs db redis`).
 - Kinde auth failures: set `KINDE_BYPASS=true` in `.env` for local dev.
 - Prisma client errors: re‑run `pnpm db:push` and restart API.

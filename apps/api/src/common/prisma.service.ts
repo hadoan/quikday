@@ -25,4 +25,3 @@ export class PrismaService implements OnModuleInit, OnModuleDestroy {
     return this.connected;
   }
 }
-

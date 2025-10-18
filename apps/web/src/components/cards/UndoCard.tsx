@@ -1,10 +1,10 @@
-import { RotateCcw, CheckCircle2 } from "lucide-react";
-import { Button } from "@/components/ui/button";
-import { cn } from "@/lib/utils";
+import { RotateCcw, CheckCircle2 } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { cn } from '@/lib/utils';
 
 export interface UndoData {
   available: boolean;
-  status?: "pending" | "completed";
+  status?: 'pending' | 'completed';
   message?: string;
 }
 
@@ -19,15 +19,15 @@ export const UndoCard = ({ data, onUndo }: UndoCardProps) => {
   return (
     <div
       className={cn(
-        "rounded-xl border p-6 space-y-4 animate-fade-in",
-        data.status === "completed"
-          ? "border-success/20 bg-success/5"
-          : "border-accent/20 bg-accent/5"
+        'rounded-xl border p-6 space-y-4 animate-fade-in',
+        data.status === 'completed'
+          ? 'border-success/20 bg-success/5'
+          : 'border-accent/20 bg-accent/5',
       )}
     >
       <div className="flex items-start gap-3">
         <div className="mt-1">
-          {data.status === "completed" ? (
+          {data.status === 'completed' ? (
             <CheckCircle2 className="h-5 w-5 text-success" />
           ) : (
             <RotateCcw className="h-5 w-5 text-accent-foreground" />
@@ -36,19 +36,19 @@ export const UndoCard = ({ data, onUndo }: UndoCardProps) => {
         <div className="flex-1 space-y-3">
           <div>
             <h3 className="font-semibold text-foreground mb-1">
-              {data.status === "completed" ? "Undo Completed" : "Undo Available"}
+              {data.status === 'completed' ? 'Undo Completed' : 'Undo Available'}
             </h3>
             <p className="text-sm text-muted-foreground">
               {data.message ||
-                (data.status === "completed"
-                  ? "All actions have been reversed"
-                  : "You can reverse this run with one tap")}
+                (data.status === 'completed'
+                  ? 'All actions have been reversed'
+                  : 'You can reverse this run with one tap')}
             </p>
           </div>
         </div>
       </div>
 
-      {data.status !== "completed" && onUndo && (
+      {data.status !== 'completed' && onUndo && (
         <div className="flex justify-end pt-2">
           <Button
             onClick={onUndo}

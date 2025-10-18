@@ -1,21 +1,21 @@
-import { FileText, Copy, ExternalLink } from "lucide-react";
-import { Button } from "@/components/ui/button";
-import { useToast } from "@/hooks/use-toast";
+import { FileText, Copy, ExternalLink } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { useToast } from '@/hooks/use-toast';
 
 interface OutputCardProps {
   title: string;
   content: string;
-  type?: "text" | "code" | "summary";
+  type?: 'text' | 'code' | 'summary';
 }
 
-export const OutputCard = ({ title, content, type = "text" }: OutputCardProps) => {
+export const OutputCard = ({ title, content, type = 'text' }: OutputCardProps) => {
   const { toast } = useToast();
 
   const handleCopy = () => {
     navigator.clipboard.writeText(content);
     toast({
-      title: "Copied!",
-      description: "Content copied to clipboard",
+      title: 'Copied!',
+      description: 'Content copied to clipboard',
     });
   };
 
@@ -27,22 +27,13 @@ export const OutputCard = ({ title, content, type = "text" }: OutputCardProps) =
           <h3 className="font-semibold text-foreground">{title}</h3>
         </div>
         <div className="flex gap-2">
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={handleCopy}
-            className="h-8 w-8"
-          >
+          <Button variant="ghost" size="icon" onClick={handleCopy} className="h-8 w-8">
             <Copy className="h-4 w-4" />
           </Button>
         </div>
       </div>
 
-      <div
-        className={`p-4 rounded-lg bg-muted/50 ${
-          type === "code" ? "font-mono text-sm" : ""
-        }`}
-      >
+      <div className={`p-4 rounded-lg bg-muted/50 ${type === 'code' ? 'font-mono text-sm' : ''}`}>
         <pre className="whitespace-pre-wrap text-foreground">{content}</pre>
       </div>
     </div>

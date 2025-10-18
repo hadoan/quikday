@@ -1,0 +1,48 @@
+{
+  "name": "@runfast/agent",
+  "version": "0.1.0",
+  "description": "Runfast agent library",
+  "private": false,
+  "type": "module",
+  "main": "dist/index.js",
+  "module": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "require": "./dist/index.js",
+      "default": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "sideEffects": false,
+  "scripts": {
+    "build": "tsc -p tsconfig.json --outDir dist --rootDir src",
+    "dev": "tsc -p tsconfig.json --outDir dist --rootDir src --watch",
+    "clean": "rm -rf dist"
+  },
+  "keywords": [
+    "runfast",
+    "agent",
+    "langgraph"
+  ],
+  "author": "",
+  "license": "MIT",
+  "publishConfig": {
+    "access": "public"
+  },
+  "dependencies": {
+    "@langchain/core": "^1.0.1",
+    "@langchain/langgraph": "^1.0.0",
+    "@langchain/openai": "^1.0.0",
+    "dotenv": "^17.2.3",
+    "zod": "^4.1.12"
+  },
+  "devDependencies": {
+    "@types/node": "^24.8.1",
+    "typescript": "^5.9.3"
+  }
+}

@@ -17,4 +17,3 @@ export const metadata: AppMeta = {
   email: 'support@example.com',
   dirName: 'linkedin-social',
 };
-

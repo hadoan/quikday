@@ -4,4 +4,3 @@ export interface AppDeps {
   prisma: RunfastPrismaService;
   /* add logger, config, httpClient as needed */
 }
-

@@ -51,4 +51,3 @@ export class AppStoreRegistry {
     return Array.from(this.metas.values());
   }
 }
-

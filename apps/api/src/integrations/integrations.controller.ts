@@ -38,4 +38,3 @@ export class IntegrationsController {
     return app.post(req, res);
   }
 }
-
