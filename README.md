@@ -1,11 +1,32 @@
-# Runfast Monorepo
+# Runfast 🚀
 
-A minimal yet production‑ready monorepo with a NestJS backend, LangGraph execution engine, shared TypeScript packages, and a Vite React frontend.
+**An open-source AI-powered workflow automation platform built with NestJS, LangGraph, and React.**
 
-- Backend: NestJS (REST), Prisma (PostgreSQL), BullMQ (Redis), PostHog telemetry, Kinde JWT guard (dev bypass supported)
-- AI Engine: LangChain + LangGraph (JS) with a simple social posting graph
-- Shared: Zod‑typed chat blocks (`@runfast/types`), AES‑GCM crypto helpers (`@runfast/crypto`), thin SDK (`@runfast/sdk`)
-- DX: pnpm + Turbo, Dockerfiles, and docker‑compose for DB/Redis
+Runfast enables you to build, execute, and manage AI-driven workflows through natural language. It combines the power of LangChain/LangGraph with a production-ready backend to create intelligent automation agents that can interact with various integrations and services.
+
+## ✨ Features
+
+- 🤖 **AI-Powered Planning**: Convert natural language prompts into executable workflow plans
+- 🔄 **LangGraph Execution Engine**: Reliable, stateful workflow execution with LangChain
+- 🔌 **Extensible Integrations**: Plugin architecture for connecting external services (Gmail, LinkedIn, etc.)
+- 📊 **Queue-Based Processing**: Asynchronous job processing with BullMQ and Redis
+- 🔐 **Secure by Design**: Built-in authentication, token encryption (AES-GCM), and policy management
+- 📈 **Built-in Telemetry**: PostHog integration for tracking workflow performance
+- 🐳 **Docker Ready**: Full Docker Compose setup for local development and deployment
+- 📦 **Monorepo Architecture**: Organized workspace with shared packages and type safety
+
+## 🏗️ Architecture
+
+- **Backend**: NestJS (REST API), Prisma (PostgreSQL), BullMQ (Redis), PostHog telemetry, Kinde JWT authentication
+- **AI Engine**: LangChain + LangGraph for orchestrating multi-step AI workflows
+- **Frontend**: Vite + React for the web interface
+- **Shared Packages**: 
+  - `@runfast/types` — Zod schemas for type-safe chat blocks and workflow definitions
+  - `@runfast/crypto` — AES-GCM encryption helpers for secure token management
+  - `@runfast/sdk` — Lightweight SDK for API interactions
+  - `@runfast/agent` — AI agent core logic
+  - `@runfast/appstore` — Integration marketplace
+- **DevOps**: pnpm workspaces + Turborepo for efficient builds, Docker for containerization
 
 **Repo Layout**
 
@@ -120,3 +141,34 @@ With `KINDE_BYPASS=true`, you can use any bearer token locally:
 - Kinde auth failures: set `KINDE_BYPASS=true` in `.env` for local dev.
 - Prisma client errors: re‑run `pnpm db:push` and restart API.
 - Port conflicts: stop existing services or change ports in `docker-compose.yml`.
+
+## 🤝 Contributing
+
+We welcome contributions from the community! Whether you're fixing bugs, adding new features, or improving documentation, your help is appreciated.
+
+**Ways to contribute:**
+- 🐛 Report bugs and issues
+- 💡 Suggest new features or integrations
+- 📝 Improve documentation
+- 🔧 Submit pull requests
+
+Please feel free to open issues or submit pull requests on our [GitHub repository](https://github.com/hadoan/prompt-run-flow).
+
+## 📄 License
+
+This project is open source and available under the [GNU Affero General Public License v3.0 (AGPL-3.0)](LICENSE).
+
+The AGPL-3.0 ensures that if you run a modified version of this software as a network service, you must make the source code available to users of that service. This promotes collaboration and ensures the software remains free and open.
+
+## 🙏 Acknowledgments
+
+Built with amazing open source technologies:
+- [NestJS](https://nestjs.com/) - Progressive Node.js framework
+- [LangChain](https://langchain.com/) & [LangGraph](https://langchain-ai.github.io/langgraphjs/) - AI orchestration
+- [Prisma](https://www.prisma.io/) - Next-generation ORM
+- [React](https://react.dev/) - UI library
+- [Turborepo](https://turbo.build/repo) - High-performance monorepo build system
+
+---
+
+**Built with ❤️ by the open source community**
