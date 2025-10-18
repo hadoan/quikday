@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { ChatMessage } from '@/components/chat/ChatMessage';
 import { PromptInput } from '@/components/chat/PromptInput';
 import { PlanCard } from '@/components/cards/PlanCard';
@@ -26,6 +26,7 @@ const Index = () => {
   const [isToolsPanelOpen, setIsToolsPanelOpen] = useState(true);
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
   const activeRun = runs.find((run) => run.id === activeRunId);
+  const bottomRef = useRef<HTMLDivElement | null>(null);
 
   // Initialize data source
   const dataSource = getDataSource();
@@ -62,6 +63,11 @@ const Index = () => {
     console.log('[Index] Active data source:', flags.dataSource);
     trackDataSourceActive(flags.dataSource);
   }, []);
+
+  // Auto-scroll to bottom when messages change or switching runs
+  useEffect(() => {
+    bottomRef.current?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+  }, [activeRunId, activeRun?.messages?.length]);
 
   const handleNewPrompt = async (prompt: string) => {
     // Append user message locally first
@@ -224,6 +230,7 @@ const Index = () => {
                 </ChatMessage>
               );
             })}
+            <div ref={bottomRef} />
           </div>
         </ScrollArea>
 
