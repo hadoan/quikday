@@ -2,13 +2,25 @@ import { Body, Controller, Get, Param, Post, UseGuards } from '@nestjs/common';
 import { RunsService } from './runs.service';
 import { KindeGuard } from '../auth/kinde.guard';
 
+export interface CreateRunDto {
+  prompt: string;
+  mode: 'plan' | 'auto' | 'scheduled';
+  teamId: number;
+  scheduledAt?: string;
+  channelTargets?: Array<{
+    appId: string;
+    credentialId?: number;
+  }>;
+  toolAllowlist?: string[];
+}
+
 @Controller('runs')
 @UseGuards(KindeGuard)
 export class RunsController {
   constructor(private runs: RunsService) {}
 
   @Post()
-  create(@Body() body: { prompt: string; mode: 'plan' | 'auto'; teamId: number }) {
+  create(@Body() body: CreateRunDto) {
     return this.runs.createFromPrompt(body);
   }
 
@@ -18,10 +30,16 @@ export class RunsController {
     return { ok: true };
   }
 
+  @Post(':id/approve')
+  async approve(@Param('id') id: string, @Body() body: { approvedSteps: string[] }) {
+    await this.runs.approveSteps(id, body.approvedSteps);
+    return { ok: true };
+  }
+
   @Post(':id/undo')
   async undo(@Param('id') id: string) {
-    // TODO: Implement undo with inverse actions in engine
-    return { ok: false, message: 'Undo not implemented yet' };
+    await this.runs.undoRun(id);
+    return { ok: true };
   }
 
   @Get(':id')

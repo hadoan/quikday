@@ -7,6 +7,7 @@ import { ChatModule } from './chat/chat.module';
 import { QueueModule } from './queue/queue.module';
 import { TelemetryModule } from './telemetry/telemetry.module';
 import { TeamsModule } from './teams/teams.module';
+import { CredentialsModule } from './credentials/credentials.module';
 
 @Module({
   imports: [
@@ -18,6 +19,8 @@ import { TeamsModule } from './teams/teams.module';
     QueueModule,
     TelemetryModule,
     TeamsModule,
+    CredentialsModule,
   ],
 })
 export class AppModule {}
+

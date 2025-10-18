@@ -30,6 +30,7 @@
     "zod": "^3.23.8",
     "@quikday/types": "workspace:*",
     "@quikday/agent": "workspace:*",
+    "@quikday/appstore": "workspace:*",
     "@quikday/crypto": "workspace:*",
     "@quikday/prisma": "workspace:*",
     "express": "^4.19.2"

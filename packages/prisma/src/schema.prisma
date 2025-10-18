@@ -15,6 +15,8 @@ model User {
     teams       TeamMember[]
     runs        Run[]
     createdAt   DateTime     @default(now())
+    Credential  Credential[]
+    ApiKey      ApiKey[]
 }
 
 model Team {
@@ -25,6 +27,7 @@ model Team {
     integrations Integration[]
     runs         Run[]
     createdAt    DateTime      @default(now())
+    Credential   Credential[]
 }
 
 model TeamMember {
@@ -68,24 +71,31 @@ model Run {
     config        Json?
     output        Json?
     error         Json?
+    scheduledAt   DateTime?
+    toolAllowlist Json?
+    policySnapshot Json?
     createdAt     DateTime       @default(now())
     updatedAt     DateTime       @updatedAt
     steps         Step[]
+    effects       RunEffect[]
     RunScopedKeys RunScopedKey[]
     Team          Team           @relation(fields: [teamId], references: [id])
     User          User           @relation(fields: [userId], references: [id])
 }
 
 model Step {
-    id        Int       @id @default(autoincrement())
-    runId     String
-    tool      String
-    action    String
-    request   Json?
-    response  Json?
-    startedAt DateTime  @default(now())
-    endedAt   DateTime?
-    Run       Run       @relation(fields: [runId], references: [id])
+    id           Int       @id @default(autoincrement())
+    runId        String
+    tool         String
+    action       String
+    appId        String?
+    credentialId Int?
+    request      Json?
+    response     Json?
+    errorCode    String?
+    startedAt    DateTime  @default(now())
+    endedAt      DateTime?
+    Run          Run       @relation(fields: [runId], references: [id])
 }
 
 model RunScopedKey {
@@ -96,4 +106,101 @@ model RunScopedKey {
     tokenCipher Bytes
     expiresAt   DateTime
     Run         Run      @relation(fields: [runId], references: [id])
+}
+
+model RunEffect {
+    id              Int      @id @default(autoincrement())
+    runId           String
+    stepId          Int?
+    appId           String
+    credentialId    Int
+    action          String
+    externalRef     String?
+    idempotencyKey  String   @unique
+    undoStrategy    String?
+    canUndo         Boolean  @default(false)
+    undoneAt        DateTime?
+    metadata        Json?
+    createdAt       DateTime @default(now())
+    Run             Run      @relation(fields: [runId], references: [id])
+
+    @@index([runId])
+    @@index([idempotencyKey])
+}
+
+model Credential {
+    id                   Int       @id @default(autoincrement())
+    type                 String
+    key                  Json
+    user                 User?     @relation(fields: [userId], references: [id], onDelete: Cascade)
+    userId               Int?
+    app                  App       @relation(fields: [appId], references: [slug], onDelete: Cascade)
+    appId                String
+    invalid              Boolean   @default(false)
+    Team                 Team?     @relation(fields: [teamId], references: [id])
+    teamId               Int?
+    isUserCurrentProfile Boolean   @default(false)
+    isTeamDefaultProfile Boolean   @default(false)
+    emailOrUserName      String?
+    avatarUrl            String?
+    name                 String?
+    vendorAccountId      String?
+    tokenExpiresAt       DateTime?
+    lastValidatedAt      DateTime?
+    createdAt            DateTime  @default(now())
+    updatedAt            DateTime  @updatedAt
+
+    @@unique([userId, appId, emailOrUserName])
+    @@index([userId])
+    @@index([appId])
+    @@index([teamId])
+}
+
+enum AppCategories {
+    calendar
+    email
+    messaging
+    other
+    payment
+    web3
+    automation
+    analytics
+    conferencing
+    crm
+    social
+    cloudstorage
+    ai
+}
+
+model App {
+    // The slug for the app store public page inside `/apps/[slug]`
+    slug        String          @id @unique
+    // The directory name for `/packages/app-store/[dirName]`
+    dirName     String          @unique
+    // Needed API Keys
+    keys        Json?
+    // One or multiple categories to which this app belongs
+    categories  AppCategories[]
+    createdAt   DateTime        @default(now())
+    updatedAt   DateTime        @updatedAt
+    credentials Credential[]
+    ApiKey      ApiKey[]
+    enabled     Boolean         @default(false)
+
+    @@index([enabled])
+}
+
+model ApiKey {
+    id         String    @id @unique @default(cuid())
+    userId     Int
+    note       String?
+    createdAt  DateTime  @default(now())
+    expiresAt  DateTime?
+    lastUsedAt DateTime?
+    hashedKey  String    @unique()
+    user       User?     @relation(fields: [userId], references: [id], onDelete: Cascade)
+    app        App?      @relation(fields: [appId], references: [slug], onDelete: Cascade)
+    appId      String?
+
+    @@index([userId])
 }

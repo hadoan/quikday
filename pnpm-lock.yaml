@@ -47,6 +47,9 @@ importers:
       '@quikday/agent':
         specifier: workspace:*
         version: link:../../packages/agent
+      '@quikday/appstore':
+        specifier: workspace:*
+        version: link:../../packages/appstore
       '@quikday/crypto':
         specifier: workspace:*
         version: link:../../packages/crypto

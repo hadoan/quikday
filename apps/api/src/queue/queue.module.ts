@@ -5,12 +5,14 @@ import { ConfigService } from '../config/config.service';
 import { RunProcessor } from './run.processor';
 import { RunsModule } from '../runs/runs.module';
 import { TelemetryModule } from '../telemetry/telemetry.module';
+import { CredentialsModule } from '../credentials/credentials.module';
 
 @Module({
   imports: [
     // avoid circular import by using forwardRef in RunsModule and here import RunsModule
     forwardRef(() => RunsModule),
     ConfigModule,
+    CredentialsModule,
     BullModule.forRootAsync({
       imports: [ConfigModule],
       useFactory: (config: ConfigService) => ({
@@ -25,3 +27,4 @@ import { TelemetryModule } from '../telemetry/telemetry.module';
   exports: [BullModule],
 })
 export class QueueModule {}
+
