@@ -1,32 +1,58 @@
-# Runfast 🚀
+# Runfast.now
 
-**An open-source AI-powered workflow automation platform built with NestJS, LangGraph, and React.**
+**One Prompt. One Run. Done.**
 
-Runfast enables you to build, execute, and manage AI-driven workflows through natural language. It combines the power of LangChain/LangGraph with a production-ready backend to create intelligent automation agents that can interact with various integrations and services.
+An open-source AI-powered execution assistant for founders and small teams. Type a goal and Runfast executes it instantly across your connected apps with logs, undo, and governance.
 
-## ✨ Features
+## Vision
 
-- 🤖 **AI-Powered Planning**: Convert natural language prompts into executable workflow plans
-- 🔄 **LangGraph Execution Engine**: Reliable, stateful workflow execution with LangChain
-- 🔌 **Extensible Integrations**: Plugin architecture for connecting external services (Gmail, LinkedIn, etc.)
-- 📊 **Queue-Based Processing**: Asynchronous job processing with BullMQ and Redis
-- 🔐 **Secure by Design**: Built-in authentication, token encryption (AES-GCM), and policy management
-- 📈 **Built-in Telemetry**: PostHog integration for tracking workflow performance
-- 🐳 **Docker Ready**: Full Docker Compose setup for local development and deployment
-- 📦 **Monorepo Architecture**: Organized workspace with shared packages and type safety
+Runfast is an AI-powered execution assistant for founders and small teams. You type a goal — "Schedule a check-in with Sara tomorrow at 10:00" — and Runfast executes it instantly across your connected apps with logs, undo, and governance.
 
-## 🏗️ Architecture
+## Product Highlights
 
-- **Backend**: NestJS (REST API), Prisma (PostgreSQL), BullMQ (Redis), PostHog telemetry, Kinde JWT authentication
-- **AI Engine**: LangChain + LangGraph for orchestrating multi-step AI workflows
-- **Frontend**: Vite + React for the web interface
-- **Shared Packages**: 
-  - `@runfast/types` — Zod schemas for type-safe chat blocks and workflow definitions
-  - `@runfast/crypto` — AES-GCM encryption helpers for secure token management
-  - `@runfast/sdk` — Lightweight SDK for API interactions
-  - `@runfast/agent` — AI agent core logic
-  - `@runfast/appstore` — Integration marketplace
-- **DevOps**: pnpm workspaces + Turborepo for efficient builds, Docker for containerization
+* **One-prompt execution** — *One prompt → one run.* Post, schedule, DM, or summarize in seconds.
+* **BYOK & control** — Uses your API keys and OAuth tokens; short-lived JWTs secure calls.
+* **LangChain/Graph reasoning** — A NestJS service orchestrates tools via LangChain with a graph/executor to plan or auto-run tasks.
+* **Capability sandbox** — Each run has a scoped token and allow-listed tools.
+* **Undo + audit trail** — Every run is logged, idempotent, and reversible.
+* **Team policies** — Plan-only vs auto-run, shared runs, telemetry.
+
+## Architecture Overview
+
+**Browser (Vite + React UI)** → **NestJS API** → **BullMQ Workers** → **LangChain/Graph Orchestrator** → **External APIs (X, Slack, Calendar, Notion, CRM)**
+
+* **NestJS API**: Auth, API gateway, validations, rate limits, signed short-lived JWTs for runs.
+* **BullMQ**: Queues per run; retries, backoff, concurrency controls.
+* **LangChain/Graph**: Tool selection & control flow (PLAN or AUTO modes), deterministic steps, guardrails.
+* **Prisma + PostgreSQL**: Runs, tools, tokens, audit logs, policies.
+* **Secrets**: BYOK/OAuth tokens stored securely; per-run scoped access.
+
+## Differentiators
+
+* **Immediacy** — Tasks complete in seconds.
+* **Depth over breadth** — Fewer integrations, deeply polished.
+* **Governance** — Audit, undo, idempotency, policies.
+* **Team-ready** — Shared runs, metrics, controlled automation.
+* **Model-agnostic** — Works with OpenAI, Azure, Anthropic.
+
+## Core Use Cases (MVP)
+
+1. Draft & schedule posts on X/LinkedIn
+2. Schedule calendar events + DM links
+3. Summarize Slack threads → Notion
+4. Draft follow-up emails → CRM log
+5. Generate daily stand-ups or summaries
+
+## Tech Stack
+
+* **Frontend**: Vite + React, Tailwind, shadcn/ui
+* **Auth**: OAuth2 / JWT (short-lived run tokens; BYOK)
+* **Backend**: NestJS (REST/WS), LangChain + graph/executor
+* **Workers**: BullMQ (Redis) for runs & tool calls
+* **Database**: Prisma + PostgreSQL
+* **Messaging**: HTTP sync for prompts; BullMQ async for execution
+* **Telemetry**: PostHog + structured logs
+* **Deploy**: Docker → GCP/Azure (Cloud Run, GKE/AKS)
 
 **Repo Layout**
 
@@ -171,4 +197,4 @@ Built with amazing open source technologies:
 
 ---
 
-**Built with ❤️ by the open source community**
+© 2025 Runfast. Built with ❤️ by Ha Doan and the open source community.
