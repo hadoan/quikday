@@ -9,11 +9,13 @@ Users type a goal (e.g., "Schedule a check-in with Sara tomorrow at 10:00") and 
 ## Architecture & Design Principles
 
 ### System Flow
+
 ```
 Browser (Vite + React) → NestJS API → BullMQ Workers → LangChain/Graph Orchestrator → External APIs
 ```
 
 ### Core Principles
+
 1. **Immediacy** — Tasks complete in seconds, not minutes
 2. **Security** — BYOK (Bring Your Own Keys), short-lived JWTs, scoped tokens per run
 3. **Governance** — Every run is logged, idempotent, and reversible
@@ -23,6 +25,7 @@ Browser (Vite + React) → NestJS API → BullMQ Workers → LangChain/Graph Orc
 ## Tech Stack & Conventions
 
 ### Monorepo Structure
+
 - `apps/api/` — NestJS backend (REST API, auth, orchestration)
 - `apps/web/` — Vite + React frontend (UI/UX)
 - `packages/types/` — Zod schemas for type safety
@@ -32,6 +35,7 @@ Browser (Vite + React) → NestJS API → BullMQ Workers → LangChain/Graph Orc
 - `packages/appstore/` — Integration plugins
 
 ### Backend (NestJS)
+
 - **Use dependency injection** for all services
 - **Guard all endpoints** with auth guards (Kinde JWT)
 - **Validate inputs** using Zod schemas from `@quikday/types`
@@ -42,6 +46,7 @@ Browser (Vite + React) → NestJS API → BullMQ Workers → LangChain/Graph Orc
 - **Logging**: Use NestJS Logger with structured logs
 
 ### Frontend (React + Vite)
+
 - **Use TypeScript** strictly
 - **Components**: Functional components with hooks
 - **UI Library**: shadcn/ui components + Tailwind CSS
@@ -51,6 +56,7 @@ Browser (Vite + React) → NestJS API → BullMQ Workers → LangChain/Graph Orc
 - **Routing**: React Router
 
 ### Database (Prisma + PostgreSQL)
+
 - **Always use Prisma Client** from `@quikday/prisma`
 - **Migrations**: Use `pnpm db:migrate` for schema changes (don't use db:push in production)
 - **Transactions**: Use Prisma transactions for multi-step operations
@@ -58,6 +64,7 @@ Browser (Vite + React) → NestJS API → BullMQ Workers → LangChain/Graph Orc
 - **Timestamps**: Always include `createdAt`, `updatedAt` fields
 
 ### LangChain/Graph Integration
+
 - **Tools**: Each integration is a LangChain tool
 - **Modes**: Support both PLAN (preview) and AUTO (execute) modes
 - **Deterministic**: Graph execution should be reproducible
@@ -65,6 +72,7 @@ Browser (Vite + React) → NestJS API → BullMQ Workers → LangChain/Graph Orc
 - **Errors**: Handle tool errors gracefully, log to run steps
 
 ### BullMQ Workers
+
 - **One queue per run type** (e.g., `runs`, `integrations`)
 - **Idempotency**: Use job IDs to prevent duplicate processing
 - **Retries**: Configure exponential backoff
@@ -74,6 +82,7 @@ Browser (Vite + React) → NestJS API → BullMQ Workers → LangChain/Graph Orc
 ## Code Style & Patterns
 
 ### TypeScript
+
 - Use strict mode
 - Prefer interfaces over types for objects
 - Use enums from `@quikday/types` for constants
@@ -81,6 +90,7 @@ Browser (Vite + React) → NestJS API → BullMQ Workers → LangChain/Graph Orc
 - Use Zod for runtime validation
 
 ### Naming Conventions
+
 - **Files**: kebab-case (e.g., `run.service.ts`, `auth.guard.ts`)
 - **Classes**: PascalCase (e.g., `RunService`, `AuthGuard`)
 - **Functions/Variables**: camelCase (e.g., `createRun`, `userId`)
@@ -88,6 +98,7 @@ Browser (Vite + React) → NestJS API → BullMQ Workers → LangChain/Graph Orc
 - **Interfaces**: PascalCase with `I` prefix optional (e.g., `IRunConfig` or `RunConfig`)
 
 ### API Design
+
 - **REST conventions**: GET, POST, PUT, DELETE
 - **Endpoints**: `/resource` (list), `/resource/:id` (get), etc.
 - **Response format**:
@@ -102,6 +113,7 @@ Browser (Vite + React) → NestJS API → BullMQ Workers → LangChain/Graph Orc
 - **Versioning**: Use `/v1/` prefix if needed
 
 ### Security Best Practices
+
 - **Authentication**: All endpoints require JWT auth (except public routes)
 - **Authorization**: Check user permissions per resource
 - **Rate limiting**: Apply rate limits to prevent abuse
@@ -113,6 +125,7 @@ Browser (Vite + React) → NestJS API → BullMQ Workers → LangChain/Graph Orc
 ## Integration Development
 
 ### Adding New Integrations
+
 1. Create folder in `packages/appstore/[integration-name]/`
 2. Implement `metadata.ts` with app info
 3. Implement `index.ts` with LangChain tool
@@ -122,6 +135,7 @@ Browser (Vite + React) → NestJS API → BullMQ Workers → LangChain/Graph Orc
 7. Update database schema if new fields needed
 
 ### Integration Structure
+
 ```typescript
 // metadata.ts
 export const metadata = {
@@ -137,7 +151,7 @@ export const metadata = {
 export class AppNameTool extends Tool {
   name = 'app_name_action';
   description = 'Clear description for LLM';
-  
+
   async _call(input: string): Promise<string> {
     // Implementation
   }
@@ -147,24 +161,27 @@ export class AppNameTool extends Tool {
 ## Testing Guidelines
 
 ### Unit Tests
+
 - Test services and business logic
 - Mock external dependencies
 - Use Jest for testing
 - Aim for >80% coverage on core logic
 
 ### Integration Tests
+
 - Test API endpoints end-to-end
 - Use test database (separate from dev)
 - Clean up test data after each test
 
 ### Test Naming
+
 ```typescript
 describe('RunService', () => {
   describe('createRun', () => {
     it('should create a new run with valid input', async () => {
       // Test implementation
     });
-    
+
     it('should throw error when user not found', async () => {
       // Test implementation
     });
@@ -175,6 +192,7 @@ describe('RunService', () => {
 ## Common Patterns & Examples
 
 ### Creating a New Run
+
 ```typescript
 // Controller
 @Post('runs')
@@ -187,7 +205,7 @@ async createRun(@Body() dto: CreateRunDto, @User() user: JwtPayload) {
 async createRun(dto: CreateRunDto, userId: string) {
   // Validate with Zod
   const validated = createRunSchema.parse(dto);
-  
+
   // Create in DB
   const run = await this.prisma.run.create({
     data: {
@@ -197,17 +215,18 @@ async createRun(dto: CreateRunDto, userId: string) {
       status: 'pending',
     },
   });
-  
+
   // Queue for execution if AUTO mode
   if (validated.mode === 'auto') {
     await this.queueService.enqueueRun(run.id);
   }
-  
+
   return run;
 }
 ```
 
 ### Error Handling
+
 ```typescript
 try {
   const result = await this.externalApi.call();
@@ -217,15 +236,13 @@ try {
     error: error.message,
     context: 'RunService.executeStep',
   });
-  
-  throw new HttpException(
-    'Failed to execute step',
-    HttpStatus.INTERNAL_SERVER_ERROR,
-  );
+
+  throw new HttpException('Failed to execute step', HttpStatus.INTERNAL_SERVER_ERROR);
 }
 ```
 
 ### Working with Prisma
+
 ```typescript
 // Transaction example
 await this.prisma.$transaction(async (tx) => {
@@ -233,9 +250,9 @@ await this.prisma.$transaction(async (tx) => {
     where: { id: runId },
     data: { status: 'completed' },
   });
-  
+
   await tx.runStep.createMany({
-    data: steps.map(step => ({
+    data: steps.map((step) => ({
       runId,
       toolName: step.tool,
       input: step.input,
@@ -280,6 +297,7 @@ this.logger.log('Run created', {
 ## Quick Reference
 
 ### Useful Commands
+
 ```bash
 pnpm dev              # Start all dev servers
 pnpm build            # Build all packages
@@ -290,6 +308,7 @@ pnpm lint             # Lint code
 ```
 
 ### Environment Variables
+
 - `DATABASE_URL` — PostgreSQL connection string
 - `REDIS_URL` — Redis connection string
 - `KINDE_DOMAIN` — Kinde auth domain

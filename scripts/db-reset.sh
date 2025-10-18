@@ -33,7 +33,12 @@ done
 echo "Applying Prisma schema (db push)..."
 pnpm db:push
 
-echo "Running seed script..."
-pnpm seed
+PRISMA_SEED_TS="$ROOT_DIR/packages/prisma/seed.ts"
+if [ -f "$PRISMA_SEED_TS" ]; then
+  echo "Running seed script..."
+  pnpm seed
+else
+  echo "Seed script not found at packages/prisma/seed.ts; skipping seeding."
+fi
 
 echo "DB reset complete."

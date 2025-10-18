@@ -11,7 +11,7 @@ export interface LinkedinCallbackOpts {
 // index.ts (BaseApp.callback) using server-side dependencies (e.g., Prisma).
 export async function linkedinCallback(
   opts: LinkedinCallbackOpts,
-  redirect: (url: string) => Promise<void> | void
+  redirect: (url: string) => Promise<void> | void,
 ): Promise<{ status?: number; body?: any } | void> {
   const { query, session } = opts;
   const { code } = (query || {}) as { code?: string };
@@ -32,4 +32,3 @@ export async function linkedinCallback(
 }
 
 export default linkedinCallback;
-

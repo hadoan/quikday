@@ -10,30 +10,30 @@ Quik.day is an AI-powered execution assistant for founders and small teams. You 
 
 ## Product Highlights
 
-* **One-prompt execution** — *One prompt → one run.* Post, schedule, DM, or summarize in seconds.
-* **BYOK & control** — Uses your API keys and OAuth tokens; short-lived JWTs secure calls.
-* **LangChain/Graph reasoning** — A NestJS service orchestrates tools via LangChain with a graph/executor to plan or auto-run tasks.
-* **Capability sandbox** — Each run has a scoped token and allow-listed tools.
-* **Undo + audit trail** — Every run is logged, idempotent, and reversible.
-* **Team policies** — Plan-only vs auto-run, shared runs, telemetry.
+- **One-prompt execution** — _One prompt → one run._ Post, schedule, DM, or summarize in seconds.
+- **BYOK & control** — Uses your API keys and OAuth tokens; short-lived JWTs secure calls.
+- **LangChain/Graph reasoning** — A NestJS service orchestrates tools via LangChain with a graph/executor to plan or auto-run tasks.
+- **Capability sandbox** — Each run has a scoped token and allow-listed tools.
+- **Undo + audit trail** — Every run is logged, idempotent, and reversible.
+- **Team policies** — Plan-only vs auto-run, shared runs, telemetry.
 
 ## Architecture Overview
 
 **Browser (Vite + React UI)** → **NestJS API** → **BullMQ Workers** → **LangChain/Graph Orchestrator** → **External APIs (X, Slack, Calendar, Notion, CRM)**
 
-* **NestJS API**: Auth, API gateway, validations, rate limits, signed short-lived JWTs for runs.
-* **BullMQ**: Queues per run; retries, backoff, concurrency controls.
-* **LangChain/Graph**: Tool selection & control flow (PLAN or AUTO modes), deterministic steps, guardrails.
-* **Prisma + PostgreSQL**: Runs, tools, tokens, audit logs, policies.
-* **Secrets**: BYOK/OAuth tokens stored securely; per-run scoped access.
+- **NestJS API**: Auth, API gateway, validations, rate limits, signed short-lived JWTs for runs.
+- **BullMQ**: Queues per run; retries, backoff, concurrency controls.
+- **LangChain/Graph**: Tool selection & control flow (PLAN or AUTO modes), deterministic steps, guardrails.
+- **Prisma + PostgreSQL**: Runs, tools, tokens, audit logs, policies.
+- **Secrets**: BYOK/OAuth tokens stored securely; per-run scoped access.
 
 ## Differentiators
 
-* **Immediacy** — Tasks complete in seconds.
-* **Depth over breadth** — Fewer integrations, deeply polished.
-* **Governance** — Audit, undo, idempotency, policies.
-* **Team-ready** — Shared runs, metrics, controlled automation.
-* **Model-agnostic** — Works with OpenAI, Azure, Anthropic.
+- **Immediacy** — Tasks complete in seconds.
+- **Depth over breadth** — Fewer integrations, deeply polished.
+- **Governance** — Audit, undo, idempotency, policies.
+- **Team-ready** — Shared runs, metrics, controlled automation.
+- **Model-agnostic** — Works with OpenAI, Azure, Anthropic.
 
 ## Core Use Cases (MVP)
 
@@ -45,14 +45,14 @@ Quik.day is an AI-powered execution assistant for founders and small teams. You 
 
 ## Tech Stack
 
-* **Frontend**: Vite + React, Tailwind, shadcn/ui
-* **Auth**: OAuth2 / JWT (short-lived run tokens; BYOK)
-* **Backend**: NestJS (REST/WS), LangChain + graph/executor
-* **Workers**: BullMQ (Redis) for runs & tool calls
-* **Database**: Prisma + PostgreSQL
-* **Messaging**: HTTP sync for prompts; BullMQ async for execution
-* **Telemetry**: PostHog + structured logs
-* **Deploy**: Docker → GCP/Azure (Cloud Run, GKE/AKS)
+- **Frontend**: Vite + React, Tailwind, shadcn/ui
+- **Auth**: OAuth2 / JWT (short-lived run tokens; BYOK)
+- **Backend**: NestJS (REST/WS), LangChain + graph/executor
+- **Workers**: BullMQ (Redis) for runs & tool calls
+- **Database**: Prisma + PostgreSQL
+- **Messaging**: HTTP sync for prompts; BullMQ async for execution
+- **Telemetry**: PostHog + structured logs
+- **Deploy**: Docker → GCP/Azure (Cloud Run, GKE/AKS)
 
 **Repo Layout**
 
@@ -84,7 +84,7 @@ Ports
 
 - API: `http://localhost:3000`
 - Web: `http://localhost:8000`
--- Postgres: `localhost:5432` (user `postgres`, password `pass`, DB `quikday`)
+  -- Postgres: `localhost:5432` (user `postgres`, password `pass`, DB `quikday`)
 - Redis: `localhost:6379`
 
 **Run Backend Fully in Docker (Optional)**
@@ -173,6 +173,7 @@ With `KINDE_BYPASS=true`, you can use any bearer token locally:
 We welcome contributions from the community! Whether you're fixing bugs, adding new features, or improving documentation, your help is appreciated.
 
 **Ways to contribute:**
+
 - 🐛 Report bugs and issues
 - 💡 Suggest new features or integrations
 - 📝 Improve documentation
@@ -189,6 +190,7 @@ The AGPL-3.0 ensures that if you run a modified version of this software as a ne
 ## 🙏 Acknowledgments
 
 Built with amazing open source technologies:
+
 - [NestJS](https://nestjs.com/) - Progressive Node.js framework
 - [LangChain](https://langchain.com/) & [LangGraph](https://langchain-ai.github.io/langgraphjs/) - AI orchestration
 - [Prisma](https://www.prisma.io/) - Next-generation ORM

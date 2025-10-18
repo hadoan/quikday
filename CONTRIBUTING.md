@@ -10,30 +10,30 @@ Quik.day is an AI-powered execution assistant for founders and small teams. You 
 
 ## Product Highlights
 
-* **One-prompt execution** — *One prompt → one run.* Post, schedule, DM, or summarize in seconds.
-* **BYOK & control** — Uses your API keys and OAuth tokens; short-lived JWTs secure calls.
-* **LangChain/Graph reasoning** — A NestJS service orchestrates tools via LangChain with a graph/executor to plan or auto-run tasks.
-* **Capability sandbox** — Each run has a scoped token and allow-listed tools.
-* **Undo + audit trail** — Every run is logged, idempotent, and reversible.
-* **Team policies** — Plan-only vs auto-run, shared runs, telemetry.
+- **One-prompt execution** — _One prompt → one run._ Post, schedule, DM, or summarize in seconds.
+- **BYOK & control** — Uses your API keys and OAuth tokens; short-lived JWTs secure calls.
+- **LangChain/Graph reasoning** — A NestJS service orchestrates tools via LangChain with a graph/executor to plan or auto-run tasks.
+- **Capability sandbox** — Each run has a scoped token and allow-listed tools.
+- **Undo + audit trail** — Every run is logged, idempotent, and reversible.
+- **Team policies** — Plan-only vs auto-run, shared runs, telemetry.
 
 ## Architecture Overview
 
 **Browser (Vite + React UI)** → **NestJS API** → **BullMQ Workers** → **LangChain/Graph Orchestrator** → **External APIs (X, Slack, Calendar, Notion, CRM)**
 
-* **NestJS API**: Auth, API gateway, validations, rate limits, signed short-lived JWTs for runs.
-* **BullMQ**: Queues per run; retries, backoff, concurrency controls.
-* **LangChain/Graph**: Tool selection & control flow (PLAN or AUTO modes), deterministic steps, guardrails.
-* **Prisma + PostgreSQL**: Runs, tools, tokens, audit logs, policies.
-* **Secrets**: BYOK/OAuth tokens stored securely; per-run scoped access.
+- **NestJS API**: Auth, API gateway, validations, rate limits, signed short-lived JWTs for runs.
+- **BullMQ**: Queues per run; retries, backoff, concurrency controls.
+- **LangChain/Graph**: Tool selection & control flow (PLAN or AUTO modes), deterministic steps, guardrails.
+- **Prisma + PostgreSQL**: Runs, tools, tokens, audit logs, policies.
+- **Secrets**: BYOK/OAuth tokens stored securely; per-run scoped access.
 
 ## Differentiators
 
-* **Immediacy** — Tasks complete in seconds.
-* **Depth over breadth** — Fewer integrations, deeply polished.
-* **Governance** — Audit, undo, idempotency, policies.
-* **Team-ready** — Shared runs, metrics, controlled automation.
-* **Model-agnostic** — Works with OpenAI, Azure, Anthropic.
+- **Immediacy** — Tasks complete in seconds.
+- **Depth over breadth** — Fewer integrations, deeply polished.
+- **Governance** — Audit, undo, idempotency, policies.
+- **Team-ready** — Shared runs, metrics, controlled automation.
+- **Model-agnostic** — Works with OpenAI, Azure, Anthropic.
 
 ## Core Use Cases (MVP)
 
@@ -45,14 +45,14 @@ Quik.day is an AI-powered execution assistant for founders and small teams. You 
 
 ## Tech Stack
 
-* **Frontend**: Vite + React, Tailwind, shadcn/ui
-* **Auth**: OAuth2 / JWT (short-lived run tokens; BYOK)
-* **Backend**: NestJS (REST/WS), LangChain + graph/executor
-* **Workers**: BullMQ (Redis) for runs & tool calls
-* **Database**: Prisma + PostgreSQL
-* **Messaging**: HTTP sync for prompts; BullMQ async for execution
-* **Telemetry**: PostHog + structured logs
-* **Deploy**: Docker → GCP/Azure (Cloud Run, GKE/AKS)
+- **Frontend**: Vite + React, Tailwind, shadcn/ui
+- **Auth**: OAuth2 / JWT (short-lived run tokens; BYOK)
+- **Backend**: NestJS (REST/WS), LangChain + graph/executor
+- **Workers**: BullMQ (Redis) for runs & tool calls
+- **Database**: Prisma + PostgreSQL
+- **Messaging**: HTTP sync for prompts; BullMQ async for execution
+- **Telemetry**: PostHog + structured logs
+- **Deploy**: Docker → GCP/Azure (Cloud Run, GKE/AKS)
 
 ## How to Contribute
 

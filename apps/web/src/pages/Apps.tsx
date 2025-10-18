@@ -170,9 +170,15 @@ const Apps = () => {
               <Tabs value={category} onValueChange={setCategory} className="w-full md:w-auto">
                 <TabsList className="flex flex-wrap justify-start gap-1">
                   {categories.map((c) => (
-                    <TabsTrigger key={c.name} value={c.name} className="data-[state=active]:bg-primary/10">
+                    <TabsTrigger
+                      key={c.name}
+                      value={c.name}
+                      className="data-[state=active]:bg-primary/10"
+                    >
                       <span className="mr-2">{c.name}</span>
-                      <Badge variant="secondary" className="ml-auto">{c.count}</Badge>
+                      <Badge variant="secondary" className="ml-auto">
+                        {c.count}
+                      </Badge>
                     </TabsTrigger>
                   ))}
                 </TabsList>
@@ -205,7 +211,11 @@ const Apps = () => {
       </div>
 
       {isToolsPanelOpen && (
-        <ToolsPanel tools={mockTools} stats={mockStats} onClose={() => setIsToolsPanelOpen(false)} />
+        <ToolsPanel
+          tools={mockTools}
+          stats={mockStats}
+          onClose={() => setIsToolsPanelOpen(false)}
+        />
       )}
     </div>
   );

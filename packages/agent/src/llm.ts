@@ -1,4 +1,4 @@
-import { ChatOpenAI } from "@langchain/openai";
+import { ChatOpenAI } from '@langchain/openai';
 
 // Masked log helper
 function maskedKey(k?: string) {
@@ -16,6 +16,6 @@ try {
 }
 
 export const model = new ChatOpenAI({
-  model: "gpt-4o-mini",
+  model: 'gpt-4o-mini',
   temperature: 0.2,
 });

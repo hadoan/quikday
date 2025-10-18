@@ -1,0 +1,99 @@
+generator client {
+    provider = "prisma-client-js"
+}
+
+datasource db {
+    provider = "postgresql"
+    url      = env("DATABASE_URL")
+}
+
+model User {
+    id          Int          @id @default(autoincrement())
+    sub         String       @unique
+    email       String?      @unique
+    displayName String?
+    teams       TeamMember[]
+    runs        Run[]
+    createdAt   DateTime     @default(now())
+}
+
+model Team {
+    id           Int           @id @default(autoincrement())
+    name         String
+    members      TeamMember[]
+    policies     Policy[]
+    integrations Integration[]
+    runs         Run[]
+    createdAt    DateTime      @default(now())
+}
+
+model TeamMember {
+    id     Int    @id @default(autoincrement())
+    teamId Int
+    userId Int
+    role   String
+    Team   Team   @relation(fields: [teamId], references: [id])
+    User   User   @relation(fields: [userId], references: [id])
+
+    @@unique([teamId, userId])
+}
+
+model Policy {
+    id     Int     @id @default(autoincrement())
+    teamId Int
+    key    String
+    value  Boolean
+    Team   Team    @relation(fields: [teamId], references: [id])
+}
+
+model Integration {
+    id                 Int       @id @default(autoincrement())
+    teamId             Int
+    provider           String
+    status             String
+    accessTokenCipher  Bytes?
+    refreshTokenCipher Bytes?
+    expiresAt          DateTime?
+    Team               Team      @relation(fields: [teamId], references: [id])
+}
+
+model Run {
+    id            String         @id @default(cuid())
+    teamId        Int
+    userId        Int
+    prompt        String
+    mode          String
+    status        String
+    intent        Json?
+    config        Json?
+    output        Json?
+    error         Json?
+    createdAt     DateTime       @default(now())
+    updatedAt     DateTime       @updatedAt
+    steps         Step[]
+    RunScopedKeys RunScopedKey[]
+    Team          Team           @relation(fields: [teamId], references: [id])
+    User          User           @relation(fields: [userId], references: [id])
+}
+
+model Step {
+    id        Int       @id @default(autoincrement())
+    runId     String
+    tool      String
+    action    String
+    request   Json?
+    response  Json?
+    startedAt DateTime  @default(now())
+    endedAt   DateTime?
+    Run       Run       @relation(fields: [runId], references: [id])
+}
+
+model RunScopedKey {
+    id          Int      @id @default(autoincrement())
+    runId       String
+    provider    String
+    scope       String
+    tokenCipher Bytes
+    expiresAt   DateTime
+    Run         Run      @relation(fields: [runId], references: [id])
+}

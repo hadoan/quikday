@@ -3,12 +3,15 @@
   "version": "0.0.1",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
+  "prisma": {
+    "schema": "src/schema.prisma"
+  },
   "scripts": {
     "build": "tsc -p tsconfig.json",
-    "generate": "prisma generate",
-    "migrate:dev": "prisma migrate dev",
-    "migrate:create": "prisma migrate dev --create-only --name init",
-    "migrate:deploy": "prisma migrate deploy",
+    "generate": "prisma generate --schema=src/schema.prisma",
+    "migrate:dev": "prisma migrate dev --schema=src/schema.prisma",
+    "migrate:create": "prisma migrate dev --create-only --schema=src/schema.prisma",
+    "migrate:deploy": "prisma migrate deploy --schema=src/schema.prisma",
     "seed": "ts-node --transpile-only ./seed.ts"
   },
   "dependencies": {
