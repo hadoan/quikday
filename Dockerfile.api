@@ -12,9 +12,9 @@ RUN pnpm install --frozen-lockfile || pnpm install
 
 FROM deps AS build
 COPY . .
-RUN pnpm --filter @runfast/types build && pnpm --filter @runfast/crypto build && pnpm --filter @runfast/sdk build
-RUN pnpm --filter @runfast/api prisma:gen
-RUN pnpm --filter @runfast/api build
+RUN pnpm --filter @quikday/types build && pnpm --filter @quikday/crypto build && pnpm --filter @quikday/sdk build
+RUN pnpm --filter @quikday/api prisma:gen
+RUN pnpm --filter @quikday/api build
 
 FROM node:20-alpine AS runner
 WORKDIR /app

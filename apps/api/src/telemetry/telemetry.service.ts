@@ -17,6 +17,6 @@ export class TelemetryService {
       this.logger.debug(`Telemetry disabled: ${event}`);
       return;
     }
-    this.client.capture({ event, distinctId: 'runfast-backend', properties });
+    this.client.capture({ event, distinctId: 'quikday-backend', properties });
   }
 }

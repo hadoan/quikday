@@ -26,7 +26,7 @@ interface UserMenuProps {
 export const UserMenu = ({
   user = {
     name: 'John Doe',
-    email: 'john@runfast.now',
+    email: 'john@quikday.now',
     initials: 'JD',
   },
   onViewProfile,

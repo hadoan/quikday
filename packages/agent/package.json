@@ -1,7 +1,7 @@
 {
-  "name": "@runfast/agent",
+  "name": "@quikday/agent",
   "version": "0.1.0",
-  "description": "Runfast agent library",
+  "description": "Quik.day agent library",
   "private": false,
   "type": "module",
   "main": "dist/index.js",
@@ -25,7 +25,7 @@
     "clean": "rm -rf dist"
   },
   "keywords": [
-    "runfast",
+    "quikday",
     "agent",
     "langgraph"
   ],

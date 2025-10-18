@@ -43,7 +43,7 @@ export const Sidebar = ({
           <div>
             <h2 className="text-lg font-semibold text-sidebar-foreground flex items-center gap-2">
               <Zap className="h-5 w-5 text-primary" />
-              Runfast.now
+              Quik.day
             </h2>
             <p className="text-sm text-sidebar-foreground/60 mt-1">Execution Console</p>
           </div>

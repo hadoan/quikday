@@ -1,5 +1,5 @@
 /* NOTE: This file contains structure only. Implement provider logic separately. */
-import type { AppMeta } from '@runfast/types/App';
+import type { AppMeta } from '@quikday/types/App';
 
 export const metadata: AppMeta = {
   name: 'LinkedIn Social',

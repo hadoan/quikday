@@ -1,6 +1,6 @@
-import { PrismaService as RunfastPrismaService } from '@runfast/prisma';
+import { PrismaService as QuikdayPrismaService } from '@quikday/prisma';
 
 export interface AppDeps {
-  prisma: RunfastPrismaService;
+  prisma: QuikdayPrismaService;
   /* add logger, config, httpClient as needed */
 }

@@ -1,5 +1,5 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
-import { PrismaService } from '@runfast/prisma';
+import { PrismaService } from '@quikday/prisma';
 import { InjectQueue } from '@nestjs/bullmq';
 import { Queue } from 'bullmq';
 import { TelemetryService } from '../telemetry/telemetry.service';

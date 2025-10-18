@@ -1,5 +1,5 @@
 /* Base class for App implementations. Structure only; no provider logic. */
-import { AppMeta } from '@runfast/types';
+import { AppMeta } from '@quikday/types';
 
 export abstract class BaseApp {
   constructor(public readonly meta: AppMeta) {}

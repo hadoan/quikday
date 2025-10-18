@@ -1,7 +1,7 @@
 import { Module, OnModuleInit } from '@nestjs/common';
 import { IntegrationsController } from './integrations.controller';
 import { AppStoreRegistry } from './appstore.registry';
-import { PrismaService } from '@runfast/prisma';
+import { PrismaService } from '@quikday/prisma';
 
 @Module({
   controllers: [IntegrationsController],

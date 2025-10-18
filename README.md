@@ -1,12 +1,12 @@
-# Runfast.now
+# Quik.day
 
 **One Prompt. One Run. Done.**
 
-An open-source AI-powered execution assistant for founders and small teams. Type a goal and Runfast executes it instantly across your connected apps with logs, undo, and governance.
+An open-source AI-powered execution assistant for founders and small teams. Type a goal and Quik.day executes it instantly across your connected apps with logs, undo, and governance.
 
 ## Vision
 
-Runfast is an AI-powered execution assistant for founders and small teams. You type a goal — "Schedule a check-in with Sara tomorrow at 10:00" — and Runfast executes it instantly across your connected apps with logs, undo, and governance.
+Quik.day is an AI-powered execution assistant for founders and small teams. You type a goal — "Schedule a check-in with Sara tomorrow at 10:00" — and Quik.day executes it instantly across your connected apps with logs, undo, and governance.
 
 ## Product Highlights
 
@@ -84,7 +84,7 @@ Ports
 
 - API: `http://localhost:3000`
 - Web: `http://localhost:8000`
-- Postgres: `localhost:5432` (user `postgres`, password `pass`, DB `runfast`)
+-- Postgres: `localhost:5432` (user `postgres`, password `pass`, DB `quikday`)
 - Redis: `localhost:6379`
 
 **Run Backend Fully in Docker (Optional)**
@@ -96,19 +96,19 @@ Option A — Use existing compose file
 - Build and start:
   - `docker compose up -d --build db redis api`
 - Apply schema (once per change):
-  - `docker compose exec api pnpm --filter @runfast/api prisma db push`
+  - `docker compose exec api pnpm --filter @quikday/api prisma db push`
 
 Option B — Manual image build/run
 
 - Build image:
-  - `docker build -t runfast-api -f Dockerfile.api .`
+  - `docker build -t quikday-api -f Dockerfile.api .`
 - Run with your env:
-  - `docker run --rm --env-file .env --network host runfast-api`
+  - `docker run --rm --env-file .env --network host quikday-api`
   - Or attach to compose network and link to `db`/`redis` services as needed.
 
 Notes
 
-- The API container expects `DATABASE_URL` and `REDIS_URL` to point at the compose services (e.g., `postgresql://postgres:pass@db:5432/runfast`, `redis://redis:6379`). When running outside compose network, use `localhost`.
+- The API container expects `DATABASE_URL` and `REDIS_URL` to point at the compose services (e.g., `postgresql://postgres:pass@db:5432/quikday`, `redis://redis:6379`). When running outside compose network, use `localhost`.
 - Prisma migrations: this template uses `db push` in dev. For production, prefer `prisma migrate deploy`.
 - Prisma migrations: this template uses `db push` in dev for convenience, but to adopt migrations (without resetting or pushing schema that may drop data), create a migration snapshot instead of running destructive resets.
   - Create an initial migration locally without applying it automatically:
@@ -157,7 +157,7 @@ With `KINDE_BYPASS=true`, you can use any bearer token locally:
 **TODO / Stretch**
 
 - OAuth for providers under `/integrations`
-- Token encryption (AES‑GCM) using `@runfast/crypto`
+- Token encryption (AES‑GCM) using `@quikday/crypto`
 - Policy checks (`autoRun`, `requiresApproval`, `canUndo`)
 - Undo path and LangGraph checkpointer
 
@@ -197,4 +197,4 @@ Built with amazing open source technologies:
 
 ---
 
-© 2025 Runfast. Built with ❤️ by Ha Doan and the open source community.
+© 2025 Quik.day. Built with ❤️ by Ha Doan and the open source community.

@@ -1,5 +1,5 @@
 import { Injectable, Logger } from '@nestjs/common';
-import { AppMeta } from '@runfast/types';
+import { AppMeta } from '@quikday/types';
 import { BaseApp } from './app.base';
 import { AppDeps } from './app.types';
 

@@ -1,10 +1,10 @@
-# GitHub Copilot Instructions for Runfast.now
+# GitHub Copilot Instructions for Quik.day
 
 ## Project Overview
 
-**Runfast.now** is an open-source AI-powered execution assistant for founders and small teams. The core concept is: **One Prompt. One Run. Done.**
+**Quik.day** is an open-source AI-powered execution assistant for founders and small teams. The core concept is: **One Prompt. One Run. Done.**
 
-Users type a goal (e.g., "Schedule a check-in with Sara tomorrow at 10:00") and Runfast executes it instantly across connected apps with full audit logs, undo capabilities, and governance controls.
+Users type a goal (e.g., "Schedule a check-in with Sara tomorrow at 10:00") and Quik.day executes it instantly across connected apps with full audit logs, undo capabilities, and governance controls.
 
 ## Architecture & Design Principles
 
@@ -34,7 +34,7 @@ Browser (Vite + React) → NestJS API → BullMQ Workers → LangChain/Graph Orc
 ### Backend (NestJS)
 - **Use dependency injection** for all services
 - **Guard all endpoints** with auth guards (Kinde JWT)
-- **Validate inputs** using Zod schemas from `@runfast/types`
+- **Validate inputs** using Zod schemas from `@quikday/types`
 - **Use Prisma** for all database operations
 - **Queue long-running tasks** with BullMQ
 - **Structure**: Controllers → Services → Repositories pattern
@@ -46,12 +46,12 @@ Browser (Vite + React) → NestJS API → BullMQ Workers → LangChain/Graph Orc
 - **Components**: Functional components with hooks
 - **UI Library**: shadcn/ui components + Tailwind CSS
 - **State management**: React hooks + Context API (avoid Redux unless necessary)
-- **API calls**: Use `@runfast/sdk` for type-safe API interactions
+- **API calls**: Use `@quikday/sdk` for type-safe API interactions
 - **Forms**: Use React Hook Form with Zod validation
 - **Routing**: React Router
 
 ### Database (Prisma + PostgreSQL)
-- **Always use Prisma Client** from `@runfast/prisma`
+- **Always use Prisma Client** from `@quikday/prisma`
 - **Migrations**: Use `pnpm db:migrate` for schema changes (don't use db:push in production)
 - **Transactions**: Use Prisma transactions for multi-step operations
 - **Soft deletes**: Prefer soft deletes over hard deletes for audit trail
@@ -76,7 +76,7 @@ Browser (Vite + React) → NestJS API → BullMQ Workers → LangChain/Graph Orc
 ### TypeScript
 - Use strict mode
 - Prefer interfaces over types for objects
-- Use enums from `@runfast/types` for constants
+- Use enums from `@quikday/types` for constants
 - Avoid `any` — use `unknown` and type guards
 - Use Zod for runtime validation
 
@@ -118,7 +118,7 @@ Browser (Vite + React) → NestJS API → BullMQ Workers → LangChain/Graph Orc
 3. Implement `index.ts` with LangChain tool
 4. Add OAuth callback handler if needed
 5. Register in `_appRegistry.ts`
-6. Add Zod schemas to `@runfast/types`
+6. Add Zod schemas to `@quikday/types`
 7. Update database schema if new fields needed
 
 ### Integration Structure
@@ -301,4 +301,4 @@ pnpm lint             # Lint code
 
 **When in doubt**: Prioritize security, governance, and user control. Every action should be auditable and reversible.
 
-© 2025 Runfast. Built with ❤️ by Ha Doan and the open source community.
+© 2025 Quik.day. Built with ❤️ by Ha Doan and the open source community.

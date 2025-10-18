@@ -1,7 +1,7 @@
 import { Injectable, OnModuleDestroy, OnModuleInit } from '@nestjs/common';
 
 // NOTE: Placeholder Prisma service. Do not import real Prisma here.
-// TODO: Replace with real PrismaClient from @runfast/prisma when available.
+// TODO: Replace with real PrismaClient from @quikday/prisma when available.
 
 @Injectable()
 export class PrismaService implements OnModuleInit, OnModuleDestroy {

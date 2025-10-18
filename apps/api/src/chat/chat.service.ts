@@ -1,7 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { z } from 'zod';
-import { PlanCard, ConfigCard, RunCard } from '@runfast/types';
-import { runAgent } from '@runfast/agent';
+import { PlanCard, ConfigCard, RunCard } from '@quikday/types';
+import { runAgent } from '@quikday/agent';
 import { RunsService } from '../runs/runs.service';
 
 @Injectable()

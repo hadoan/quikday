@@ -44,16 +44,16 @@ importers:
       '@prisma/client':
         specifier: ^5.18.0
         version: 5.22.0(prisma@5.22.0)
-      '@runfast/agent':
+      '@quikday/agent':
         specifier: workspace:*
         version: link:../../packages/agent
-      '@runfast/crypto':
+      '@quikday/crypto':
         specifier: workspace:*
         version: link:../../packages/crypto
-      '@runfast/prisma':
+      '@quikday/prisma':
         specifier: workspace:*
         version: link:../../packages/prisma
-      '@runfast/types':
+      '@quikday/types':
         specifier: workspace:*
         version: link:../../packages/types
       bullmq:

@@ -1,6 +1,6 @@
 import { Module } from '@nestjs/common';
 import { ConfigModule } from './config/config.module';
-import { PrismaModule } from '@runfast/prisma';
+import { PrismaModule } from '@quikday/prisma';
 import { AuthModule } from './auth/auth.module';
 import { RunsModule } from './runs/runs.module';
 import { ChatModule } from './chat/chat.module';

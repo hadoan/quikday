@@ -1,12 +1,12 @@
-# Contributing to Runfast.now
+# Contributing to Quik.day
 
 **One Prompt. One Run. Done.**
 
-Thank you for your interest in contributing to Runfast! We welcome contributions from the community.
+Thank you for your interest in contributing to Quik.day! We welcome contributions from the community.
 
 ## Vision
 
-Runfast is an AI-powered execution assistant for founders and small teams. You type a goal — "Schedule a check-in with Sara tomorrow at 10:00" — and Runfast executes it instantly across your connected apps with logs, undo, and governance.
+Quik.day is an AI-powered execution assistant for founders and small teams. You type a goal — "Schedule a check-in with Sara tomorrow at 10:00" — and Quik.day executes it instantly across your connected apps with logs, undo, and governance.
 
 ## Product Highlights
 
@@ -70,8 +70,8 @@ Runfast is an AI-powered execution assistant for founders and small teams. You t
 1. **Fork the repository** on GitHub
 2. **Clone your fork** locally:
    ```bash
-   git clone https://github.com/hadoan/runfast.git
-   cd runfast
+   git clone https://github.com/hadoan/quikday.git
+   cd quikday
    ```
 3. **Set up the development environment** (see README.md for detailed instructions):
    ```bash
@@ -118,10 +118,10 @@ Runfast is an AI-powered execution assistant for founders and small teams. You t
 
 ```bash
 # Run API tests
-pnpm --filter @runfast/api test
+pnpm --filter @quikday/api test
 
 # Run web tests
-pnpm --filter @runfast/web test
+pnpm --filter @quikday/web test
 
 # Build all packages
 pnpm build
@@ -143,10 +143,10 @@ pnpm build
 
 ## License
 
-By contributing to Runfast, you agree that your contributions will be licensed under the [GNU Affero General Public License v3.0 (AGPL-3.0)](LICENSE).
+By contributing to Quik.day, you agree that your contributions will be licensed under the [GNU Affero General Public License v3.0 (AGPL-3.0)](LICENSE).
 
 The AGPL-3.0 ensures that if you run a modified version of this software as a network service, you must make the source code available to users of that service.
 
 ---
 
-© 2025 Runfast. Built with ❤️ by Ha Doan and the open source community.
+© 2025 Quik.day. Built with ❤️ by Ha Doan and the open source community.

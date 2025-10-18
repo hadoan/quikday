@@ -1,5 +1,5 @@
 /* NOTE: This file contains structure only. Implement provider logic separately. */
-import type { AppMeta } from '@runfast/types/App';
+import type { AppMeta } from '@quikday/types/App';
 import { BaseApp } from '../../../../apps/api/src/integrations/app.base';
 import type { AppDeps } from '../../../../apps/api/src/integrations/app.types';
 
