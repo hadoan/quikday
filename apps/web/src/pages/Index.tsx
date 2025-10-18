@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { ChatMessage } from '@/components/chat/ChatMessage';
 import { PromptInput } from '@/components/chat/PromptInput';
 import { PlanCard } from '@/components/cards/PlanCard';
@@ -14,20 +14,54 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { Button } from '@/components/ui/button';
 import { mockRuns, mockTools, mockStats } from '@/data/mockRuns';
 import { Zap, Plug2, Plus } from 'lucide-react';
+import { getDataSource, getFeatureFlags } from '@/lib/flags/featureFlags';
+import type { UiRunSummary, UiEvent } from '@/lib/datasources/DataSource';
+import { trackDataSourceActive, trackChatSent, trackRunQueued } from '@/lib/telemetry/telemetry';
 
 const Index = () => {
-  type Run = (typeof mockRuns)[number];
-  const [runs, setRuns] = useState<Run[]>(mockRuns);
+  const [runs, setRuns] = useState<UiRunSummary[]>(
+    mockRuns.map((r) => ({ ...r, messages: r.messages as UiRunSummary['messages'] }))
+  );
   const [activeRunId, setActiveRunId] = useState(mockRuns[0].id);
   const [isToolsPanelOpen, setIsToolsPanelOpen] = useState(true);
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
   const activeRun = runs.find((run) => run.id === activeRunId);
 
-  const API_BASE =
-    (import.meta as any).env?.VITE_API_BASE_URL ||
-    (typeof window !== 'undefined'
-      ? `${window.location.protocol}//${window.location.hostname}:3000`
-      : 'http://localhost:3000');
+  // Initialize data source
+  const dataSource = getDataSource();
+
+  // Connect to WebSocket for real-time updates (if live mode)
+  useEffect(() => {
+    if (!activeRunId) return;
+    
+    const flags = getFeatureFlags();
+    if (flags.dataSource === 'mock') return; // Mock handles its own event simulation
+    
+    // Connect to live WebSocket
+    const stream = dataSource.connectRunStream(activeRunId, (event: UiEvent) => {
+      console.log('[Index] Received event:', event);
+      
+      // Update run based on event type
+      setRuns((prev) =>
+        prev.map((run) =>
+          run.id === activeRunId
+            ? { ...run, status: (event.payload.status as UiRunSummary['status']) || run.status }
+            : run
+        )
+      );
+    });
+    
+    return () => {
+      stream.close();
+    };
+  }, [activeRunId, dataSource]);
+
+  // Track data source in telemetry on mount
+  useEffect(() => {
+    const flags = getFeatureFlags();
+    console.log('[Index] Active data source:', flags.dataSource);
+    trackDataSourceActive(flags.dataSource);
+  }, []);
 
   const handleNewPrompt = async (prompt: string) => {
     // Append user message locally first
@@ -37,56 +71,48 @@ const Index = () => {
           ? {
               ...run,
               prompt: run.prompt || prompt,
-              messages: [...(run.messages ?? []), { role: 'user' as const, content: prompt }],
+              messages: [
+                ...(run.messages ?? []),
+                { role: 'user' as const, content: prompt },
+              ] as UiRunSummary['messages'],
             }
           : run,
       ),
     );
 
     try {
-      const res = await fetch(`${API_BASE}/chat/agent`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: 'Bearer dev',
-        },
-        body: JSON.stringify({ prompt }),
+      // Track chat sent event
+      trackChatSent({
+        mode: 'auto',
+        hasSchedule: false,
+        targetsCount: 0,
       });
-      const data = await res.json();
-      const outputs: string[] = Array.isArray(data?.messages) ? data.messages : [];
 
-      if (outputs.length) {
-        setRuns((prev) =>
-          prev.map((run) =>
-            run.id === activeRunId
-              ? {
-                  ...run,
-                  messages: [
-                    ...(run.messages ?? []),
-                    ...outputs.map((text) => ({
-                      role: 'assistant' as const,
-                      type: 'output' as const,
-                      data: { title: 'Assistant', content: text, type: 'text' as const },
-                    })),
-                  ],
-                }
-              : run,
-          ),
-        );
-      }
+      // Use data source to create run
+      const { runId } = await dataSource.createRun({
+        prompt,
+        mode: 'auto',
+      });
+
+      console.log('[Index] Created run:', runId);
+      trackRunQueued(runId);
+
+      // In live mode, WebSocket will update the UI
+      // In mock mode, MockDataSource simulates events
     } catch (err) {
-      console.error('Agent error', err);
+      console.error('Failed to create run:', err);
+      // TODO: Show error toast
     }
   };
 
   const handleNewTask = () => {
     const newId = `R-${Date.now()}`;
-    const newRun: Run = {
+    const newRun: UiRunSummary = {
       id: newId,
       prompt: '',
       timestamp: new Date().toISOString(),
-      status: 'running' as const,
-      messages: [] as any[],
+      status: 'queued',
+      messages: [],
     };
     setRuns((prev) => [newRun, ...prev]);
     setActiveRunId(newId);
@@ -110,7 +136,8 @@ const Index = () => {
   return (
     <div className="flex h-screen w-full bg-background">
       <Sidebar
-        runs={runs}
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        runs={runs as any}
         activeRunId={activeRunId}
         onSelectRun={setActiveRunId}
         collapsed={isSidebarCollapsed}
@@ -168,15 +195,30 @@ const Index = () => {
 
               return (
                 <ChatMessage key={idx} role="assistant">
-                  {message.type === 'plan' && <PlanCard data={message.data} />}
-                  {message.type === 'run' && <RunCard data={message.data} />}
-                  {message.type === 'log' && <LogCard logs={message.data} />}
-                  {message.type === 'undo' && <UndoCard data={message.data} />}
-                  {message.type === 'output' && (
+                  {message.type === 'plan' && message.data && 'intent' in message.data && (
+                    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                    <PlanCard data={message.data as any} />
+                  )}
+                  {message.type === 'run' && message.data && 'status' in message.data && (
+                    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                    <RunCard data={message.data as any} />
+                  )}
+                  {message.type === 'log' && message.data && (
+                    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                    <LogCard logs={(Array.isArray(message.data) ? message.data : (message.data as any).entries) as any} />
+                  )}
+                  {message.type === 'undo' && message.data && 'available' in message.data && (
+                    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                    <UndoCard data={message.data as any} />
+                  )}
+                  {message.type === 'output' && message.data && 'title' in message.data && (
                     <OutputCard
-                      title={message.data.title}
-                      content={message.data.content}
-                      type={message.data.type}
+                      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                      title={(message.data as any).title}
+                      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                      content={(message.data as any).content}
+                      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                      type={(message.data as any).type}
                     />
                   )}
                 </ChatMessage>
