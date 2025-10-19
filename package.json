@@ -36,7 +36,7 @@
     "packages/appstore/*"
   ],
   "engines": {
-    "node": "^20",
+    "node": "^20 || ^22 || ^24",
     "pnpm": ">=9 <11"
   }
 }
