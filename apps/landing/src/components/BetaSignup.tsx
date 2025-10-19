@@ -10,11 +10,48 @@ export const BetaSignup = () => {
   const [role, setRole] = useState("");
   const [teamSize, setTeamSize] = useState("");
   const [useCase, setUseCase] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [success, setSuccess] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    // Handle form submission
-    console.log({ email, role, teamSize, useCase });
+    setLoading(true);
+    setSuccess(null);
+    setError(null);
+
+    try {
+      // Send form data to the beta-signup API (Vercel function at /api/beta-signup)
+      const payload = {
+        email,
+        role,
+        teamSize,
+        useCase,
+      };
+
+      const res = await fetch("/api/beta-signup", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(payload),
+      });
+
+      if (!res.ok) {
+        const text = await res.text();
+        throw new Error(text || `Request failed with status ${res.status}`);
+      }
+
+      setSuccess("Thanks — we'll email you when your spot opens.");
+      setEmail("");
+      setRole("");
+      setTeamSize("");
+      setUseCase("");
+    } catch (err: any) {
+      setError(err?.message || "Something went wrong. Please try again.");
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -87,7 +124,7 @@ export const BetaSignup = () => {
                 />
               </div>
 
-              <div className="space-y-3">
+              {/* <div className="space-y-3">
                 <div className="flex items-start gap-3">
                   <Checkbox id="updates" />
                   <Label htmlFor="updates" className="text-sm font-normal cursor-pointer">
@@ -100,11 +137,29 @@ export const BetaSignup = () => {
                     Notify me about self-host/OSS
                   </Label>
                 </div>
-              </div>
+              </div> */}
+
+              {success && (
+                <div className="p-4 rounded-xl bg-green-500/10 border border-green-500/20 text-green-600 dark:text-green-400">
+                  {success}
+                </div>
+              )}
+
+              {error && (
+                <div className="p-4 rounded-xl bg-red-500/10 border border-red-500/20 text-red-600 dark:text-red-400">
+                  {error}
+                </div>
+              )}
 
               <div className="space-y-3 pt-4">
-                <Button type="submit" variant="hero" className="w-full" size="lg">
-                  Join Beta
+                <Button 
+                  type="submit" 
+                  variant="hero" 
+                  className="w-full" 
+                  size="lg"
+                  disabled={loading}
+                >
+                  {loading ? "Joining..." : "Join Beta"}
                 </Button>
                 <Button type="button" variant="secondary" className="w-full" size="lg" asChild>
                   <a href="https://github.com/hadoan/quikday" target="_blank" rel="noopener noreferrer">

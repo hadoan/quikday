@@ -13,8 +13,10 @@ function getPool(): Pool {
     if (!connectionString) {
       throw new Error('DATABASE_URL is not set');
     }
-    // Optional SSL for hosted Postgres (set PGSSL=1 in env if needed)
-    const ssl = process.env.PGSSL === '1' ? { rejectUnauthorized: false } : undefined;
+    // Enable SSL for hosted Postgres (required for most cloud providers)
+    // Disable only for local dev by setting PGSSL=0
+    const sslEnabled = process.env.PGSSL !== '0';
+    const ssl = sslEnabled ? { rejectUnauthorized: false } : undefined;
     global.__pgpool = new Pool({ connectionString, ssl });
   }
   return global.__pgpool as Pool;
