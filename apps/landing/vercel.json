@@ -1,11 +1,1 @@
-{
-  "installCommand": "npx -y pnpm@10.17.0 -v && npx -y pnpm@10.17.0 install",
-  "buildCommand": "pnpm build:landing",
-  "outputDirectory": "apps/landing/dist",
-  "functions": {
-    "apps/landing/api/**/*.ts": {
-      "memory": 1024,
-      "maxDuration": 10
-    }
-  }
-}
+{}
