@@ -19,11 +19,18 @@ const Index = () => {
     "name": "Quik.day",
     "applicationCategory": "AutomationApplication",
     "operatingSystem": "Web",
-    "description": "Execution automation for lean teams. Run work fast. Review only when it matters. Undo built-in. Open source and built in public.",
+    "description": "Execution automation for founders and lean GTM teams. Run work fast. Review only when it matters. Undo built-in.",
     "offers": {
-      "@type": "Offer",
-      "price": "19.00",
-      "priceCurrency": "EUR"
+      "@type": "AggregateOffer",
+      "lowPrice": "19.00",
+      "highPrice": "99.00",
+      "priceCurrency": "EUR",
+      "offers": [
+        {"@type": "Offer", "name": "LTD", "price": "29.00", "priceCurrency": "EUR", "category": "OneTimePayments"},
+        {"@type": "Offer", "name": "Starter", "price": "19.00", "priceCurrency": "EUR", "category": "Subscription"},
+        {"@type": "Offer", "name": "Pro", "price": "49.00", "priceCurrency": "EUR", "category": "Subscription"},
+        {"@type": "Offer", "name": "Team", "price": "99.00", "priceCurrency": "EUR", "category": "Subscription"}
+      ]
     },
     "brand": {
       "@type": "Brand",
@@ -41,38 +48,10 @@ const Index = () => {
     "@context": "https://schema.org",
     "@type": "FAQPage",
     "mainEntity": [
-      {
-        "@type": "Question",
-        "name": "Can Quik.day replace my tab juggling between Slack, CRM, email, and calendar?",
-        "acceptedAnswer": {
-          "@type": "Answer",
-          "text": "Yes. Quik.day connects to Gmail, Slack, CRMs, QuickBooks, calendars, Notion, and more—so you can run complete workflows without switching tools."
-        }
-      },
-      {
-        "@type": "Question",
-        "name": "How is Quik.day different from Zapier or Make?",
-        "acceptedAnswer": {
-          "@type": "Answer",
-          "text": "Quik.day prioritizes fast execution with a simple Undo and shows a short review only for bulk or risky changes. It also uses clear per-run pricing instead of opaque credits."
-        }
-      },
-      {
-        "@type": "Question",
-        "name": "Is Quik.day open source and built in public?",
-        "acceptedAnswer": {
-          "@type": "Answer",
-          "text": "Yes. Quik.day is open source and developed in public. You can star the repo, follow the roadmap, and contribute."
-        }
-      },
-      {
-        "@type": "Question",
-        "name": "Do I need my own API keys?",
-        "acceptedAnswer": {
-          "@type": "Answer",
-          "text": "No. OAuth works everywhere by default. BYOK is optional for X/Twitter power users."
-        }
-      }
+      {"@type": "Question","name": "What’s included in the Lifetime Deal?","acceptedAnswer": {"@type": "Answer","text": "The LTD includes 100 runs/month and 300 Copilot messages/month for one user and one workspace. Most solo founders never hit the cap. Add top-ups (€5) or upgrade anytime."}},
+      {"@type": "Question","name": "Do chats cost extra?","acceptedAnswer": {"@type": "Answer","text": "Planning is included via Copilot messages. You’re billed (or capped on LTD) only when you execute runs."}},
+      {"@type": "Question","name": "Can I bring my own API/LLM keys?","acceptedAnswer": {"@type": "Answer","text": "OAuth works everywhere by default. BYO LLM key is optional for planning; execution uses Quik’s secure connectors."}},
+      {"@type": "Question","name": "What happens at the limit?","acceptedAnswer": {"@type": "Answer","text": "You can still plan; execution pauses until reset or top-up. LTD top-ups expire after 60 days."}}
     ]
   };
 
@@ -105,26 +84,32 @@ const Index = () => {
         <title>Quik.day — Run work fast. Review only when it matters.</title>
         <meta 
           name="description" 
-          content="Quik.day connects Gmail, Slack, CRMs, QuickBooks, calendars, Notion, and more—so you stop tab-juggling and ship work faster. One-tap runs, short reviews when it counts, Undo built-in. Open source. Built in public." 
+          content="Execution automation for founders and lean GTM teams. One-tap runs, review when needed, Undo built-in. Open source. Built in public." 
         />
         <link rel="canonical" href="https://quik.day/" />
+        <link rel="alternate" href="https://quik.day/" hreflang="en" />
+        <link rel="alternate" href="https://quik.day/" hreflang="x-default" />
+        <meta name="keywords" content="automation for founders, GTM automation, workflow automation, Zapier alternative, indie hacker tools, Slack automation, CRM automation, Notion workflows, Google Calendar automation, QuickBooks automation" />
         
         {/* Open Graph */}
         <meta property="og:title" content="Quik.day — Run work fast. Review only when it matters." />
         <meta 
           property="og:description" 
-          content="Quik.day connects Gmail, Slack, CRMs, QuickBooks, calendars, Notion, and more—so you stop tab-juggling and ship work faster. One-tap runs, short reviews when it counts, Undo built-in. Open source. Built in public." 
+          content="Automation for founders and lean GTM teams. One-tap runs, review when needed, Undo built in." 
         />
         <meta property="og:type" content="website" />
         <meta property="og:url" content="https://quik.day/" />
+        <meta property="og:image" content="https://quik.day/og.png" />
         
         {/* Twitter Card */}
         <meta name="twitter:card" content="summary_large_image" />
+        <meta name="twitter:site" content="@quikday" />
         <meta name="twitter:title" content="Quik.day — Run work fast. Review only when it matters." />
         <meta 
           name="twitter:description" 
-          content="Execution automation for lean teams. Open source. Built in public." 
+          content="Run work fast. Review only when it matters. Undo built-in." 
         />
+        <meta name="twitter:image" content="https://quik.day/og.png" />
         
         {/* Structured Data */}
         <script type="application/ld+json">
@@ -135,6 +120,24 @@ const Index = () => {
         </script>
         <script type="application/ld+json">
           {JSON.stringify(structuredDataHowTo)}
+        </script>
+        <script type="application/ld+json">
+          {JSON.stringify({
+            "@context": "https://schema.org",
+            "@type": "Organization",
+            "name": "Quik.day",
+            "url": "https://quik.day",
+            "logo": "https://quik.day/logo.png",
+            "sameAs": [
+              "https://x.com/quikday",
+              "https://github.com/hadoan/quikday"
+            ],
+            "contactPoint": [{
+              "@type": "ContactPoint",
+              "email": "hello@quik.day",
+              "contactType": "customer support"
+            }]
+          })}
         </script>
       </Helmet>
 

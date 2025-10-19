@@ -28,7 +28,7 @@ export const Benefits = () => {
             What Quik.day{" "}
             <span className="bg-gradient-to-r from-primary to-purple-500 bg-clip-text text-transparent">
               crushes
-            </span>
+            </span>{" "}for you
           </h2>
 
           <div className="grid md:grid-cols-2 gap-6">

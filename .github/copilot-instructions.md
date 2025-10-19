@@ -27,7 +27,8 @@ Browser (Vite + React) → NestJS API → BullMQ Workers → LangChain/Graph Orc
 ### Monorepo Structure
 
 - `apps/api/` — NestJS backend (REST API, auth, orchestration)
-- `apps/web/` — Vite + React frontend (UI/UX)
+- `apps/web/` — Vite + React frontend (main application UI/UX)
+- `apps/landing/` — Standalone Vite + React landing page (marketing site, independent from main app)
 - `packages/types/` — Zod schemas for type safety
 - `packages/crypto/` — AES-GCM encryption for tokens
 - `packages/sdk/` — API client SDK
@@ -54,6 +55,22 @@ Browser (Vite + React) → NestJS API → BullMQ Workers → LangChain/Graph Orc
 - **API calls**: Use `@quikday/sdk` for type-safe API interactions
 - **Forms**: Use React Hook Form with Zod validation
 - **Routing**: React Router
+
+### Landing Page (Standalone React App)
+
+- **Location**: `apps/landing/` — Completely independent from main application
+- **Purpose**: Marketing site, public-facing content, product information
+- **Tech Stack**: Vite + React + TypeScript + Tailwind CSS + shadcn/ui
+- **No Backend Dependencies**: Does not connect to API or require authentication
+- **Standalone Deployment**: Can be deployed separately from main app
+- **Development**: Run with `pnpm dev:landing`
+- **Build**: Build with `pnpm build:landing`
+- **Key Characteristics**:
+  - Static site focused on marketing and conversions
+  - Independent routing and navigation
+  - Separate build output and deployment pipeline
+  - No shared state with main application
+  - Should link to main app for sign-up/login flows
 
 ### Database (Prisma + PostgreSQL)
 

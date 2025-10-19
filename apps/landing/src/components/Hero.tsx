@@ -32,10 +32,20 @@ export const Hero = () => {
           </h1>
 
           {/* Subheadline */}
-          <p className="text-xl md:text-2xl text-muted-foreground mb-4 max-w-3xl mx-auto leading-relaxed">
+          <p className="text-xl md:text-2xl text-muted-foreground mb-2 max-w-3xl mx-auto leading-relaxed">
             One-tap runs for simple tasks. A short summary screen for bulk or risky changes—
             <span className="font-semibold text-foreground"> Undo built-in</span>. 
             Clear per-run pricing.
+          </p>
+
+          {/* Trust strip */}
+          <p className="text-sm md:text-base text-foreground/80 mb-1 font-medium">
+            No switching. No friction. No babysitting.
+          </p>
+
+          {/* Apps line */}
+          <p className="text-sm text-muted-foreground mb-6">
+            Works with Gmail, Slack, CRMs, QuickBooks, calendars, Notion, Sheets, and more.
           </p>
 
           {/* CTAs */}
@@ -44,15 +54,12 @@ export const Hero = () => {
               Join Beta
             </Button>
             <Button variant="secondary" size="lg" className="min-w-[180px]" asChild>
-              <a href="https://github.com/quikday/quikday" target="_blank" rel="noopener noreferrer">
+              <a href="https://github.com/hadoan/quikday" target="_blank" rel="noopener noreferrer">
                 <Github className="h-5 w-5" />
                 View on GitHub
               </a>
             </Button>
-            <Button variant="ghost" size="lg">
-              <Play className="h-5 w-5" />
-              Run a preview (no write)
-            </Button>
+           
           </div>
 
           {/* Demo Card */}
@@ -82,7 +89,15 @@ export const Hero = () => {
                 </div>
               </div>
               <div className="pt-4 border-t border-border flex justify-between items-center">
-                <span className="text-sm text-muted-foreground">3 actions • €0.06</span>
+                <div className="flex items-center gap-3">
+                  <span className="text-sm text-muted-foreground">3 actions • €0.06</span>
+                  <span
+                    className="text-xs px-2 py-1 rounded bg-accent/50 text-muted-foreground"
+                    title="A run can include multiple steps. You’re billed per run, not per step."
+                  >
+                    Est. cost: Included in plan
+                  </span>
+                </div>
                 <Button size="sm">Run now</Button>
               </div>
             </div>

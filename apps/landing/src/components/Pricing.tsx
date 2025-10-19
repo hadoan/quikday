@@ -5,80 +5,115 @@ import { Badge } from "@/components/ui/badge";
 export const Pricing = () => {
   const plans = [
     {
+      id: "pricing-ltd",
+      name: "LTD",
+      price: "29",
+      cadence: "one-time",
+      runs: "100 runs / month",
+      messages: "300 Copilot messages / month",
+      features: [
+        "1 user • 1 workspace",
+        "Fast Mode + Undo; Review for bulk/risky",
+        "Core integrations (Gmail, Slack, LinkedIn, X, Notion, GCal, Sheets/Airtable, HubSpot/Close basic)",
+        "Top-ups: €5 → +500 runs (60-day) • €5 → +1,000 messages (60-day)",
+        "BYO LLM key (planning only) — optional",
+      ],
+      cta: "Get Lifetime (€29)",
+      ltd: true,
+    },
+    {
       name: "Starter",
       price: "19",
-      runs: "150 runs/mo",
+      cadence: "/ month",
+      runs: "150 runs / month",
+      messages: "100 Copilot messages / month",
       features: [
-        "1 workspace",
-        "Fast Mode + Undo",
-        "All integrations",
-        "Email support",
+        "1 workspace • Fast Mode + Undo",
+        "Review when it counts (auto on bulk/risky)",
       ],
+      cta: "Start Starter",
     },
     {
       name: "Pro",
       price: "49",
-      runs: "600 runs/mo",
+      cadence: "/ month",
+      runs: "600 runs / month",
+      messages: "500 Copilot messages / month",
       features: [
-        "3 workspaces",
-        "Review Mode + bulk rules",
-        "Priority support",
-        "Custom kits",
+        "3 workspaces • Bulk rules • Priority queue",
+        "Import from Zapier/Make (preview → run)",
       ],
+      cta: "Start Pro",
       popular: true,
     },
     {
       name: "Team",
       price: "99",
-      runs: "2,500 runs/mo",
+      cadence: "/ month",
+      runs: "2,500 runs / month",
+      messages: "2,000 Copilot messages / month",
       features: [
-        "Unlimited workspaces",
-        "Role gates",
-        "Audit export",
-        "Dedicated support",
+        "Role gates • Audit export • Webhooks",
+        "Priority support",
       ],
+      cta: "Start Team",
     },
   ];
 
   return (
     <section id="pricing" className="py-24 bg-muted/30">
       <div className="container mx-auto px-4">
-        <div className="text-center mb-16">
+        {/* LTD banner */}
+        <div className="max-w-5xl mx-auto mb-6">
+          <div className="flex items-center justify-center gap-2 text-sm bg-accent/40 border border-border rounded-xl px-4 py-2">
+            <span className="font-medium">Early LTD available — €29 one-time.</span>
+            <a href="#pricing-ltd" className="underline underline-offset-4">Get Lifetime</a>
+          </div>
+        </div>
+
+        <div className="text-center mb-10">
           <h2 className="text-4xl md:text-5xl font-bold mb-4">
             Simple,{" "}
             <span className="bg-gradient-to-r from-primary to-purple-500 bg-clip-text text-transparent">
               honest pricing
             </span>
           </h2>
-          <p className="text-xl text-muted-foreground mb-4">
+          <p className="text-xl text-muted-foreground">
             Clear per-run pricing. No hidden fees.
           </p>
-          <Badge variant="secondary" className="px-4 py-1.5">
-            <Zap className="h-3 w-3 mr-1" />
-            Lifetime Deal €19 — Limited early adopters
-          </Badge>
         </div>
 
-        <div className="grid md:grid-cols-3 gap-8 max-w-6xl mx-auto mb-12">
+        <div className="grid md:grid-cols-4 gap-6 max-w-6xl mx-auto mb-10">
           {plans.map((plan, index) => (
-            <div 
+            <div
               key={index}
-              className={`gradient-card rounded-2xl border p-8 transition-smooth ${
-                plan.popular 
-                  ? 'border-primary shadow-glow scale-105' 
+              id={plan.id}
+              className={`relative gradient-card rounded-2xl border p-8 transition-smooth ${
+                plan.ltd
+                  ? 'border-primary shadow-glow'
+                  : plan.popular
+                  ? 'border-primary/70 hover:shadow-glow'
                   : 'border-border hover:shadow-lg'
               }`}
             >
-              {plan.popular && (
+              {plan.ltd && (
+                <div className="absolute -top-3 left-4">
+                  <Badge className="shadow" variant="default">Early LTD</Badge>
+                </div>
+              )}
+              {plan.popular && !plan.ltd && (
                 <Badge className="mb-4" variant="default">Most Popular</Badge>
               )}
               <h3 className="text-2xl font-bold mb-2">{plan.name}</h3>
-              <div className="mb-6">
+              <div className="mb-4">
                 <span className="text-5xl font-bold">€{plan.price}</span>
-                <span className="text-muted-foreground">/mo</span>
+                {plan.cadence && <span className="text-muted-foreground"> {plan.cadence}</span>}
               </div>
-              <p className="text-muted-foreground mb-6">{plan.runs}</p>
-              
+              <p className="text-muted-foreground mb-1">{plan.runs}</p>
+              {plan.messages && (
+                <p className="text-muted-foreground mb-6">{plan.messages}</p>
+              )}
+
               <ul className="space-y-3 mb-8">
                 {plan.features.map((feature, fIndex) => (
                   <li key={fIndex} className="flex items-start gap-3">
@@ -88,19 +123,27 @@ export const Pricing = () => {
                 ))}
               </ul>
 
-              <Button 
-                variant={plan.popular ? "hero" : "secondary"} 
+              <Button
+                variant={plan.ltd || plan.popular ? "hero" : "secondary"}
                 className="w-full"
               >
-                Get Started
+                {plan.cta}
               </Button>
+              {plan.ltd && (
+                <p className="mt-2 text-xs text-muted-foreground text-center">One-time, yours forever</p>
+              )}
             </div>
           ))}
         </div>
 
-        <p className="text-center text-sm text-muted-foreground">
-          Overage: €0.02–€0.05 per run • Cancel anytime • 14-day money-back guarantee
-        </p>
+        <div className="max-w-4xl mx-auto">
+          <p className="text-center text-xs text-muted-foreground leading-relaxed">
+            <strong>Runs</strong> = executions that touch your apps. <strong>Copilot messages</strong> = planning chat & drafts. Per-run overage (if enabled outside LTD):
+            <strong> €0.02–€0.05 / run</strong>. Prices exclude VAT where applicable.
+            <br />
+            Fair-use throttles apply (daily caps, output limits). Planning remains available when caps are reached; execution resumes on reset or top-up.
+          </p>
+        </div>
       </div>
     </section>
   );

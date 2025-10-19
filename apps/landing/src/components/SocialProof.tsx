@@ -37,7 +37,7 @@ export const SocialProof = () => {
           {/* GitHub Stats + Changelog */}
           <div className="grid md:grid-cols-2 gap-8">
             {/* GitHub */}
-            <div className="gradient-card rounded-2xl border border-border p-6">
+            {/* <div className="gradient-card rounded-2xl border border-border p-6">
               <h4 className="text-lg font-bold mb-4 flex items-center gap-2">
                 <Star className="h-5 w-5 text-primary" />
                 GitHub Activity
@@ -56,10 +56,10 @@ export const SocialProof = () => {
                   <span className="font-bold">23</span>
                 </div>
               </div>
-            </div>
+            </div> */}
 
             {/* Changelog */}
-            <div id="changelog" className="gradient-card rounded-2xl border border-border p-6">
+            {/* <div id="changelog" className="gradient-card rounded-2xl border border-border p-6">
               <h4 className="text-lg font-bold mb-4">Latest Updates</h4>
               <div className="space-y-4">
                 {changelog.map((item, index) => (
@@ -72,7 +72,7 @@ export const SocialProof = () => {
                   </div>
                 ))}
               </div>
-            </div>
+            </div> */}
           </div>
         </div>
       </div>

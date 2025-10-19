@@ -107,7 +107,7 @@ export const BetaSignup = () => {
                   Join Beta
                 </Button>
                 <Button type="button" variant="secondary" className="w-full" size="lg" asChild>
-                  <a href="https://github.com/quikday/quikday" target="_blank" rel="noopener noreferrer">
+                  <a href="https://github.com/hadoan/quikday" target="_blank" rel="noopener noreferrer">
                     <Github className="h-5 w-5" />
                     Sign up with GitHub
                   </a>

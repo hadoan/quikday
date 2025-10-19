@@ -21,7 +21,7 @@ export const OpenSource = () => {
           <div className="gradient-card rounded-2xl border border-border p-8 mb-8">
             <div className="flex flex-wrap gap-4 justify-center mb-8">
               <Button variant="hero" asChild>
-                <a href="https://github.com/quikday/quikday" target="_blank" rel="noopener noreferrer">
+                <a href="https://github.com/hadoan/quikday" target="_blank" rel="noopener noreferrer">
                   <Github className="h-5 w-5" />
                   GitHub repo
                   <Star className="h-4 w-4 ml-1" />
@@ -49,7 +49,7 @@ export const OpenSource = () => {
             <div className="bg-muted/50 rounded-xl p-6 font-mono text-sm">
               <div className="text-muted-foreground mb-2"># Quick start</div>
               <code className="text-foreground">
-                git clone https://github.com/quikday/quikday<br />
+                git clone https://github.com/hadoan/quikday<br />
                 cd quikday && pnpm i && pnpm dev
               </code>
             </div>

@@ -96,6 +96,15 @@ const Apps = () => {
   const [category, setCategory] = useState<string>('All');
   const [query, setQuery] = useState('');
 
+  // Collapse sidebar on small screens automatically
+  useEffect(() => {
+    const mq = window.matchMedia('(max-width: 768px)');
+    const handle = () => setIsSidebarCollapsed(mq.matches);
+    handle();
+    mq.addEventListener('change', handle);
+    return () => mq.removeEventListener('change', handle);
+  }, []);
+
   const categories = useMemo(() => {
     const counts = new Map<string, number>();
     apps.forEach((a) => {
@@ -137,8 +146,8 @@ const Apps = () => {
 
       <div className="flex-1 flex flex-col">
         {/* Header */}
-        <header className="border-b border-border bg-card px-8 py-4">
-          <div className="flex items-center justify-between">
+        <header className="border-b border-border bg-card px-4 md:px-8 py-4">
+          <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
             <div>
               <h1 className="text-2xl font-bold text-foreground flex items-center gap-2">
                 <img
@@ -155,7 +164,7 @@ const Apps = () => {
               </h1>
               <p className="text-sm text-muted-foreground mt-1">Connect your social accounts</p>
             </div>
-            <div className="flex items-center gap-3">
+            <div className="w-full md:w-auto flex flex-wrap items-center gap-2 md:gap-3 justify-end">
               <ThemeToggle />
               <Button
                 variant="outline"

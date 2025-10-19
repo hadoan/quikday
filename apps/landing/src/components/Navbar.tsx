@@ -29,6 +29,7 @@ export const Navbar = () => {
     { label: "Kits", href: "#kits" },
     { label: "Integrations", href: "#integrations" },
     { label: "Pricing", href: "#pricing" },
+    { label: "Lifetime Deal (€29)", href: "#pricing-ltd" },
     { label: "Open Source", href: "#opensource" },
     { label: "Changelog", href: "#changelog" },
     { label: "Blog", href: "#blog" },
@@ -46,9 +47,16 @@ export const Navbar = () => {
         <div className="flex items-center justify-between h-16">
           {/* Logo */}
           <a href="#" className="flex items-center space-x-2 group">
-            <div className="w-8 h-8 bg-primary rounded-lg flex items-center justify-center transition-smooth group-hover:shadow-glow">
-              <span className="text-primary-foreground font-bold text-lg">Q</span>
-            </div>
+            <img
+              src="/logo/logo-light-bg.svg"
+              alt="Quik.day"
+              className="h-8 w-8 block dark:hidden"
+            />
+            <img
+              src="/logo/logo-dark-bg.svg"
+              alt="Quik.day"
+              className="h-8 w-8 hidden dark:block"
+            />
             <span className="text-xl font-bold">Quik.day</span>
           </a>
 
@@ -77,7 +85,7 @@ export const Navbar = () => {
             </Button>
             
             <Button variant="secondary" size="sm" asChild>
-              <a href="https://github.com/quikday/quikday" target="_blank" rel="noopener noreferrer">
+              <a href="https://github.com/hadoan/quikday" target="_blank" rel="noopener noreferrer">
                 <Github className="h-4 w-4" />
                 GitHub
               </a>
@@ -114,7 +122,7 @@ export const Navbar = () => {
               ))}
               <div className="pt-4 flex flex-col space-y-2 px-4">
                 <Button variant="secondary" size="sm" asChild className="w-full">
-                  <a href="https://github.com/quikday/quikday" target="_blank" rel="noopener noreferrer">
+                  <a href="https://github.com/hadoan/quikday" target="_blank" rel="noopener noreferrer">
                     <Github className="h-4 w-4" />
                     GitHub
                   </a>

@@ -35,7 +35,7 @@ export const Sidebar = ({
     <div
       className={cn(
         'border-r border-border bg-sidebar h-screen flex flex-col transition-all duration-300',
-        collapsed ? 'w-16' : 'w-80',
+        collapsed ? 'w-16' : 'w-64 md:w-72 lg:w-80',
       )}
     >
       <div className="p-6 border-b border-sidebar-border flex items-center justify-between">
@@ -59,7 +59,18 @@ export const Sidebar = ({
           </div>
         )}
         {collapsed && (
-          <img src="/logo/logo.svg" alt="Quik.day" className="h-5 w-5 mx-auto" />
+          <div className="mx-auto">
+            <img
+              src="/logo/logo-light-bg.svg"
+              alt="Quik.day"
+              className="h-5 w-auto dark:hidden"
+            />
+            <img
+              src="/logo/logo-dark-bg.svg"
+              alt="Quik.day"
+              className="h-5 w-auto hidden dark:block"
+            />
+          </div>
         )}
         {onToggleCollapse && (
           <Button

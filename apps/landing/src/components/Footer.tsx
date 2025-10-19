@@ -34,9 +34,16 @@ export const Footer = () => {
           {/* Brand + Newsletter */}
           <div className="lg:col-span-2">
             <div className="flex items-center space-x-2 mb-4">
-              <div className="w-8 h-8 bg-primary rounded-lg flex items-center justify-center">
-                <span className="text-primary-foreground font-bold text-lg">Q</span>
-              </div>
+              <img
+                src="/logo/logo-light-bg.svg"
+                alt="Quik.day"
+                className="h-8 w-8 block dark:hidden"
+              />
+              <img
+                src="/logo/logo-dark-bg.svg"
+                alt="Quik.day"
+                className="h-8 w-8 hidden dark:block"
+              />
               <span className="text-xl font-bold">Quik.day</span>
             </div>
             <p className="text-sm text-muted-foreground mb-6 max-w-sm">
@@ -94,7 +101,7 @@ export const Footer = () => {
               <Twitter className="h-5 w-5" />
             </a>
             <a 
-              href="https://github.com/quikday/quikday" 
+              href="https://github.com/hadoan/quikday" 
               target="_blank" 
               rel="noopener noreferrer"
               className="text-muted-foreground hover:text-foreground transition-smooth"
