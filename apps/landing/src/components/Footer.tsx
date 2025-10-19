@@ -1,8 +1,48 @@
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Github, Twitter } from "lucide-react";
+import { useState } from "react";
 
 export const Footer = () => {
+  const [email, setEmail] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [success, setSuccess] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  const handleSubscribe = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!email) return;
+    setLoading(true);
+    setSuccess(null);
+    setError(null);
+
+    try {
+      const payload = {
+        email,
+        role: "",
+        teamSize: "",
+        useCase: "newsletter-subscribe",
+      };
+
+      const res = await fetch("/api/beta-signup", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+
+      if (!res.ok) {
+        const text = await res.text();
+        throw new Error(text || `Request failed with status ${res.status}`);
+      }
+
+      setSuccess("Subscribed. We'll keep you posted.");
+      setEmail("");
+    } catch (err: any) {
+      setError(err?.message || "Something went wrong. Please try again.");
+    } finally {
+      setLoading(false);
+    }
+  };
   const footerLinks = {
     Product: [
       { label: "Docs", href: "#docs" },
@@ -53,14 +93,29 @@ export const Footer = () => {
             {/* Newsletter */}
             <div>
               <p className="text-sm font-medium mb-3">Stay updated</p>
-              <div className="flex gap-2">
-                <Input 
-                  type="email" 
-                  placeholder="Enter your email"
-                  className="max-w-xs"
+              <form onSubmit={handleSubscribe} className="flex flex-col sm:flex-row gap-2 max-w-md">
+                <Input
+                  type="email"
+                  placeholder="you@company.com"
+                  className="sm:max-w-xs"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  required
                 />
-                <Button variant="secondary">Subscribe</Button>
-              </div>
+                <Button type="submit" variant="secondary" disabled={loading}>
+                  {loading ? "Subscribing..." : "Subscribe"}
+                </Button>
+              </form>
+              {success && (
+                <div className="mt-3 p-3 rounded-xl bg-green-500/10 border border-green-500/20 text-green-600 dark:text-green-400 text-sm">
+                  {success}
+                </div>
+              )}
+              {error && (
+                <div className="mt-3 p-3 rounded-xl bg-red-500/10 border border-red-500/20 text-red-600 dark:text-red-400 text-sm">
+                  {error}
+                </div>
+              )}
             </div>
           </div>
 

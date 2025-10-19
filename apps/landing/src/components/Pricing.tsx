@@ -16,7 +16,6 @@ export const Pricing = () => {
         "Fast Mode + Undo; Review for bulk/risky",
         "Core integrations (Gmail, Slack, LinkedIn, X, Notion, GCal, Sheets/Airtable, HubSpot/Close basic)",
         "Top-ups: €5 → +500 runs (60-day) • €5 → +1,000 messages (60-day)",
-        "BYO LLM key (planning only) — optional",
       ],
       cta: "Get Lifetime (€29)",
       ltd: true,
@@ -139,7 +138,7 @@ export const Pricing = () => {
         <div className="max-w-4xl mx-auto">
           <p className="text-center text-xs text-muted-foreground leading-relaxed">
             <strong>Runs</strong> = executions that touch your apps. <strong>Copilot messages</strong> = planning chat & drafts. Per-run overage (if enabled outside LTD):
-            <strong> €0.02–€0.05 / run</strong>. Prices exclude VAT where applicable.
+            <strong> €0.02–€0.05 / run</strong>.
             <br />
             Fair-use throttles apply (daily caps, output limits). Planning remains available when caps are reached; execution resumes on reset or top-up.
           </p>

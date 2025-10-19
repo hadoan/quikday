@@ -55,7 +55,7 @@ export const BetaSignup = () => {
   };
 
   return (
-    <section className="py-24">
+    <section id="join-beta" className="py-24 scroll-mt-24">
       <div className="container mx-auto px-4">
         <div className="max-w-2xl mx-auto">
           <div className="text-center mb-12">

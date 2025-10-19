@@ -25,14 +25,10 @@ export const Navbar = () => {
   };
 
   const navLinks = [
-    { label: "Product", href: "#product" },
     { label: "Kits", href: "#kits" },
     { label: "Integrations", href: "#integrations" },
     { label: "Pricing", href: "#pricing" },
     { label: "Lifetime Deal (€29)", href: "#pricing-ltd" },
-    { label: "Open Source", href: "#opensource" },
-    { label: "Changelog", href: "#changelog" },
-    { label: "Blog", href: "#blog" },
   ];
 
   return (
@@ -91,8 +87,8 @@ export const Navbar = () => {
               </a>
             </Button>
 
-            <Button variant="hero" size="sm">
-              Join Beta
+            <Button variant="hero" size="sm" asChild>
+              <a href="#join-beta">Join Beta</a>
             </Button>
           </div>
 
@@ -127,8 +123,8 @@ export const Navbar = () => {
                     GitHub
                   </a>
                 </Button>
-                <Button variant="hero" size="sm" className="w-full">
-                  Join Beta
+                <Button variant="hero" size="sm" className="w-full" asChild>
+                  <a href="#join-beta" onClick={() => setIsMenuOpen(false)}>Join Beta</a>
                 </Button>
               </div>
             </div>

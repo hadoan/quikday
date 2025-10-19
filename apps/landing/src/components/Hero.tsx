@@ -50,8 +50,8 @@ export const Hero = () => {
 
           {/* CTAs */}
           <div className="flex flex-col sm:flex-row gap-4 justify-center items-center mb-12">
-            <Button variant="hero" size="lg" className="min-w-[180px]">
-              Join Beta
+            <Button variant="hero" size="lg" className="min-w-[180px]" asChild>
+              <a href="#join-beta">Join Beta</a>
             </Button>
             <Button variant="secondary" size="lg" className="min-w-[180px]" asChild>
               <a href="https://github.com/hadoan/quikday" target="_blank" rel="noopener noreferrer">
