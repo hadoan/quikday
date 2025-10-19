@@ -35,8 +35,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     const pool = getPool();
     const text =
-      'INSERT INTO "Waitlist" ("email","role","teamSize","useCase") VALUES ($1,$2,$3,$4) '\
-      + 'ON CONFLICT ("email") DO UPDATE SET "role" = EXCLUDED."role", "teamSize" = EXCLUDED."teamSize", "useCase" = EXCLUDED."useCase"';
+      'INSERT INTO "Waitlist" ("email","role","teamSize","useCase") VALUES ($1,$2,$3,$4) ' +
+      'ON CONFLICT ("email") DO UPDATE SET "role" = EXCLUDED."role", "teamSize" = EXCLUDED."teamSize", "useCase" = EXCLUDED."useCase"';
     const values = [
       normalizedEmail,
       role ?? null,
