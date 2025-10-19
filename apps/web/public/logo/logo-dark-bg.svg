@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256">
+<rect width="100%" height="100%" fill="#111111"/>
+  <!-- Q ring -->
+  <circle cx="120" cy="120" r="80" fill="none" stroke="#007AFF" stroke-width="24"/>
+  <!-- Play -->
+  <polygon points="110,90 150,120 110,150" fill="#FFC04D"/>
+  <!-- Tail -->
+  <path d="M160 160 l40 22" stroke="#007AFF" stroke-width="18" stroke-linecap="round"/>
+</svg>

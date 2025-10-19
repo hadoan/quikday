@@ -13,7 +13,7 @@ import { ThemeToggle } from '@/components/theme/ThemeToggle';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Button } from '@/components/ui/button';
 import { mockRuns, mockTools, mockStats } from '@/data/mockRuns';
-import { Zap, Plug2, Plus } from 'lucide-react';
+import { Plug2, Plus } from 'lucide-react';
 import { getDataSource, getFeatureFlags } from '@/lib/flags/featureFlags';
 import type { UiRunSummary, UiEvent } from '@/lib/datasources/DataSource';
 import { trackDataSourceActive, trackChatSent, trackRunQueued } from '@/lib/telemetry/telemetry';
@@ -156,7 +156,16 @@ const Index = () => {
           <div className="flex items-center justify-between">
             <div>
               <h1 className="text-2xl font-bold text-foreground flex items-center gap-2">
-                <Zap className="h-6 w-6 text-primary" />
+                <img
+                  src="/logo/logo-light-bg.svg"
+                  alt="Quik.day"
+                  className="h-6 w-auto dark:hidden"
+                />
+                <img
+                  src="/logo/logo-dark-bg.svg"
+                  alt="Quik.day"
+                  className="h-6 w-auto hidden dark:block"
+                />
                 One Prompt. One Run. Done.
               </h1>
               <p className="text-sm text-muted-foreground mt-1">

@@ -141,7 +141,16 @@ const Apps = () => {
           <div className="flex items-center justify-between">
             <div>
               <h1 className="text-2xl font-bold text-foreground flex items-center gap-2">
-                <Plug2 className="h-6 w-6 text-primary" />
+                <img
+                  src="/logo/logo-light-bg.svg"
+                  alt="Quik.day"
+                  className="h-6 w-auto dark:hidden"
+                />
+                <img
+                  src="/logo/logo-dark-bg.svg"
+                  alt="Quik.day"
+                  className="h-6 w-auto hidden dark:block"
+                />
                 Apps
               </h1>
               <p className="text-sm text-muted-foreground mt-1">Connect your social accounts</p>

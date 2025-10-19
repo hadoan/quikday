@@ -40,15 +40,27 @@ export const Sidebar = ({
     >
       <div className="p-6 border-b border-sidebar-border flex items-center justify-between">
         {!collapsed && (
-          <div>
-            <h2 className="text-lg font-semibold text-sidebar-foreground flex items-center gap-2">
-              <Zap className="h-5 w-5 text-primary" />
-              Quik.day
-            </h2>
-            <p className="text-sm text-sidebar-foreground/60 mt-1">Execution Console</p>
+          <div className="flex items-center gap-3">
+            {/* Brand logo swaps for theme */}
+            <img
+              src="/logo/logo-light-bg.svg"
+              alt="Quik.day"
+              className="h-6 w-auto dark:hidden"
+            />
+            <img
+              src="/logo/logo-dark-bg.svg"
+              alt="Quik.day"
+              className="h-6 w-auto hidden dark:block"
+            />
+            <div>
+              <h2 className="text-lg font-semibold text-sidebar-foreground">Quik.day</h2>
+              <p className="text-sm text-sidebar-foreground/60 mt-1">Execution Console</p>
+            </div>
           </div>
         )}
-        {collapsed && <Zap className="h-5 w-5 text-primary mx-auto" />}
+        {collapsed && (
+          <img src="/logo/logo.svg" alt="Quik.day" className="h-5 w-5 mx-auto" />
+        )}
         {onToggleCollapse && (
           <Button
             variant="ghost"
