@@ -1,5 +1,5 @@
 {
-  "installCommand": "npx -y pnpm@10.17.0 -v && npx -y pnpm@10.17.0 install && cd api && npx -y pnpm@10.17.0 install",
+  "installCommand": "npx -y pnpm@10.17.0 -v && npx -y pnpm@10.17.0 install",
   "buildCommand": "pnpm build:landing",
   "outputDirectory": "apps/landing/dist"
 }

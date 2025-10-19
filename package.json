@@ -19,7 +19,12 @@
     "db:studio": "dotenv -e .env -- pnpm --filter @quikday/prisma exec prisma studio",
     "up": "docker compose up -d db redis && pnpm -w dev"
   },
+  "dependencies": {
+    "pg": "^8.13.1"
+  },
   "devDependencies": {
+    "@types/pg": "^8.11.10",
+    "@vercel/node": "^5.4.0",
     "dotenv-cli": "^7.4.4",
     "turbo": "^2.5.8",
     "typescript": "5.6.3",
