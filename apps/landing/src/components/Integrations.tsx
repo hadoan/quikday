@@ -42,7 +42,7 @@ export const Integrations = () => {
                       <img
                         src={integration.logoSrc}
                         alt={`${integration.name} logo`}
-                        className="h-6 w-6"
+                        className="h-6 w-6 dark:invert"
                         width={24}
                         height={24}
                         loading="lazy"
