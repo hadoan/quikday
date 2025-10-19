@@ -204,3 +204,13 @@ model ApiKey {
 
     @@index([userId])
 }
+
+// Simple landing waitlist for beta signups
+model Waitlist {
+    id        Int      @id @default(autoincrement())
+    email     String   @unique
+    role      String?
+    teamSize  String?
+    useCase   String?
+    createdAt DateTime @default(now())
+}
