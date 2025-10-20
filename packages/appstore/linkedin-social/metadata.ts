@@ -11,7 +11,7 @@ export const metadata: AppMeta = {
   categories: ['social', 'marketing'],
   category: 'social',
   logo: 'https://example.com/logos/linkedin.png',
-  publisher: 'Quill Social',
+  publisher: 'Quik.day',
   slug: 'linkedin-social',
   url: 'https://www.linkedin.com/developers/',
   email: 'support@example.com',
