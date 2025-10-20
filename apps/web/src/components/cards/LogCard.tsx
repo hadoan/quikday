@@ -1,5 +1,4 @@
 import { Activity, CheckCircle2, Clock } from 'lucide-react';
-import { ScrollArea } from '@/components/ui/scroll-area';
 
 export interface LogEntry {
   tool: string;
@@ -20,31 +19,29 @@ export const LogCard = ({ logs }: LogCardProps) => {
         <h3 className="font-semibold text-foreground">Execution Log</h3>
       </div>
 
-      <ScrollArea className="h-[200px] w-full">
-        <div className="space-y-3">
-          {logs.map((log, idx) => (
-            <div
-              key={idx}
-              className="flex items-start gap-3 p-3 rounded-lg bg-muted/50 font-mono text-sm"
-            >
-              <div className="mt-0.5">
-                {log.status === 'success' ? (
-                  <CheckCircle2 className="h-4 w-4 text-success" />
-                ) : (
-                  <Clock className="h-4 w-4 text-warning" />
-                )}
-              </div>
-              <div className="flex-1 space-y-1">
-                <div className="flex items-center justify-between">
-                  <span className="font-semibold text-foreground">{log.tool}</span>
-                  <span className="text-xs text-muted-foreground">{log.time}</span>
-                </div>
-                <p className="text-muted-foreground">{log.action}</p>
-              </div>
+      <div className="space-y-3">
+        {logs.map((log, idx) => (
+          <div
+            key={idx}
+            className="flex items-start gap-3 p-3 rounded-lg bg-muted/50 font-mono text-sm"
+          >
+            <div className="mt-0.5">
+              {log.status === 'success' ? (
+                <CheckCircle2 className="h-4 w-4 text-success" />
+              ) : (
+                <Clock className="h-4 w-4 text-warning" />
+              )}
             </div>
-          ))}
-        </div>
-      </ScrollArea>
+            <div className="flex-1 space-y-1">
+              <div className="flex items-center justify-between">
+                <span className="font-semibold text-foreground">{log.tool}</span>
+                <span className="text-xs text-muted-foreground">{log.time}</span>
+              </div>
+              <p className="text-muted-foreground break-all">{log.action}</p>
+            </div>
+          </div>
+        ))}
+      </div>
     </div>
   );
 };

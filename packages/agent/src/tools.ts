@@ -38,7 +38,7 @@ function toIsoFromStartAndMaybeEnd(
       const [h, m] = s.split(':').map((x) => parseInt(x, 10));
       const d = new Date();
       d.setSeconds(0, 0);
-      d.setHours(h, m, 0, 0);
+      d.setHours(h ?? 0, m ?? 0, 0, 0);
       return d;
     }
     const d = new Date(s);

@@ -71,6 +71,11 @@ const Index = () => {
               newMessages.push(buildPlanMessage({ intent, tools, actions }));
               break;
             }
+            case 'step_started': {
+              // Show step starting (optional - could show loading state)
+              console.log('[Index] Step started:', event.payload.tool, event.payload.action);
+              break;
+            }
             case 'run_status':
             case 'scheduled':
             case 'run_completed': {
@@ -83,26 +88,30 @@ const Index = () => {
                 (event.payload.completed_at as string | undefined) ||
                 (event.payload.completedAt as string | undefined);
 
-              // Find last RunCard message and update it instead of creating a new one
-              let lastRunCardIndex = -1;
+              // Find last RunCard that is still "running" or "queued" (not completed)
+              let lastRunningCardIndex = -1;
               for (let i = newMessages.length - 1; i >= 0; i--) {
                 const msg = newMessages[i];
-                if (msg && msg.role === 'assistant' && msg.type === 'run') {
-                  lastRunCardIndex = i;
-                  break;
+                if (msg && msg.role === 'assistant' && msg.type === 'run' && msg.data) {
+                  const cardStatus = (msg.data as any).status;
+                  // Only update if card is in active state (running, queued, executing)
+                  if (cardStatus && !['succeeded', 'failed', 'partial'].includes(cardStatus)) {
+                    lastRunningCardIndex = i;
+                    break;
+                  }
                 }
               }
 
-              if (lastRunCardIndex !== -1) {
-                // Update existing RunCard
-                console.log('[Index] Updating existing RunCard at index', lastRunCardIndex, 'with status:', status);
-                newMessages[lastRunCardIndex] = buildRunMessage({
+              if (lastRunningCardIndex !== -1) {
+                // Update existing active RunCard
+                console.log('[Index] Updating active RunCard at index', lastRunningCardIndex, 'with status:', status);
+                newMessages[lastRunningCardIndex] = buildRunMessage({
                   status,
                   started_at,
                   completed_at,
                 });
               } else {
-                // No existing RunCard, create a new one
+                // No active RunCard, create a new one (new run starting)
                 console.log('[Index] Creating new RunCard with status:', status);
                 newMessages.push(
                   buildRunMessage({

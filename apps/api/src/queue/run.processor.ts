@@ -3,7 +3,7 @@ import { Job } from 'bullmq';
 import { Logger } from '@nestjs/common';
 import { RunsService } from '../runs/runs.service';
 import { CredentialService } from '../credentials/credential.service';
-import { runAgent } from '@quikday/agent';
+import { runAgentWithEvents } from '@quikday/agent';
 import { TelemetryService } from '../telemetry/telemetry.service';
 import { getToolMetadata } from '@quikday/appstore';
 import { CredentialMissingError, CredentialInvalidError, ErrorCode } from '@quikday/types';
@@ -302,58 +302,56 @@ export class RunProcessor extends WorkerHost {
         fullPrompt: run.prompt,
       });
 
-      // Invoke the agent with the user prompt
-      const outputs = await runAgent(run.prompt);
+      // Invoke the agent with event callbacks for real-time updates
+      const result = await runAgentWithEvents(run.prompt, {
+        onPlanGenerated: async (plan) => {
+          this.logger.log('📋 Plan generated', { runId: run.id, tools: plan.tools });
+          await this.redisPubSub.publishRunEvent(run.id, {
+            type: 'plan_generated',
+            payload: {
+              intent: plan.intent,
+              tools: plan.tools,
+              actions: plan.tools.map(t => `Execute ${t}`),
+            },
+          });
+        },
+        onToolStarted: async (tool, args) => {
+          this.logger.log('🔧 Tool started', { runId: run.id, tool, args });
+          await this.redisPubSub.publishRunEvent(run.id, {
+            type: 'step_started',
+            payload: {
+              tool,
+              action: `Executing ${tool}`,
+              request: args,
+            },
+          });
+        },
+        onToolCompleted: async (tool, result) => {
+          this.logger.log('✅ Tool completed', { runId: run.id, tool, resultPreview: result.substring(0, 100) });
+          await this.redisPubSub.publishRunEvent(run.id, {
+            type: 'step_succeeded',
+            payload: {
+              tool,
+              action: `Completed ${tool}`,
+              response: result,
+            },
+          });
+        },
+        onCompleted: async (finalMessage) => {
+          this.logger.log('🎉 Agent completed', { runId: run.id, finalMessage });
+        },
+      });
 
       this.logger.log('✅ Agent execution completed', {
         timestamp: new Date().toISOString(),
         runId: run.id,
-        outputsCount: outputs.length,
+        messagesCount: result.messages.length,
+        hasFinalOutput: !!result.finalOutput,
       });
 
-      // Log all outputs for debugging
-      this.logger.log('📨 Outputs from agent:', {
-        timestamp: new Date().toISOString(),
-        outputs: outputs.map((output, idx) => ({
-          index: idx,
-          contentPreview: output.substring(0, 100) + (output.length > 100 ? '...' : ''),
-        })),
-      });
-
-      // Extract logs and output from agent outputs (string array)
+      // Extract logs and output from agent result
       const logs: any[] = [];
-      let output: any = null;
-
-      // Process outputs to extract structured data
-      outputs.forEach((outputStr, idx) => {
-        try {
-          // Try to parse as JSON (for structured messages)
-          const parsed = JSON.parse(outputStr);
-          if (parsed.tool || parsed.action) {
-            logs.push({
-              ts: parsed.ts || new Date().toISOString(),
-              tool: parsed.tool || 'unknown',
-              action: parsed.action || 'processed',
-              result: parsed,
-            });
-          }
-          // Last message with 'ok' is the output
-          if (parsed.ok !== undefined) {
-            output = parsed;
-          }
-        } catch {
-          // Not JSON, treat as regular log/text message
-          logs.push({
-            ts: new Date().toISOString(),
-            message: outputStr,
-            role: 'assistant',
-          });
-          // If it's the last output and looks like a response, use it as output
-          if (idx === outputs.length - 1 && !output) {
-            output = { message: outputStr };
-          }
-        }
-      });
+      const output = result.finalOutput ? { message: result.finalOutput } : null;
 
       this.logger.log('💾 Persisting execution results', {
         timestamp: new Date().toISOString(),

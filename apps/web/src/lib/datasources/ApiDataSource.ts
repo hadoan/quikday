@@ -123,6 +123,17 @@ export class ApiDataSource implements DataSource {
   // WebSocket Connection
   // -------------------------------------------------------------------------
   connectRunStream(runId: string, onEvent: (evt: UiEvent) => void): { close: () => void } {
+    // If the runId looks like a temporary client-generated ID (e.g., `R-<timestamp>`),
+    // avoid opening WS/polling until the real backend ID is known to prevent 404 spam.
+    if (/^R-\d{10,}$/.test(runId)) {
+      this.logger.info('Deferring stream connection for temporary runId', { runId });
+      return {
+        close: () => {
+          // no-op for temporary id
+        },
+      };
+    }
+
     // Close existing socket for this run if any
     const existingSocket = this.activeSockets.get(runId);
     if (existingSocket) {
