@@ -6,6 +6,8 @@
  */
 
 import { google } from 'googleapis';
+import type { AppMeta } from '@quikday/types';
+import { getAppKeysFromSlug } from '@quikday/appstore';
 
 export interface GoogleCalendarCallbackConfig {
   /** Authorization code from Google OAuth redirect */
@@ -26,7 +28,7 @@ export interface GoogleCalendarTokens {
   /** Scope granted by user */
   scope?: string;
   /** Token type (usually 'Bearer') */
-  token_type?: string;
+  token_type?: string | null;
   /** Expiry timestamp (Unix time in milliseconds) */
   expiry_date?: number | null;
   /** ID token (JWT with user info) */
@@ -174,7 +176,7 @@ export function isTokenExpired(tokens: GoogleCalendarTokens, bufferMs = 5 * 60 *
  * });
  * ```
  */
-export async function refreshGoogleCalendarToken(config: {
+export async function refreshToken(config: {
   refreshToken: string;
   clientId: string;
   clientSecret: string;
@@ -216,5 +218,190 @@ export async function refreshGoogleCalendarToken(config: {
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Unknown error';
     throw new Error(`Google Calendar token refresh failed: ${message}`);
+  }
+}
+
+/**
+ * End-to-end handler for the OAuth callback flow.
+ * - Parses `code` and `state` from request
+ * - Loads client keys (DB first, env fallback)
+ * - Exchanges code for tokens
+ * - Persists credential via provided Prisma service
+ * - Returns redirect target
+ */
+export async function callback(params: {
+  req: any;
+  meta: AppMeta;
+  prisma: any;
+}): Promise<{ redirectTo: string }> {
+  const { req, meta, prisma } = params;
+
+  console.log('📅 [Google Calendar] OAuth callback started', {
+    slug: meta.slug,
+    timestamp: new Date().toISOString(),
+    hasCode: !!req.query?.code,
+    hasState: !!req.query?.state,
+    hasError: !!req.query?.error,
+  });
+
+  const code = typeof req.query?.code === 'string' ? req.query.code : undefined;
+  const rawState = typeof req.query?.state === 'string' ? req.query.state : undefined;
+
+  if (!code) {
+    console.error('📅 [Google Calendar] OAuth callback failed: missing code parameter', {
+      slug: meta.slug,
+      queryParams: Object.keys(req.query || {}),
+      error: req.query?.error,
+    });
+    const err: any = new Error('`code` must be a string');
+    err.statusCode = 400;
+    throw err;
+  }
+
+  // Parse state (best effort)
+  let state: any = undefined;
+  try {
+    state = rawState ? JSON.parse(rawState) : undefined;
+    console.log('📅 [Google Calendar] State parsed successfully', {
+      hasUserId: !!state?.userId,
+      hasReturnTo: !!state?.returnTo,
+    });
+  } catch (error) {
+    console.warn('📅 [Google Calendar] Failed to parse state', {
+      rawState,
+      error: error instanceof Error ? error.message : 'Unknown error',
+    });
+    // ignore malformed state
+  }
+
+  // Resolve OAuth credentials: prefer DB keys, fallback to env
+  let clientId = process.env.GOOGLE_CLIENT_ID;
+  let clientSecret = process.env.GOOGLE_CLIENT_SECRET;
+  let credentialSource = 'env';
+  
+  try {
+    console.log('📅 [Google Calendar] Attempting to load credentials from database', {
+      slug: meta.slug,
+    });
+    const appKeys = (await getAppKeysFromSlug(meta.slug)) as Record<string, unknown>;
+    if (typeof appKeys?.client_id === 'string') {
+      clientId = appKeys.client_id;
+      credentialSource = 'database';
+    }
+    if (typeof appKeys?.client_secret === 'string') {
+      clientSecret = appKeys.client_secret;
+    }
+    console.log('📅 [Google Calendar] Credentials loaded', {
+      source: credentialSource,
+      hasClientId: !!clientId,
+      hasClientSecret: !!clientSecret,
+    });
+  } catch (error) {
+    console.warn('📅 [Google Calendar] Failed to load credentials from database, using env vars', {
+      error: error instanceof Error ? error.message : 'Unknown error',
+    });
+    // rely on env vars if DB lookup fails
+  }
+
+  if (!clientId) {
+    console.error('📅 [Google Calendar] Missing client_id', {
+      checkedEnv: !!process.env.GOOGLE_CLIENT_ID,
+      checkedDb: credentialSource === 'database',
+    });
+    const err: any = new Error('Google client_id missing.');
+    err.statusCode = 400;
+    throw err;
+  }
+  if (!clientSecret) {
+    console.error('📅 [Google Calendar] Missing client_secret', {
+      checkedEnv: !!process.env.GOOGLE_CLIENT_SECRET,
+      checkedDb: credentialSource === 'database',
+    });
+    const err: any = new Error('Google client_secret missing.');
+    err.statusCode = 400;
+    throw err;
+  }
+
+  const baseUrl = process.env.API_BASE_URL || `${req.protocol}://${req.get('host')}`;
+  const redirectUri = `${baseUrl}/integrations/${meta.slug}/callback`;
+
+  console.log('📅 [Google Calendar] Constructed redirect URI', {
+    redirectUri,
+    baseUrl,
+    slug: meta.slug,
+  });
+
+  // Exchange auth code for tokens
+  console.log('📅 [Google Calendar] Exchanging authorization code for tokens');
+  const startTime = Date.now();
+  
+  try {
+    const result = await exchangeGoogleCalendarCode({
+      code,
+      clientId,
+      clientSecret,
+      redirectUri,
+    });
+
+    const duration = Date.now() - startTime;
+    console.log('📅 [Google Calendar] Token exchange successful', {
+      duration: `${duration}ms`,
+      hasAccessToken: !!result.tokens.access_token,
+      hasRefreshToken: !!result.tokens.refresh_token,
+      scope: result.tokens.scope,
+      expiryDate: result.tokens.expiry_date,
+    });
+
+    // Determine owner (user) from request or state
+    const userId = (req?.user?.id ?? req?.user?.sub ?? state?.userId) as number | string | undefined;
+
+    console.log('📅 [Google Calendar] User extraction debug', {
+      'req.user': req?.user,
+      'req.user.id': req?.user?.id,
+      'req.user.sub': req?.user?.sub,
+      'state.userId': state?.userId,
+      'resolved userId': userId || 'none',
+    });
+
+    console.log('📅 [Google Calendar] Persisting credential to database', {
+      userId: userId || 'none',
+      type: meta.slug.replace(/-/g, '_'),
+      appId: meta.slug,
+    });
+
+    // Persist credential
+    const type = meta.slug.replace(/-/g, '_');
+    const credential = await prisma.credential.create({
+      data: {
+        type,
+        key: result.tokens as any,
+        ...(typeof userId === 'number' ? { userId } : {}),
+        appId: meta.slug,
+      },
+    });
+
+    console.log('📅 [Google Calendar] Credential saved successfully', {
+      credentialId: credential.id,
+      userId: credential.userId,
+    });
+
+    // Choose redirect target
+    const returnTo = state?.returnTo as string | undefined;
+    const redirectTo = returnTo && typeof returnTo === 'string' ? returnTo : `/apps/${meta.variant}/${meta.slug}`;
+
+    console.log('📅 [Google Calendar] OAuth callback completed successfully', {
+      redirectTo,
+      totalDuration: `${Date.now() - startTime}ms`,
+    });
+
+    return { redirectTo };
+  } catch (error) {
+    const duration = Date.now() - startTime;
+    console.error('📅 [Google Calendar] OAuth callback failed', {
+      duration: `${duration}ms`,
+      error: error instanceof Error ? error.message : 'Unknown error',
+      stack: error instanceof Error ? error.stack : undefined,
+    });
+    throw error;
   }
 }

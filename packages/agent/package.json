@@ -38,6 +38,7 @@
     "@langchain/core": "^1.0.1",
     "@langchain/langgraph": "^1.0.0",
     "@langchain/openai": "^1.0.0",
+    "@nestjs/common": "^10.4.2",
     "dotenv": "^17.2.3",
     "zod": "^4.1.12"
   },

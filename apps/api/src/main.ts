@@ -27,7 +27,12 @@ async function bootstrap() {
     // ignore logging errors
   }
 
-  const app = await NestFactory.create(AppModule, { logger: ['log', 'error', 'warn'] });
+  // Configure logger levels from environment
+  const logLevels = process.env.LOG_LEVEL 
+    ? process.env.LOG_LEVEL.split(',').map(level => level.trim()) as any[]
+    : ['log', 'error', 'warn'];
+  
+  const app = await NestFactory.create(AppModule, { logger: logLevels });
   app.use(json({ limit: '2mb' }));
   app.enableCors({ origin: true, credentials: true });
   const port = Number(process.env.PORT || 3000);

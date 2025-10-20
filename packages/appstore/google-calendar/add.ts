@@ -104,6 +104,13 @@ export async function resolveGoogleCalendarAuthUrl(params: {
 }): Promise<GoogleCalendarAuthUrlResult> {
   const { req, meta } = params;
 
+  console.log('📅 [Add] resolveGoogleCalendarAuthUrl called', {
+    slug: meta.slug,
+    hasReqUser: !!req.user,
+    reqHeaders: req.headers,
+    reqSession: req.session,
+  });
+
   let clientId = process.env.GOOGLE_CLIENT_ID;
   let clientSecret = process.env.GOOGLE_CLIENT_SECRET;
 
@@ -125,10 +132,21 @@ export async function resolveGoogleCalendarAuthUrl(params: {
   const baseUrl = process.env.API_BASE_URL || `${req.protocol}://${req.get('host')}`;
   const redirectUri = `${baseUrl}/integrations/${meta.slug}/callback`;
 
+  const userId = req.user?.id || req.user?.sub;
+  
+  console.log('📅 [Add] User info extraction', {
+    'req.user': req.user,
+    'req.user.id': req.user?.id,
+    'req.user.sub': req.user?.sub,
+    'resolved userId': userId || 'none',
+  });
+
   const state = JSON.stringify({
-    userId: req.user?.id || req.user?.sub,
+    userId,
     timestamp: Date.now(),
   });
+
+  console.log('📅 [Add] State being passed', { state });
 
   return generateGoogleCalendarAuthUrl({
     clientId,
