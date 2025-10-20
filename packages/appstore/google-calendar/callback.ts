@@ -352,19 +352,34 @@ export async function callback(params: {
       expiryDate: result.tokens.expiry_date,
     });
 
-    // Determine owner (user) from request or state
-    const userId = (req?.user?.id ?? req?.user?.sub ?? state?.userId) as number | string | undefined;
+    // Resolve authenticated user to a numeric userId
+    let numericUserId: number | undefined;
+    try {
+      const sub = (req?.user?.sub ?? (typeof state?.userId === 'string' ? state.userId : undefined)) as
+        | string
+        | undefined;
+      const email = (req?.user?.email as string | undefined) || undefined;
+      const displayName = (req?.user?.name as string | undefined) || undefined;
 
-    console.log('📅 [Google Calendar] User extraction debug', {
-      'req.user': req?.user,
-      'req.user.id': req?.user?.id,
-      'req.user.sub': req?.user?.sub,
-      'state.userId': state?.userId,
-      'resolved userId': userId || 'none',
-    });
+      if (sub) {
+        const user = await prisma.user.upsert({
+          where: { sub },
+          update: {},
+          create: { sub, email: email || null, displayName: displayName || null },
+        });
+        numericUserId = user.id;
+      } else if (email) {
+        const existing = await prisma.user.findUnique({ where: { email } });
+        if (existing) numericUserId = existing.id;
+      }
+    } catch (e) {
+      console.warn('📅 [Google Calendar] Failed to resolve user, saving credential without userId', {
+        error: e instanceof Error ? e.message : 'Unknown error',
+      });
+    }
 
     console.log('📅 [Google Calendar] Persisting credential to database', {
-      userId: userId || 'none',
+      userId: numericUserId ?? 'none',
       type: meta.slug.replace(/-/g, '_'),
       appId: meta.slug,
     });
@@ -375,7 +390,7 @@ export async function callback(params: {
       data: {
         type,
         key: result.tokens as any,
-        ...(typeof userId === 'number' ? { userId } : {}),
+        ...(typeof numericUserId === 'number' ? { userId: numericUserId } : {}),
         appId: meta.slug,
       },
     });

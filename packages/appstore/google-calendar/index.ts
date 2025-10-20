@@ -28,6 +28,12 @@ export default function createApp(meta: AppMeta, deps: any) {
           hasUrl: !!url,
         });
         
+        // If client requested JSON (e.g., to attach Authorization header), return the URL
+        const acceptsJson = (req.headers['accept'] || '').includes('application/json') || req.query?.format === 'json';
+        if (acceptsJson) {
+          return res.status(200).json({ url });
+        }
+        
         res.redirect(url);
       } catch (error) {
         const message = error instanceof Error ? error.message : 'Unknown error';

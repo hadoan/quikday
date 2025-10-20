@@ -1,6 +1,6 @@
 import { Controller, Get, Param, Post, Req, Res, UseGuards } from '@nestjs/common';
 import { Response, Request } from 'express';
-import { SessionGuard } from '../common/session.guard';
+import { KindeGuard } from '../auth/kinde.guard';
 import { AppStoreRegistry } from './appstore.registry';
 
 @Controller('integrations')
@@ -14,7 +14,7 @@ export class IntegrationsController {
   }
 
   @Get(':slug/add')
-  @UseGuards(SessionGuard)
+  @UseGuards(KindeGuard)
   async add(@Param('slug') slug: string, @Req() req: Request, @Res() res: Response) {
     const app = this.store.get(slug);
     if (!app) return res.status(404).json({ message: 'Unknown integration slug' });
@@ -23,7 +23,7 @@ export class IntegrationsController {
   }
 
   @Get(':slug/callback')
-  @UseGuards(SessionGuard)
+  @UseGuards(KindeGuard)
   async callback(@Param('slug') slug: string, @Req() req: Request, @Res() res: Response) {
     const app = this.store.get(slug);
     if (!app) return res.status(404).json({ message: 'Unknown integration slug' });
@@ -31,7 +31,7 @@ export class IntegrationsController {
   }
 
   @Post(':slug/post')
-  @UseGuards(SessionGuard)
+  @UseGuards(KindeGuard)
   async post(@Param('slug') slug: string, @Req() req: Request, @Res() res: Response) {
     const app = this.store.get(slug);
     if (!app) return res.status(404).json({ message: 'Unknown integration slug' });

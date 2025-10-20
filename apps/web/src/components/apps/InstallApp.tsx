@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useKindeAuth } from '@kinde-oss/kinde-auth-react';
 import { Button } from '@/components/ui/button';
 import {
   Dialog,
@@ -10,6 +11,8 @@ import {
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import { useToast } from '@/hooks/use-toast';
+import api from '@/apis/client';
+import axios from 'axios';
 
 /**
  * Installation method for app integrations.
@@ -52,6 +55,7 @@ export default function InstallApp({
   inputDialogTitle,
 }: InstallAppProps) {
   const { toast } = useToast();
+  const { login } = useKindeAuth();
   const [existingCount, setExistingCount] = useState<number>(0);
   const [installing, setInstalling] = useState(false);
   const [disconnecting, setDisconnecting] = useState(false);
@@ -81,12 +85,37 @@ export default function InstallApp({
     return `${window.location.protocol}//${window.location.hostname}:3000`;
   };
 
-  const onClickInstall = () => {
+  const onClickInstall = async () => {
     // Handle OAuth flow - redirect to backend OAuth initiation endpoint
     // Convention: /integrations/{slug}/add
     if (installMethod === 'oauth') {
       const apiBaseUrl = getApiBaseUrl();
       const redirectPath = oauthPath || `/integrations/${slug}/add`;
+
+      try {
+        // Call JSON variant; axios injects Authorization if configured
+        const resp = await api.get<{ url?: string }>(redirectPath, {
+          params: { format: 'json' },
+        });
+
+        if (resp.status === 200 && resp.data?.url) {
+          window.location.href = resp.data.url;
+          return;
+        }
+      } catch (e) {
+        if (axios.isAxiosError(e)) {
+          const status = e.response?.status;
+          if (status === 401 || status === 403) {
+            // Not authenticated—kick off login
+            toast({ title: 'Please sign in', description: 'You need to log in to install this app.' });
+            await login?.();
+            return;
+          }
+        }
+        // fall through to plain redirect below on other errors
+      }
+
+      // Fallback: plain redirect (works when API allows bypass/dev)
       window.location.href = `${apiBaseUrl}${redirectPath}`;
       return;
     }

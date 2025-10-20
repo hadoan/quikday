@@ -365,6 +365,9 @@ importers:
       '@hookform/resolvers':
         specifier: ^3.10.0
         version: 3.10.0(react-hook-form@7.65.0(react@18.3.1))
+      '@kinde-oss/kinde-auth-react':
+        specifier: ^5.9.0
+        version: 5.9.0(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
       '@radix-ui/react-accordion':
         specifier: ^1.2.11
         version: 1.2.12(@types/react-dom@18.3.7(@types/react@18.3.26))(@types/react@18.3.26)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
@@ -449,6 +452,9 @@ importers:
       '@tanstack/react-query':
         specifier: ^5.83.0
         version: 5.90.5(react@18.3.1)
+      axios:
+        specifier: ^1.7.7
+        version: 1.12.2
       class-variance-authority:
         specifier: ^0.7.1
         version: 0.7.1
@@ -543,9 +549,6 @@ importers:
       globals:
         specifier: ^15.15.0
         version: 15.15.0
-      lovable-tagger:
-        specifier: ^1.1.11
-        version: 1.1.11(vite@5.4.20(@types/node@22.18.11)(terser@5.44.0))
       postcss:
         specifier: ^8.5.6
         version: 8.5.6
@@ -1172,6 +1175,23 @@ packages:
 
   '@jridgewell/trace-mapping@0.3.9':
     resolution: {integrity: sha512-3Belt6tdc8bPgAtbcmdtNJlirVoTmEb5e2gC94PnkwEW9jI6CAHUeoG85tjWP5WquqfavoMtMwiG4P926ZKKuQ==}
+
+  '@kinde-oss/kinde-auth-react@5.9.0':
+    resolution: {integrity: sha512-16N5wWEXfo6u/JOU2Rp1+TUFfKcUJpYBpBN/GQ3I743R2CIW31+gDTxFQt4rMvD0FGQMyIbz0xhxZw9h3vE9Fg==}
+    peerDependencies:
+      react: ^17 || ^18 || ^19
+      react-dom: ^17 || ^18 || ^19
+
+  '@kinde/js-utils@0.27.0':
+    resolution: {integrity: sha512-4ireFvGhzVbR7V0nacJd/K7fqJOwYeUEKXYgHPODaNzANCTlCYb64+6KfPx/qUw4pu02/xyuqhcbaDVhP1xByA==}
+    peerDependencies:
+      expo-secure-store: '>=11.0.0'
+    peerDependenciesMeta:
+      expo-secure-store:
+        optional: true
+
+  '@kinde/jwt-decoder@0.2.0':
+    resolution: {integrity: sha512-dqtwCmAvywOVLkkUfp4UbqdvVLsK0cvHsJhU3gDY9rgjAdZhGw0vCreBW6j3MFLxbi6cZm7pMU7/O5SJgvN5Rw==}
 
   '@langchain/core@0.2.36':
     resolution: {integrity: sha512-qHLvScqERDeH7y2cLuJaSAlMwg3f/3Oc9nayRSXRU2UuaK/SOhI42cxiPLj1FnuHJSmN0rBQFkrLx02gI4mcVg==}
@@ -5712,6 +5732,20 @@ snapshots:
       '@jridgewell/resolve-uri': 3.1.2
       '@jridgewell/sourcemap-codec': 1.5.5
 
+  '@kinde-oss/kinde-auth-react@5.9.0(react-dom@18.3.1(react@18.3.1))(react@18.3.1)':
+    dependencies:
+      '@kinde/js-utils': 0.27.0
+      react: 18.3.1
+      react-dom: 18.3.1(react@18.3.1)
+    transitivePeerDependencies:
+      - expo-secure-store
+
+  '@kinde/js-utils@0.27.0':
+    dependencies:
+      '@kinde/jwt-decoder': 0.2.0
+
+  '@kinde/jwt-decoder@0.2.0': {}
+
   '@langchain/core@0.2.36(openai@6.5.0(ws@8.18.3)(zod@3.25.76))':
     dependencies:
       ansi-styles: 5.2.0
@@ -8751,19 +8785,6 @@ snapshots:
   loose-envify@1.4.0:
     dependencies:
       js-tokens: 4.0.0
-
-  lovable-tagger@1.1.11(vite@5.4.20(@types/node@22.18.11)(terser@5.44.0)):
-    dependencies:
-      '@babel/parser': 7.28.4
-      '@babel/types': 7.28.4
-      esbuild: 0.25.11
-      estree-walker: 3.0.3
-      magic-string: 0.30.19
-      tailwindcss: 3.4.18
-      vite: 5.4.20(@types/node@22.18.11)(terser@5.44.0)
-    transitivePeerDependencies:
-      - tsx
-      - yaml
 
   lovable-tagger@1.1.11(vite@5.4.20(@types/node@24.8.1)(terser@5.44.0)):
     dependencies:

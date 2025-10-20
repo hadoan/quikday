@@ -20,13 +20,13 @@ export class KindeGuard implements CanActivate {
     const req = ctx.switchToHttp().getRequest();
     const auth = req.headers.authorization || '';
     const token = auth.startsWith('Bearer ') ? auth.slice(7) : '';
-    if (!token) throw new UnauthorizedException('Missing token');
-
     if (this.config.isKindeBypass) {
       // In dev, trust any token and assign a minimal user payload
       req.user = { sub: 'dev-user', email: 'dev@example.com' };
       return true;
     }
+
+    if (!token) throw new UnauthorizedException('Missing token');
 
     const payload = await new Promise((resolve, reject) => {
       jwt.verify(

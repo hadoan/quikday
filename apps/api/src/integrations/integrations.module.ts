@@ -2,8 +2,11 @@ import { Module, OnModuleInit } from '@nestjs/common';
 import { IntegrationsController } from './integrations.controller';
 import { AppStoreRegistry } from './appstore.registry';
 import { PrismaService } from '@quikday/prisma';
+import { AuthModule } from '../auth/auth.module';
+import { ConfigModule } from '../config/config.module';
 
 @Module({
+  imports: [AuthModule, ConfigModule],
   controllers: [IntegrationsController],
   providers: [AppStoreRegistry, PrismaService],
   exports: [AppStoreRegistry],
