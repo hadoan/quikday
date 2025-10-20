@@ -135,6 +135,7 @@ export interface UiErrorData {
 // ============================================================================
 
 export type UiEventType =
+  | 'connection_established'
   | 'plan_generated'
   | 'step_started'
   | 'step_output'

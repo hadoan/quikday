@@ -88,8 +88,8 @@ export class WebSocketService implements OnModuleDestroy {
 
     // Send initial connection acknowledgment
     this.sendMessage(ws, {
-      type: 'run_status',
-      payload: { status: 'connected' },
+      type: 'connection_established',
+      payload: { message: 'Connected to run stream' },
       ts: new Date().toISOString(),
       runId,
     });

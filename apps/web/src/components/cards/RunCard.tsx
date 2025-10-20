@@ -1,24 +1,36 @@
 import { CheckCircle2, Loader2, XCircle } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Progress } from '@/components/ui/progress';
+import type { UiRunData, UiRunStatus, UiStepStatus } from '@/lib/datasources/DataSource';
 
-export type RunStatus = 'running' | 'success' | 'error';
-
-export interface RunData {
-  status: RunStatus;
-  started_at: string;
-  completed_at?: string;
-  progress?: number;
-  error?: string;
-}
+type CanonicalStatus = 'running' | 'success' | 'error';
 
 interface RunCardProps {
-  data: RunData;
+  data: UiRunData;
+}
+
+function normalizeStatus(status?: UiRunData['status']): CanonicalStatus {
+  const s = (status || '').toString().toLowerCase() as UiRunStatus | UiStepStatus | '';
+  if (['error', 'failed', 'fail'].includes(s)) return 'error';
+  if (['success', 'succeeded', 'completed', 'done'].includes(s)) return 'success';
+  // Treat everything else (queued, planning, executing, running, partial) as running
+  return 'running';
+}
+
+function formatTime(value?: string): string {
+  if (!value) return '—';
+  const d = new Date(value);
+  if (isNaN(d.getTime())) return '—';
+  return d.toLocaleTimeString();
 }
 
 export const RunCard = ({ data }: RunCardProps) => {
+  const status = normalizeStatus(data.status);
+  const startedAt = (data.started_at as string | undefined) || (data as any).startedAt;
+  const completedAt = (data.completed_at as string | undefined) || (data as any).completedAt;
+
   const getStatusIcon = () => {
-    switch (data.status) {
+    switch (status) {
       case 'running':
         return <Loader2 className="h-5 w-5 text-primary animate-spin" />;
       case 'success':
@@ -29,7 +41,7 @@ export const RunCard = ({ data }: RunCardProps) => {
   };
 
   const getStatusText = () => {
-    switch (data.status) {
+    switch (status) {
       case 'running':
         return 'Running...';
       case 'success':
@@ -40,7 +52,7 @@ export const RunCard = ({ data }: RunCardProps) => {
   };
 
   const getStatusColor = () => {
-    switch (data.status) {
+    switch (status) {
       case 'running':
         return 'border-primary/20 bg-primary/5';
       case 'success':
@@ -55,7 +67,7 @@ export const RunCard = ({ data }: RunCardProps) => {
       className={cn(
         'rounded-xl border p-6 space-y-4 animate-fade-in',
         getStatusColor(),
-        data.status === 'running' && 'animate-pulse-glow',
+        status === 'running' && 'animate-pulse-glow',
       )}
     >
       <div className="flex items-start gap-3">
@@ -64,22 +76,22 @@ export const RunCard = ({ data }: RunCardProps) => {
           <div>
             <h3 className="font-semibold text-foreground mb-1">{getStatusText()}</h3>
             <p className="text-sm text-muted-foreground">
-              {data.status === 'error' && data.error
-                ? data.error
-                : `Started at ${new Date(data.started_at).toLocaleTimeString()}`}
+              {status === 'error' && (data as any).error
+                ? (data as any).error
+                : `Started at ${formatTime(startedAt)}`}
             </p>
           </div>
 
-          {data.status === 'running' && data.progress !== undefined && (
+          {status === 'running' && data.progress !== undefined && (
             <div className="space-y-2">
               <Progress value={data.progress} className="h-2" />
               <p className="text-xs text-muted-foreground text-right">{data.progress}%</p>
             </div>
           )}
 
-          {data.completed_at && (
+          {completedAt && (
             <p className="text-xs text-muted-foreground">
-              Completed at {new Date(data.completed_at).toLocaleTimeString()}
+              Completed at {formatTime(completedAt)}
             </p>
           )}
         </div>

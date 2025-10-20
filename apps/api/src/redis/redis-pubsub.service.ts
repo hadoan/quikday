@@ -2,7 +2,7 @@ import { Injectable, Logger, OnModuleDestroy } from '@nestjs/common';
 import Redis from 'ioredis';
 
 export interface RunEvent {
-  type: 'run_status' | 'run_completed' | 'step_succeeded' | 'step_failed';
+  type: 'connection_established' | 'run_status' | 'run_completed' | 'step_succeeded' | 'step_failed';
   runId: string;
   payload: any;
   ts: string;

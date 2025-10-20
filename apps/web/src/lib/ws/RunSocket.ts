@@ -117,13 +117,7 @@ export class RunSocket {
     this.reconnectAttempts = 0;
     this.startHeartbeat();
 
-    // Emit connection event
-    this.config.onEvent({
-      type: 'run_status',
-      payload: { status: 'connected' },
-      ts: new Date().toISOString(),
-      runId: this.config.runId,
-    });
+    // Note: Backend sends initial "connected" status, no need to emit here
   }
 
   private handleMessage(event: MessageEvent): void {

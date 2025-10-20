@@ -59,6 +59,11 @@ const Index = () => {
           // Translate common events into chat messages
           const newMessages = [...(run.messages ?? [])];
           switch (event.type) {
+            case 'connection_established': {
+              // Just log connection, don't show a card
+              console.log('[Index] WebSocket connected:', event.payload.message);
+              break;
+            }
             case 'plan_generated': {
               const intent = (event.payload.intent as string) || 'Process request';
               const tools = (event.payload.tools as string[]) || [];
@@ -70,11 +75,19 @@ const Index = () => {
             case 'scheduled':
             case 'run_completed': {
               const status = (event.type === 'run_completed' ? 'succeeded' : (event.payload.status as string)) || 'queued';
+              const started_at =
+                (event.payload.started_at as string | undefined) ||
+                (event.payload.startedAt as string | undefined) ||
+                (event.ts as string | undefined);
+              const completed_at =
+                (event.payload.completed_at as string | undefined) ||
+                (event.payload.completedAt as string | undefined);
+
               newMessages.push(
                 buildRunMessage({
                   status,
-                  started_at: event.payload.started_at as string | undefined,
-                  completed_at: event.payload.completed_at as string | undefined,
+                  started_at,
+                  completed_at,
                 })
               );
               break;
