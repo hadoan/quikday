@@ -259,6 +259,9 @@ function mapStepStatus(status?: string): UiStepStatus {
 
 function mapEventType(type: string): UiEvent['type'] {
   const typeMap: Record<string, UiEvent['type']> = {
+    connection_established: 'connection_established',
+    connected: 'connection_established', // alias
+    
     plan_generated: 'plan_generated',
     plan: 'plan_generated', // alias
     

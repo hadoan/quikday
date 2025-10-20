@@ -83,13 +83,35 @@ const Index = () => {
                 (event.payload.completed_at as string | undefined) ||
                 (event.payload.completedAt as string | undefined);
 
-              newMessages.push(
-                buildRunMessage({
+              // Find last RunCard message and update it instead of creating a new one
+              let lastRunCardIndex = -1;
+              for (let i = newMessages.length - 1; i >= 0; i--) {
+                const msg = newMessages[i];
+                if (msg && msg.role === 'assistant' && msg.type === 'run') {
+                  lastRunCardIndex = i;
+                  break;
+                }
+              }
+
+              if (lastRunCardIndex !== -1) {
+                // Update existing RunCard
+                console.log('[Index] Updating existing RunCard at index', lastRunCardIndex, 'with status:', status);
+                newMessages[lastRunCardIndex] = buildRunMessage({
                   status,
                   started_at,
                   completed_at,
-                })
-              );
+                });
+              } else {
+                // No existing RunCard, create a new one
+                console.log('[Index] Creating new RunCard with status:', status);
+                newMessages.push(
+                  buildRunMessage({
+                    status,
+                    started_at,
+                    completed_at,
+                  })
+                );
+              }
               break;
             }
             case 'step_succeeded':
@@ -320,7 +342,17 @@ const Index = () => {
         {/* Chat Area */}
         <ScrollArea className="flex-1">
           <div className="max-w-4xl mx-auto px-8 py-8 space-y-6">
-            {activeRun?.messages.map((message, idx) => {
+            {!activeRun && (
+              <div className="text-center text-muted-foreground py-8">
+                No active run selected
+              </div>
+            )}
+            {activeRun && (!activeRun.messages || activeRun.messages.length === 0) && (
+              <div className="text-center text-muted-foreground py-8">
+                No messages yet
+              </div>
+            )}
+            {activeRun?.messages?.map((message, idx) => {
               if (message.role === 'user') {
                 return (
                   <ChatMessage key={idx} role="user">
