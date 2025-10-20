@@ -17,6 +17,7 @@ export class TelemetryService {
       this.logger.debug(`Telemetry disabled: ${event}`);
       return;
     }
-    this.client.capture({ event, distinctId: 'quikday-backend', properties });
+    // Ensure properties is always an object to avoid SDK internals choking on undefined/null
+    this.client.capture({ event, distinctId: 'quikday-backend', properties: properties ?? {} });
   }
 }

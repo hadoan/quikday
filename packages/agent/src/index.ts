@@ -1,6 +1,7 @@
 import 'dotenv/config';
 import { HumanMessage } from '@langchain/core/messages';
 export { compileApp } from './graph.js';
+export { buildSocialGraph } from './social.graph.js';
 
 /**
  * Run the agent for a single user prompt and return assistant/tool outputs as strings.

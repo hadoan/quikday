@@ -28,10 +28,12 @@ import {
   type BackendCredential,
 } from '../adapters/backendToViewModel';
 import { createRunSocket, type RunSocket } from '../ws/RunSocket';
+import { createLogger } from '../utils/logger';
 
 export class ApiDataSource implements DataSource {
   private config: Required<DataSourceConfig>;
   private activeSockets = new Map<string, RunSocket>();
+  private logger = createLogger('ApiDataSource');
 
   constructor(config: DataSourceConfig = {}) {
     // Set defaults
@@ -42,7 +44,7 @@ export class ApiDataSource implements DataSource {
       teamId: config.teamId || 1, // TODO: Get from auth context
     };
 
-    console.log('[ApiDataSource] Initialized:', {
+    this.logger.info('Initialized', {
       apiBaseUrl: this.config.apiBaseUrl,
       wsBaseUrl: this.config.wsBaseUrl,
     });
@@ -63,6 +65,15 @@ export class ApiDataSource implements DataSource {
       toolAllowlist: params.toolAllowlist,
     };
 
+    this.logger.info('🌐 Making API request to create run', {
+      timestamp: new Date().toISOString(),
+      url,
+      mode: params.mode,
+      teamId: this.config.teamId,
+      hasTargets: !!params.targets,
+      hasSchedule: !!params.scheduledAt,
+    });
+
     const response = await this.fetch(url, {
       method: 'POST',
       body: JSON.stringify(body),
@@ -70,6 +81,12 @@ export class ApiDataSource implements DataSource {
 
     const data = await response.json();
     
+    this.logger.info('✅ API response received', {
+      timestamp: new Date().toISOString(),
+      runId: data.id,
+      status: response.status,
+    });
+
     return { runId: data.id };
   }
 
@@ -118,7 +135,7 @@ export class ApiDataSource implements DataSource {
       authToken: this.config.authToken,
       onEvent,
       onError: (error) => {
-        console.error('[ApiDataSource] WebSocket error:', error);
+        this.logger.error('WebSocket error', error);
         onEvent({
           type: 'error',
           payload: { message: error.message },
@@ -127,7 +144,7 @@ export class ApiDataSource implements DataSource {
         });
       },
       onClose: () => {
-        console.log('[ApiDataSource] WebSocket closed for run:', runId);
+        this.logger.info('WebSocket closed for run', { runId });
         this.activeSockets.delete(runId);
       },
     });

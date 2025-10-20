@@ -3,6 +3,9 @@ import { Send, Sparkles } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { cn } from '@/lib/utils';
+import { createLogger } from '@/lib/utils/logger';
+
+const logger = createLogger('PromptInput');
 
 interface PromptInputProps {
   onSubmit: (prompt: string) => void;
@@ -20,6 +23,11 @@ export const PromptInput = ({
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (prompt.trim() && !disabled) {
+      logger.info('🚀 Send button pressed', {
+        timestamp: new Date().toISOString(),
+        prompt: prompt.substring(0, 50) + (prompt.length > 50 ? '...' : ''),
+        promptLength: prompt.length,
+      });
       onSubmit(prompt);
       setPrompt('');
     }

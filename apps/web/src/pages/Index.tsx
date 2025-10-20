@@ -15,8 +15,12 @@ import { Button } from '@/components/ui/button';
 import { mockRuns, mockTools, mockStats } from '@/data/mockRuns';
 import { Plug2, Plus } from 'lucide-react';
 import { getDataSource, getFeatureFlags } from '@/lib/flags/featureFlags';
+import { createLogger } from '@/lib/utils/logger';
+import { useToast } from '@/hooks/use-toast';
 import type { UiRunSummary, UiEvent } from '@/lib/datasources/DataSource';
 import { trackDataSourceActive, trackChatSent, trackRunQueued } from '@/lib/telemetry/telemetry';
+
+const logger = createLogger('Index');
 
 const Index = () => {
   const [runs, setRuns] = useState<UiRunSummary[]>(
@@ -30,6 +34,7 @@ const Index = () => {
 
   // Initialize data source
   const dataSource = getDataSource();
+  const { toast } = useToast();
 
   // Connect to WebSocket for real-time updates (if live mode)
   useEffect(() => {
@@ -79,6 +84,13 @@ const Index = () => {
   }, [activeRunId, activeRun?.messages?.length]);
 
   const handleNewPrompt = async (prompt: string) => {
+    logger.info('📨 Handling new prompt submission', {
+      timestamp: new Date().toISOString(),
+      activeRunId,
+      prompt: prompt.substring(0, 50) + (prompt.length > 50 ? '...' : ''),
+      mode: 'auto',
+    });
+
     // Append user message locally first
     setRuns((prev) =>
       prev.map((run) =>
@@ -96,11 +108,16 @@ const Index = () => {
     );
 
     try {
+      logger.debug('📊 Tracking telemetry event');
       // Track chat sent event
       trackChatSent({
         mode: 'auto',
         hasSchedule: false,
         targetsCount: 0,
+      });
+
+      logger.info('🔄 Calling dataSource.createRun', {
+        timestamp: new Date().toISOString(),
       });
 
       // Use data source to create run
@@ -109,14 +126,28 @@ const Index = () => {
         mode: 'auto',
       });
 
-      console.log('[Index] Created run:', runId);
+      logger.info('✅ Run created successfully', {
+        runId,
+        timestamp: new Date().toISOString(),
+      });
       trackRunQueued(runId);
 
       // In live mode, WebSocket will update the UI
       // In mock mode, MockDataSource simulates events
     } catch (err) {
-      console.error('Failed to create run:', err);
-      // TODO: Show error toast
+      logger.error('Failed to create run', err as Error);
+      // Show error toast
+      try {
+        const message = err instanceof Error ? err.message : 'Unknown error';
+        toast({
+          title: 'Failed to create run',
+          description: message,
+          variant: 'destructive',
+        });
+      } catch (e) {
+        // swallow - don't let toast failures break the app
+        logger.error('Failed to show toast', e as Error);
+      }
     }
   };
 

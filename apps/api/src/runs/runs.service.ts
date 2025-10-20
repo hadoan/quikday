@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable, NotFoundException, Logger } from '@nestjs/common';
 import { PrismaService } from '@quikday/prisma';
 import { InjectQueue } from '@nestjs/bullmq';
 import { Queue } from 'bullmq';
@@ -7,6 +7,8 @@ import { CreateRunDto } from './runs.controller';
 
 @Injectable()
 export class RunsService {
+  private readonly logger = new Logger(RunsService.name);
+
   constructor(
     private prisma: PrismaService,
     private telemetry: TelemetryService,
@@ -16,17 +18,34 @@ export class RunsService {
   async createFromPrompt(dto: CreateRunDto) {
     const { prompt, mode, teamId, scheduledAt, channelTargets, toolAllowlist } = dto;
 
+    this.logger.log('🔨 Creating run from prompt', {
+      timestamp: new Date().toISOString(),
+      mode,
+      teamId,
+      hasSchedule: !!scheduledAt,
+      hasTargets: !!channelTargets,
+      hasAllowlist: !!toolAllowlist,
+    });
+
     // TODO: Load or create user based on auth context
     // For now assume a placeholder user with id 1 exists or create a minimal one
+    this.logger.debug('👤 Upserting dev user');
     const user = await this.prisma.user.upsert({
       where: { sub: 'dev-user' },
       update: {},
       create: { sub: 'dev-user', email: 'dev@example.com', displayName: 'Dev User' },
     });
 
+    this.logger.debug('🏢 Validating team', { teamId });
     // Ensure team exists
     const team = await this.prisma.team.findUnique({ where: { id: teamId } });
     if (!team) throw new NotFoundException('Team not found');
+
+    this.logger.log('💾 Persisting run to database', {
+      timestamp: new Date().toISOString(),
+      userId: user.id,
+      teamId: team.id,
+    });
 
     // Create the run
     const run = await this.prisma.run.create({
@@ -44,16 +63,33 @@ export class RunsService {
       },
     });
 
+    this.logger.log('✅ Run persisted to database', {
+      timestamp: new Date().toISOString(),
+      runId: run.id,
+      status: run.status,
+    });
+
+    this.logger.debug('📊 Tracking telemetry event');
     await this.telemetry.track('run_created', { runId: run.id, teamId: team.id, mode });
 
     // Auto-enqueue if mode is 'auto'
     if (mode === 'auto') {
+      this.logger.log('🚀 Auto-enqueueing run (mode=auto)', {
+        timestamp: new Date().toISOString(),
+        runId: run.id,
+      });
       await this.enqueue(run.id);
     }
 
     // Schedule if mode is 'scheduled'
     if (mode === 'scheduled' && scheduledAt) {
       const delay = new Date(scheduledAt).getTime() - Date.now();
+      this.logger.log('⏰ Scheduling run for delayed execution', {
+        timestamp: new Date().toISOString(),
+        runId: run.id,
+        scheduledAt,
+        delayMs: delay,
+      });
       await this.runsQueue.add(
         'execute',
         { runId: run.id },
@@ -61,11 +97,30 @@ export class RunsService {
       );
     }
 
+    this.logger.log('✅ Run creation completed', {
+      timestamp: new Date().toISOString(),
+      runId: run.id,
+    });
+
     return run;
   }
 
   async enqueue(runId: string) {
-    await this.runsQueue.add('execute', { runId }, { removeOnComplete: 100, removeOnFail: 100 });
+    this.logger.log('📮 Adding job to BullMQ queue', {
+      timestamp: new Date().toISOString(),
+      runId,
+      queue: 'runs',
+      jobType: 'execute',
+    });
+
+    const job = await this.runsQueue.add('execute', { runId }, { removeOnComplete: 100, removeOnFail: 100 });
+
+    this.logger.log('✅ Job added to queue', {
+      timestamp: new Date().toISOString(),
+      runId,
+      jobId: job.id,
+      queue: 'runs',
+    });
   }
 
   async get(id: string) {
