@@ -15,6 +15,7 @@ import { Button } from '@/components/ui/button';
 import { mockRuns, mockTools, mockStats } from '@/data/mockRuns';
 import { Plug2, Plus } from 'lucide-react';
 import { useKindeAuth } from '@kinde-oss/kinde-auth-react';
+import { useNavigate } from 'react-router-dom';
 import { getDataSource, getFeatureFlags } from '@/lib/flags/featureFlags';
 import {
   buildPlanMessage,
@@ -37,6 +38,7 @@ const Index = () => {
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
   const activeRun = runs.find((run) => run.id === activeRunId);
   const bottomRef = useRef<HTMLDivElement | null>(null);
+  const navigate = useNavigate();
 
   // Initialize data source
   const dataSource = getDataSource();
@@ -283,8 +285,7 @@ const Index = () => {
   };
 
   const handleEditProfile = () => {
-    console.log('Edit profile');
-    // Navigate to edit profile page
+    navigate('/settings/profile');
   };
 
   const { logout } = useKindeAuth();

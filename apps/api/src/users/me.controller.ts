@@ -1,4 +1,4 @@
-import { Body, Controller, Patch, Req, Res, UseGuards } from '@nestjs/common';
+import { Body, Controller, Get, Patch, Req, Res, UseGuards } from '@nestjs/common';
 import { Request, Response } from 'express';
 import { PrismaService } from '@quikday/prisma';
 import { KindeGuard } from '../auth/kinde.guard';
@@ -6,6 +6,27 @@ import { KindeGuard } from '../auth/kinde.guard';
 @Controller('users')
 export class UsersMeController {
   constructor(private prisma: PrismaService) {}
+
+  @Get('me')
+  @UseGuards(KindeGuard)
+  async getMe(@Req() req: Request, @Res() res: Response) {
+    const claims: any = (req as any).user || {};
+    const sub = claims?.sub as string | undefined;
+    if (!sub) return res.status(401).json({ message: 'Missing sub in token' });
+
+    const user = await this.prisma.user.findUnique({ where: { sub } });
+    if (!user) return res.status(404).json({ message: 'User not found' });
+
+    return res.json({
+      id: user.id,
+      email: user.email || undefined,
+      name: user.displayName || undefined,
+      avatar: user.avatar || undefined,
+      plan: user.plan,
+      createdAt: user.createdAt,
+      lastLoginAt: user.lastLoginAt || undefined,
+    });
+  }
 
   @Patch('me')
   @UseGuards(KindeGuard)

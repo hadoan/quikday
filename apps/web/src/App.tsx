@@ -14,6 +14,7 @@ import NotFound from './pages/NotFound';
 import ProtectedRoute from './components/auth/ProtectedRoute';
 import ApiAuthProvider from './apis/ApiAuthProvider';
 import { syncUserAfterRegister } from '@/apis/syncUser';
+import ProfileSettingsPage from './pages/Settings/Profile';
 
 const queryClient = new QueryClient();
 
@@ -55,6 +56,14 @@ const App = () => (
                 element={
                   <ProtectedRoute>
                     <Apps />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/settings/profile"
+                element={
+                  <ProtectedRoute>
+                    <ProfileSettingsPage />
                   </ProtectedRoute>
                 }
               />

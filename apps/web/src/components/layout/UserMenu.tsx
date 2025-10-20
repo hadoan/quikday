@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { User, Settings, LogOut, ChevronDown } from 'lucide-react';
 import {
   DropdownMenu,
@@ -27,6 +28,7 @@ interface UserMenuProps {
 export const UserMenu = ({ user, onViewProfile, onEditProfile, onLogout }: UserMenuProps) => {
   const { toast } = useToast();
   const { user: authUser, getUserProfile, logout } = useKindeAuth();
+  const navigate = useNavigate();
 
   const [profile, setProfile] = useState<any | null>(authUser ?? null);
 
@@ -109,11 +111,11 @@ export const UserMenu = ({ user, onViewProfile, onEditProfile, onLogout }: UserM
       <DropdownMenuContent align="end" className="w-56 bg-popover">
         <DropdownMenuLabel>My Account</DropdownMenuLabel>
         <DropdownMenuSeparator />
-        <DropdownMenuItem onClick={onViewProfile} className="cursor-pointer">
-          <User className="mr-2 h-4 w-4" />
-          <span>View Profile</span>
-        </DropdownMenuItem>
-        <DropdownMenuItem onClick={onEditProfile} className="cursor-pointer">
+      
+        <DropdownMenuItem
+          onClick={() => (onEditProfile ? onEditProfile() : navigate('/settings/profile'))}
+          className="cursor-pointer"
+        >
           <Settings className="mr-2 h-4 w-4" />
           <span>Edit Profile</span>
         </DropdownMenuItem>
