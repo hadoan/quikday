@@ -8,6 +8,7 @@ import { TelemetryService } from '../telemetry/telemetry.service';
 import { getToolMetadata } from '@quikday/appstore';
 import { CredentialMissingError, CredentialInvalidError, ErrorCode } from '@quikday/types';
 import { randomUUID } from 'crypto';
+import { RedisPubSubService } from '../redis/redis-pubsub.service';
 
 @Processor('runs')
 export class RunProcessor extends WorkerHost {
@@ -16,7 +17,8 @@ export class RunProcessor extends WorkerHost {
   constructor(
     private runs: RunsService,
     private credentials: CredentialService,
-    private telemetry: TelemetryService
+    private telemetry: TelemetryService,
+    private redisPubSub: RedisPubSubService,
   ) {
     super();
   }
@@ -44,6 +46,12 @@ export class RunProcessor extends WorkerHost {
     });
 
     await this.runs.updateStatus(run.id, 'running');
+
+    // Publish status update to Redis
+    await this.redisPubSub.publishRunEvent(run.id, {
+      type: 'run_status',
+      payload: { status: 'running' },
+    });
 
     this.logger.log('▶️ Starting run execution', {
       timestamp: new Date().toISOString(),
@@ -367,6 +375,12 @@ export class RunProcessor extends WorkerHost {
 
       await this.runs.updateStatus(run.id, 'done');
 
+      // Publish completion event to Redis
+      await this.redisPubSub.publishRunEvent(run.id, {
+        type: 'run_completed',
+        payload: { status: 'done', output },
+      });
+
       this.logger.log('✅ Job completed successfully', {
         timestamp: new Date().toISOString(),
         jobId: job.id,
@@ -395,6 +409,13 @@ export class RunProcessor extends WorkerHost {
 
       await this.runs.persistResult(run.id, { error: errorPayload });
       await this.runs.updateStatus(run.id, 'failed');
+
+      // Publish failure event to Redis
+      await this.redisPubSub.publishRunEvent(run.id, {
+        type: 'run_status',
+        payload: { status: 'failed', error: errorPayload },
+      });
+
       await this.telemetry.track('run_completed', {
         runId: run.id,
         status: 'failed',

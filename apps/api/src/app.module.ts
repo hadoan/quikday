@@ -8,6 +8,7 @@ import { QueueModule } from './queue/queue.module';
 import { TelemetryModule } from './telemetry/telemetry.module';
 import { TeamsModule } from './teams/teams.module';
 import { CredentialsModule } from './credentials/credentials.module';
+import { WebSocketModule } from './websocket/websocket.module';
 
 @Module({
   imports: [
@@ -20,6 +21,7 @@ import { CredentialsModule } from './credentials/credentials.module';
     TelemetryModule,
     TeamsModule,
     CredentialsModule,
+    WebSocketModule,
   ],
 })
 export class AppModule {}

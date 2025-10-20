@@ -87,6 +87,9 @@ importers:
       express:
         specifier: ^4.19.2
         version: 4.21.2
+      ioredis:
+        specifier: ^5.8.1
+        version: 5.8.1
       jsonwebtoken:
         specifier: ^9.0.2
         version: 9.0.2

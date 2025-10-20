@@ -6,6 +6,7 @@ import { RunProcessor } from './run.processor';
 import { RunsModule } from '../runs/runs.module';
 import { TelemetryModule } from '../telemetry/telemetry.module';
 import { CredentialsModule } from '../credentials/credentials.module';
+import { RedisModule } from '../redis/redis.module';
 
 @Module({
   imports: [
@@ -13,6 +14,7 @@ import { CredentialsModule } from '../credentials/credentials.module';
     forwardRef(() => RunsModule),
     ConfigModule,
     CredentialsModule,
+    RedisModule,
     BullModule.forRootAsync({
       imports: [ConfigModule],
       useFactory: (config: ConfigService) => ({
