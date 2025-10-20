@@ -45,19 +45,53 @@ async function toolsNode(state: typeof MessagesAnnotation.State) {
   const results = await Promise.all(
     last.tool_calls.map(async (call) => {
       const tool = toolMap.get(call.name);
+      const id = call.id ?? call.name;
+
+      // Helper to stringify with truncation for logs
+      const safeStr = (v: unknown, max = 800) => {
+        try {
+          const s = typeof v === 'string' ? v : JSON.stringify(v);
+          return s.length > max ? `${s.slice(0, max)}…(truncated)` : s;
+        } catch {
+          return '[unserializable]';
+        }
+      };
+
       if (!tool) {
+        console.warn(`🤖 [Agent] Tool not found: ${call.name} (id=${id})`);
         return new ToolMessage({
           content: `Tool not found: ${call.name}`,
-          tool_call_id: call.id ?? call.name,
+          tool_call_id: id,
           status: 'error',
         });
       }
-      const output = await (tool as any).invoke(call.args as any);
-      return new ToolMessage({
-        content: typeof output === 'string' ? output : JSON.stringify(output),
-        tool_call_id: call.id ?? call.name,
-        status: 'success',
-      });
+
+      const started = Date.now();
+      console.log('🤖 [Agent] 🔧 Calling tool:', call.name);
+      console.log('🤖 [Agent] 🔧 Tool call id:', id);
+      console.log('🤖 [Agent] 🔧 Args:', safeStr(call.args));
+
+      try {
+        const output = await (tool as any).invoke(call.args as any);
+        const duration = Date.now() - started;
+        console.log(`🤖 [Agent] 🔧 Tool '${call.name}' completed in ${duration}ms`);
+        console.log('🤖 [Agent] 🔧 Output:', safeStr(output));
+
+        return new ToolMessage({
+          content: typeof output === 'string' ? output : JSON.stringify(output),
+          tool_call_id: id,
+          status: 'success',
+        });
+      } catch (err) {
+        const duration = Date.now() - started;
+        const message = err instanceof Error ? err.message : String(err);
+        console.error(`🤖 [Agent] 🔧 Tool '${call.name}' failed in ${duration}ms:`, message);
+        return new ToolMessage({
+          content: `Tool '${call.name}' error: ${message}`,
+          tool_call_id: id,
+          status: 'error',
+        });
+      }
     }),
   );
   return { messages: results };
