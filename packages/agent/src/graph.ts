@@ -4,10 +4,27 @@ import { tools } from './tools.js';
 /** Use LangGraph's built-in messages channel + reducer. */
 import { MessagesAnnotation } from '@langchain/langgraph';
 import { AIMessage, ToolMessage } from '@langchain/core/messages';
+import { AGENT_SYSTEM_MESSAGE } from './prompts.js';
 
 /** Agent node: ask the LLM what to do next. */
 async function agentNode(state: typeof MessagesAnnotation.State) {
+  console.log('🤖 [Agent] ========== COMPLETE PROMPT TO OPENAI ==========');
+  console.log('🤖 [Agent] System Message:', AGENT_SYSTEM_MESSAGE);
+  console.log('🤖 [Agent] User Messages:', JSON.stringify(state.messages, null, 2));
+  console.log('🤖 [Agent] Message count:', state.messages.length);
+  console.log('🤖 [Agent] Available tools:', tools.map(t => t.name).join(', '));
+  console.log('🤖 [Agent] ================================================');
+  
   const result = await agentWithTools.invoke({ messages: state.messages });
+  
+  console.log('🤖 [Agent] ========== OPENAI RESPONSE ==========');
+  console.log('🤖 [Agent] Response:', JSON.stringify(result, null, 2));
+  console.log('🤖 [Agent] Has tool calls:', !!(result as any).tool_calls?.length);
+  if ((result as any).tool_calls?.length) {
+    console.log('🤖 [Agent] Tool calls:', JSON.stringify((result as any).tool_calls, null, 2));
+  }
+  console.log('🤖 [Agent] ======================================');
+  
   return { messages: [result] };
 }
 /** Router: if the last message has tool calls, go to tools; otherwise END. */

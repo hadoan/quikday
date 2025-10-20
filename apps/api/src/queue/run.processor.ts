@@ -3,7 +3,7 @@ import { Job } from 'bullmq';
 import { Logger } from '@nestjs/common';
 import { RunsService } from '../runs/runs.service';
 import { CredentialService } from '../credentials/credential.service';
-import { buildSocialGraph } from '@quikday/agent';
+import { runAgent } from '@quikday/agent';
 import { TelemetryService } from '../telemetry/telemetry.service';
 import { getToolMetadata } from '@quikday/appstore';
 import { CredentialMissingError, CredentialInvalidError, ErrorCode } from '@quikday/types';
@@ -289,72 +289,71 @@ export class RunProcessor extends WorkerHost {
         runId: run.id,
       });
 
-      // Execute the graph with messages (like index.ts pattern)
-      const graph = buildSocialGraph();
-
-      this.logger.log('🚀 Invoking graph execution', {
+      this.logger.log('🚀 Invoking AI agent', {
         timestamp: new Date().toISOString(),
         runId: run.id,
+        prompt: run.prompt,
+        promptLength: run.prompt.length,
       });
 
-      // Invoke with messages array containing the user prompt
-      const result = await graph.invoke({
-        messages: [{ role: 'user', content: run.prompt }],
-      });
-
-      this.logger.log('✅ Graph execution completed', {
+      this.logger.log('📝 Full prompt being sent to OpenAI:', {
         timestamp: new Date().toISOString(),
         runId: run.id,
-        messagesCount: result.messages?.length || 0,
+        fullPrompt: run.prompt,
       });
 
-      // Log all messages for debugging
-      this.logger.log('📨 Messages from graph:', {
+      // Invoke the agent with the user prompt
+      const outputs = await runAgent(run.prompt);
+
+      this.logger.log('✅ Agent execution completed', {
         timestamp: new Date().toISOString(),
-        messages: result.messages?.map((m: any, idx: number) => ({
+        runId: run.id,
+        outputsCount: outputs.length,
+      });
+
+      // Log all outputs for debugging
+      this.logger.log('📨 Outputs from agent:', {
+        timestamp: new Date().toISOString(),
+        outputs: outputs.map((output, idx) => ({
           index: idx,
-          role: m.role || m._getType?.() || 'unknown',
-          contentPreview: typeof m.content === 'string' 
-            ? m.content.substring(0, 100) + (m.content.length > 100 ? '...' : '')
-            : JSON.stringify(m.content).substring(0, 100),
-          hasToolCalls: !!m.tool_calls?.length,
+          contentPreview: output.substring(0, 100) + (output.length > 100 ? '...' : ''),
         })),
       });
 
-      // Extract logs and output from messages
+      // Extract logs and output from agent outputs (string array)
       const logs: any[] = [];
       let output: any = null;
 
-      // Process messages to extract structured data
-      if (result.messages && Array.isArray(result.messages)) {
-        result.messages.forEach((msg: any, idx: number) => {
-          if (msg.content) {
-            try {
-              // Try to parse as JSON (for structured messages)
-              const parsed = JSON.parse(msg.content);
-              if (parsed.tool || parsed.action) {
-                logs.push({
-                  ts: parsed.ts || new Date().toISOString(),
-                  tool: parsed.tool || 'unknown',
-                  action: parsed.action || 'processed',
-                  result: parsed,
-                });
-              }
-              // Last message with 'ok' is the output
-              if (parsed.ok !== undefined) {
-                output = parsed;
-              }
-            } catch {
-              // Not JSON, treat as regular log
-              logs.push({
-                ts: new Date().toISOString(),
-                message: msg.content,
-                role: msg.role || 'assistant',
-              });
-            }
+      // Process outputs to extract structured data
+      outputs.forEach((outputStr, idx) => {
+        try {
+          // Try to parse as JSON (for structured messages)
+          const parsed = JSON.parse(outputStr);
+          if (parsed.tool || parsed.action) {
+            logs.push({
+              ts: parsed.ts || new Date().toISOString(),
+              tool: parsed.tool || 'unknown',
+              action: parsed.action || 'processed',
+              result: parsed,
+            });
           }
-        });
-      }
+          // Last message with 'ok' is the output
+          if (parsed.ok !== undefined) {
+            output = parsed;
+          }
+        } catch {
+          // Not JSON, treat as regular log/text message
+          logs.push({
+            ts: new Date().toISOString(),
+            message: outputStr,
+            role: 'assistant',
+          });
+          // If it's the last output and looks like a response, use it as output
+          if (idx === outputs.length - 1 && !output) {
+            output = { message: outputStr };
+          }
+        }
+      });
 
       this.logger.log('💾 Persisting execution results', {
         timestamp: new Date().toISOString(),
