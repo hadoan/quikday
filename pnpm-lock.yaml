@@ -589,6 +589,9 @@ importers:
 
   packages/appstore:
     dependencies:
+      '@quikday/prisma':
+        specifier: workspace:*
+        version: link:../prisma
       '@quikday/types':
         specifier: workspace:*
         version: link:../types
@@ -599,16 +602,24 @@ importers:
         specifier: ^3.22.0
         version: 3.25.76
     devDependencies:
-      tslib:
-        specifier: ^2.5.0
-        version: 2.8.1
-      typescript:
-        specifier: ^4.9.0
-        version: 4.9.5
+      '@prisma/client':
+        specifier: ^5.18.0
+        version: 5.22.0(prisma@5.22.0)
 
   packages/appstore/gmail-email: {}
 
-  packages/appstore/google-calendar: {}
+  packages/appstore/google-calendar:
+    dependencies:
+      '@quikday/appstore':
+        specifier: workspace:*
+        version: link:..
+      '@quikday/prisma':
+        specifier: workspace:*
+        version: link:../../prisma
+    devDependencies:
+      '@prisma/client':
+        specifier: ^5.18.0
+        version: 5.22.0(prisma@5.22.0)
 
   packages/appstore/linkedin-social: {}
 

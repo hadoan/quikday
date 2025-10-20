@@ -6,6 +6,8 @@
  */
 
 import { google } from 'googleapis';
+import type { AppMeta } from '@quikday/types';
+import { getAppKeysFromSlug } from '@quikday/appstore';
 
 /**
  * OAuth scopes required for Google Calendar integration.
@@ -89,3 +91,49 @@ export function generateGoogleCalendarAuthUrl(
  * Convenience export of scopes for external use.
  */
 export { GOOGLE_CALENDAR_SCOPES };
+
+/**
+ * Resolve Google Calendar OAuth URL from an incoming request and app metadata.
+ * - Prefers keys stored in DB App.keys; falls back to env GOOGLE_CLIENT_ID/SECRET
+ * - Builds redirectUri from API_BASE_URL (or request host) and meta.slug
+ * - Encodes simple JSON state for CSRF/session context
+ */
+export async function resolveGoogleCalendarAuthUrl(params: {
+  req: any;
+  meta: AppMeta;
+}): Promise<GoogleCalendarAuthUrlResult> {
+  const { req, meta } = params;
+
+  let clientId = process.env.GOOGLE_CLIENT_ID;
+  let clientSecret = process.env.GOOGLE_CLIENT_SECRET;
+
+  try {
+    const appKeys = (await getAppKeysFromSlug(meta.slug)) as Record<string, unknown>;
+    if (typeof appKeys?.client_id === 'string') clientId = appKeys.client_id;
+    if (typeof appKeys?.client_secret === 'string') clientSecret = appKeys.client_secret;
+  } catch {
+    // Ignore DB lookup failures and rely on env vars
+  }
+
+  if (!clientId) {
+    throw new Error('Google Calendar OAuth credentials not configured: client_id missing');
+  }
+  if (!clientSecret) {
+    throw new Error('Google Calendar OAuth credentials not configured: client_secret missing');
+  }
+
+  const baseUrl = process.env.API_BASE_URL || `${req.protocol}://${req.get('host')}`;
+  const redirectUri = `${baseUrl}/integrations/${meta.slug}/callback`;
+
+  const state = JSON.stringify({
+    userId: req.user?.id || req.user?.sub,
+    timestamp: Date.now(),
+  });
+
+  return generateGoogleCalendarAuthUrl({
+    clientId,
+    clientSecret,
+    redirectUri,
+    state,
+  });
+}

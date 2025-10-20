@@ -15,7 +15,11 @@
   },
   "dependencies": {
     "@quikday/types": "workspace:*",
+    "@quikday/prisma": "workspace:*",
     "googleapis": "^144.0.0",
     "zod": "^3.22.0"
+  },
+  "devDependencies": {
+    "@prisma/client": "^5.18.0"
   }
 }

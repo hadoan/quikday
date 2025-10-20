@@ -15,6 +15,7 @@
     "db:migrate": "dotenv -e .env -- pnpm --filter @quikday/prisma exec prisma migrate dev",
     "db:migrate:create": "dotenv -e .env -- pnpm --filter @quikday/prisma exec prisma migrate dev --create-only",
     "seed": "dotenv -e .env -- pnpm --filter @quikday/prisma run seed",
+    "seed:appstore": "dotenv -e .env -- pnpm --filter @quikday/prisma run seed-app-store",
     "db:reset": "bash ./scripts/db-reset.sh",
     "db:studio": "dotenv -e .env -- pnpm --filter @quikday/prisma exec prisma studio",
     "up": "docker compose up -d db redis && pnpm -w dev"
