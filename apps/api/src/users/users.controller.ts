@@ -1,30 +1,43 @@
-import { Controller, Post, Req, Res, UseGuards } from '@nestjs/common';
+import { Controller, Post, Req, Res, UseGuards, Body } from '@nestjs/common';
 import { Response, Request } from 'express';
-import { PrismaService } from '@quikday/prisma';
 import { KindeGuard } from '../auth/kinde.guard';
+import { AuthService } from '../auth/auth.service';
+
+type SyncUserBody = {
+  email?: string;
+  name?: string;
+  given_name?: string;
+  family_name?: string;
+  picture?: string;
+};
 
 @Controller('users')
 export class UsersController {
-  constructor(private prisma: PrismaService) {}
+  constructor(private authService: AuthService) {}
 
   @Post('sync')
   @UseGuards(KindeGuard)
-  async sync(@Req() req: Request, @Res() res: Response) {
+  async sync(@Req() req: Request, @Res() res: Response, @Body() body: SyncUserBody) {
     const claims: any = (req as any).user || {};
     const sub = claims?.sub as string | undefined;
     if (!sub) return res.status(400).json({ message: 'Missing sub in token' });
 
-    const email: string | undefined = claims?.email;
-    const displayName: string | undefined =
-      claims?.name || [claims?.given_name, claims?.family_name].filter(Boolean).join(' ');
+    try {
+      // Use AuthService to provision both user and workspace
+      // Prefer body data (from frontend user profile) over token claims
+      const result = await this.authService.getOrProvisionUserAndWorkspace({
+        sub,
+        email: body.email || claims?.email,
+        name: body.name || claims?.name,
+        given_name: body.given_name || claims?.given_name,
+        family_name: body.family_name || claims?.family_name,
+      });
 
-    const user = await this.prisma.user.upsert({
-      where: { sub },
-      update: { email, displayName },
-      create: { sub, email, displayName },
-    });
-
-    return res.json({ id: user.id, sub: user.sub, email: user.email, displayName: user.displayName });
+      return res.json(result);
+    } catch (err: any) {
+      const message = typeof err?.message === 'string' ? err.message : 'User sync error';
+      return res.status(400).json({ message });
+    }
   }
 }
 

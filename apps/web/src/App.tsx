@@ -35,6 +35,7 @@ const App = () => (
               if (event !== 'register') return;
               void syncUserAfterRegister({
                 getAccessToken: ctx.getAccessToken,
+                getUserProfile: ctx.getUserProfile,
                 expectedAudience: import.meta.env.VITE_KINDE_AUDIENCE as string | undefined,
               });
             },

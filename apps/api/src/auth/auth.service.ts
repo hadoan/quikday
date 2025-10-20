@@ -8,6 +8,7 @@ type JwtClaims = {
   name?: string;
   given_name?: string;
   family_name?: string;
+  picture?: string;
 };
 
 @Injectable()
@@ -17,13 +18,14 @@ export class AuthService {
   constructor(private prisma: PrismaService) {}
 
   private computeNameFromClaims(claims: JwtClaims): string {
+    // Prefer full name, then construct from parts, then fallback to email
+    if (claims.name?.trim()) return claims.name.trim();
+    
+    const parts = [claims.given_name, claims.family_name].filter(Boolean);
+    if (parts.length > 0) return parts.join(' ');
+    
     const emailLocal = claims.email?.split('@')[0];
-    return (
-      claims.given_name ||
-      claims.name ||
-      (emailLocal && emailLocal.length > 0 ? emailLocal : undefined) ||
-      'User'
-    );
+    return (emailLocal && emailLocal.length > 0 ? emailLocal : 'User');
   }
 
   private fallbackEmailFromSub(sub: string): string {
@@ -59,6 +61,7 @@ export class AuthService {
               sub,
               email,
               displayName: name,
+              avatar: claims.picture,
               plan: 'PRO',
             },
           });
@@ -119,9 +122,17 @@ export class AuthService {
       }
     }
 
-    // Existing user
+    // Existing user - update their profile info and lastLoginAt
     void this.prisma.user
-      .update({ where: { id: existing.id }, data: { lastLoginAt: new Date() } })
+      .update({ 
+        where: { id: existing.id }, 
+        data: { 
+          email: email !== this.fallbackEmailFromSub(sub) ? email : existing.email,
+          displayName: name,
+          avatar: claims.picture || existing.avatar,
+          lastLoginAt: new Date() 
+        } 
+      })
       .catch(() => undefined);
 
     return {

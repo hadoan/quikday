@@ -1,6 +1,13 @@
-import api from './client';
+import axios from 'axios';
+import { getApiBaseUrl } from './client';
 
 type GetAccessToken = () => Promise<string | undefined>;
+type GetUserProfile = () => Promise<{
+  email?: string;
+  given_name?: string;
+  family_name?: string;
+  picture?: string;
+} | null>;
 
 const base64UrlDecode = (str: string) => {
   let s = str.replace(/-/g, '+').replace(/_/g, '/');
@@ -39,19 +46,49 @@ async function waitForAudienceToken(getAccessToken: GetAccessToken, expectedAud?
 
 export async function syncUserAfterRegister(params: {
   getAccessToken: GetAccessToken;
+  getUserProfile: GetUserProfile;
   expectedAudience?: string;
   tries?: number;
   delayMs?: number;
 }) {
-  const { getAccessToken, expectedAudience, tries, delayMs } = params;
+  const { getAccessToken, getUserProfile, expectedAudience, tries, delayMs } = params;
   console.log('[syncUser] Ensuring token audience then syncing user');
   const tok = await waitForAudienceToken(getAccessToken, expectedAudience, tries, delayMs);
   if (!tok) {
     console.warn('[syncUser] Could not obtain access token with expected audience; skipping sync');
     return;
   }
+
+  // Get user profile from Kinde
+  let userProfile: Awaited<ReturnType<GetUserProfile>> = null;
   try {
-    await api.post('/users/sync');
+    userProfile = await getUserProfile();
+    console.log('[syncUser] Got user profile:', userProfile);
+  } catch (err) {
+    console.warn('[syncUser] Could not get user profile', err);
+  }
+
+  try {
+    // Use axios directly with the token to avoid dependency on global API client setup
+    await axios.post(
+      `${getApiBaseUrl()}/users/sync`,
+      {
+        email: userProfile?.email,
+        name: userProfile?.given_name && userProfile?.family_name
+          ? `${userProfile.given_name} ${userProfile.family_name}`.trim()
+          : undefined,
+        given_name: userProfile?.given_name,
+        family_name: userProfile?.family_name,
+        picture: userProfile?.picture,
+      },
+      {
+        headers: {
+          Authorization: `Bearer ${tok}`,
+          'Content-Type': 'application/json',
+        },
+        withCredentials: true,
+      }
+    );
     console.log('[syncUser] /users/sync success');
   } catch (err) {
     console.warn('[syncUser] /users/sync failed', err);
