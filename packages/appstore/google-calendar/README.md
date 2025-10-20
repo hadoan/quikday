@@ -107,7 +107,7 @@ const result = await exchangeGoogleCalendarCode({
 // Store tokens (ENCRYPT before storing!)
 await prisma.credential.create({
   data: {
-    type: 'google_calendar',
+    type: 'google-calendar',
     key: encryptTokens(result.tokens), // Use @quikday/crypto
     userId: user.id,
     appId: 'google-calendar',

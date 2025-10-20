@@ -280,6 +280,30 @@ export class CredentialService {
     });
   }
 
+  /**
+   * Delete a credential owned by a user (and perform app-specific cleanup).
+   */
+  async deleteCredential(userId: number, credentialId: number): Promise<void> {
+    const credential = await this.prisma.credential.findFirst({
+      where: { id: credentialId, userId },
+      select: { id: true, appId: true },
+    });
+
+    if (!credential) {
+      throw new Error('Credential not found or does not belong to user');
+    }
+
+    // App-specific cleanup: e.g., for zapier remove ApiKeys and webhooks
+    if (credential.appId === 'zapier') {
+      await this.prisma.apiKey.deleteMany({
+        where: { userId, appId: 'zapier' },
+      });
+      // Note: If your project defines webhook or pageInfo models, add cleanup here.
+    }
+
+    await this.prisma.credential.delete({ where: { id: credentialId } });
+  }
+
   private mapCredential(credential: any, resolvedVia: ResolvedCredential['resolvedVia']): ResolvedCredential {
     return {
       id: credential.id,

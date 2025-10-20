@@ -44,36 +44,8 @@ export interface GoogleCalendarCallbackResult {
   success: boolean;
 }
 
-/**
- * Exchange OAuth authorization code for Google Calendar tokens.
- *
- * @param config - Callback configuration (code, clientId, clientSecret, redirectUri)
- * @returns Token data ready to store in credential database
- *
- * @throws Error if token exchange fails or config is invalid
- *
- * @example
- * ```typescript
- * const result = await exchangeGoogleCalendarCode({
- *   code: 'auth_code_from_google',
- *   clientId: process.env.GOOGLE_CLIENT_ID,
- *   clientSecret: process.env.GOOGLE_CLIENT_SECRET,
- *   redirectUri: 'https://app.quik.day/api/integrations/google-calendar/callback',
- * });
- *
- * // Store result.tokens in database (encrypted)
- * await prisma.credential.create({
- *   data: {
- *     type: 'google_calendar',
- *     key: result.tokens, // Encrypt this before storing!
- *     userId: user.id,
- *     appId: 'google-calendar',
- *   },
- * });
- * ```
- */
 export async function exchangeGoogleCalendarCode(
-  config: GoogleCalendarCallbackConfig
+  config: GoogleCalendarCallbackConfig,
 ): Promise<GoogleCalendarCallbackResult> {
   const { code, clientId, clientSecret, redirectUri } = config;
 
@@ -261,7 +233,7 @@ export async function callback(params: {
   // Parse and validate state
   let state: any = undefined;
   let stateValidationMethod = 'none';
-  
+
   try {
     if (!rawState) {
       throw new Error('State parameter is required for security');
@@ -273,9 +245,11 @@ export async function callback(params: {
       // Import validation utility dynamically to avoid circular deps
       // In API layer, you should import from: apps/api/src/auth/oauth-state.util.ts
       // For now, we'll parse unsigned for backwards compatibility
-      console.warn('📅 [Google Calendar] Signed state detected but validation not implemented in this layer');
+      console.warn(
+        '📅 [Google Calendar] Signed state detected but validation not implemented in this layer',
+      );
       console.warn('📅 [Google Calendar] Implement validateSignedState in API layer for security');
-      
+
       // Fallback to unsigned parsing (extract data before signature)
       const [data] = rawState.split('.');
       const decoded = Buffer.from(data, 'base64url').toString('utf-8');
@@ -285,9 +259,11 @@ export async function callback(params: {
       // Legacy unsigned state
       stateValidationMethod = 'unsigned';
       state = JSON.parse(rawState);
-      console.warn('⚠️  [Google Calendar] Received unsigned state - upgrade to signed state for security');
+      console.warn(
+        '⚠️  [Google Calendar] Received unsigned state - upgrade to signed state for security',
+      );
     }
-    
+
     console.log('📅 [Google Calendar] State parsed successfully', {
       method: stateValidationMethod,
       hasUserId: !!state?.userId,
@@ -295,12 +271,12 @@ export async function callback(params: {
       timestamp: state?.timestamp,
       age: state?.timestamp ? Date.now() - state.timestamp : undefined,
     });
-    
+
     // Basic validation
     if (!state?.userId) {
       throw new Error('State missing required userId field');
     }
-    
+
     // Check timestamp expiry (10 minutes)
     if (state?.timestamp) {
       const age = Date.now() - state.timestamp;
@@ -309,7 +285,6 @@ export async function callback(params: {
         throw new Error(`State expired (${Math.round(age / 1000)}s old, max ${maxAge / 1000}s)`);
       }
     }
-    
   } catch (error) {
     console.error('📅 [Google Calendar] State validation failed', {
       rawState: rawState?.substring(0, 50) + '...',
@@ -317,7 +292,7 @@ export async function callback(params: {
       method: stateValidationMethod,
     });
     const err: any = new Error(
-      error instanceof Error ? error.message : 'Invalid or expired state parameter'
+      error instanceof Error ? error.message : 'Invalid or expired state parameter',
     );
     err.statusCode = 400;
     throw err;
@@ -327,7 +302,7 @@ export async function callback(params: {
   let clientId = process.env.GOOGLE_CLIENT_ID;
   let clientSecret = process.env.GOOGLE_CLIENT_SECRET;
   let credentialSource = 'env';
-  
+
   try {
     console.log('📅 [Google Calendar] Attempting to load credentials from database', {
       slug: meta.slug,
@@ -383,7 +358,7 @@ export async function callback(params: {
   // Exchange auth code for tokens
   console.log('📅 [Google Calendar] Exchanging authorization code for tokens');
   const startTime = Date.now();
-  
+
   try {
     const result = await exchangeGoogleCalendarCode({
       code,
@@ -404,9 +379,8 @@ export async function callback(params: {
     // Resolve authenticated user to a numeric userId
     let numericUserId: number | undefined;
     try {
-      const sub = (req?.user?.sub ?? (typeof state?.userId === 'string' ? state.userId : undefined)) as
-        | string
-        | undefined;
+      const sub = (req?.user?.sub ??
+        (typeof state?.userId === 'string' ? state.userId : undefined)) as string | undefined;
       const email = (req?.user?.email as string | undefined) || undefined;
       const displayName = (req?.user?.name as string | undefined) || undefined;
 
@@ -422,9 +396,12 @@ export async function callback(params: {
         if (existing) numericUserId = existing.id;
       }
     } catch (e) {
-      console.warn('📅 [Google Calendar] Failed to resolve user, saving credential without userId', {
-        error: e instanceof Error ? e.message : 'Unknown error',
-      });
+      console.warn(
+        '📅 [Google Calendar] Failed to resolve user, saving credential without userId',
+        {
+          error: e instanceof Error ? e.message : 'Unknown error',
+        },
+      );
     }
 
     console.log('📅 [Google Calendar] Persisting credential to database', {
@@ -451,7 +428,8 @@ export async function callback(params: {
 
     // Choose redirect target
     const returnTo = state?.returnTo as string | undefined;
-    const redirectTo = returnTo && typeof returnTo === 'string' ? returnTo : `/apps/${meta.variant}/${meta.slug}`;
+    const redirectTo =
+      returnTo && typeof returnTo === 'string' ? returnTo : `/apps/${meta.variant}/${meta.slug}`;
 
     console.log('📅 [Google Calendar] OAuth callback completed successfully', {
       redirectTo,

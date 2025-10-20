@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useKindeAuth } from '@kinde-oss/kinde-auth-react';
 import { Button } from '@/components/ui/button';
 import {
@@ -57,6 +57,8 @@ export default function InstallApp({
   const { toast } = useToast();
   const { login } = useKindeAuth();
   const [existingCount, setExistingCount] = useState<number>(0);
+  const [credentialIds, setCredentialIds] = useState<number[]>([]);
+  const [loadingCredentials, setLoadingCredentials] = useState<boolean>(true);
   const [installing, setInstalling] = useState(false);
   const [disconnecting, setDisconnecting] = useState(false);
   const [inputOpen, setInputOpen] = useState(false);
@@ -71,11 +73,58 @@ export default function InstallApp({
   };
 
   const doDisconnect = async () => {
+    if (credentialIds.length === 0) {
+      toast({ title: 'No credentials to disconnect' });
+      return;
+    }
+
     setDisconnecting(true);
-    await new Promise((r) => setTimeout(r, 400));
-    setExistingCount(0);
-    setDisconnecting(false);
-    toast({ title: `Disconnected ${slug}` });
+    const id = credentialIds[0];
+    try {
+      // Try DELETE endpoint (may not exist yet)
+      await api.delete(`/credentials/${id}`);
+      toast({ title: `Disconnected ${slug}`, description: `Credential ${id} removed.` });
+    } catch (e) {
+      if (axios.isAxiosError(e)) {
+        const status = e.response?.status;
+        if (status === 401 || status === 403) {
+          toast({ title: 'Please sign in', description: 'You need to log in to disconnect this app.' });
+          await login?.();
+          setDisconnecting(false);
+          return;
+        }
+        if (status === 404 || status === 405) {
+          // Endpoint not implemented server-side yet - inform the user
+          toast({ title: 'Disconnect not supported', description: 'Server does not support remote disconnect for this integration yet.' });
+        } else {
+          toast({ title: 'Failed to disconnect', description: e.message });
+        }
+      } else {
+        toast({ title: 'Failed to disconnect', description: 'Unknown error' });
+      }
+    } finally {
+      setDisconnecting(false);
+      // Refresh credentials list to reflect any server-side changes
+      try {
+        const resp = await api.get('/credentials', { params: { appId: type, owner: 'user' } });
+        const creds = resp.data?.data ?? [];
+        setCredentialIds(
+          Array.isArray(creds)
+            ? creds
+                .map((c: unknown) => {
+                  if (typeof c === 'object' && c !== null && 'id' in (c as Record<string, unknown>)) {
+                    return Number((c as Record<string, unknown>).id);
+                  }
+                  return NaN;
+                })
+                .filter((n) => !Number.isNaN(n))
+            : []
+        );
+  setExistingCount(Array.isArray(creds) ? creds.length : 0);
+      } catch {
+        // ignore refresh errors
+      }
+    }
   };
 
   const getApiBaseUrl = () => {
@@ -84,6 +133,38 @@ export default function InstallApp({
     if (fromEnv) return fromEnv;
     return `${window.location.protocol}//${window.location.hostname}:3000`;
   };
+
+  // Fetch existing credentials for this app on mount
+  useEffect(() => {
+    let mounted = true;
+    const fetchCredentials = async () => {
+      setLoadingCredentials(true);
+      try {
+        const resp = await api.get('/credentials', { params: { appId: type, owner: 'user' } });
+        // API returns { success: true, data: [...] }
+        const creds = resp.data?.data ?? [];
+        if (mounted) setExistingCount(Array.isArray(creds) ? creds.length : 0);
+      } catch (e) {
+        if (axios.isAxiosError(e)) {
+          const status = e.response?.status;
+          if (status === 401 || status === 403) {
+            // Not authenticated—kick off login
+            toast({ title: 'Please sign in', description: 'You need to log in to manage integrations.' });
+            await login?.();
+          }
+        }
+        // keep existingCount as-is on other errors
+      } finally {
+        if (mounted) setLoadingCredentials(false);
+      }
+    };
+
+    void fetchCredentials();
+
+    return () => {
+      mounted = false;
+    };
+  }, [type, login, toast]);
 
   const onClickInstall = async () => {
     // Handle OAuth flow - redirect to backend OAuth initiation endpoint

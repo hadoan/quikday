@@ -1,26 +1,56 @@
-import { Body, Controller, Get, Param, Post, Query, UseGuards, ParseIntPipe } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Get,
+  Param,
+  Post,
+  Query,
+  UseGuards,
+  ParseIntPipe,
+  Req,
+  Delete,
+} from '@nestjs/common';
 import { CredentialService } from './credential.service';
 import { KindeGuard } from '../auth/kinde.guard';
 import { SessionGuard } from '../common/session.guard';
+import { AuthService } from '../auth/auth.service';
+import type { Request } from 'express';
+import { Logger } from '@nestjs/common';
 
 @Controller('credentials')
 @UseGuards(KindeGuard, SessionGuard)
 export class CredentialsController {
-  constructor(private credentialService: CredentialService) {}
+  private readonly logger = new Logger('CredentialsController');
+
+  constructor(
+    private credentialService: CredentialService,
+    private authService: AuthService
+  ) {}
 
   @Get()
   async listCredentials(
+    @Req() req: Request,
     @Query('appId') appId?: string,
     @Query('owner') owner?: 'user' | 'team'
   ) {
-    // TODO: Extract userId and teamId from auth context via decorator
-    const userId = 1; // Placeholder
-    const teamId = 1; // Placeholder
+    // Derive real user id from claims (provision user if needed)
+    const claims: any = (req as any).user || {};
+    const me = await this.authService.getOrProvisionUserAndWorkspace({
+      sub: claims?.sub,
+      email: claims?.email,
+      name: claims?.name,
+      given_name: claims?.given_name,
+      family_name: claims?.family_name,
+    });
 
+    const userId = me.id;
+    // while App slugs use hyphens (e.g. google-calendar). Convert underscores to hyphens to match DB.
+    const originalAppId = appId;
+    const normalizedAppId = typeof appId === 'string' ? appId.replace(/_/g, '-') : appId;
+    // team resolution not implemented yet; default to undefined
     const filter: any = {};
-    if (appId) filter.appId = appId;
+    if (normalizedAppId) filter.appId = normalizedAppId;
     if (owner === 'user') filter.userId = userId;
-    if (owner === 'team') filter.teamId = teamId;
 
     const credentials = await this.credentialService.listCredentials(filter);
 
@@ -63,6 +93,26 @@ export class CredentialsController {
     return {
       success: true,
       data: { isValid },
+    };
+  }
+
+  @Delete(':id')
+  async deleteCredential(@Req() req: Request, @Param('id', ParseIntPipe) id: number) {
+    const claims: any = (req as any).user || {};
+    const me = await this.authService.getOrProvisionUserAndWorkspace({
+      sub: claims?.sub,
+      email: claims?.email,
+      name: claims?.name,
+      given_name: claims?.given_name,
+      family_name: claims?.family_name,
+    });
+
+    const userId = me.id;
+    await this.credentialService.deleteCredential(userId, id);
+
+    return {
+      success: true,
+      message: 'Credential deleted',
     };
   }
 }
