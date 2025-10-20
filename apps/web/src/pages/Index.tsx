@@ -15,6 +15,11 @@ import { Button } from '@/components/ui/button';
 import { mockRuns, mockTools, mockStats } from '@/data/mockRuns';
 import { Plug2, Plus } from 'lucide-react';
 import { getDataSource, getFeatureFlags } from '@/lib/flags/featureFlags';
+import {
+  buildPlanMessage,
+  buildRunMessage,
+  buildLogMessage,
+} from '@/lib/adapters/backendToViewModel';
 import { createLogger } from '@/lib/utils/logger';
 import { useToast } from '@/hooks/use-toast';
 import type { UiRunSummary, UiEvent } from '@/lib/datasources/DataSource';
@@ -39,24 +44,78 @@ const Index = () => {
   // Connect to WebSocket for real-time updates (if live mode)
   useEffect(() => {
     if (!activeRunId) return;
-    
-    const flags = getFeatureFlags();
-    if (flags.dataSource === 'mock') return; // Mock handles its own event simulation
-    
-    // Connect to live WebSocket
+
+    // Connect to stream for both live and mock; MockDataSource simulates events
     const stream = dataSource.connectRunStream(activeRunId, (event: UiEvent) => {
       console.log('[Index] Received event:', event);
-      
-      // Update run based on event type
+
       setRuns((prev) =>
-        prev.map((run) =>
-          run.id === activeRunId
-            ? { ...run, status: (event.payload.status as UiRunSummary['status']) || run.status }
-            : run
-        )
+        prev.map((run) => {
+          if (run.id !== activeRunId) return run;
+
+          // Update status if provided
+          const nextStatus = (event.payload.status as UiRunSummary['status']) || run.status;
+
+          // Translate common events into chat messages
+          const newMessages = [...(run.messages ?? [])];
+          switch (event.type) {
+            case 'plan_generated': {
+              const intent = (event.payload.intent as string) || 'Process request';
+              const tools = (event.payload.tools as string[]) || [];
+              const actions = (event.payload.actions as string[]) || [];
+              newMessages.push(buildPlanMessage({ intent, tools, actions }));
+              break;
+            }
+            case 'run_status':
+            case 'scheduled':
+            case 'run_completed': {
+              const status = (event.type === 'run_completed' ? 'succeeded' : (event.payload.status as string)) || 'queued';
+              newMessages.push(
+                buildRunMessage({
+                  status,
+                  started_at: event.payload.started_at as string | undefined,
+                  completed_at: event.payload.completed_at as string | undefined,
+                })
+              );
+              break;
+            }
+            case 'step_succeeded':
+            case 'step_output': {
+              // Try to build a single-step log entry if provided
+              const entry = {
+                tool: (event.payload.tool as string) || 'unknown',
+                action: (event.payload.action as string) || 'Executed',
+                status: 'succeeded',
+                request: event.payload.request,
+                response: event.payload.response,
+                startedAt: (event.payload.startedAt as string) || (event.payload.ts as string),
+                completedAt: (event.payload.completedAt as string) || (event.payload.ts as string),
+              };
+              newMessages.push(buildLogMessage([entry] as any));
+              break;
+            }
+            case 'step_failed': {
+              const entry = {
+                tool: (event.payload.tool as string) || 'unknown',
+                action: (event.payload.action as string) || 'Failed',
+                status: 'failed',
+                errorCode: (event.payload.errorCode as string) || 'E_STEP_FAILED',
+                errorMessage: (event.payload.message as string) || 'Step failed',
+                startedAt: (event.payload.startedAt as string) || (event.payload.ts as string),
+                completedAt: (event.payload.completedAt as string) || (event.payload.ts as string),
+              };
+              newMessages.push(buildLogMessage([entry] as any));
+              break;
+            }
+            default:
+              break;
+          }
+
+          return { ...run, status: nextStatus, messages: newMessages };
+        })
       );
     });
-    
+
     return () => {
       stream.close();
     };
@@ -134,6 +193,15 @@ const Index = () => {
 
       // In live mode, WebSocket will update the UI
       // In mock mode, MockDataSource simulates events
+      // Switch active run to the backend runId and keep the user's message
+      setRuns((prev) =>
+        prev.map((run) =>
+          run.id === activeRunId
+            ? { ...run, id: runId, status: 'queued' }
+            : run,
+        ),
+      );
+      setActiveRunId(runId);
     } catch (err) {
       logger.error('Failed to create run', err as Error);
       // Show error toast

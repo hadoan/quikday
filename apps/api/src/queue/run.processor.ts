@@ -281,7 +281,7 @@ export class RunProcessor extends WorkerHost {
         runId: run.id,
       });
 
-      // Execute the graph with our custom executor
+      // Execute the graph with messages (like index.ts pattern)
       const graph = buildSocialGraph();
 
       this.logger.log('🚀 Invoking graph execution', {
@@ -289,25 +289,76 @@ export class RunProcessor extends WorkerHost {
         runId: run.id,
       });
 
-      const state = await graph.invoke({
-        prompt: run.prompt,
-        logs: [],
-        toolExecutor,
+      // Invoke with messages array containing the user prompt
+      const result = await graph.invoke({
+        messages: [{ role: 'user', content: run.prompt }],
       });
 
       this.logger.log('✅ Graph execution completed', {
         timestamp: new Date().toISOString(),
         runId: run.id,
-        logsCount: state.logs?.length || 0,
-        hasOutput: !!state.output,
+        messagesCount: result.messages?.length || 0,
       });
+
+      // Log all messages for debugging
+      this.logger.log('📨 Messages from graph:', {
+        timestamp: new Date().toISOString(),
+        messages: result.messages?.map((m: any, idx: number) => ({
+          index: idx,
+          role: m.role || m._getType?.() || 'unknown',
+          contentPreview: typeof m.content === 'string' 
+            ? m.content.substring(0, 100) + (m.content.length > 100 ? '...' : '')
+            : JSON.stringify(m.content).substring(0, 100),
+          hasToolCalls: !!m.tool_calls?.length,
+        })),
+      });
+
+      // Extract logs and output from messages
+      const logs: any[] = [];
+      let output: any = null;
+
+      // Process messages to extract structured data
+      if (result.messages && Array.isArray(result.messages)) {
+        result.messages.forEach((msg: any, idx: number) => {
+          if (msg.content) {
+            try {
+              // Try to parse as JSON (for structured messages)
+              const parsed = JSON.parse(msg.content);
+              if (parsed.tool || parsed.action) {
+                logs.push({
+                  ts: parsed.ts || new Date().toISOString(),
+                  tool: parsed.tool || 'unknown',
+                  action: parsed.action || 'processed',
+                  result: parsed,
+                });
+              }
+              // Last message with 'ok' is the output
+              if (parsed.ok !== undefined) {
+                output = parsed;
+              }
+            } catch {
+              // Not JSON, treat as regular log
+              logs.push({
+                ts: new Date().toISOString(),
+                message: msg.content,
+                role: msg.role || 'assistant',
+              });
+            }
+          }
+        });
+      }
 
       this.logger.log('💾 Persisting execution results', {
         timestamp: new Date().toISOString(),
         runId: run.id,
+        logsCount: logs.length,
+        hasOutput: !!output,
       });
 
-      await this.runs.persistResult(run.id, { logs: state.logs, output: state.output });
+      this.logger.debug('📋 Extracted logs:', { logs });
+      this.logger.debug('📤 Extracted output:', { output });
+
+      await this.runs.persistResult(run.id, { logs, output });
 
       this.logger.log('🎉 Updating run status to "done"', {
         timestamp: new Date().toISOString(),
