@@ -21,8 +21,38 @@ export default function createApp(meta: AppMeta, deps: any) {
           userId: req?.user?.id || req?.user?.sub,
         });
         
+        // Create signed state if state utility is available via deps
+        let signedState: string | undefined;
+        if (typeof this.deps?.createSignedState === 'function') {
+          try {
+            const userId = req?.user?.id || req?.user?.sub;
+            if (userId) {
+              signedState = this.deps.createSignedState({
+                userId,
+                timestamp: Date.now(),
+                returnTo: req.query?.returnTo as string | undefined,
+              });
+              console.log('📅 [Add] Created signed state via deps', {
+                hasSignedState: !!signedState,
+                userId,
+              });
+            }
+          } catch (stateError) {
+            console.warn('📅 [Add] Failed to create signed state', {
+              error: stateError instanceof Error ? stateError.message : 'Unknown',
+            });
+            // Fallback: library will create unsigned state
+          }
+        } else {
+          console.warn('📅 [Add] No createSignedState function in deps, using unsigned state fallback');
+        }
+        
         // Delegate all logic to add.ts helper
-        const { url } = await resolveGoogleCalendarAuthUrl({ req, meta });
+        const { url } = await resolveGoogleCalendarAuthUrl({ 
+          req, 
+          meta,
+          signedState,
+        });
         
         console.log('📅 [Add] OAuth URL generated, redirecting user', {
           hasUrl: !!url,

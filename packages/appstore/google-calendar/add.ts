@@ -97,18 +97,21 @@ export { GOOGLE_CALENDAR_SCOPES };
  * - Prefers keys stored in DB App.keys; falls back to env GOOGLE_CLIENT_ID/SECRET
  * - Builds redirectUri from API_BASE_URL (or request host) and meta.slug
  * - Encodes simple JSON state for CSRF/session context
+ * 
+ * Note: For production, use signed state via oauth-state.util.ts in the API layer.
+ * This library function creates basic unsigned state for backwards compatibility.
  */
 export async function resolveGoogleCalendarAuthUrl(params: {
   req: any;
   meta: AppMeta;
+  signedState?: string; // Optional pre-signed state from API
 }): Promise<GoogleCalendarAuthUrlResult> {
-  const { req, meta } = params;
+  const { req, meta, signedState } = params;
 
   console.log('📅 [Add] resolveGoogleCalendarAuthUrl called', {
     slug: meta.slug,
     hasReqUser: !!req.user,
-    reqHeaders: req.headers,
-    reqSession: req.session,
+    hasSignedState: !!signedState,
   });
 
   let clientId = process.env.GOOGLE_CLIENT_ID;
@@ -132,21 +135,30 @@ export async function resolveGoogleCalendarAuthUrl(params: {
   const baseUrl = process.env.API_BASE_URL || `${req.protocol}://${req.get('host')}`;
   const redirectUri = `${baseUrl}/integrations/${meta.slug}/callback`;
 
-  const userId = req.user?.id || req.user?.sub;
-  
-  console.log('📅 [Add] User info extraction', {
-    'req.user': req.user,
-    'req.user.id': req.user?.id,
-    'req.user.sub': req.user?.sub,
-    'resolved userId': userId || 'none',
-  });
+  // Use pre-signed state if provided (recommended), otherwise create unsigned fallback
+  let state: string;
+  if (signedState) {
+    state = signedState;
+    console.log('📅 [Add] Using pre-signed state (secure)');
+  } else {
+    // Fallback: unsigned state (less secure, for backwards compatibility)
+    const userId = req.user?.id || req.user?.sub;
+    console.log('📅 [Add] Creating unsigned state (fallback)', {
+      'req.user': req.user,
+      'resolved userId': userId || 'none',
+    });
+    
+    state = JSON.stringify({
+      userId,
+      timestamp: Date.now(),
+    });
+    console.warn('⚠️  Using unsigned OAuth state - consider using signed state for better security');
+  }
 
-  const state = JSON.stringify({
-    userId,
-    timestamp: Date.now(),
+  console.log('📅 [Add] State being passed', { 
+    stateLength: state.length,
+    isSigned: !!signedState,
   });
-
-  console.log('📅 [Add] State being passed', { state });
 
   return generateGoogleCalendarAuthUrl({
     clientId,

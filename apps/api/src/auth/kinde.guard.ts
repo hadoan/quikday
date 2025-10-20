@@ -1,7 +1,9 @@
 import { CanActivate, ExecutionContext, Injectable, UnauthorizedException } from '@nestjs/common';
+import { Reflector } from '@nestjs/core';
 import jwksClient from 'jwks-rsa';
 import jwt from 'jsonwebtoken';
 import { ConfigService } from '../config/config.service';
+import { IS_PUBLIC_KEY } from './public.decorator';
 
 @Injectable()
 export class KindeGuard implements CanActivate {
@@ -16,7 +18,10 @@ export class KindeGuard implements CanActivate {
       })
     : null;
 
-  constructor(private config: ConfigService) {}
+  constructor(
+    private config: ConfigService,
+    private reflector: Reflector,
+  ) {}
 
   private getKey = (header: any, cb: (err: any, key?: string) => void) => {
     if (!this.client) return cb(new Error('JWKS client not configured'));
@@ -24,9 +29,20 @@ export class KindeGuard implements CanActivate {
   };
 
   async canActivate(ctx: ExecutionContext) {
+    // Check if route is marked as public
+    const isPublic = this.reflector.getAllAndOverride<boolean>(IS_PUBLIC_KEY, [
+      ctx.getHandler(),
+      ctx.getClass(),
+    ]);
+    
+    if (isPublic) {
+      return true; // Skip authentication for public routes
+    }
+
     const req = ctx.switchToHttp().getRequest();
     const auth = req.headers.authorization || '';
     const token = auth.startsWith('Bearer ') ? auth.slice(7) : '';
+    
     if (this.config.isKindeBypass) {
       // In dev, trust any token and assign a minimal user payload
       req.user = { sub: 'dev-user', email: 'dev@example.com', name: 'Dev User' };

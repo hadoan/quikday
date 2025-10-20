@@ -3,6 +3,7 @@ import { AppMeta } from '@quikday/types';
 import { getIntegrationSlugs } from '@quikday/appstore';
 import { BaseApp } from './app.base';
 import { AppDeps } from './app.types';
+import { createSignedState, validateSignedState } from '../auth/oauth-state.util';
 
 @Injectable()
 export class AppStoreRegistry {
@@ -12,6 +13,13 @@ export class AppStoreRegistry {
 
   async init(deps: AppDeps): Promise<void> {
     this.logger.log('Initializing AppStoreRegistry...');
+
+    // Augment deps with OAuth state utilities
+    const augmentedDeps: AppDeps = {
+      ...deps,
+      createSignedState,
+      validateSignedState,
+    };
 
     // Get integration slugs from centralized registry
     const slugs = getIntegrationSlugs();
@@ -32,7 +40,7 @@ export class AppStoreRegistry {
           continue;
         }
 
-        const instance = create(metadata, deps);
+        const instance = create(metadata, augmentedDeps);
         this.apps.set(metadata.slug, instance);
         this.metas.set(metadata.slug, metadata);
         this.logger.log(`Loaded app: ${metadata.slug}`);

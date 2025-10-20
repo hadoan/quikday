@@ -1,4 +1,5 @@
-import { Clock, Zap, Users, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Clock, Zap, Users, ChevronLeft, ChevronRight, Grid } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { cn } from '@/lib/utils';
@@ -25,6 +26,7 @@ export const Sidebar = ({
   collapsed = false,
   onToggleCollapse,
 }: SidebarProps) => {
+  const navigate = useNavigate();
   const filters = [
     { label: 'All Runs', icon: Clock },
     { label: 'My Runs', icon: Zap },
@@ -86,6 +88,17 @@ export const Sidebar = ({
 
       {!collapsed && (
         <>
+          <div className="p-4 border-b border-sidebar-border">
+            <Button
+              variant="ghost"
+              className="w-full justify-start gap-2"
+              size="sm"
+              onClick={() => navigate('/apps')}
+            >
+              <Grid className="h-4 w-4" />
+              Apps
+            </Button>
+          </div>
           <div className="p-4 space-y-2 border-b border-sidebar-border">
             {filters.map((filter) => (
               <Button
@@ -136,6 +149,15 @@ export const Sidebar = ({
 
       {collapsed && (
         <div className="p-2 flex flex-col items-center gap-2">
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-10 w-10"
+            title="Apps"
+            onClick={() => navigate('/apps')}
+          >
+            <Grid className="h-4 w-4" />
+          </Button>
           {filters.map((filter) => (
             <Button
               key={filter.label}

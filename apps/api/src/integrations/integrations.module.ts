@@ -4,6 +4,7 @@ import { AppStoreRegistry } from './appstore.registry';
 import { PrismaService } from '@quikday/prisma';
 import { AuthModule } from '../auth/auth.module';
 import { ConfigModule } from '../config/config.module';
+import { createSignedState, validateSignedState } from '../auth/oauth-state.util';
 
 @Module({
   imports: [AuthModule, ConfigModule],
@@ -18,6 +19,10 @@ export class IntegrationsModule implements OnModuleInit {
   ) {}
 
   async onModuleInit() {
-    await this.store.init({ prisma: this.prisma });
+    await this.store.init({ 
+      prisma: this.prisma,
+      createSignedState,
+      validateSignedState,
+    });
   }
 }

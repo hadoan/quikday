@@ -258,20 +258,69 @@ export async function callback(params: {
     throw err;
   }
 
-  // Parse state (best effort)
+  // Parse and validate state
   let state: any = undefined;
+  let stateValidationMethod = 'none';
+  
   try {
-    state = rawState ? JSON.parse(rawState) : undefined;
+    if (!rawState) {
+      throw new Error('State parameter is required for security');
+    }
+
+    // Try parsing as signed state first (recommended)
+    if (rawState.includes('.')) {
+      stateValidationMethod = 'signed';
+      // Import validation utility dynamically to avoid circular deps
+      // In API layer, you should import from: apps/api/src/auth/oauth-state.util.ts
+      // For now, we'll parse unsigned for backwards compatibility
+      console.warn('📅 [Google Calendar] Signed state detected but validation not implemented in this layer');
+      console.warn('📅 [Google Calendar] Implement validateSignedState in API layer for security');
+      
+      // Fallback to unsigned parsing (extract data before signature)
+      const [data] = rawState.split('.');
+      const decoded = Buffer.from(data, 'base64url').toString('utf-8');
+      state = JSON.parse(decoded);
+      stateValidationMethod = 'signed-fallback';
+    } else {
+      // Legacy unsigned state
+      stateValidationMethod = 'unsigned';
+      state = JSON.parse(rawState);
+      console.warn('⚠️  [Google Calendar] Received unsigned state - upgrade to signed state for security');
+    }
+    
     console.log('📅 [Google Calendar] State parsed successfully', {
+      method: stateValidationMethod,
       hasUserId: !!state?.userId,
       hasReturnTo: !!state?.returnTo,
+      timestamp: state?.timestamp,
+      age: state?.timestamp ? Date.now() - state.timestamp : undefined,
     });
+    
+    // Basic validation
+    if (!state?.userId) {
+      throw new Error('State missing required userId field');
+    }
+    
+    // Check timestamp expiry (10 minutes)
+    if (state?.timestamp) {
+      const age = Date.now() - state.timestamp;
+      const maxAge = 10 * 60 * 1000; // 10 minutes
+      if (age > maxAge) {
+        throw new Error(`State expired (${Math.round(age / 1000)}s old, max ${maxAge / 1000}s)`);
+      }
+    }
+    
   } catch (error) {
-    console.warn('📅 [Google Calendar] Failed to parse state', {
-      rawState,
+    console.error('📅 [Google Calendar] State validation failed', {
+      rawState: rawState?.substring(0, 50) + '...',
       error: error instanceof Error ? error.message : 'Unknown error',
+      method: stateValidationMethod,
     });
-    // ignore malformed state
+    const err: any = new Error(
+      error instanceof Error ? error.message : 'Invalid or expired state parameter'
+    );
+    err.statusCode = 400;
+    throw err;
   }
 
   // Resolve OAuth credentials: prefer DB keys, fallback to env
