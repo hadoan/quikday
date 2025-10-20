@@ -1,7 +1,6 @@
 import 'dotenv/config';
 import { HumanMessage, AIMessage, ToolMessage } from '@langchain/core/messages';
 export { compileApp } from './graph.js';
-export { buildSocialGraph } from './social.graph.js';
 export * from './prompts.js';
 
 /**
