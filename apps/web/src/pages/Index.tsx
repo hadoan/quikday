@@ -14,6 +14,7 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { Button } from '@/components/ui/button';
 import { mockRuns, mockTools, mockStats } from '@/data/mockRuns';
 import { Plug2, Plus } from 'lucide-react';
+import { useKindeAuth } from '@kinde-oss/kinde-auth-react';
 import { getDataSource, getFeatureFlags } from '@/lib/flags/featureFlags';
 import {
   buildPlanMessage,
@@ -286,9 +287,14 @@ const Index = () => {
     // Navigate to edit profile page
   };
 
-  const handleLogout = () => {
-    console.log('Logout');
-    // Handle logout
+  const { logout } = useKindeAuth();
+  const handleLogout = async () => {
+    try {
+      const redirect = `${window.location.origin}/auth/login`;
+      await logout?.(redirect);
+    } catch (err) {
+      console.error('Logout failed', err);
+    }
   };
 
   return (

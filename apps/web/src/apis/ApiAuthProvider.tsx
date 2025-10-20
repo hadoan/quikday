@@ -52,5 +52,7 @@ export default function ApiAuthProvider() {
     void checkAudience();
   }, [getAccessToken, login]);
 
+  // (User sync is triggered directly from KindeProvider onEvent in App.tsx)
+
   return null;
 }

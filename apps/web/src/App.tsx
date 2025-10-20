@@ -13,6 +13,7 @@ import Apps from './pages/Apps';
 import NotFound from './pages/NotFound';
 import ProtectedRoute from './components/auth/ProtectedRoute';
 import ApiAuthProvider from './apis/ApiAuthProvider';
+import { syncUserAfterRegister } from '@/apis/syncUser';
 
 const queryClient = new QueryClient();
 
@@ -28,6 +29,15 @@ const App = () => (
           redirectUri={import.meta.env.VITE_KINDE_REDIRECT_URI as string}
           audience={import.meta.env.VITE_KINDE_AUDIENCE as string}
           scope="openid profile email offline"
+          callbacks={{
+            onEvent: (event, _state, ctx) => {
+              if (event !== 'register') return;
+              void syncUserAfterRegister({
+                getAccessToken: ctx.getAccessToken,
+                expectedAudience: import.meta.env.VITE_KINDE_AUDIENCE as string | undefined,
+              });
+            },
+          }}
         >
           <ApiAuthProvider />
           <BrowserRouter>

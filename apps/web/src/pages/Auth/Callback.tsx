@@ -14,15 +14,14 @@ export default function CallbackPage() {
   const { isAuthenticated, isLoading } = useKindeAuth();
 
   useEffect(() => {
-    // Once authentication is complete, redirect to app
-    if (!isLoading) {
-      if (isAuthenticated) {
-        navigate('/', { replace: true });
-      } else {
-        navigate('/auth/login', { replace: true });
-      }
+    if (isLoading) return;
+    if (isAuthenticated) {
+      navigate('/', { replace: true });
+    } else {
+      navigate('/auth/login', { replace: true });
     }
-  }, [isAuthenticated, isLoading, navigate]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isAuthenticated, isLoading]);
 
   return (
     <div className="min-h-screen flex items-center justify-center p-4 bg-gradient-to-br from-background via-background to-primary/5">

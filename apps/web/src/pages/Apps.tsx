@@ -9,6 +9,7 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { Button } from '@/components/ui/button';
 import { mockRuns, mockTools, mockStats } from '@/data/mockRuns';
 import { Plug2, Search } from 'lucide-react';
+import { useKindeAuth } from '@kinde-oss/kinde-auth-react';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
@@ -105,6 +106,15 @@ const apps: AppListItem[] = [
 
 const Apps = () => {
   const [activeRunId, setActiveRunId] = useState(mockRuns[0].id);
+  const { logout } = useKindeAuth();
+  const handleLogout = async () => {
+    try {
+      const redirect = `${window.location.origin}/auth/login`;
+      await logout?.(redirect);
+    } catch (err) {
+      console.error('Logout failed', err);
+    }
+  };
   const [isToolsPanelOpen, setIsToolsPanelOpen] = useState(false);
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
   const [category, setCategory] = useState<string>('All');
@@ -189,7 +199,7 @@ const Apps = () => {
                 <Plug2 className="h-4 w-4" />
                 Integrations
               </Button>
-              <UserMenu onViewProfile={() => {}} onEditProfile={() => {}} onLogout={() => {}} />
+              <UserMenu onViewProfile={() => {}} onEditProfile={() => {}} onLogout={handleLogout} />
             </div>
           </div>
         </header>
