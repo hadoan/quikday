@@ -25,7 +25,7 @@ export class IntegrationsController {
 
   /**
    * OAuth callback endpoint - PUBLIC (no auth required)
-   * 
+   *
    * This endpoint receives redirects from OAuth providers (Google, LinkedIn, etc.)
    * after user authorization. It MUST be public because:
    * 1. Browser redirects cannot include Bearer tokens
@@ -33,7 +33,7 @@ export class IntegrationsController {
    *    - Signed/encrypted state parameter (CSRF protection)
    *    - Single-use authorization codes
    *    - Registered redirect_uri validation by OAuth provider
-   * 
+   *
    * User context is recovered from the validated state parameter.
    */
   @Get(':slug/callback')

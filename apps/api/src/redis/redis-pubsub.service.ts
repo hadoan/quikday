@@ -2,7 +2,14 @@ import { Injectable, Logger, OnModuleDestroy } from '@nestjs/common';
 import Redis from 'ioredis';
 
 export interface RunEvent {
-  type: 'connection_established' | 'run_status' | 'run_completed' | 'step_succeeded' | 'step_failed' | 'plan_generated' | 'step_started';
+  type:
+    | 'connection_established'
+    | 'run_status'
+    | 'run_completed'
+    | 'step_succeeded'
+    | 'step_failed'
+    | 'plan_generated'
+    | 'step_started';
   runId: string;
   payload: any;
   ts: string;
@@ -17,7 +24,7 @@ export class RedisPubSubService implements OnModuleDestroy {
 
   constructor() {
     const redisUrl = process.env.REDIS_URL || 'redis://localhost:6379';
-    
+
     this.publisher = new Redis(redisUrl, {
       maxRetriesPerRequest: null,
       enableReadyCheck: false,
@@ -46,11 +53,11 @@ export class RedisPubSubService implements OnModuleDestroy {
       try {
         const event: RunEvent = JSON.parse(message);
         this.logger.log(`📨 Received event on ${channel}: ${event.type}`);
-        
+
         // Notify all handlers for this channel
         const handlers = this.eventHandlers.get(channel);
         if (handlers) {
-          handlers.forEach(handler => {
+          handlers.forEach((handler) => {
             try {
               handler(event);
             } catch (error) {
@@ -105,13 +112,15 @@ export class RedisPubSubService implements OnModuleDestroy {
    */
   onRunEvent(runId: string, handler: (event: RunEvent) => void): () => void {
     const channel = `run:${runId}`;
-    
+
     if (!this.eventHandlers.has(channel)) {
       this.eventHandlers.set(channel, new Set());
     }
-    
+
     this.eventHandlers.get(channel)!.add(handler);
-    this.logger.log(`🔔 Added handler for ${channel} (total: ${this.eventHandlers.get(channel)!.size})`);
+    this.logger.log(
+      `🔔 Added handler for ${channel} (total: ${this.eventHandlers.get(channel)!.size})`
+    );
 
     // Return unsubscribe function
     return () => {
@@ -119,7 +128,7 @@ export class RedisPubSubService implements OnModuleDestroy {
       if (handlers) {
         handlers.delete(handler);
         this.logger.log(`🔕 Removed handler for ${channel} (remaining: ${handlers.size})`);
-        
+
         if (handlers.size === 0) {
           this.eventHandlers.delete(channel);
         }
@@ -132,9 +141,11 @@ export class RedisPubSubService implements OnModuleDestroy {
    */
   getStats() {
     const totalChannels = this.eventHandlers.size;
-    const totalHandlers = Array.from(this.eventHandlers.values())
-      .reduce((sum, handlers) => sum + handlers.size, 0);
-    
+    const totalHandlers = Array.from(this.eventHandlers.values()).reduce(
+      (sum, handlers) => sum + handlers.size,
+      0
+    );
+
     return {
       channels: totalChannels,
       handlers: totalHandlers,

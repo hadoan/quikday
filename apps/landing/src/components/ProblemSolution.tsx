@@ -1,7 +1,14 @@
 export const ProblemSolution = () => {
   const apps = [
-    "Gmail", "Slack", "HubSpot", "Notion", "QuickBooks", 
-    "Google Calendar", "Close CRM", "Sheets", "Airtable"
+    'Gmail',
+    'Slack',
+    'HubSpot',
+    'Notion',
+    'QuickBooks',
+    'Google Calendar',
+    'Close CRM',
+    'Sheets',
+    'Airtable',
   ];
 
   return (
@@ -10,15 +17,15 @@ export const ProblemSolution = () => {
         <div className="max-w-4xl mx-auto text-center">
           {/* Problem */}
           <p className="text-xl md:text-2xl text-muted-foreground mb-6 leading-relaxed">
-            Too many tabs, too little focus. Switching between Slack, your CRM, email, 
-            calendars, and docs wrecks momentum.
+            Too many tabs, too little focus. Switching between Slack, your CRM, email, calendars,
+            and docs wrecks momentum.
           </p>
 
           {/* Outcome */}
           <h2 className="text-3xl md:text-5xl font-bold mb-6">
             <span className="bg-gradient-to-r from-primary to-purple-500 bg-clip-text text-transparent">
               Quik.day
-            </span>{" "}
+            </span>{' '}
             plugs into your stack and executes—so you save time and stick to the work that matters.
           </h2>
 
@@ -29,8 +36,8 @@ export const ProblemSolution = () => {
             </p>
             <div className="flex flex-wrap justify-center gap-3">
               {apps.map((app) => (
-                <span 
-                  key={app} 
+                <span
+                  key={app}
                   className="px-4 py-2 bg-card border border-border rounded-lg text-sm font-medium hover:border-primary transition-smooth"
                 >
                   {app}

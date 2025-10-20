@@ -28,7 +28,7 @@ export class AppStoreRegistry {
       try {
         // Convention: @quikday/appstore/{slug}/dist/
         const basePath = `@quikday/appstore/${slug}/dist`;
-        
+
         // Load metadata and factory
         const metaMod = await import(`${basePath}/metadata`);
         const idxMod = await import(`${basePath}/index`);

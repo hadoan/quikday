@@ -304,7 +304,10 @@ export class CredentialService {
     await this.prisma.credential.delete({ where: { id: credentialId } });
   }
 
-  private mapCredential(credential: any, resolvedVia: ResolvedCredential['resolvedVia']): ResolvedCredential {
+  private mapCredential(
+    credential: any,
+    resolvedVia: ResolvedCredential['resolvedVia']
+  ): ResolvedCredential {
     return {
       id: credential.id,
       appId: credential.appId,
@@ -319,11 +322,7 @@ export class CredentialService {
     };
   }
 
-  private async trackResolution(
-    appId: string,
-    via: string,
-    success: boolean
-  ): Promise<void> {
+  private async trackResolution(appId: string, via: string, success: boolean): Promise<void> {
     const eventName = success ? 'credential_resolve_succeeded' : 'credential_resolve_failed';
     await this.telemetry.track(eventName, {
       appId,

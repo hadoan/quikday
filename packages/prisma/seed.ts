@@ -62,11 +62,13 @@ async function main() {
   try {
     // eslint-disable-next-line @typescript-eslint/no-unsafe-call
     await prisma.$executeRawUnsafe(
-      `SELECT setval(pg_get_serial_sequence('"Team"','id'), COALESCE((SELECT MAX(id) FROM "Team"), 0) + 1, false);`
+      `SELECT setval(pg_get_serial_sequence('"Team"','id'), COALESCE((SELECT MAX(id) FROM "Team"), 0) + 1, false);`,
     );
     console.log('🔧 Synchronized Team id sequence');
   } catch (err) {
-    console.warn('⚠️  Could not adjust Team id sequence (likely non-Postgres or permission issue).');
+    console.warn(
+      '⚠️  Could not adjust Team id sequence (likely non-Postgres or permission issue).',
+    );
   }
 
   console.log('✅ Seed completed successfully');
@@ -80,4 +82,3 @@ main()
   .finally(async () => {
     await prisma.$disconnect();
   });
-

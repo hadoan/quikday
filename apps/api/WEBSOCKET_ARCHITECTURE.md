@@ -40,11 +40,13 @@ The WebSocket service currently uses **polling** to push real-time updates to co
 ### 1. Event-Driven with Redis Pub/Sub 🚀
 
 **How it works:**
+
 - BullMQ worker publishes to Redis channel when run/step updates
 - WebSocket service subscribes to Redis channels
 - Messages pushed to connected clients immediately
 
 **Implementation:**
+
 ```typescript
 // In run.processor.ts
 await this.redis.publish(`run:${runId}:update`, JSON.stringify({ status, steps }));
@@ -58,12 +60,14 @@ this.redis.subscribe(`run:*:update`, (message) => {
 ```
 
 **Pros:**
+
 - ⚡ **Instant updates**: No polling delay
 - 📉 **Lower DB load**: Queries only on actual changes
 - 📈 **Scales better**: Redis handles pub/sub efficiently
 - 🎯 **Targeted**: Only notifies relevant connections
 
 **Cons:**
+
 - 🏗️ **Added dependency**: Requires Redis (already in stack for BullMQ)
 - 🔧 **More complex**: Pub/sub patterns to manage
 - 🔌 **Connection tracking**: Need to map runId → WebSocket instances
@@ -76,11 +80,13 @@ this.redis.subscribe(`run:*:update`, (message) => {
 ### 2. PostgreSQL LISTEN/NOTIFY 📢
 
 **How it works:**
+
 - Database triggers emit NOTIFY events on run/step changes
 - WebSocket service opens persistent PostgreSQL connection with LISTEN
 - Events pushed through database layer
 
 **Implementation:**
+
 ```sql
 -- Database trigger
 CREATE OR REPLACE FUNCTION notify_run_update()
@@ -106,12 +112,14 @@ client.on('notification', (msg) => {
 ```
 
 **Pros:**
+
 - 🎯 **Database-native**: No additional infrastructure
 - ⚡ **Real-time**: Instant notifications
 - 📉 **Efficient**: Events only on actual changes
 - 🔒 **Transactional**: Events tied to DB commits
 
 **Cons:**
+
 - 🔗 **Database coupling**: Requires persistent connection
 - 🐘 **PostgreSQL-only**: Vendor lock-in
 - 🚧 **Connection management**: Need to handle reconnects
@@ -125,17 +133,20 @@ client.on('notification', (msg) => {
 ### 3. Database Change Data Capture (CDC) 🔄
 
 **How it works:**
+
 - Use tools like Debezium, AWS DMS, or pg_logical_replication
 - Stream database change log to message broker (Kafka, Kinesis)
 - WebSocket service consumes stream and pushes to clients
 
 **Pros:**
+
 - 🏢 **Enterprise-grade**: Battle-tested for large scale
 - 📊 **Audit trail**: Full change history preserved
 - 🔄 **Replay**: Can replay events for debugging
 - 🌐 **Distributed**: Works across multiple services
 
 **Cons:**
+
 - 🚀 **Overkill**: Too heavy for current needs
 - 💰 **Cost**: Additional infrastructure and complexity
 - 🛠️ **Setup**: Significant DevOps overhead
@@ -148,40 +159,44 @@ client.on('notification', (msg) => {
 ### 4. BullMQ Event Hooks + Redis Pub/Sub 🎯
 
 **How it works:**
+
 - BullMQ already uses Redis for queue management
 - Add event listeners to run processor jobs
 - Publish to Redis channels on job lifecycle events
 - WebSocket service subscribes and pushes to clients
 
 **Implementation:**
+
 ```typescript
 // In run.processor.ts
 @Process('runs')
 async processRun(job: Job) {
   const { runId } = job.data;
-  
+
   // Emit status changes
-  await this.redis.publish(`run:${runId}`, JSON.stringify({ 
-    type: 'status', 
-    payload: { status: 'processing' } 
+  await this.redis.publish(`run:${runId}`, JSON.stringify({
+    type: 'status',
+    payload: { status: 'processing' }
   }));
-  
+
   // ... execute run ...
-  
-  await this.redis.publish(`run:${runId}`, JSON.stringify({ 
-    type: 'completed', 
-    payload: { status: 'succeeded', output } 
+
+  await this.redis.publish(`run:${runId}`, JSON.stringify({
+    type: 'completed',
+    payload: { status: 'succeeded', output }
   }));
 }
 ```
 
 **Pros:**
+
 - ✅ **Leverages existing Redis**: No new dependencies
 - 🎯 **Event-driven**: Updates pushed only when they happen
 - 🔌 **Decoupled**: Worker and WebSocket service independent
 - 📊 **Granular**: Can emit events at any step in processing
 
 **Cons:**
+
 - 🔄 **Double source of truth**: Redis events + database state
 - 🔍 **Consistency**: Need to handle race conditions
 - 🧩 **Split logic**: Update logic in multiple places
@@ -195,6 +210,7 @@ async processRun(job: Job) {
 ### Short-term: **Keep Polling** (Current Implementation)
 
 **Why:**
+
 - ✅ Simple, working, debuggable
 - ✅ Good enough for MVP and early users
 - ✅ No additional complexity or dependencies
@@ -203,12 +219,14 @@ async processRun(job: Job) {
 ### Mid-term: **Upgrade to Redis Pub/Sub**
 
 **When:** When you see these signals:
+
 - Database query volume becomes a bottleneck
 - Users report delays in seeing run updates
 - Concurrent runs regularly exceed 50-100
 - Monitoring shows high DB connection usage from WebSocket polling
 
 **Migration Path:**
+
 1. Add Redis publisher in `run.processor.ts`
 2. Update WebSocketService to subscribe to Redis channels
 3. Keep polling as fallback for missed events
@@ -218,6 +236,7 @@ async processRun(job: Job) {
 ### Long-term: **Consider CDC for Scale**
 
 **When:** You reach these milestones:
+
 - 1000+ concurrent runs
 - Multi-region deployment
 - Need for audit/compliance tracking
@@ -240,15 +259,15 @@ export class RunProcessor {
 
   async processRun(job: Job) {
     const { runId } = job.data;
-    
+
     // Emit status update
     await this.emitRunEvent(runId, {
       type: 'run_status',
       payload: { status: 'processing' },
     });
-    
+
     // ... existing processing logic ...
-    
+
     // Emit step updates
     for (const step of steps) {
       await this.emitRunEvent(runId, {
@@ -256,7 +275,7 @@ export class RunProcessor {
         payload: { tool: step.tool, ... },
       });
     }
-    
+
     // Emit completion
     await this.emitRunEvent(runId, {
       type: 'run_completed',
@@ -286,7 +305,7 @@ export class WebSocketService {
   private subscriber: Redis;
 
   constructor(
-    @InjectRedis() redis: Redis,
+    @InjectRedis() redis: Redis
     // ... existing dependencies
   ) {
     this.subscriber = redis.duplicate();
@@ -305,9 +324,9 @@ export class WebSocketService {
     this.subscriber.on('pmessage', (pattern, channel, message) => {
       const runId = channel.replace('run:', '');
       const event = JSON.parse(message);
-      
+
       this.logger.log(`📨 Received event for runId ${runId}:`, event.type);
-      
+
       // Find all connections for this runId
       this.connState.forEach((state, ws) => {
         if (state.runId === runId) {
@@ -329,6 +348,7 @@ export class WebSocketService {
 ### Phase 3: Monitoring and Optimization
 
 Add metrics to compare:
+
 - Event latency (Redis pub → WebSocket send)
 - Polling queries avoided
 - Memory usage (connection state)
@@ -337,6 +357,7 @@ Add metrics to compare:
 ### Phase 4: Remove Polling
 
 Once Redis pub/sub proves reliable:
+
 - Remove `setInterval` polling
 - Keep connection state for routing
 - Maintain database queries only for initial state on connect
@@ -359,7 +380,7 @@ Once Redis pub/sub proves reliable:
 The WebSocketService uses emoji prefixes for quick visual scanning:
 
 - 🔌 **Initialization**: WebSocket server setup
-- 🔗 **Connection**: Client connect events  
+- 🔗 **Connection**: Client connect events
 - 📨 **Messages**: Outgoing WebSocket messages
 - 🔄 **Polling**: Database poll cycles
 - 📊 **Statistics**: Connection/message counts

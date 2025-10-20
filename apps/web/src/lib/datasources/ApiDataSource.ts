@@ -1,6 +1,6 @@
 /**
  * ApiDataSource.ts
- * 
+ *
  * Calls REST endpoints and WebSocket, then uses adapters to return UI-compatible shapes.
  * Returns the SAME view models as MockDataSource so UI components are unchanged.
  */
@@ -34,7 +34,10 @@ import { createLogger } from '../utils/logger';
 export class ApiDataSource implements DataSource {
   private config: Required<DataSourceConfig>;
   private activeSockets = new Map<string, RunSocket>();
-  private activePollers = new Map<string, { timer: ReturnType<typeof setInterval>; lastStatus?: string; lastStepCount: number }>();
+  private activePollers = new Map<
+    string,
+    { timer: ReturnType<typeof setInterval>; lastStatus?: string; lastStepCount: number }
+  >();
   private logger = createLogger('ApiDataSource');
 
   constructor(config: DataSourceConfig = {}) {
@@ -57,7 +60,7 @@ export class ApiDataSource implements DataSource {
   // -------------------------------------------------------------------------
   async createRun(params: CreateRunParams): Promise<{ runId: string }> {
     const url = `${this.config.apiBaseUrl}/runs`;
-    
+
     const body = {
       prompt: params.prompt,
       mode: params.mode,
@@ -82,7 +85,7 @@ export class ApiDataSource implements DataSource {
     });
 
     const data = await response.json();
-    
+
     this.logger.info('✅ API response received', {
       timestamp: new Date().toISOString(),
       runId: data.id,
@@ -106,7 +109,7 @@ export class ApiDataSource implements DataSource {
 
     // Adapt backend response to UI view model
     const run = adaptRunBackendToUi(data);
-    
+
     // Extract steps
     const steps = data.steps ? adaptStepsBackendToUi(data.steps) : [];
 
@@ -161,7 +164,9 @@ export class ApiDataSource implements DataSource {
           const timer = setInterval(() => this.pollRun(runId, onEvent), 2000);
           this.activePollers.set(runId, { timer, lastStatus: undefined, lastStepCount: 0 });
           // Stop noisy WS reconnects once fallback is active
-          try { socket.close(); } catch {}
+          try {
+            socket.close();
+          } catch {}
         }
       },
       onClose: () => {
@@ -192,7 +197,7 @@ export class ApiDataSource implements DataSource {
   // -------------------------------------------------------------------------
   async approve(runId: string, approvedSteps: string[]): Promise<{ ok: true }> {
     const url = `${this.config.apiBaseUrl}/runs/${runId}/approve`;
-    
+
     await this.fetch(url, {
       method: 'POST',
       body: JSON.stringify({ approvedSteps }),
@@ -203,7 +208,7 @@ export class ApiDataSource implements DataSource {
 
   async cancel(runId: string): Promise<{ ok: true }> {
     const url = `${this.config.apiBaseUrl}/runs/${runId}/cancel`;
-    
+
     await this.fetch(url, {
       method: 'POST',
     });
@@ -213,7 +218,7 @@ export class ApiDataSource implements DataSource {
 
   async undo(runId: string): Promise<{ ok: true }> {
     const url = `${this.config.apiBaseUrl}/runs/${runId}/undo`;
-    
+
     await this.fetch(url, {
       method: 'POST',
     });
@@ -226,7 +231,7 @@ export class ApiDataSource implements DataSource {
   // -------------------------------------------------------------------------
   async listCredentials(appId: string, owner: 'user' | 'team'): Promise<UiCredential[]> {
     const url = `${this.config.apiBaseUrl}/credentials?appId=${appId}&owner=${owner}`;
-    
+
     const response = await this.fetch(url);
     const data: BackendCredential[] = await response.json();
 
@@ -235,7 +240,7 @@ export class ApiDataSource implements DataSource {
 
   async selectCurrentCredential(credentialId: number): Promise<{ ok: true }> {
     const url = `${this.config.apiBaseUrl}/credentials/${credentialId}/select`;
-    
+
     await this.fetch(url, {
       method: 'POST',
     });
@@ -246,24 +251,20 @@ export class ApiDataSource implements DataSource {
   // -------------------------------------------------------------------------
   // Optional: List Runs
   // -------------------------------------------------------------------------
-  async listRuns(params?: {
-    status?: string[];
-    limit?: number;
-    cursor?: string;
-  }): Promise<{
+  async listRuns(params?: { status?: string[]; limit?: number; cursor?: string }): Promise<{
     runs: UiRunSummary[];
     nextCursor?: string;
   }> {
     const url = new URL(`${this.config.apiBaseUrl}/runs`);
-    
+
     if (params?.status) {
       params.status.forEach((s) => url.searchParams.append('status', s));
     }
-    
+
     if (params?.limit) {
       url.searchParams.set('limit', params.limit.toString());
     }
-    
+
     if (params?.cursor) {
       url.searchParams.set('cursor', params.cursor);
     }
@@ -355,7 +356,10 @@ export class ApiDataSource implements DataSource {
       // Emit status change
       if (run.status && poller.lastStatus !== run.status) {
         onEvent({
-          type: run.status === 'succeeded' || run.status === 'completed' || run.status === 'done' ? 'run_completed' : 'run_status',
+          type:
+            run.status === 'succeeded' || run.status === 'completed' || run.status === 'done'
+              ? 'run_completed'
+              : 'run_status',
           payload: { status: run.status, started_at: run.createdAt, completed_at: run.completedAt },
           ts: new Date().toISOString(),
           runId,
@@ -414,14 +418,18 @@ export class ApiDataSource implements DataSource {
     }
 
     // Plan message (if planning or planned)
-    if (run.status === 'planning' || run.status === 'planned' || run.status === 'awaiting_approval') {
+    if (
+      run.status === 'planning' ||
+      run.status === 'planned' ||
+      run.status === 'awaiting_approval'
+    ) {
       messages.push(
         buildPlanMessage({
           intent: 'Process request',
           tools: steps.map((s) => s.tool),
           actions: steps.map((s) => s.action || 'Execute'),
           steps,
-        })
+        }),
       );
     }
 
@@ -432,7 +440,7 @@ export class ApiDataSource implements DataSource {
           status: run.status,
           started_at: run.createdAt,
           completed_at: run.completedAt,
-        })
+        }),
       );
     }
 
@@ -448,7 +456,7 @@ export class ApiDataSource implements DataSource {
           title: 'Summary',
           content: run.config.summary,
           type: 'text',
-        })
+        }),
       );
     }
 

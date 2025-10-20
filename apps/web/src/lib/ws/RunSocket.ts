@@ -1,6 +1,6 @@
 /**
  * RunSocket.ts
- * 
+ *
  * WebSocket wrapper for real-time run updates.
  * Features:
  * - Auto-reconnect with exponential backoff + jitter
@@ -56,7 +56,7 @@ export class RunSocket {
   close(): void {
     this.isClosed = true;
     this.cleanup();
-    
+
     if (this.ws) {
       this.ws.close(1000, 'Client closed connection');
       this.ws = null;
@@ -104,7 +104,7 @@ export class RunSocket {
   private buildWsUrl(): string {
     const { wsBaseUrl, runId, authToken } = this.config;
     const url = new URL(`/ws/runs/${runId}`, wsBaseUrl);
-    
+
     if (authToken) {
       url.searchParams.set('token', authToken);
     }
@@ -134,7 +134,7 @@ export class RunSocket {
 
       // Parse JSON message
       const message = JSON.parse(event.data) as BackendWsMessage;
-      
+
       // Adapt to UI event format
       const uiEvent = adaptWsEventToUi(message);
       uiEvent.runId = uiEvent.runId || this.config.runId;
@@ -168,7 +168,7 @@ export class RunSocket {
 
   private scheduleReconnect(): void {
     if (this.isClosed) return;
-    
+
     if (this.reconnectAttempts >= this.maxReconnectAttempts) {
       console.error('[RunSocket] Max reconnect attempts reached');
       this.config.onError?.(new Error('Max reconnect attempts reached'));
@@ -177,10 +177,12 @@ export class RunSocket {
     }
 
     this.reconnectAttempts++;
-    
+
     // Exponential backoff with jitter
     const delay = this.calculateReconnectDelay();
-    console.log(`[RunSocket] Reconnecting in ${delay}ms (attempt ${this.reconnectAttempts}/${this.maxReconnectAttempts})`);
+    console.log(
+      `[RunSocket] Reconnecting in ${delay}ms (attempt ${this.reconnectAttempts}/${this.maxReconnectAttempts})`,
+    );
 
     this.reconnectTimeout = setTimeout(() => {
       this.createConnection();
@@ -190,10 +192,10 @@ export class RunSocket {
   private calculateReconnectDelay(): number {
     // Exponential backoff: baseDelay * 2^attempts
     const exponentialDelay = this.reconnectBaseDelay * Math.pow(2, this.reconnectAttempts - 1);
-    
+
     // Add jitter (±25%)
     const jitter = exponentialDelay * 0.25 * (Math.random() - 0.5);
-    
+
     // Cap at 30 seconds
     return Math.min(exponentialDelay + jitter, 30000);
   }
@@ -223,7 +225,7 @@ export class RunSocket {
 
   private cleanup(): void {
     this.stopHeartbeat();
-    
+
     if (this.reconnectTimeout) {
       clearTimeout(this.reconnectTimeout);
       this.reconnectTimeout = null;

@@ -16,6 +16,7 @@ Successfully implemented the end-to-end **Send in Chat** flow using app-scoped c
 #### New Tables
 
 **`Credential`** - Manages user/team credentials for apps
+
 - `id` (serial, primary key)
 - `type` (text) - Credential type (oauth, apikey, etc.)
 - `key` (jsonb) - Encrypted credential material
@@ -34,6 +35,7 @@ Successfully implemented the end-to-end **Send in Chat** flow using app-scoped c
 - `createdAt`, `updatedAt` (timestamps)
 
 **`App`** - App catalog
+
 - `slug` (text, primary key) - App identifier (e.g., 'linkedin', 'x')
 - `dirName` (text, unique) - Directory name in appstore
 - `keys` (jsonb, nullable) - Required API keys
@@ -42,6 +44,7 @@ Successfully implemented the end-to-end **Send in Chat** flow using app-scoped c
 - `createdAt`, `updatedAt` (timestamps)
 
 **`RunEffect`** - Tracks effectful actions for undo
+
 - `id` (serial, primary key)
 - `runId` (text) - Foreign key to Run
 - `stepId` (int, nullable) - Associated step
@@ -57,16 +60,19 @@ Successfully implemented the end-to-end **Send in Chat** flow using app-scoped c
 - `createdAt` (timestamp)
 
 **`ApiKey`** - User API keys for apps
+
 - Similar to before but now properly linked to App table
 
 #### Modified Tables
 
 **`Run`**
+
 - Added `scheduledAt` (timestamp) - For scheduled runs
 - Added `toolAllowlist` (jsonb) - Policy-enforced tool restrictions
 - Added `policySnapshot` (jsonb) - Frozen policy at run time
 
 **`Step`**
+
 - Added `appId` (text) - App used in this step
 - Added `credentialId` (int) - Credential used
 - Added `errorCode` (text) - Structured error codes
@@ -74,6 +80,7 @@ Successfully implemented the end-to-end **Send in Chat** flow using app-scoped c
 #### New Enum
 
 **`AppCategories`**
+
 - calendar, email, messaging, other, payment, web3, automation, analytics, conferencing, crm, social, cloudstorage, ai
 
 ---
@@ -115,16 +122,16 @@ Successfully implemented the end-to-end **Send in Chat** flow using app-scoped c
 
 ### Defined Tools
 
-| Tool | App | Effectful | Undo Strategy | Rate Limit |
-|------|-----|-----------|---------------|------------|
-| `x_post` | x | ✓ | api_delete | 50/15min |
-| `x_reply` | x | ✓ | api_delete | - |
-| `linkedin_share` | linkedin | ✓ | api_delete | 100/24h |
-| `linkedin_comment` | linkedin | ✓ | api_delete | - |
-| `slack_post` | slack | ✓ | api_delete | - |
-| `notion_page_create` | notion | ✓ | manual | - |
-| `youtube_upload` | youtube | ✓ | api_delete | - |
-| `tiktok_upload` | tiktok | ✓ | manual | - |
+| Tool                 | App      | Effectful | Undo Strategy | Rate Limit |
+| -------------------- | -------- | --------- | ------------- | ---------- |
+| `x_post`             | x        | ✓         | api_delete    | 50/15min   |
+| `x_reply`            | x        | ✓         | api_delete    | -          |
+| `linkedin_share`     | linkedin | ✓         | api_delete    | 100/24h    |
+| `linkedin_comment`   | linkedin | ✓         | api_delete    | -          |
+| `slack_post`         | slack    | ✓         | api_delete    | -          |
+| `notion_page_create` | notion   | ✓         | manual        | -          |
+| `youtube_upload`     | youtube  | ✓         | api_delete    | -          |
+| `tiktok_upload`      | tiktok   | ✓         | manual        | -          |
 
 ### Tool Metadata Schema
 
@@ -186,6 +193,7 @@ class CredentialScopeMismatchError extends QuikDayError {
 ### Runs
 
 **`POST /runs`**
+
 ```typescript
 {
   prompt: string;
@@ -201,6 +209,7 @@ class CredentialScopeMismatchError extends QuikDayError {
 ```
 
 **`POST /runs/:id/approve`**
+
 ```typescript
 { approvedSteps: string[] }
 ```
@@ -212,15 +221,19 @@ class CredentialScopeMismatchError extends QuikDayError {
 ### Credentials
 
 **`GET /credentials?appId=linkedin&owner=user|team`**
+
 - List credentials with health status
 
 **`POST /credentials/:id/select-current`**
+
 - Set as user's current profile
 
 **`POST /credentials/:id/set-team-default`**
+
 - Set as team's default profile
 
 **`POST /credentials/:id/validate`**
+
 - Validate credential health
 
 ---
@@ -263,15 +276,18 @@ class CredentialScopeMismatchError extends QuikDayError {
 ## 7. Security & Access Control
 
 ### Run Tokens (JWT)
+
 - Claims: `runId`, `userId`, `teamId`, `allowedAppIds[]`, `allowedTools[]`
 - Workers enforce app/tool allowlists
 
 ### Credential Access
+
 - Workers load by ID or resolve via policy
 - Ownership verified (`userId` or `teamId` matches run)
 - `key` decrypted only in worker memory, never logged
 
 ### Logging
+
 - Never log credential `key`
 - Only log: `credentialId`, `appId`, redacted metadata
 
@@ -289,12 +305,14 @@ class CredentialScopeMismatchError extends QuikDayError {
 ## 9. Undo/Compensation
 
 ### Strategy per Tool
+
 - `api_delete` - Call vendor API to delete
 - `api_update` - Call vendor API to revert
 - `manual` - Cannot auto-undo, user action required
 - `none` - Not undoable
 
 ### Process
+
 1. Query `RunEffect` where `canUndo = true` and `undoneAt IS NULL`
 2. Execute undo for each effect
 3. Mark `undoneAt = NOW()`
@@ -305,11 +323,13 @@ class CredentialScopeMismatchError extends QuikDayError {
 ## 10. Module Structure
 
 ### New Modules
+
 - `CredentialsModule` - Credential management
   - `CredentialService`
   - `CredentialsController`
 
 ### Updated Modules
+
 - `RunsModule` - Send flow support
 - `QueueModule` - Credential resolution in workers
 - `AppModule` - Registered CredentialsModule
@@ -323,13 +343,14 @@ class CredentialScopeMismatchError extends QuikDayError {
 ✅ **Scenario 3:** Neither has credential → `E_CREDENTIAL_MISSING` with CTA  
 ✅ **Scenario 4:** Vendor returns 401 → Mark invalid + `E_CREDENTIAL_INVALID`  
 ✅ **Scenario 5:** Explicit `credentialId` provided → Always use it  
-✅ **Scenario 6:** Scheduled run after profile switch → Re-resolves to new current  
+✅ **Scenario 6:** Scheduled run after profile switch → Re-resolves to new current
 
 ---
 
 ## 12. Migration Steps
 
 ### Completed ✅
+
 1. ✅ Schema updates (Credential, App, RunEffect models)
 2. ✅ Make `appId` required in Credential
 3. ✅ Add health fields (lastValidatedAt, tokenExpiresAt, etc.)
@@ -338,6 +359,7 @@ class CredentialScopeMismatchError extends QuikDayError {
 6. ✅ Prisma client regenerated
 
 ### Next Steps (Post-Deployment)
+
 - [ ] Backfill `appId` for any existing credentials
 - [ ] Create background job for periodic credential validation
 - [ ] Implement app-specific undo logic in tool executors
@@ -349,6 +371,7 @@ class CredentialScopeMismatchError extends QuikDayError {
 ## 13. Files Created/Modified
 
 ### Created
+
 - `packages/types/src/errors.ts` - Error taxonomy
 - `packages/appstore/src/toolCatalog.ts` - Tool metadata
 - `apps/api/src/credentials/credential.service.ts` - Resolution logic
@@ -357,6 +380,7 @@ class CredentialScopeMismatchError extends QuikDayError {
 - `packages/prisma/src/migrations/20251018143921_add_credential_and_app/` - Migration
 
 ### Modified
+
 - `packages/prisma/src/schema.prisma` - Schema updates
 - `apps/api/src/runs/runs.controller.ts` - New endpoints
 - `apps/api/src/runs/runs.service.ts` - Send flow support
@@ -384,6 +408,7 @@ Time:    2.456s
 ## 15. Next Phase: Integration Work
 
 ### Immediate TODOs
+
 1. **Actual Tool Execution**
    - Implement LinkedIn, X, Slack, Notion adapters
    - Wire up real OAuth flows
@@ -500,7 +525,7 @@ The Send flow with app-scoped credentials has been **fully implemented** and int
 ✅ Enables scheduled runs with credential re-resolution  
 ✅ Includes comprehensive telemetry  
 ✅ Maintains security (JIT credential decryption, no logging of secrets)  
-✅ Builds successfully across all packages  
+✅ Builds successfully across all packages
 
 **Ready for:** Integration testing, tool adapter implementation, and UI development.
 

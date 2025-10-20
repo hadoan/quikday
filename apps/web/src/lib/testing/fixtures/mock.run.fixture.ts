@@ -1,6 +1,6 @@
 /**
  * mock.run.fixture.ts
- * 
+ *
  * Golden fixture representing what the UI expects (from MockDataSource).
  * Used for snapshot testing to ensure ApiDataSource adapters produce identical output.
  */
@@ -15,7 +15,8 @@ export const mockRunFixture: UiRunSummary = {
   messages: [
     {
       role: 'user',
-      content: "Post this on LinkedIn tomorrow at 9am: 'Excited to announce our new product launch! 🚀'",
+      content:
+        "Post this on LinkedIn tomorrow at 9am: 'Excited to announce our new product launch! 🚀'",
     },
     {
       role: 'assistant',

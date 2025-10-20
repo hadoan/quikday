@@ -1,13 +1,8 @@
-/**
- * Google Calendar OAuth2 - Add Integration
- *
- * Pure library implementation (no Next.js dependencies).
- * Generates Google Calendar OAuth URL for user authorization.
- */
-
 import { google } from 'googleapis';
 import type { AppMeta } from '@quikday/types';
 import { getAppKeysFromSlug } from '@quikday/appstore';
+import { GoogleCalendarAuthConfig } from './GoogleCalendarAuthConfig.js';
+import { GoogleCalendarAuthUrlResult } from './GoogleCalendarAuthUrlResult.js';
 
 /**
  * OAuth scopes required for Google Calendar integration.
@@ -19,41 +14,6 @@ const GOOGLE_CALENDAR_SCOPES = [
   'https://www.googleapis.com/auth/calendar.events',
 ];
 
-export interface GoogleCalendarAuthConfig {
-  /** Google OAuth2 client ID */
-  clientId: string;
-  /** Google OAuth2 client secret */
-  clientSecret: string;
-  /** Redirect URI where Google will send the auth code */
-  redirectUri: string;
-  /** Optional state parameter for CSRF protection and session tracking */
-  state?: string;
-}
-
-export interface GoogleCalendarAuthUrlResult {
-  /** OAuth authorization URL to redirect user to */
-  url: string;
-  /** Scopes requested */
-  scopes: string[];
-}
-
-/**
- * Generate Google Calendar OAuth authorization URL.
- *
- * @param config - OAuth configuration (client_id, client_secret, redirect_uri, state)
- * @returns Authorization URL and scopes
- *
- * @example
- * ```typescript
- * const result = generateGoogleCalendarAuthUrl({
- *   clientId: process.env.GOOGLE_CLIENT_ID,
- *   clientSecret: process.env.GOOGLE_CLIENT_SECRET,
- *   redirectUri: 'https://app.quik.day/api/integrations/google-calendar/callback',
- *   state: encodeState({ userId: '123', teamId: 'abc' }),
- * });
- * // Redirect user to result.url
- * ```
- */
 export function generateGoogleCalendarAuthUrl(
   config: GoogleCalendarAuthConfig,
 ): GoogleCalendarAuthUrlResult {
@@ -87,20 +47,6 @@ export function generateGoogleCalendarAuthUrl(
   };
 }
 
-/**
- * Convenience export of scopes for external use.
- */
-export { GOOGLE_CALENDAR_SCOPES };
-
-/**
- * Resolve Google Calendar OAuth URL from an incoming request and app metadata.
- * - Prefers keys stored in DB App.keys; falls back to env GOOGLE_CLIENT_ID/SECRET
- * - Builds redirectUri from API_BASE_URL (or request host) and meta.slug
- * - Encodes simple JSON state for CSRF/session context
- * 
- * Note: For production, use signed state via oauth-state.util.ts in the API layer.
- * This library function creates basic unsigned state for backwards compatibility.
- */
 export async function resolveGoogleCalendarAuthUrl(params: {
   req: any;
   meta: AppMeta;
@@ -108,14 +54,8 @@ export async function resolveGoogleCalendarAuthUrl(params: {
 }): Promise<GoogleCalendarAuthUrlResult> {
   const { req, meta, signedState } = params;
 
-  console.log('📅 [Add] resolveGoogleCalendarAuthUrl called', {
-    slug: meta.slug,
-    hasReqUser: !!req.user,
-    hasSignedState: !!signedState,
-  });
-
-  let clientId = process.env.GOOGLE_CLIENT_ID;
-  let clientSecret = process.env.GOOGLE_CLIENT_SECRET;
+  let clientId = undefined;
+  let clientSecret = undefined;
 
   try {
     const appKeys = (await getAppKeysFromSlug(meta.slug)) as Record<string, unknown>;
@@ -139,26 +79,22 @@ export async function resolveGoogleCalendarAuthUrl(params: {
   let state: string;
   if (signedState) {
     state = signedState;
-    console.log('📅 [Add] Using pre-signed state (secure)');
+    // using pre-signed state (secure)
   } else {
     // Fallback: unsigned state (less secure, for backwards compatibility)
     const userId = req.user?.id || req.user?.sub;
-    console.log('📅 [Add] Creating unsigned state (fallback)', {
-      'req.user': req.user,
-      'resolved userId': userId || 'none',
-    });
-    
+    // creating unsigned state (fallback); user info used if available
+
     state = JSON.stringify({
       userId,
       timestamp: Date.now(),
     });
-    console.warn('⚠️  Using unsigned OAuth state - consider using signed state for better security');
+    console.warn(
+      '⚠️  Using unsigned OAuth state - consider using signed state for better security',
+    );
   }
 
-  console.log('📅 [Add] State being passed', { 
-    stateLength: state.length,
-    isSigned: !!signedState,
-  });
+  // state prepared (signed flag available via signedState)
 
   return generateGoogleCalendarAuthUrl({
     clientId,

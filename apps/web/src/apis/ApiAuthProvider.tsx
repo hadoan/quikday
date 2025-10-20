@@ -36,9 +36,7 @@ export default function ApiAuthProvider() {
         const payloadRaw = base64UrlDecode(parts[1]);
         const payload = JSON.parse(payloadRaw || '{}');
         const aud: string | string[] | undefined = payload?.aud;
-        const matches = Array.isArray(aud)
-          ? aud.includes(expectedAud)
-          : aud === expectedAud;
+        const matches = Array.isArray(aud) ? aud.includes(expectedAud) : aud === expectedAud;
         if (!matches) {
           reauthRef.current = true;
           await login?.();

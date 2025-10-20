@@ -20,7 +20,12 @@ const base64UrlDecode = (str: string) => {
   }
 };
 
-async function waitForAudienceToken(getAccessToken: GetAccessToken, expectedAud?: string, tries = 10, delayMs = 150): Promise<string | undefined> {
+async function waitForAudienceToken(
+  getAccessToken: GetAccessToken,
+  expectedAud?: string,
+  tries = 10,
+  delayMs = 150,
+): Promise<string | undefined> {
   for (let i = 0; i < tries; i++) {
     try {
       const tok = await getAccessToken();
@@ -74,9 +79,10 @@ export async function syncUserAfterRegister(params: {
       `${getApiBaseUrl()}/users/sync`,
       {
         email: userProfile?.email,
-        name: userProfile?.given_name && userProfile?.family_name
-          ? `${userProfile.given_name} ${userProfile.family_name}`.trim()
-          : undefined,
+        name:
+          userProfile?.given_name && userProfile?.family_name
+            ? `${userProfile.given_name} ${userProfile.family_name}`.trim()
+            : undefined,
         given_name: userProfile?.given_name,
         family_name: userProfile?.family_name,
         picture: userProfile?.picture,
@@ -87,11 +93,10 @@ export async function syncUserAfterRegister(params: {
           'Content-Type': 'application/json',
         },
         withCredentials: true,
-      }
+      },
     );
     console.log('[syncUser] /users/sync success');
   } catch (err) {
     console.warn('[syncUser] /users/sync failed', err);
   }
 }
-

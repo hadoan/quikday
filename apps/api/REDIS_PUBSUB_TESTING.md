@@ -28,6 +28,7 @@ Run Processor → Redis Pub/Sub → WebSocket Service → Connected Clients
 - **Event Routing**: Routes events to registered handlers based on runId
 
 **Key Methods:**
+
 - `publishRunEvent(runId, event)` - Publish event to `run:{runId}` channel
 - `onRunEvent(runId, handler)` - Subscribe to events for specific run
 - `getStats()` - Get connection and subscription statistics
@@ -35,12 +36,14 @@ Run Processor → Redis Pub/Sub → WebSocket Service → Connected Clients
 ### 2. WebSocketService (`apps/api/src/websocket/websocket.service.ts`)
 
 **Changes from Polling:**
+
 - ❌ Removed: `pollIntervalMs`, `timer`, `pollCount`, `startPolling()`, `pollRunUpdates()`
 - ✅ Added: `unsubscribe` function in ConnectionState
 - ✅ Updated: `handleConnection()` subscribes to Redis events
 - ✅ Updated: `handleDisconnection()` calls unsubscribe function
 
 **Event Handling:**
+
 ```typescript
 const unsubscribe = this.redisPubSub.onRunEvent(runId, (event) => {
   this.sendMessage(ws, event);
@@ -50,7 +53,9 @@ const unsubscribe = this.redisPubSub.onRunEvent(runId, (event) => {
 ### 3. RunProcessor (`apps/api/src/queue/run.processor.ts`)
 
 **Event Publishing Points:**
+
 1. **Running**: When job starts execution
+
    ```typescript
    await this.redisPubSub.publishRunEvent(run.id, {
      type: 'run_status',
@@ -59,6 +64,7 @@ const unsubscribe = this.redisPubSub.onRunEvent(runId, (event) => {
    ```
 
 2. **Completed**: When job finishes successfully
+
    ```typescript
    await this.redisPubSub.publishRunEvent(run.id, {
      type: 'run_completed',
@@ -79,11 +85,13 @@ const unsubscribe = this.redisPubSub.onRunEvent(runId, (event) => {
 ### Prerequisites
 
 1. **Redis running**:
+
    ```bash
    docker compose up -d redis
    ```
 
 2. **API running**:
+
    ```bash
    pnpm dev:api
    ```
@@ -102,6 +110,7 @@ const unsubscribe = this.redisPubSub.onRunEvent(runId, (event) => {
 3. **Type a prompt** and submit (e.g., "Post 'Hello from Quik.day!' on LinkedIn")
 
 4. **Expected Logs** in API terminal:
+
    ```
    📡 Subscribed to 1 Redis channel patterns
    🔗 New WebSocket connection { runId: 'xxx' }
@@ -113,6 +122,7 @@ const unsubscribe = this.redisPubSub.onRunEvent(runId, (event) => {
    ```
 
 5. **Expected WebSocket Messages**:
+
    ```json
    {"type":"run_status","payload":{"status":"connected"},"ts":"...","runId":"xxx"}
    {"type":"run_status","payload":{"status":"running"},"ts":"...","runId":"xxx"}
@@ -145,6 +155,7 @@ const unsubscribe = this.redisPubSub.onRunEvent(runId, (event) => {
 2. **Close the browser tab** before run completes
 
 3. **Expected Logs**:
+
    ```
    🔌 WebSocket disconnected { runId: 'xxx', duration: '5.23s' }
    🔕 Removed handler for run:xxx (remaining: 0)
@@ -155,6 +166,7 @@ const unsubscribe = this.redisPubSub.onRunEvent(runId, (event) => {
 ### Test Scenario 4: Redis Stats
 
 1. **With connections active**, check stats endpoint:
+
    ```bash
    curl http://localhost:3000/runs/stats
    ```
@@ -183,12 +195,14 @@ const unsubscribe = this.redisPubSub.onRunEvent(runId, (event) => {
 ### Redis CLI
 
 Monitor live events:
+
 ```bash
 docker exec -it runfast-redis-1 redis-cli
 > PSUBSCRIBE run:*
 ```
 
 You'll see:
+
 ```
 1) "pmessage"
 2) "run:*"
@@ -229,11 +243,13 @@ You'll see:
 ### Issue: No events received
 
 **Check:**
+
 1. Redis is running: `docker ps | grep redis`
 2. Redis connection logs: Look for "✅ Redis publisher connected"
 3. Events are being published: Check run.processor.ts logs for "📤 Published"
 
 **Solution:**
+
 ```bash
 # Restart Redis
 docker compose restart redis
@@ -246,11 +262,13 @@ docker exec -it runfast-redis-1 redis-cli ping
 ### Issue: Events received but not forwarded to client
 
 **Check:**
+
 1. WebSocket connection state: `this.connState.size`
 2. Handler registration: Look for "🔔 Added handler"
 3. WebSocket readyState: Should be `1` (OPEN)
 
 **Debug:**
+
 ```typescript
 // In websocket.service.ts
 this.logger.debug('Connection state:', {
@@ -263,10 +281,12 @@ this.logger.debug('Connection state:', {
 ### Issue: Memory leak / handlers not cleaned up
 
 **Check:**
+
 1. Disconnection logs: "🔕 Removed handler"
 2. Redis stats: `redis.handlers` should decrease on disconnect
 
 **Fix:**
+
 ```typescript
 // Ensure unsubscribe is called
 if (state.unsubscribe) {
@@ -300,6 +320,7 @@ If you need to rollback to polling:
 ✅ **Production Ready**: Tested and documented
 
 **Key Metrics to Monitor:**
+
 - WebSocket connection count
 - Redis memory usage
 - Event publish/subscribe rate

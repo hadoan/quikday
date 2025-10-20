@@ -113,7 +113,11 @@ export class RunsService {
       jobType: 'execute',
     });
 
-    const job = await this.runsQueue.add('execute', { runId }, { removeOnComplete: 100, removeOnFail: 100 });
+    const job = await this.runsQueue.add(
+      'execute',
+      { runId },
+      { removeOnComplete: 100, removeOnFail: 100 }
+    );
 
     this.logger.log('✅ Job added to queue', {
       timestamp: new Date().toISOString(),

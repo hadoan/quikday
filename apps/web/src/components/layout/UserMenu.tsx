@@ -49,12 +49,9 @@ export const UserMenu = ({ user, onViewProfile, onEditProfile, onLogout }: UserM
 
   const computed = useMemo(() => {
     const src = user ?? profile ?? {};
-    const name = (src as any).name || [
-      (src as any).given_name,
-      (src as any).family_name,
-    ]
-      .filter(Boolean)
-      .join(' ');
+    const name =
+      (src as any).name ||
+      [(src as any).given_name, (src as any).family_name].filter(Boolean).join(' ');
     const email = (src as any).email || '';
     const picture = (src as any).picture as string | undefined;
 
@@ -111,7 +108,7 @@ export const UserMenu = ({ user, onViewProfile, onEditProfile, onLogout }: UserM
       <DropdownMenuContent align="end" className="w-56 bg-popover">
         <DropdownMenuLabel>My Account</DropdownMenuLabel>
         <DropdownMenuSeparator />
-      
+
         <DropdownMenuItem
           onClick={() => (onEditProfile ? onEditProfile() : navigate('/settings/profile'))}
           className="cursor-pointer"

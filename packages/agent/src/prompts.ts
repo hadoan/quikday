@@ -28,5 +28,5 @@ Be concise and actionable.`.trim();
  * Prompt template for creating a social media post plan.
  * @param userPrompt - The user's request for a social post
  */
-export const createSocialPlanPrompt = (userPrompt: string) => 
+export const createSocialPlanPrompt = (userPrompt: string) =>
   `Create a social media post plan for: ${userPrompt}`;

@@ -20,7 +20,7 @@ export class KindeGuard implements CanActivate {
 
   constructor(
     private config: ConfigService,
-    private reflector: Reflector,
+    private reflector: Reflector
   ) {}
 
   private getKey = (header: any, cb: (err: any, key?: string) => void) => {
@@ -34,7 +34,7 @@ export class KindeGuard implements CanActivate {
       ctx.getHandler(),
       ctx.getClass(),
     ]);
-    
+
     if (isPublic) {
       return true; // Skip authentication for public routes
     }
@@ -42,7 +42,7 @@ export class KindeGuard implements CanActivate {
     const req = ctx.switchToHttp().getRequest();
     const auth = req.headers.authorization || '';
     const token = auth.startsWith('Bearer ') ? auth.slice(7) : '';
-    
+
     if (this.config.isKindeBypass) {
       // In dev, trust any token and assign a minimal user payload
       req.user = { sub: 'dev-user', email: 'dev@example.com', name: 'Dev User' };

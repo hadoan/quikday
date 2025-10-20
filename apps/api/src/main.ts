@@ -28,10 +28,10 @@ async function bootstrap() {
   }
 
   // Configure logger levels from environment
-  const logLevels = process.env.LOG_LEVEL 
-    ? process.env.LOG_LEVEL.split(',').map(level => level.trim()) as any[]
+  const logLevels = process.env.LOG_LEVEL
+    ? (process.env.LOG_LEVEL.split(',').map((level) => level.trim()) as any[])
     : ['log', 'error', 'warn'];
-  
+
   const app = await NestFactory.create(AppModule, { logger: logLevels });
   app.use(json({ limit: '2mb' }));
   app.enableCors({

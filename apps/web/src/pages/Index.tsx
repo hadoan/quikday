@@ -31,7 +31,7 @@ const logger = createLogger('Index');
 
 const Index = () => {
   const [runs, setRuns] = useState<UiRunSummary[]>(
-    mockRuns.map((r) => ({ ...r, messages: r.messages as UiRunSummary['messages'] }))
+    mockRuns.map((r) => ({ ...r, messages: r.messages as UiRunSummary['messages'] })),
   );
   const [activeRunId, setActiveRunId] = useState(mockRuns[0].id);
   const [isToolsPanelOpen, setIsToolsPanelOpen] = useState(true);
@@ -82,7 +82,9 @@ const Index = () => {
             case 'run_status':
             case 'scheduled':
             case 'run_completed': {
-              const status = (event.type === 'run_completed' ? 'succeeded' : (event.payload.status as string)) || 'queued';
+              const status =
+                (event.type === 'run_completed' ? 'succeeded' : (event.payload.status as string)) ||
+                'queued';
               const started_at =
                 (event.payload.started_at as string | undefined) ||
                 (event.payload.startedAt as string | undefined) ||
@@ -107,7 +109,12 @@ const Index = () => {
 
               if (lastRunningCardIndex !== -1) {
                 // Update existing active RunCard
-                console.log('[Index] Updating active RunCard at index', lastRunningCardIndex, 'with status:', status);
+                console.log(
+                  '[Index] Updating active RunCard at index',
+                  lastRunningCardIndex,
+                  'with status:',
+                  status,
+                );
                 newMessages[lastRunningCardIndex] = buildRunMessage({
                   status,
                   started_at,
@@ -121,7 +128,7 @@ const Index = () => {
                     status,
                     started_at,
                     completed_at,
-                  })
+                  }),
                 );
               }
               break;
@@ -159,7 +166,7 @@ const Index = () => {
           }
 
           return { ...run, status: nextStatus, messages: newMessages };
-        })
+        }),
       );
     });
 
@@ -242,11 +249,7 @@ const Index = () => {
       // In mock mode, MockDataSource simulates events
       // Switch active run to the backend runId and keep the user's message
       setRuns((prev) =>
-        prev.map((run) =>
-          run.id === activeRunId
-            ? { ...run, id: runId, status: 'queued' }
-            : run,
-        ),
+        prev.map((run) => (run.id === activeRunId ? { ...run, id: runId, status: 'queued' } : run)),
       );
       setActiveRunId(runId);
     } catch (err) {
@@ -359,14 +362,10 @@ const Index = () => {
         <ScrollArea className="flex-1">
           <div className="max-w-4xl mx-auto px-8 py-8 space-y-6">
             {!activeRun && (
-              <div className="text-center text-muted-foreground py-8">
-                No active run selected
-              </div>
+              <div className="text-center text-muted-foreground py-8">No active run selected</div>
             )}
             {activeRun && (!activeRun.messages || activeRun.messages.length === 0) && (
-              <div className="text-center text-muted-foreground py-8">
-                No messages yet
-              </div>
+              <div className="text-center text-muted-foreground py-8">No messages yet</div>
             )}
             {activeRun?.messages?.map((message, idx) => {
               if (message.role === 'user') {
@@ -389,7 +388,13 @@ const Index = () => {
                   )}
                   {message.type === 'log' && message.data && (
                     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                    <LogCard logs={(Array.isArray(message.data) ? message.data : (message.data as any).entries) as any} />
+                    <LogCard
+                      logs={
+                        (Array.isArray(message.data)
+                          ? message.data
+                          : (message.data as any).entries) as any
+                      }
+                    />
                   )}
                   {message.type === 'undo' && message.data && 'available' in message.data && (
                     // eslint-disable-next-line @typescript-eslint/no-explicit-any

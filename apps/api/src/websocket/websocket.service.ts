@@ -20,7 +20,7 @@ export class WebSocketService implements OnModuleDestroy {
 
   constructor(
     private readonly prisma: PrismaService,
-    private readonly redisPubSub: RedisPubSubService,
+    private readonly redisPubSub: RedisPubSubService
   ) {}
 
   /**
@@ -28,7 +28,7 @@ export class WebSocketService implements OnModuleDestroy {
    */
   initialize(httpServer: Server) {
     this.logger.log('🔌 Initializing WebSocket server');
-    
+
     this.wss = new WebSocketServer({ noServer: true });
 
     this.wss.on('connection', (ws: WebSocket, request: any, clientInfo: { runId: string }) => {
@@ -47,7 +47,7 @@ export class WebSocketService implements OnModuleDestroy {
    */
   private handleConnection(ws: WebSocket, clientInfo: { runId: string }) {
     const { runId } = clientInfo;
-    
+
     this.logger.log('🔗 New WebSocket connection', {
       runId,
       timestamp: new Date().toISOString(),
@@ -57,7 +57,7 @@ export class WebSocketService implements OnModuleDestroy {
     const unsubscribe = this.redisPubSub.onRunEvent(runId, (event) => {
       this.logger.log(`📨 Received Redis event for ${runId}: ${event.type}`);
       this.sendMessage(ws, event);
-      
+
       // Clean up on terminal state
       if (['succeeded', 'failed', 'completed', 'done'].includes(event.payload?.status)) {
         this.logger.log(`✅ Run ${runId} reached terminal state: ${event.payload.status}`);
@@ -102,10 +102,10 @@ export class WebSocketService implements OnModuleDestroy {
    */
   private handleDisconnection(ws: WebSocket) {
     const state = this.connState.get(ws);
-    
+
     if (state) {
       const duration = Date.now() - state.connectedAt.getTime();
-      
+
       this.logger.log('🔌 WebSocket disconnected', {
         runId: state.runId,
         duration: `${(duration / 1000).toFixed(2)}s`,
@@ -166,7 +166,7 @@ export class WebSocketService implements OnModuleDestroy {
       }
 
       const runId = pathname.replace('/ws/runs/', '').trim();
-      
+
       if (!runId) {
         this.logger.warn('⚠️ Missing runId in WebSocket path', {
           pathname,
@@ -210,7 +210,7 @@ export class WebSocketService implements OnModuleDestroy {
    */
   getStats() {
     const redisStats = this.redisPubSub.getStats();
-    
+
     return {
       activeConnections: this.connState.size,
       redis: redisStats,
@@ -227,7 +227,7 @@ export class WebSocketService implements OnModuleDestroy {
    */
   onModuleDestroy() {
     this.logger.log('🔌 Shutting down WebSocket server');
-    
+
     // Unsubscribe all connections
     for (const [ws, state] of this.connState.entries()) {
       if (state.unsubscribe) {
@@ -238,7 +238,7 @@ export class WebSocketService implements OnModuleDestroy {
 
     this.connState.clear();
     this.wss?.close();
-    
+
     this.logger.log('✅ WebSocket server shutdown complete');
   }
 }

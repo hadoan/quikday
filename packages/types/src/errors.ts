@@ -48,7 +48,7 @@ export class QuikDayError extends Error {
     public readonly code: ErrorCode,
     public readonly message: string,
     public readonly remediation: RemediationAction[] = [],
-    public readonly metadata?: Record<string, any>
+    public readonly metadata?: Record<string, any>,
   ) {
     super(message);
     this.name = 'QuikDayError';
@@ -67,7 +67,7 @@ export class QuikDayError extends Error {
 export class CredentialMissingError extends QuikDayError {
   constructor(
     public readonly appId: string,
-    public readonly owner: 'user' | 'team'
+    public readonly owner: 'user' | 'team',
   ) {
     super(
       ErrorCode.E_CREDENTIAL_MISSING,
@@ -80,7 +80,7 @@ export class CredentialMissingError extends QuikDayError {
           appId,
         },
       ],
-      { appId, owner }
+      { appId, owner },
     );
   }
 }
@@ -88,7 +88,7 @@ export class CredentialMissingError extends QuikDayError {
 export class CredentialInvalidError extends QuikDayError {
   constructor(
     public readonly appId: string,
-    public readonly credentialId: number
+    public readonly credentialId: number,
   ) {
     super(
       ErrorCode.E_CREDENTIAL_INVALID,
@@ -107,7 +107,7 @@ export class CredentialInvalidError extends QuikDayError {
           appId,
         },
       ],
-      { appId, credentialId }
+      { appId, credentialId },
     );
   }
 }
@@ -116,7 +116,7 @@ export class CredentialScopeMismatchError extends QuikDayError {
   constructor(
     public readonly appId: string,
     public readonly credentialId: number,
-    public readonly requiredScopes: string[]
+    public readonly requiredScopes: string[],
   ) {
     super(
       ErrorCode.E_CREDENTIAL_SCOPE_MISMATCH,
@@ -129,7 +129,7 @@ export class CredentialScopeMismatchError extends QuikDayError {
           appId,
         },
       ],
-      { appId, credentialId, requiredScopes }
+      { appId, credentialId, requiredScopes },
     );
   }
 }

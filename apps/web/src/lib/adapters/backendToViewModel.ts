@@ -1,9 +1,9 @@
 /**
  * backendToViewModel.ts
- * 
+ *
  * Pure adapter functions to convert backend API responses to UI view models.
  * These functions are unit-testable and preserve unknown fields for debugging.
- * 
+ *
  * RULES:
  * - Never throw; return safe defaults if shape is unexpected
  * - Preserve unknown fields in payload._raw for debugging
@@ -37,7 +37,7 @@ const RUN_STATUS_MAP: Record<string, UiRunStatus> = {
   failed: 'failed',
   partial: 'partial',
   cancelled: 'failed',
-  
+
   // Legacy support
   running: 'executing',
   done: 'succeeded',
@@ -183,7 +183,7 @@ export interface BackendWsMessage {
 export function adaptWsEventToUi(message: BackendWsMessage): UiEvent {
   const eventType = message.type || message.event || 'run_status';
   const payload = (message.data || message.payload || {}) as Record<string, unknown>;
-  
+
   // Preserve raw message for debugging
   payload._raw = message;
 
@@ -261,36 +261,36 @@ function mapEventType(type: string): UiEvent['type'] {
   const typeMap: Record<string, UiEvent['type']> = {
     connection_established: 'connection_established',
     connected: 'connection_established', // alias
-    
+
     plan_generated: 'plan_generated',
     plan: 'plan_generated', // alias
-    
+
     step_started: 'step_started',
     step_start: 'step_started', // alias
-    
+
     step_output: 'step_output',
     step_result: 'step_output', // alias
-    
+
     step_succeeded: 'step_succeeded',
     step_success: 'step_succeeded', // alias
     step_completed: 'step_succeeded', // alias
-    
+
     step_failed: 'step_failed',
     step_error: 'step_failed', // alias
-    
+
     awaiting_approval: 'awaiting_approval',
     approval_required: 'awaiting_approval', // alias
-    
+
     scheduled: 'scheduled',
-    
+
     run_completed: 'run_completed',
     run_succeeded: 'run_completed', // alias
     completed: 'run_completed', // alias
-    
+
     run_failed: 'run_failed',
     failed: 'run_failed', // alias
     error: 'run_failed', // alias
-    
+
     run_status: 'run_status',
     status: 'run_status', // alias
   };
@@ -300,7 +300,7 @@ function mapEventType(type: string): UiEvent['type'] {
 
 function stringifyPreview(data: unknown, maxLength = 100): string | undefined {
   if (data === null || data === undefined) return undefined;
-  
+
   try {
     const str = typeof data === 'string' ? data : JSON.stringify(data);
     return str.length > maxLength ? `${str.substring(0, maxLength)}...` : str;

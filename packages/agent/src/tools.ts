@@ -6,13 +6,8 @@ import { tool } from '@langchain/core/tools';
 const calendarSchema = z
   .object({
     title: z.string().describe("Event title, e.g., 'Check-in with Sara'"),
-    start: z
-      .string()
-      .describe("ISO or HH:MM today, e.g., '2025-10-18T09:00' or '10:00'"),
-    end: z
-      .string()
-      .optional()
-      .describe("ISO or HH:MM today, e.g., '2025-10-18T09:30' or '10:30'"),
+    start: z.string().describe("ISO or HH:MM today, e.g., '2025-10-18T09:00' or '10:00'"),
+    end: z.string().optional().describe("ISO or HH:MM today, e.g., '2025-10-18T09:30' or '10:30'"),
     durationMinutes: z
       .number()
       .int()
@@ -23,9 +18,7 @@ const calendarSchema = z
     attendees: z.string().optional().describe('Comma-separated emails or names'),
     location: z.string().optional().describe('Room/URL/address'),
   })
-  .describe(
-    'Create/update a calendar event; if end is omitted, use durationMinutes (default 30).',
-  );
+  .describe('Create/update a calendar event; if end is omitted, use durationMinutes (default 30).');
 
 function toIsoFromStartAndMaybeEnd(
   start: string,
@@ -67,8 +60,7 @@ export const createCalendarEvent = tool(
   },
   {
     name: 'create_calendar_event',
-    description:
-      'Create/update a calendar event. If end omitted, default duration is 30 minutes.',
+    description: 'Create/update a calendar event. If end omitted, default duration is 30 minutes.',
     schema: calendarSchema,
   },
 );

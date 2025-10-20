@@ -1,16 +1,16 @@
-import { Star } from "lucide-react";
+import { Star } from 'lucide-react';
 
 export const SocialProof = () => {
   const testimonials = [
-    "Saved 6 hrs/week on GTM ops",
-    "Cut Zapier cost by 38%",
-    "Zero accidents in 60 days",
+    'Saved 6 hrs/week on GTM ops',
+    'Cut Zapier cost by 38%',
+    'Zero accidents in 60 days',
   ];
 
   const changelog = [
-    { version: "v0.8.2", title: "Slack reply threading", date: "2 days ago" },
-    { version: "v0.8.1", title: "QuickBooks OAuth", date: "1 week ago" },
-    { version: "v0.8.0", title: "Undo for email sends", date: "2 weeks ago" },
+    { version: 'v0.8.2', title: 'Slack reply threading', date: '2 days ago' },
+    { version: 'v0.8.1', title: 'QuickBooks OAuth', date: '1 week ago' },
+    { version: 'v0.8.0', title: 'Undo for email sends', date: '2 weeks ago' },
   ];
 
   return (
@@ -19,12 +19,10 @@ export const SocialProof = () => {
         <div className="max-w-5xl mx-auto">
           {/* Testimonials */}
           <div className="text-center mb-16">
-            <h3 className="text-2xl font-bold mb-8">
-              Built in public. Trusted by early adopters.
-            </h3>
+            <h3 className="text-2xl font-bold mb-8">Built in public. Trusted by early adopters.</h3>
             <div className="flex flex-wrap justify-center gap-6">
               {testimonials.map((quote, index) => (
-                <div 
+                <div
                   key={index}
                   className="gradient-card rounded-xl border border-border px-6 py-4 max-w-xs"
                 >

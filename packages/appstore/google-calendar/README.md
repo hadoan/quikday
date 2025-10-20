@@ -39,12 +39,14 @@ async getGoogleCalendarAuthUrl(userId: string, teamId?: string) {
 Generates Google Calendar OAuth authorization URL.
 
 **Parameters:**
+
 - `config.clientId` (string, required) - Google OAuth2 client ID
 - `config.clientSecret` (string, required) - Google OAuth2 client secret
 - `config.redirectUri` (string, required) - Callback URL where Google sends auth code
 - `config.state` (string, optional) - CSRF token/session data (recommended)
 
 **Returns:**
+
 ```typescript
 {
   url: string;        // OAuth URL to redirect user to
@@ -53,11 +55,13 @@ Generates Google Calendar OAuth authorization URL.
 ```
 
 **Throws:**
+
 - Error if `clientId`, `clientSecret`, or `redirectUri` are missing
 
 ### OAuth Scopes
 
 The integration requests these scopes:
+
 - `https://www.googleapis.com/auth/calendar.readonly` - Read calendar events
 - `https://www.googleapis.com/auth/calendar.events` - Create, update, delete events
 
@@ -74,7 +78,7 @@ export class GoogleCalendarController {
   @UseGuards(AuthGuard)
   async initiateOAuth(@Req() req) {
     const userId = req.user.sub;
-    
+
     const { url } = generateGoogleCalendarAuthUrl({
       clientId: process.env.GOOGLE_CLIENT_ID!,
       clientSecret: process.env.GOOGLE_CLIENT_SECRET!,
@@ -120,9 +124,9 @@ await prisma.credential.create({
 Use `refreshGoogleCalendarToken()` to get new access tokens when they expire:
 
 ```typescript
-import { 
-  refreshGoogleCalendarToken, 
-  isTokenExpired 
+import {
+  refreshGoogleCalendarToken,
+  isTokenExpired,
 } from '@quikday/appstore/google-calendar/callback';
 
 // Check if token needs refresh

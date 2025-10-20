@@ -5,4 +5,3 @@ export async function getAppKeysFromSlug(slug: string) {
   const app = await prisma.app.findUnique({ where: { slug } });
   return (app?.keys || {}) as Prisma.JsonObject;
 }
-

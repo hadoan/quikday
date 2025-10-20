@@ -19,7 +19,7 @@ export class IntegrationsModule implements OnModuleInit {
   ) {}
 
   async onModuleInit() {
-    await this.store.init({ 
+    await this.store.init({
       prisma: this.prisma,
       createSignedState,
       validateSignedState,

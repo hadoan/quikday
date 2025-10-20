@@ -1,6 +1,6 @@
 /**
  * DataSource.ts
- * 
+ *
  * Stable view-model contracts that mirror current UI component props.
  * Both MockDataSource and ApiDataSource implement this interface,
  * ensuring UI components receive identical data shapes regardless of source.
@@ -19,9 +19,9 @@ export type UiRunStatus =
   | 'succeeded'
   | 'failed'
   | 'partial'
-  | 'running'   // legacy support
+  | 'running' // legacy support
   | 'completed' // legacy support
-  | 'done';     // legacy support
+  | 'done'; // legacy support
 
 export type UiStepStatus = 'pending' | 'started' | 'succeeded' | 'failed' | 'skipped' | 'success';
 
@@ -197,16 +197,13 @@ export interface DataSource {
   // -------------------------------------------------------------------------
   // Realtime Updates (WebSocket)
   // -------------------------------------------------------------------------
-  connectRunStream(
-    runId: string,
-    onEvent: (evt: UiEvent) => void
-  ): { close: () => void };
+  connectRunStream(runId: string, onEvent: (evt: UiEvent) => void): { close: () => void };
 
   // -------------------------------------------------------------------------
   // Approvals & Control
   // -------------------------------------------------------------------------
   approve(runId: string, approvedSteps: string[]): Promise<{ ok: true }>;
-  
+
   cancel(runId: string): Promise<{ ok: true }>;
 
   undo(runId: string): Promise<{ ok: true }>;
@@ -214,21 +211,14 @@ export interface DataSource {
   // -------------------------------------------------------------------------
   // Credentials (for banners/pickers)
   // -------------------------------------------------------------------------
-  listCredentials(
-    appId: string,
-    owner: 'user' | 'team'
-  ): Promise<UiCredential[]>;
+  listCredentials(appId: string, owner: 'user' | 'team'): Promise<UiCredential[]>;
 
   selectCurrentCredential(credentialId: number): Promise<{ ok: true }>;
 
   // -------------------------------------------------------------------------
   // Optional: List runs (for sidebar)
   // -------------------------------------------------------------------------
-  listRuns?(params?: {
-    status?: UiRunStatus[];
-    limit?: number;
-    cursor?: string;
-  }): Promise<{
+  listRuns?(params?: { status?: UiRunStatus[]; limit?: number; cursor?: string }): Promise<{
     runs: UiRunSummary[];
     nextCursor?: string;
   }>;

@@ -26,7 +26,7 @@ export async function runAgentWithEvents(
     onToolStarted?: (tool: string, args: any) => void;
     onToolCompleted?: (tool: string, result: string) => void;
     onCompleted?: (finalMessage: string) => void;
-  }
+  },
 ): Promise<{
   messages: any[];
   finalOutput: string | null;
@@ -61,7 +61,7 @@ export async function runAgentWithEvents(
     if (ToolMessage.isInstance(msg)) {
       callbacks.onToolCompleted?.(
         msg.tool_call_id || 'unknown',
-        typeof msg.content === 'string' ? msg.content : JSON.stringify(msg.content)
+        typeof msg.content === 'string' ? msg.content : JSON.stringify(msg.content),
       );
     }
 

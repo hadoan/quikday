@@ -1,18 +1,14 @@
-import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
-import { Github, Play, Undo2 } from "lucide-react";
-import heroBg from "@/assets/hero-bg.jpg";
+import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
+import { Github, Play, Undo2 } from 'lucide-react';
+import heroBg from '@/assets/hero-bg.jpg';
 
 export const Hero = () => {
   return (
     <section className="relative min-h-[90vh] flex items-center overflow-hidden">
       {/* Background */}
       <div className="absolute inset-0 z-0">
-        <img 
-          src={heroBg} 
-          alt="" 
-          className="w-full h-full object-cover opacity-20"
-        />
+        <img src={heroBg} alt="" className="w-full h-full object-cover opacity-20" />
         <div className="absolute inset-0 bg-gradient-to-b from-background via-background/50 to-background" />
       </div>
 
@@ -25,7 +21,7 @@ export const Hero = () => {
 
           {/* Main Headline */}
           <h1 className="text-5xl md:text-7xl font-bold mb-6 tracking-tight">
-            Run work fast.{" "}
+            Run work fast.{' '}
             <span className="bg-gradient-to-r from-primary to-purple-500 bg-clip-text text-transparent">
               Review only when it matters.
             </span>
@@ -34,8 +30,8 @@ export const Hero = () => {
           {/* Subheadline */}
           <p className="text-xl md:text-2xl text-muted-foreground mb-2 max-w-3xl mx-auto leading-relaxed">
             One-tap runs for simple tasks. A short summary screen for bulk or risky changes—
-            <span className="font-semibold text-foreground"> Undo built-in</span>. 
-            Clear per-run pricing.
+            <span className="font-semibold text-foreground"> Undo built-in</span>. Clear per-run
+            pricing.
           </p>
 
           {/* Trust strip */}
@@ -59,7 +55,6 @@ export const Hero = () => {
                 View on GitHub
               </a>
             </Button>
-           
           </div>
 
           {/* Demo Card */}

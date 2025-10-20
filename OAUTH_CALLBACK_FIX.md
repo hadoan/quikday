@@ -1,7 +1,9 @@
 # OAuth Callback Authentication Fix
 
 ## Problem
+
 The Google Calendar OAuth callback was returning **401 Unauthorized** because:
+
 1. The `/integrations/:slug/callback` endpoint had `@UseGuards(KindeGuard)` requiring a Bearer token
 2. OAuth redirects from Google cannot include Bearer tokens (just browser redirects with query params)
 
@@ -10,18 +12,22 @@ The Google Calendar OAuth callback was returning **401 Unauthorized** because:
 Implemented the **industry-standard OAuth2 pattern**:
 
 ### 1. Made Callback Endpoint Public
+
 - Created `@Public()` decorator to bypass authentication
 - Updated `KindeGuard` to check for `@Public()` metadata via Reflector
 - Applied `@Public()` to `/integrations/:slug/callback` route
 
 **Why this is secure:**
+
 - State parameter is cryptographically signed (HMAC-SHA256)
 - Google validates the `redirect_uri` (only your registered callback receives codes)
 - Authorization codes are single-use and short-lived (~10 min)
 - User context is securely carried in signed state
 
 ### 2. Added State Signing Utilities
+
 Created `apps/api/src/auth/oauth-state.util.ts` with:
+
 - `createSignedState()` - Signs state with HMAC-SHA256 for tamper protection
 - `validateSignedState()` - Verifies signature and checks expiry (default: 10 min)
 - Timing-safe comparison to prevent timing attacks
@@ -30,13 +36,16 @@ Created `apps/api/src/auth/oauth-state.util.ts` with:
 **State format:** `base64url(JSON) + '.' + base64url(HMAC-SHA256)`
 
 ### 3. Updated Google Calendar Integration
+
 - `add.ts` - Accepts optional pre-signed state via deps
 - `callback.ts` - Validates signed state, falls back to unsigned for backwards compatibility
 - `index.ts` - Calls `createSignedState()` when initiating OAuth flow
 - Injects state utilities via `AppDeps` for clean architecture
 
 ### 4. Environment Configuration
+
 Added to `.env`:
+
 ```bash
 # Google OAuth (extracted from GOOGLE_API_CREDENTIALS for convenience)
 GOOGLE_CLIENT_ID=534104851875-s7l096op90muu9bik8n2osbmcp4930hd.apps.googleusercontent.com
@@ -47,6 +56,7 @@ OAUTH_STATE_SECRET=changeme-generate-random-secret-for-production
 ```
 
 **Note:** Generate a secure secret for production:
+
 ```bash
 openssl rand -base64 32
 ```
@@ -54,10 +64,12 @@ openssl rand -base64 32
 ## Files Changed
 
 ### New Files
+
 - `apps/api/src/auth/public.decorator.ts` - @Public() decorator
 - `apps/api/src/auth/oauth-state.util.ts` - State signing/validation
 
 ### Modified Files
+
 - `apps/api/src/auth/kinde.guard.ts` - Added Reflector and @Public() support
 - `apps/api/src/integrations/integrations.controller.ts` - Applied @Public() to callback
 - `apps/api/src/integrations/integrations.module.ts` - Pass state utils to registry
@@ -71,6 +83,7 @@ openssl rand -base64 32
 ## How OAuth Flow Works Now
 
 ### Step 1: User Clicks "Install Google Calendar"
+
 ```
 GET /integrations/google-calendar/add
 Authorization: Bearer <user_jwt>  ← User authenticated here
@@ -81,6 +94,7 @@ Authorization: Bearer <user_jwt>  ← User authenticated here
 3. Redirects user to Google consent screen
 
 ### Step 2: Google Redirects Back
+
 ```
 GET /integrations/google-calendar/callback?code=xxx&state=yyy.zzz
                                                      ↑    ↑
@@ -106,6 +120,7 @@ GET /integrations/google-calendar/callback?code=xxx&state=yyy.zzz
 ## Testing Instructions
 
 ### 1. Ensure Database is Seeded
+
 ```bash
 pnpm seed:appstore
 ```
@@ -113,6 +128,7 @@ pnpm seed:appstore
 This loads Google OAuth credentials from `GOOGLE_API_CREDENTIALS` env var into the database.
 
 ### 2. Start the API
+
 ```bash
 pnpm dev:api
 # or
@@ -122,6 +138,7 @@ pnpm dev  # starts all services
 ### 3. Test OAuth Flow
 
 **Option A: Via Web UI**
+
 1. Open web app: http://localhost:8000
 2. Login with Kinde
 3. Navigate to integrations/apps page
@@ -130,6 +147,7 @@ pnpm dev  # starts all services
 6. After consent, should return to app without 401 error
 
 **Option B: Direct API Call**
+
 ```bash
 # Get OAuth URL (requires Bearer token)
 curl -H "Authorization: Bearer YOUR_TOKEN" \
@@ -142,17 +160,21 @@ curl -H "Authorization: Bearer YOUR_TOKEN" \
 ### 4. Verify State Validation
 
 **Valid State:**
+
 - Should accept callbacks within 10 minutes
 - Should validate signature correctly
 - Should extract user ID from state
 
 **Invalid State:**
+
 - Should reject expired state (>10 min old)
 - Should reject tampered state (wrong signature)
 - Should reject missing userId in state
 
 ### 5. Check Logs
+
 Look for these log messages:
+
 ```
 📅 [Add] Created signed state via deps
 📅 [Google Calendar] State parsed successfully (method: signed-fallback or signed)
@@ -162,7 +184,9 @@ Look for these log messages:
 ## Migration Notes
 
 ### Backwards Compatibility
+
 The implementation includes fallback for unsigned state to support gradual migration:
+
 ```typescript
 // Try signed state first
 if (rawState.includes('.')) {
@@ -173,13 +197,16 @@ if (rawState.includes('.')) {
 ```
 
 ### Production Deployment
+
 1. Set strong `OAUTH_STATE_SECRET` (use `openssl rand -base64 32`)
 2. Ensure `GOOGLE_API_CREDENTIALS` is set
 3. Run database seed to populate app keys
 4. All new OAuth flows will use signed state automatically
 
 ### For Other Integrations
+
 The same pattern can be applied to LinkedIn, Gmail, and other OAuth integrations:
+
 1. Update their `add` handler to use `deps.createSignedState()`
 2. Update their `callback` to validate state
 3. Apply `@Public()` decorator to their callback routes (already done globally)

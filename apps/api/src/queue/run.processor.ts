@@ -18,7 +18,7 @@ export class RunProcessor extends WorkerHost {
     private runs: RunsService,
     private credentials: CredentialService,
     private telemetry: TelemetryService,
-    private redisPubSub: RedisPubSubService,
+    private redisPubSub: RedisPubSubService
   ) {
     super();
   }
@@ -245,10 +245,7 @@ export class RunProcessor extends WorkerHost {
                 status: error.status,
               });
 
-              await this.credentials.markInvalid(
-                credential.id,
-                `Vendor returned ${error.status}`
-              );
+              await this.credentials.markInvalid(credential.id, `Vendor returned ${error.status}`);
             }
             throw new CredentialInvalidError(toolMeta.appId, credential?.id);
           }
@@ -311,7 +308,7 @@ export class RunProcessor extends WorkerHost {
             payload: {
               intent: plan.intent,
               tools: plan.tools,
-              actions: plan.tools.map(t => `Execute ${t}`),
+              actions: plan.tools.map((t) => `Execute ${t}`),
             },
           });
         },
@@ -327,7 +324,11 @@ export class RunProcessor extends WorkerHost {
           });
         },
         onToolCompleted: async (tool, result) => {
-          this.logger.log('✅ Tool completed', { runId: run.id, tool, resultPreview: result.substring(0, 100) });
+          this.logger.log('✅ Tool completed', {
+            runId: run.id,
+            tool,
+            resultPreview: result.substring(0, 100),
+          });
           await this.redisPubSub.publishRunEvent(run.id, {
             type: 'step_succeeded',
             payload: {
@@ -394,9 +395,10 @@ export class RunProcessor extends WorkerHost {
         errorCode: err?.code,
       });
 
-      const errorPayload = err instanceof CredentialMissingError || err instanceof CredentialInvalidError
-        ? err.toJSON()
-        : { message: err?.message, code: ErrorCode.E_PLAN_FAILED };
+      const errorPayload =
+        err instanceof CredentialMissingError || err instanceof CredentialInvalidError
+          ? err.toJSON()
+          : { message: err?.message, code: ErrorCode.E_PLAN_FAILED };
 
       this.logger.log('💾 Persisting error result', {
         timestamp: new Date().toISOString(),

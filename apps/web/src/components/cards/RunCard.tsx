@@ -90,9 +90,7 @@ export const RunCard = ({ data }: RunCardProps) => {
           )}
 
           {completedAt && (
-            <p className="text-xs text-muted-foreground">
-              Completed at {formatTime(completedAt)}
-            </p>
+            <p className="text-xs text-muted-foreground">Completed at {formatTime(completedAt)}</p>
           )}
         </div>
       </div>

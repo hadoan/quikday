@@ -1,50 +1,11 @@
-/**
- * Google Calendar OAuth2 - Callback Handler
- *
- * Pure library implementation (no Next.js dependencies).
- * Exchanges OAuth authorization code for access tokens.
- */
-
 import { google } from 'googleapis';
 import type { AppMeta } from '@quikday/types';
 import { getAppKeysFromSlug } from '@quikday/appstore';
+import { GoogleCalendarCallbackConfig } from './GoogleCalendarCallbackConfig.js';
+import { GoogleCalendarTokens } from './GoogleCalendarTokens.js';
+import { GoogleCalendarCallbackResult } from './GoogleCalendarCallbackResult.js';
 
-export interface GoogleCalendarCallbackConfig {
-  /** Authorization code from Google OAuth redirect */
-  code: string;
-  /** Google OAuth2 client ID */
-  clientId: string;
-  /** Google OAuth2 client secret */
-  clientSecret: string;
-  /** Redirect URI (must match the one used in auth URL) */
-  redirectUri: string;
-}
-
-export interface GoogleCalendarTokens {
-  /** Access token for API requests */
-  access_token?: string | null;
-  /** Refresh token for obtaining new access tokens */
-  refresh_token?: string | null;
-  /** Scope granted by user */
-  scope?: string;
-  /** Token type (usually 'Bearer') */
-  token_type?: string | null;
-  /** Expiry timestamp (Unix time in milliseconds) */
-  expiry_date?: number | null;
-  /** ID token (JWT with user info) */
-  id_token?: string | null;
-}
-
-export interface GoogleCalendarCallbackResult {
-  /** Token data to store in database */
-  tokens: GoogleCalendarTokens;
-  /** Raw token response from Google */
-  raw: any;
-  /** Success indicator */
-  success: boolean;
-}
-
-export async function exchangeGoogleCalendarCode(
+export async function exchangeCode(
   config: GoogleCalendarCallbackConfig,
 ): Promise<GoogleCalendarCallbackResult> {
   const { code, clientId, clientSecret, redirectUri } = config;
@@ -125,29 +86,6 @@ export function isTokenExpired(tokens: GoogleCalendarTokens, bufferMs = 5 * 60 *
   return now >= expiryWithBuffer;
 }
 
-/**
- * Refresh Google Calendar access token using refresh token.
- *
- * @param config - Refresh config (refresh_token, clientId, clientSecret)
- * @returns New token data
- *
- * @throws Error if refresh fails or refresh_token is missing
- *
- * @example
- * ```typescript
- * const newTokens = await refreshGoogleCalendarToken({
- *   refreshToken: storedCredential.key.refresh_token,
- *   clientId: process.env.GOOGLE_CLIENT_ID,
- *   clientSecret: process.env.GOOGLE_CLIENT_SECRET,
- * });
- *
- * // Update stored credential with new tokens
- * await prisma.credential.update({
- *   where: { id: credentialId },
- *   data: { key: newTokens.tokens },
- * });
- * ```
- */
 export async function refreshToken(config: {
   refreshToken: string;
   clientId: string;
@@ -193,14 +131,6 @@ export async function refreshToken(config: {
   }
 }
 
-/**
- * End-to-end handler for the OAuth callback flow.
- * - Parses `code` and `state` from request
- * - Loads client keys (DB first, env fallback)
- * - Exchanges code for tokens
- * - Persists credential via provided Prisma service
- * - Returns redirect target
- */
 export async function callback(params: {
   req: any;
   meta: AppMeta;
@@ -208,13 +138,7 @@ export async function callback(params: {
 }): Promise<{ redirectTo: string }> {
   const { req, meta, prisma } = params;
 
-  console.log('📅 [Google Calendar] OAuth callback started', {
-    slug: meta.slug,
-    timestamp: new Date().toISOString(),
-    hasCode: !!req.query?.code,
-    hasState: !!req.query?.state,
-    hasError: !!req.query?.error,
-  });
+  // OAuth callback started (verbose log removed)
 
   const code = typeof req.query?.code === 'string' ? req.query.code : undefined;
   const rawState = typeof req.query?.state === 'string' ? req.query.state : undefined;
@@ -264,13 +188,7 @@ export async function callback(params: {
       );
     }
 
-    console.log('📅 [Google Calendar] State parsed successfully', {
-      method: stateValidationMethod,
-      hasUserId: !!state?.userId,
-      hasReturnTo: !!state?.returnTo,
-      timestamp: state?.timestamp,
-      age: state?.timestamp ? Date.now() - state.timestamp : undefined,
-    });
+    // State parsed successfully (verbose log removed)
 
     // Basic validation
     if (!state?.userId) {
@@ -299,14 +217,12 @@ export async function callback(params: {
   }
 
   // Resolve OAuth credentials: prefer DB keys, fallback to env
-  let clientId = process.env.GOOGLE_CLIENT_ID;
-  let clientSecret = process.env.GOOGLE_CLIENT_SECRET;
+  let clientId = undefined;
+  let clientSecret = undefined;
   let credentialSource = 'env';
 
   try {
-    console.log('📅 [Google Calendar] Attempting to load credentials from database', {
-      slug: meta.slug,
-    });
+    // Attempting to load credentials from database (verbose log removed)
     const appKeys = (await getAppKeysFromSlug(meta.slug)) as Record<string, unknown>;
     if (typeof appKeys?.client_id === 'string') {
       clientId = appKeys.client_id;
@@ -315,11 +231,7 @@ export async function callback(params: {
     if (typeof appKeys?.client_secret === 'string') {
       clientSecret = appKeys.client_secret;
     }
-    console.log('📅 [Google Calendar] Credentials loaded', {
-      source: credentialSource,
-      hasClientId: !!clientId,
-      hasClientSecret: !!clientSecret,
-    });
+    // Credentials loaded (verbose log removed)
   } catch (error) {
     console.warn('📅 [Google Calendar] Failed to load credentials from database, using env vars', {
       error: error instanceof Error ? error.message : 'Unknown error',
@@ -349,18 +261,13 @@ export async function callback(params: {
   const baseUrl = process.env.API_BASE_URL || `${req.protocol}://${req.get('host')}`;
   const redirectUri = `${baseUrl}/integrations/${meta.slug}/callback`;
 
-  console.log('📅 [Google Calendar] Constructed redirect URI', {
-    redirectUri,
-    baseUrl,
-    slug: meta.slug,
-  });
+  // Constructed redirect URI (verbose log removed)
 
-  // Exchange auth code for tokens
-  console.log('📅 [Google Calendar] Exchanging authorization code for tokens');
+  // Exchange auth code for tokens (log removed)
   const startTime = Date.now();
 
   try {
-    const result = await exchangeGoogleCalendarCode({
+    const result = await exchangeCode({
       code,
       clientId,
       clientSecret,
@@ -368,13 +275,7 @@ export async function callback(params: {
     });
 
     const duration = Date.now() - startTime;
-    console.log('📅 [Google Calendar] Token exchange successful', {
-      duration: `${duration}ms`,
-      hasAccessToken: !!result.tokens.access_token,
-      hasRefreshToken: !!result.tokens.refresh_token,
-      scope: result.tokens.scope,
-      expiryDate: result.tokens.expiry_date,
-    });
+    // Token exchange successful (verbose log removed)
 
     // Resolve authenticated user to a numeric userId
     let numericUserId: number | undefined;
@@ -404,14 +305,10 @@ export async function callback(params: {
       );
     }
 
-    console.log('📅 [Google Calendar] Persisting credential to database', {
-      userId: numericUserId ?? 'none',
-      type: meta.slug.replace(/-/g, '_'),
-      appId: meta.slug,
-    });
+    // Persisting credential to database (verbose log removed)
 
     // Persist credential
-    const type = meta.slug.replace(/-/g, '_');
+    const type = meta.slug;
     const credential = await prisma.credential.create({
       data: {
         type,
@@ -421,20 +318,10 @@ export async function callback(params: {
       },
     });
 
-    console.log('📅 [Google Calendar] Credential saved successfully', {
-      credentialId: credential.id,
-      userId: credential.userId,
-    });
-
     // Choose redirect target
     const returnTo = state?.returnTo as string | undefined;
     const redirectTo =
       returnTo && typeof returnTo === 'string' ? returnTo : `/apps/${meta.variant}/${meta.slug}`;
-
-    console.log('📅 [Google Calendar] OAuth callback completed successfully', {
-      redirectTo,
-      totalDuration: `${Date.now() - startTime}ms`,
-    });
 
     return { redirectTo };
   } catch (error) {

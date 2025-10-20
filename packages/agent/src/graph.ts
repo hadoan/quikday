@@ -17,17 +17,17 @@ async function agentNode(state: typeof MessagesAnnotation.State) {
   logger.log(`🤖 [Agent] Message count: ${state.messages.length}`);
   logger.log(`🤖 [Agent] Available tools: ${tools.map((t) => t.name).join(', ')}`);
   logger.log('🤖 [Agent] ================================================');
-  
+
   const result = await agentWithTools.invoke({ messages: state.messages });
-  
-  logger.log('🤖 [Agent] ========== OPENAI RESPONSE ==========' );
+
+  logger.log('🤖 [Agent] ========== OPENAI RESPONSE ==========');
   logger.debug(`🤖 [Agent] Response: ${JSON.stringify(result, null, 2)}`);
   logger.log(`🤖 [Agent] Has tool calls: ${!!(result as any).tool_calls?.length}`);
   if ((result as any).tool_calls?.length) {
     logger.debug(`🤖 [Agent] Tool calls: ${JSON.stringify((result as any).tool_calls, null, 2)}`);
   }
   logger.log('🤖 [Agent] ======================================');
-  
+
   return { messages: [result] };
 }
 /** Router: if the last message has tool calls, go to tools; otherwise END. */

@@ -1,10 +1,10 @@
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Github, Twitter } from "lucide-react";
-import { useState } from "react";
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Github, Twitter } from 'lucide-react';
+import { useState } from 'react';
 
 export const Footer = () => {
-  const [email, setEmail] = useState("");
+  const [email, setEmail] = useState('');
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -19,14 +19,14 @@ export const Footer = () => {
     try {
       const payload = {
         email,
-        role: "",
-        teamSize: "",
-        useCase: "newsletter-subscribe",
+        role: '',
+        teamSize: '',
+        useCase: 'newsletter-subscribe',
       };
 
-      const res = await fetch("/api/beta-signup", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
+      const res = await fetch('/api/beta-signup', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload),
       });
 
@@ -36,34 +36,34 @@ export const Footer = () => {
       }
 
       setSuccess("Subscribed. We'll keep you posted.");
-      setEmail("");
+      setEmail('');
     } catch (err: any) {
-      setError(err?.message || "Something went wrong. Please try again.");
+      setError(err?.message || 'Something went wrong. Please try again.');
     } finally {
       setLoading(false);
     }
   };
   const footerLinks = {
     Product: [
-      { label: "Docs", href: "#docs" },
-      { label: "API", href: "#api" },
-      { label: "Integrations", href: "#integrations" },
-      { label: "Kits", href: "#kits" },
-      { label: "Pricing", href: "#pricing" },
+      { label: 'Docs', href: '#docs' },
+      { label: 'API', href: '#api' },
+      { label: 'Integrations', href: '#integrations' },
+      { label: 'Kits', href: '#kits' },
+      { label: 'Pricing', href: '#pricing' },
     ],
     Company: [
-      { label: "About", href: "#about" },
-      { label: "Blog", href: "#blog" },
-      { label: "Changelog", href: "#changelog" },
-      { label: "Roadmap", href: "#roadmap" },
-      { label: "Community", href: "#community" },
+      { label: 'About', href: '#about' },
+      { label: 'Blog', href: '#blog' },
+      { label: 'Changelog', href: '#changelog' },
+      { label: 'Roadmap', href: '#roadmap' },
+      { label: 'Community', href: '#community' },
     ],
     Legal: [
-      { label: "Privacy", href: "#privacy" },
-      { label: "Terms", href: "#terms" },
-      { label: "Security", href: "#security" },
-      { label: "OSS License", href: "#license" },
-      { label: "Contact", href: "#contact" },
+      { label: 'Privacy', href: '#privacy' },
+      { label: 'Terms', href: '#terms' },
+      { label: 'Security', href: '#security' },
+      { label: 'OSS License', href: '#license' },
+      { label: 'Contact', href: '#contact' },
     ],
   };
 
@@ -89,7 +89,7 @@ export const Footer = () => {
             <p className="text-sm text-muted-foreground mb-6 max-w-sm">
               Run work fast. Review only when it matters. Open source automation for lean teams.
             </p>
-            
+
             {/* Newsletter */}
             <div>
               <p className="text-sm font-medium mb-3">Stay updated</p>
@@ -103,7 +103,7 @@ export const Footer = () => {
                   required
                 />
                 <Button type="submit" variant="secondary" disabled={loading}>
-                  {loading ? "Subscribing..." : "Subscribe"}
+                  {loading ? 'Subscribing...' : 'Subscribe'}
                 </Button>
               </form>
               {success && (
@@ -126,7 +126,7 @@ export const Footer = () => {
               <ul className="space-y-2">
                 {links.map((link) => (
                   <li key={link.label}>
-                    <a 
+                    <a
                       href={link.href}
                       className="text-sm text-muted-foreground hover:text-foreground transition-smooth"
                     >
@@ -144,20 +144,20 @@ export const Footer = () => {
           <p className="text-sm text-muted-foreground">
             © 2025 Quik.day. Open source. Built in public.
           </p>
-          
+
           <div className="flex items-center gap-4">
-            <a 
-              href="https://twitter.com/quikday" 
-              target="_blank" 
+            <a
+              href="https://twitter.com/quikday"
+              target="_blank"
               rel="noopener noreferrer"
               className="text-muted-foreground hover:text-foreground transition-smooth"
               aria-label="Twitter"
             >
               <Twitter className="h-5 w-5" />
             </a>
-            <a 
-              href="https://github.com/hadoan/quikday" 
-              target="_blank" 
+            <a
+              href="https://github.com/hadoan/quikday"
+              target="_blank"
               rel="noopener noreferrer"
               className="text-muted-foreground hover:text-foreground transition-smooth"
               aria-label="GitHub"

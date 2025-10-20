@@ -30,7 +30,7 @@ export type InstallAppProps = {
   isGlobal?: boolean;
   /** Installation method: 'oauth' for OAuth flow, 'input' for input dialog, 'direct' for immediate install */
   installMethod?: InstallMethod;
-  /** 
+  /**
    * Optional custom OAuth redirect path. If not provided, defaults to convention: `/integrations/{slug}/add`
    * Only used when installMethod is 'oauth'
    */
@@ -88,14 +88,20 @@ export default function InstallApp({
       if (axios.isAxiosError(e)) {
         const status = e.response?.status;
         if (status === 401 || status === 403) {
-          toast({ title: 'Please sign in', description: 'You need to log in to disconnect this app.' });
+          toast({
+            title: 'Please sign in',
+            description: 'You need to log in to disconnect this app.',
+          });
           await login?.();
           setDisconnecting(false);
           return;
         }
         if (status === 404 || status === 405) {
           // Endpoint not implemented server-side yet - inform the user
-          toast({ title: 'Disconnect not supported', description: 'Server does not support remote disconnect for this integration yet.' });
+          toast({
+            title: 'Disconnect not supported',
+            description: 'Server does not support remote disconnect for this integration yet.',
+          });
         } else {
           toast({ title: 'Failed to disconnect', description: e.message });
         }
@@ -112,15 +118,19 @@ export default function InstallApp({
           Array.isArray(creds)
             ? creds
                 .map((c: unknown) => {
-                  if (typeof c === 'object' && c !== null && 'id' in (c as Record<string, unknown>)) {
+                  if (
+                    typeof c === 'object' &&
+                    c !== null &&
+                    'id' in (c as Record<string, unknown>)
+                  ) {
                     return Number((c as Record<string, unknown>).id);
                   }
                   return NaN;
                 })
                 .filter((n) => !Number.isNaN(n))
-            : []
+            : [],
         );
-  setExistingCount(Array.isArray(creds) ? creds.length : 0);
+        setExistingCount(Array.isArray(creds) ? creds.length : 0);
       } catch {
         // ignore refresh errors
       }
@@ -149,7 +159,10 @@ export default function InstallApp({
           const status = e.response?.status;
           if (status === 401 || status === 403) {
             // Not authenticated—kick off login
-            toast({ title: 'Please sign in', description: 'You need to log in to manage integrations.' });
+            toast({
+              title: 'Please sign in',
+              description: 'You need to log in to manage integrations.',
+            });
             await login?.();
           }
         }
@@ -188,7 +201,10 @@ export default function InstallApp({
           const status = e.response?.status;
           if (status === 401 || status === 403) {
             // Not authenticated—kick off login
-            toast({ title: 'Please sign in', description: 'You need to log in to install this app.' });
+            toast({
+              title: 'Please sign in',
+              description: 'You need to log in to install this app.',
+            });
             await login?.();
             return;
           }

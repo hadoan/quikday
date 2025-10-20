@@ -1,6 +1,6 @@
 /**
  * index.ts
- * 
+ *
  * Export all test fixtures for easy importing in test files.
  */
 
@@ -9,11 +9,11 @@ export * from './backend.run.fixture';
 
 /**
  * Usage in tests:
- * 
+ *
  * ```typescript
  * import { mockRunFixture, backendRunFixture } from '@/lib/testing/fixtures';
  * import { adaptRunBackendToUi } from '@/lib/adapters/backendToViewModel';
- * 
+ *
  * test('adapter produces same output as mock', () => {
  *   const adapted = adaptRunBackendToUi(backendRunFixture);
  *   expect(adapted).toMatchSnapshot();

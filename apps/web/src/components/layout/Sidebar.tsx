@@ -44,11 +44,7 @@ export const Sidebar = ({
         {!collapsed && (
           <div className="flex items-center gap-3">
             {/* Brand logo swaps for theme */}
-            <img
-              src="/logo/logo-light-bg.svg"
-              alt="Quik.day"
-              className="h-6 w-auto dark:hidden"
-            />
+            <img src="/logo/logo-light-bg.svg" alt="Quik.day" className="h-6 w-auto dark:hidden" />
             <img
               src="/logo/logo-dark-bg.svg"
               alt="Quik.day"
@@ -62,11 +58,7 @@ export const Sidebar = ({
         )}
         {collapsed && (
           <div className="mx-auto">
-            <img
-              src="/logo/logo-light-bg.svg"
-              alt="Quik.day"
-              className="h-5 w-auto dark:hidden"
-            />
+            <img src="/logo/logo-light-bg.svg" alt="Quik.day" className="h-5 w-auto dark:hidden" />
             <img
               src="/logo/logo-dark-bg.svg"
               alt="Quik.day"

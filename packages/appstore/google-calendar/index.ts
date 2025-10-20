@@ -5,7 +5,10 @@ import { callback } from './callback.js';
 
 export default function createApp(meta: AppMeta, deps: any) {
   return new (class GoogleCalendarApp {
-    constructor(public readonly meta: AppMeta, public readonly deps: any) {
+    constructor(
+      public readonly meta: AppMeta,
+      public readonly deps: any,
+    ) {
       console.log('📅 Google Calendar app initialized', { slug: meta.slug });
     }
 
@@ -20,7 +23,7 @@ export default function createApp(meta: AppMeta, deps: any) {
           slug: meta.slug,
           userId: req?.user?.id || req?.user?.sub,
         });
-        
+
         // Create signed state if state utility is available via deps
         let signedState: string | undefined;
         if (typeof this.deps?.createSignedState === 'function') {
@@ -44,26 +47,30 @@ export default function createApp(meta: AppMeta, deps: any) {
             // Fallback: library will create unsigned state
           }
         } else {
-          console.warn('📅 [Add] No createSignedState function in deps, using unsigned state fallback');
+          console.warn(
+            '📅 [Add] No createSignedState function in deps, using unsigned state fallback',
+          );
         }
-        
+
         // Delegate all logic to add.ts helper
-        const { url } = await resolveGoogleCalendarAuthUrl({ 
-          req, 
+        const { url } = await resolveGoogleCalendarAuthUrl({
+          req,
           meta,
           signedState,
         });
-        
+
         console.log('📅 [Add] OAuth URL generated, redirecting user', {
           hasUrl: !!url,
         });
-        
+
         // If client requested JSON (e.g., to attach Authorization header), return the URL
-        const acceptsJson = (req.headers['accept'] || '').includes('application/json') || req.query?.format === 'json';
+        const acceptsJson =
+          (req.headers['accept'] || '').includes('application/json') ||
+          req.query?.format === 'json';
         if (acceptsJson) {
           return res.status(200).json({ url });
         }
-        
+
         res.redirect(url);
       } catch (error) {
         const message = error instanceof Error ? error.message : 'Unknown error';
@@ -81,18 +88,18 @@ export default function createApp(meta: AppMeta, deps: any) {
         hasCode: !!req.query?.code,
         hasError: !!req.query?.error,
       });
-      
+
       try {
-        const { redirectTo } = await callback({ 
-          req, 
-          meta, 
+        const { redirectTo } = await callback({
+          req,
+          meta,
           prisma: this.deps.prisma,
         });
-        
+
         console.log('📅 [Callback] OAuth callback completed, redirecting', {
           redirectTo,
         });
-        
+
         return res.redirect(redirectTo);
       } catch (error) {
         const message = error instanceof Error ? error.message : 'Unknown error';
@@ -109,7 +116,7 @@ export default function createApp(meta: AppMeta, deps: any) {
         slug: meta.slug,
         hasBody: !!req?.body,
       });
-      
+
       const body = req?.body;
 
       if (!body || typeof body !== 'object') {
@@ -123,7 +130,7 @@ export default function createApp(meta: AppMeta, deps: any) {
       console.log('📅 [Post] Request processed successfully', {
         timestamp: now,
       });
-      
+
       return res.status(200).json({
         ok: true,
         app: meta.slug,

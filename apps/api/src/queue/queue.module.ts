@@ -29,4 +29,3 @@ import { RedisModule } from '../redis/redis.module';
   exports: [BullModule],
 })
 export class QueueModule {}
-

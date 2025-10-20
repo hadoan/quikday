@@ -24,7 +24,7 @@ type ValidCategory = (typeof VALID_APP_CATEGORIES)[number];
 function asValidCategories(cats: unknown): ValidCategory[] {
   if (!Array.isArray(cats)) return [];
   return (cats as string[]).filter((c): c is ValidCategory =>
-    VALID_APP_CATEGORIES.includes(c as ValidCategory)
+    VALID_APP_CATEGORIES.includes(c as ValidCategory),
   );
 }
 
@@ -35,7 +35,7 @@ async function createApp(
   /** Used to re-link existing credentials of this type to the new appId (slug) */
   type: Prisma.CredentialCreateInput['type'],
   keys?: Prisma.AppCreateInput['keys'],
-  isTemplate?: boolean
+  isTemplate?: boolean,
 ) {
   try {
     const foundApp = await prisma.app.findFirst({

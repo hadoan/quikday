@@ -1,6 +1,6 @@
 /**
  * telemetry.ts
- * 
+ *
  * Simple telemetry wrapper for tracking user events.
  * Preserves existing event names and properties.
  */
@@ -23,7 +23,7 @@ class Telemetry {
     if (!this.enabled) return;
 
     console.log('[Telemetry]', event, properties);
-    
+
     // TODO: Integrate with PostHog or other analytics
     // if (window.posthog) {
     //   window.posthog.capture(event, properties);
@@ -34,7 +34,7 @@ class Telemetry {
     if (!this.enabled) return;
 
     console.log('[Telemetry] Identify:', userId, traits);
-    
+
     // TODO: Integrate with PostHog
     // if (window.posthog) {
     //   window.posthog.identify(userId, traits);
@@ -76,19 +76,11 @@ export function trackApprovalGranted(runId: string, stepCount: number): void {
   telemetry.capture('approval_granted', { runId, stepCount });
 }
 
-export function trackStepStarted(params: {
-  runId: string;
-  tool: string;
-  appId?: string;
-}): void {
+export function trackStepStarted(params: { runId: string; tool: string; appId?: string }): void {
   telemetry.capture('step_started', params);
 }
 
-export function trackStepSucceeded(params: {
-  runId: string;
-  tool: string;
-  appId?: string;
-}): void {
+export function trackStepSucceeded(params: { runId: string; tool: string; appId?: string }): void {
   telemetry.capture('step_succeeded', params);
 }
 

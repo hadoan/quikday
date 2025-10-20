@@ -10,7 +10,7 @@ The Data Source Integration Layer provides a thin **adapter** pattern between th
 ✅ **Feature Flags** — Runtime toggle between mock/live  
 ✅ **Stable Contracts** — `DataSource` interface guarantees consistency  
 ✅ **Pure Adapters** — Testable transformation functions  
-✅ **QA Friendly** — Side-by-side comparison of mock vs live  
+✅ **QA Friendly** — Side-by-side comparison of mock vs live
 
 ---
 
@@ -255,13 +255,13 @@ Converts WebSocket message to UI event.
 
 ### Available Flags
 
-| Flag                | Description                           | Default |
-| ------------------- | ------------------------------------- | ------- |
-| `dataSource`        | `'mock'` or `'live'`                  | `mock`  |
-| `liveApprovals`     | Enable live approval flow             | `false` |
-| `liveUndo`          | Enable live undo operations           | `false` |
-| `liveCredentials`   | Enable live credential management     | `false` |
-| `showDebugInfo`     | Log feature flags and data source     | `false` |
+| Flag              | Description                       | Default |
+| ----------------- | --------------------------------- | ------- |
+| `dataSource`      | `'mock'` or `'live'`              | `mock`  |
+| `liveApprovals`   | Enable live approval flow         | `false` |
+| `liveUndo`        | Enable live undo operations       | `false` |
+| `liveCredentials` | Enable live credential management | `false` |
+| `showDebugInfo`   | Log feature flags and data source | `false` |
 
 ### Toggle at Runtime
 
@@ -383,11 +383,13 @@ test('adapter produces consistent UI view model', () => {
 ### Issue: "Run not updating in UI"
 
 **Check:**
+
 - Is data source set to `live`? (`?ds=live`)
 - Is WebSocket connected? (check browser console)
 - Is backend running and reachable?
 
 **Debug:**
+
 ```typescript
 import { logFeatureFlagsInfo } from '@/lib/flags/featureFlags';
 logFeatureFlagsInfo();
@@ -404,11 +406,13 @@ logFeatureFlagsInfo();
 ### Issue: "WebSocket not reconnecting"
 
 **Check:**
+
 - Network tab in DevTools
 - Backend WebSocket handler is implemented
 - Auth token is valid
 
 **Debug:**
+
 ```typescript
 // Enable debug logs
 const socket = createRunSocket({
@@ -423,12 +427,14 @@ const socket = createRunSocket({
 ## Next Steps
 
 ### Phase 1: Current (✅ Done)
+
 - Mock and live data sources working
 - Feature flag toggle
 - WebSocket with auto-reconnect
 - Telemetry tracking
 
 ### Phase 2: Future Enhancements
+
 - Add unit tests for adapters
 - Add snapshot tests with golden fixtures
 - Implement `listRuns()` for sidebar
@@ -439,6 +445,7 @@ const socket = createRunSocket({
 - Add loading states and optimistic updates
 
 ### Phase 3: Production Readiness
+
 - E2E tests with Playwright
 - Performance monitoring
 - Error tracking (Sentry)

@@ -33,10 +33,14 @@ export default function CallbackPage() {
         <CardHeader className="text-center pt-12 pb-8">
           <div className="flex justify-center mb-6">
             <img src="/logo/logo-light-bg.svg" alt="Quik.day" className="h-12 w-auto dark:hidden" />
-            <img src="/logo/logo-dark-bg.svg" alt="Quik.day" className="h-12 w-auto hidden dark:block" />
+            <img
+              src="/logo/logo-dark-bg.svg"
+              alt="Quik.day"
+              className="h-12 w-auto hidden dark:block"
+            />
           </div>
         </CardHeader>
-        
+
         <CardContent className="text-center pb-12">
           <div className="flex flex-col items-center gap-4">
             <Loader2 className="w-8 h-8 text-primary animate-spin" />
