@@ -1,5 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { AppMeta } from '@quikday/types';
+import { getIntegrationSlugs } from '@quikday/appstore';
 import { BaseApp } from './app.base';
 import { AppDeps } from './app.types';
 
@@ -9,27 +10,25 @@ export class AppStoreRegistry {
   private apps = new Map<string, BaseApp>();
   private metas = new Map<string, AppMeta>();
 
-  // TODO: Discover apps dynamically from filesystem and build artifacts (dist).
-  // For now, use a simple static list. At runtime/build, consider resolving `dist` paths.
-  private static readonly APPS_BASES: string[] = [
-    // NOTE: Relative to this file at runtime. Adjust if build output structure differs.
-    '../../../../packages/appstore/linkedin-social',
-    '../../../../packages/appstore/gmail',
-  ];
-
   async init(deps: AppDeps): Promise<void> {
     this.logger.log('Initializing AppStoreRegistry...');
 
-    for (const base of AppStoreRegistry.APPS_BASES) {
+    // Get integration slugs from centralized registry
+    const slugs = getIntegrationSlugs();
+
+    for (const slug of slugs) {
       try {
+        // Convention: @quikday/appstore/{slug}/dist/
+        const basePath = `@quikday/appstore/${slug}/dist`;
+        
         // Load metadata and factory
-        const metaMod = await import(`${base}/metadata`);
-        const idxMod = await import(`${base}/index`);
+        const metaMod = await import(`${basePath}/metadata`);
+        const idxMod = await import(`${basePath}/index`);
         const metadata: AppMeta = metaMod.metadata;
         const create: (meta: AppMeta, deps: AppDeps) => BaseApp = idxMod.default;
 
         if (!metadata?.slug) {
-          this.logger.warn(`Skipping app at ${base}: missing slug in metadata`);
+          this.logger.warn(`Skipping app ${slug}: missing slug in metadata`);
           continue;
         }
 
@@ -38,7 +37,7 @@ export class AppStoreRegistry {
         this.metas.set(metadata.slug, metadata);
         this.logger.log(`Loaded app: ${metadata.slug}`);
       } catch (err) {
-        this.logger.error(`Failed to load app at ${base}`, err as any);
+        this.logger.error(`Failed to load app: ${slug}`, err as any);
       }
     }
   }

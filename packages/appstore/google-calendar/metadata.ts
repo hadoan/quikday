@@ -1,5 +1,5 @@
 /* NOTE: This file contains structure only. Implement provider logic separately. */
-import type { AppMeta } from '@quikday/types/App';
+import type { AppMeta } from '@quikday/types';
 
 export const metadata: AppMeta = {
   name: 'Google Calendar',
@@ -8,7 +8,7 @@ export const metadata: AppMeta = {
     'Google Calendar helps you schedule, manage, and share events. Connect to create and update events directly from Quik.day.',
   installed: false,
   type: 'oauth2',
-  variant: 'calendar',
+  variant: 'automation',
   categories: ['productivity', 'calendar', 'google'],
   category: 'calendar',
   logo: '/logo/googlecalendar.svg',

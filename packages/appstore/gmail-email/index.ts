@@ -1,13 +1,9 @@
 /* NOTE: This file contains structure only. Implement provider logic separately. */
-import type { AppMeta } from '@quikday/types/App';
-import { BaseApp } from '../../../../apps/api/src/integrations/app.base';
-import type { AppDeps } from '../../../../apps/api/src/integrations/app.types';
+import type { AppMeta } from '@quikday/types';
 
-export default function createApp(meta: AppMeta, deps: AppDeps) {
-  return new (class MyApp extends BaseApp {
-    constructor() {
-      super(meta);
-    }
+export default function createApp(meta: AppMeta, _deps: any) {
+  return new (class MyApp {
+    constructor(public readonly meta: AppMeta) {}
 
     async add(req: any, res: any) {
       // TODO: build provider auth URL, redirect
@@ -23,5 +19,5 @@ export default function createApp(meta: AppMeta, deps: AppDeps) {
       // TODO: action (e.g., send email)
       res.status(501).json({ message: 'Not implemented' });
     }
-  })();
+  })(meta);
 }

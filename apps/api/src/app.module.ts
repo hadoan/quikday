@@ -9,6 +9,7 @@ import { TelemetryModule } from './telemetry/telemetry.module';
 import { TeamsModule } from './teams/teams.module';
 import { CredentialsModule } from './credentials/credentials.module';
 import { WebSocketModule } from './websocket/websocket.module';
+import { IntegrationsModule } from './integrations/integrations.module';
 
 @Module({
   imports: [
@@ -22,7 +23,7 @@ import { WebSocketModule } from './websocket/websocket.module';
     TeamsModule,
     CredentialsModule,
     WebSocketModule,
+    IntegrationsModule,
   ],
 })
 export class AppModule {}
-

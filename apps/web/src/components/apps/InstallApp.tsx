@@ -11,12 +11,28 @@ import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import { useToast } from '@/hooks/use-toast';
 
+/**
+ * Installation method for app integrations.
+ * - 'oauth': Redirect user to OAuth flow (e.g., Google Calendar, LinkedIn)
+ * - 'input': Show input dialog for API keys/credentials before installing
+ * - 'direct': Install immediately without additional user input
+ */
+export type InstallMethod = 'oauth' | 'input' | 'direct';
+
 export type InstallAppProps = {
   type: string;
   slug: string;
   variant: string;
   allowedMultipleInstalls: boolean;
   isGlobal?: boolean;
+  /** Installation method: 'oauth' for OAuth flow, 'input' for input dialog, 'direct' for immediate install */
+  installMethod?: InstallMethod;
+  /** 
+   * Optional custom OAuth redirect path. If not provided, defaults to convention: `/integrations/{slug}/add`
+   * Only used when installMethod is 'oauth'
+   */
+  oauthPath?: string;
+  /** @deprecated Use installMethod='input' instead. For 'input' method: show input dialog before installing */
   isInputDialog?: boolean;
   inputKeys?: { code: string; name: string }[];
   inputDialogTitle?: string;
@@ -29,6 +45,8 @@ export default function InstallApp({
   variant,
   allowedMultipleInstalls,
   isGlobal = false,
+  installMethod = 'direct',
+  oauthPath,
   isInputDialog = false,
   inputKeys,
   inputDialogTitle,
@@ -56,12 +74,31 @@ export default function InstallApp({
     toast({ title: `Disconnected ${slug}` });
   };
 
+  const getApiBaseUrl = () => {
+    if (typeof window === 'undefined') return 'http://localhost:3000';
+    const fromEnv = import.meta.env?.VITE_API_BASE_URL as string | undefined;
+    if (fromEnv) return fromEnv;
+    return `${window.location.protocol}//${window.location.hostname}:3000`;
+  };
+
   const onClickInstall = () => {
-    if (isInputDialog && inputKeys && inputKeys.length > 0) {
-      setInputOpen(true);
-    } else {
-      void doInstall();
+    // Handle OAuth flow - redirect to backend OAuth initiation endpoint
+    // Convention: /integrations/{slug}/add
+    if (installMethod === 'oauth') {
+      const apiBaseUrl = getApiBaseUrl();
+      const redirectPath = oauthPath || `/integrations/${slug}/add`;
+      window.location.href = `${apiBaseUrl}${redirectPath}`;
+      return;
     }
+
+    // Handle input dialog method - show credentials input before installing
+    if (installMethod === 'input' && inputKeys && inputKeys.length > 0) {
+      setInputOpen(true);
+      return;
+    }
+
+    // Handle direct install method - install immediately
+    void doInstall();
   };
 
   const handleSaveInputs = async () => {

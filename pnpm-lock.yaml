@@ -606,6 +606,12 @@ importers:
         specifier: ^4.9.0
         version: 4.9.5
 
+  packages/appstore/gmail-email: {}
+
+  packages/appstore/google-calendar: {}
+
+  packages/appstore/linkedin-social: {}
+
   packages/crypto:
     devDependencies:
       '@types/node':

@@ -97,6 +97,7 @@ const apps: AppListItem[] = [
       slug: 'google-calendar',
       variant: 'calendar',
       allowedMultipleInstalls: false,
+      installMethod: 'oauth',
     },
     categories: ['All', 'Productivity', 'Calendar', 'Google'],
   },
