@@ -33,6 +33,7 @@ import { createLogger } from '../utils/logger';
 export class ApiDataSource implements DataSource {
   private config: Required<DataSourceConfig>;
   private activeSockets = new Map<string, RunSocket>();
+  private activePollers = new Map<string, { timer: ReturnType<typeof setInterval>; lastStatus?: string; lastStepCount: number }>();
   private logger = createLogger('ApiDataSource');
 
   constructor(config: DataSourceConfig = {}) {
@@ -142,6 +143,14 @@ export class ApiDataSource implements DataSource {
           ts: new Date().toISOString(),
           runId,
         });
+        // Start polling fallback if not already started
+        if (!this.activePollers.has(runId)) {
+          this.logger.info('Starting polling fallback for run', { runId });
+          const timer = setInterval(() => this.pollRun(runId, onEvent), 2000);
+          this.activePollers.set(runId, { timer, lastStatus: undefined, lastStepCount: 0 });
+          // Stop noisy WS reconnects once fallback is active
+          try { socket.close(); } catch {}
+        }
       },
       onClose: () => {
         this.logger.info('WebSocket closed for run', { runId });
@@ -153,8 +162,15 @@ export class ApiDataSource implements DataSource {
 
     return {
       close: () => {
+        // Close WS
         socket.close();
         this.activeSockets.delete(runId);
+        // Stop poller if running
+        const poller = this.activePollers.get(runId);
+        if (poller) {
+          clearInterval(poller.timer);
+          this.activePollers.delete(runId);
+        }
       },
     };
   }
@@ -307,6 +323,62 @@ export class ApiDataSource implements DataSource {
 
     const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
     return `${protocol}//${window.location.hostname}:3000`;
+  }
+
+  private async pollRun(runId: string, onEvent: (evt: UiEvent) => void): Promise<void> {
+    try {
+      const { run, steps } = await this.getRun(runId);
+      const poller = this.activePollers.get(runId);
+      if (!poller) return;
+
+      // Emit status change
+      if (run.status && poller.lastStatus !== run.status) {
+        onEvent({
+          type: run.status === 'succeeded' || run.status === 'completed' || run.status === 'done' ? 'run_completed' : 'run_status',
+          payload: { status: run.status, started_at: run.createdAt, completed_at: run.completedAt },
+          ts: new Date().toISOString(),
+          runId,
+        });
+        poller.lastStatus = run.status;
+      }
+
+      // Emit new step entries
+      const newCount = steps.length;
+      const prevCount = poller.lastStepCount || 0;
+      if (newCount > prevCount) {
+        for (let i = prevCount; i < newCount; i++) {
+          const s = steps[i];
+          onEvent({
+            type: s.status === 'failed' ? 'step_failed' : 'step_succeeded',
+            payload: {
+              tool: s.tool,
+              action: s.action,
+              status: s.status,
+              request: s.request,
+              response: s.response,
+              errorCode: s.errorCode,
+              errorMessage: s.errorMessage,
+              startedAt: s.startedAt,
+              completedAt: s.completedAt,
+            },
+            ts: new Date().toISOString(),
+            runId,
+          });
+        }
+        poller.lastStepCount = newCount;
+      }
+
+      // Stop polling when terminal
+      if (['succeeded', 'failed', 'completed', 'done'].includes(run.status)) {
+        const p = this.activePollers.get(runId);
+        if (p) {
+          clearInterval(p.timer);
+          this.activePollers.delete(runId);
+        }
+      }
+    } catch (err) {
+      this.logger.error('Polling error', err as Error);
+    }
   }
 
   private buildMessagesFromRun(run: BackendRun, steps: UiPlanStep[]) {
