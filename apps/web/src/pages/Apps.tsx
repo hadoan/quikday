@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useMemo, useState, useEffect } from 'react';
 import AppCard from '@/components/apps/AppCard';
 import type { AppCardInstallProps } from '@/components/apps/AppCard';
 import { Sidebar } from '@/components/layout/Sidebar';
@@ -86,6 +86,19 @@ const apps: AppListItem[] = [
       allowedMultipleInstalls: false,
     },
     categories: ['All', 'Social', 'Meta', 'Instagram'],
+  },
+  {
+    title: 'Google Calendar',
+    description:
+      'Google Calendar helps you schedule, manage, and share events. Connect to create and update events directly from Runfast.',
+    logoSrc: '/logo/googlecalendar.svg',
+    installProps: {
+      type: 'google_calendar',
+      slug: 'google-calendar',
+      variant: 'calendar',
+      allowedMultipleInstalls: false,
+    },
+    categories: ['All', 'Productivity', 'Calendar', 'Google'],
   },
 ];
 

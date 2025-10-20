@@ -1,4 +1,4 @@
-import { AppMeta } from './appStoreMetadata';
+import type { AppMeta } from '@quikday/types';
 
 export type AppRow = {
   slug: string;
