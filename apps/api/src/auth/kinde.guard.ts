@@ -5,8 +5,15 @@ import { ConfigService } from '../config/config.service';
 
 @Injectable()
 export class KindeGuard implements CanActivate {
-  private client = this.config.env.KINDE_JWKS_URL
-    ? jwksClient({ jwksUri: this.config.env.KINDE_JWKS_URL })
+  private client = this.config.jwksUri
+    ? jwksClient({
+        jwksUri: this.config.jwksUri,
+        cache: true,
+        cacheMaxEntries: 5,
+        cacheMaxAge: 10 * 60 * 1000, // 10 minutes
+        rateLimit: true,
+        jwksRequestsPerMinute: 10,
+      })
     : null;
 
   constructor(private config: ConfigService) {}
@@ -22,7 +29,7 @@ export class KindeGuard implements CanActivate {
     const token = auth.startsWith('Bearer ') ? auth.slice(7) : '';
     if (this.config.isKindeBypass) {
       // In dev, trust any token and assign a minimal user payload
-      req.user = { sub: 'dev-user', email: 'dev@example.com' };
+      req.user = { sub: 'dev-user', email: 'dev@example.com', name: 'Dev User' };
       return true;
     }
 
@@ -32,7 +39,11 @@ export class KindeGuard implements CanActivate {
       jwt.verify(
         token,
         this.getKey,
-        { audience: this.config.env.KINDE_AUDIENCE, issuer: this.config.env.KINDE_ISSUER_URL },
+        {
+          audience: this.config.env.KINDE_AUDIENCE,
+          issuer: this.config.normalizedIssuer,
+          algorithms: ['RS256'],
+        },
         (err: any, decoded: any) => (err ? reject(err) : resolve(decoded))
       );
     });

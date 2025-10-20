@@ -7,16 +7,37 @@ datasource db {
     url      = env("DATABASE_URL")
 }
 
+enum Plan {
+    FREE
+    PRO
+}
+
 model User {
-    id          Int          @id @default(autoincrement())
-    sub         String       @unique
-    email       String?      @unique
-    displayName String?
-    teams       TeamMember[]
-    runs        Run[]
-    createdAt   DateTime     @default(now())
-    Credential  Credential[]
-    ApiKey      ApiKey[]
+    id           Int          @id @default(autoincrement())
+    sub          String       @unique
+    email        String?      @unique
+    displayName  String?
+    avatar       String?
+    plan         Plan         @default(PRO)
+    lastLoginAt  DateTime?
+    createdAt    DateTime     @default(now())
+    // updatedAt intentionally omitted to allow non-destructive db push in dev
+    teams        TeamMember[]
+    runs         Run[]
+    workspace    Workspace?
+    Credential   Credential[]
+    ApiKey       ApiKey[]
+}
+
+model Workspace {
+    id           Int       @id @default(autoincrement())
+    name         String
+    slug         String    @unique
+    plan         Plan      @default(PRO)
+    ownerUserId  Int       @unique
+    owner        User      @relation(fields: [ownerUserId], references: [id])
+    createdAt    DateTime  @default(now())
+    updatedAt    DateTime  @updatedAt
 }
 
 model Team {

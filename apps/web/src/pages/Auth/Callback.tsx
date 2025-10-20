@@ -4,6 +4,7 @@ import { useKindeAuth } from '@kinde-oss/kinde-auth-react';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
 // Replaced SubioLogo with inline Quikday logo images
 import { Loader2 } from 'lucide-react';
+import { fetchMe } from '@/apis/session';
 
 /**
  * Callback page to handle authentication redirect from Kinde
@@ -16,7 +17,10 @@ export default function CallbackPage() {
   useEffect(() => {
     if (isLoading) return;
     if (isAuthenticated) {
-      navigate('/', { replace: true });
+      // Bootstrap session state by creating/fetching user + workspace
+      void fetchMe().finally(() => {
+        navigate('/', { replace: true });
+      });
     } else {
       navigate('/auth/login', { replace: true });
     }

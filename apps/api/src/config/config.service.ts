@@ -21,4 +21,18 @@ export class ConfigService {
   get isKindeBypass(): boolean {
     return this.env.KINDE_BYPASS === 'true';
   }
+
+  // Normalize issuer by stripping trailing slash
+  get normalizedIssuer(): string | undefined {
+    const raw = this.env.KINDE_ISSUER_URL;
+    if (!raw) return undefined;
+    return raw.endsWith('/') ? raw.slice(0, -1) : raw;
+  }
+
+  // Prefer explicit JWKS URL, fallback to issuer-based well-known URL
+  get jwksUri(): string | undefined {
+    if (this.env.KINDE_JWKS_URL) return this.env.KINDE_JWKS_URL;
+    const issuer = this.normalizedIssuer;
+    return issuer ? `${issuer}/.well-known/jwks.json` : undefined;
+  }
 }

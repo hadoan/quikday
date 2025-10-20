@@ -8,6 +8,8 @@ export const setAccessTokenProvider = (provider: AccessTokenProvider) => {
   accessTokenProvider = provider;
 };
 
+export const getAccessTokenProvider = (): AccessTokenProvider | undefined => accessTokenProvider;
+
 const computeApiBaseUrl = (): string => {
   if (typeof window === 'undefined') return 'http://localhost:3000';
   const fromEnv = (import.meta as any)?.env?.VITE_API_BASE_URL as string | undefined;
@@ -43,4 +45,3 @@ api.interceptors.request.use(async (config) => {
 
 export default api;
 export { api };
-

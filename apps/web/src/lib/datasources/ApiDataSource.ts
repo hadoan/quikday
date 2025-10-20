@@ -28,6 +28,7 @@ import {
   type BackendCredential,
 } from '../adapters/backendToViewModel';
 import { createRunSocket, type RunSocket } from '../ws/RunSocket';
+import { getAccessTokenProvider } from '@/apis/client';
 import { createLogger } from '../utils/logger';
 
 export class ApiDataSource implements DataSource {
@@ -285,7 +286,16 @@ export class ApiDataSource implements DataSource {
   private async fetch(url: string, options: RequestInit = {}): Promise<Response> {
     const headers = new Headers(options.headers || {});
     headers.set('Content-Type', 'application/json');
-    headers.set('Authorization', `Bearer ${this.config.authToken}`);
+    // Try to attach current OIDC access token if available
+    try {
+      const provider = getAccessTokenProvider();
+      const tokenOrPromise = provider?.();
+      const token = tokenOrPromise instanceof Promise ? await tokenOrPromise : tokenOrPromise;
+      if (token) headers.set('Authorization', `Bearer ${token}`);
+    } catch {
+      // ignore and fall back to default token if set
+      if (this.config.authToken) headers.set('Authorization', `Bearer ${this.config.authToken}`);
+    }
 
     const response = await fetch(url, {
       ...options,

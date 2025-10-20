@@ -34,7 +34,12 @@ async function bootstrap() {
   
   const app = await NestFactory.create(AppModule, { logger: logLevels });
   app.use(json({ limit: '2mb' }));
-  app.enableCors({ origin: true, credentials: true });
+  app.enableCors({
+    origin: true,
+    credentials: true,
+    allowedHeaders: ['Content-Type', 'Authorization', 'X-Workspace-Id'],
+    methods: ['GET', 'POST', 'PATCH', 'PUT', 'DELETE', 'OPTIONS'],
+  });
   const port = Number(process.env.PORT || 3000);
 
   // Initialize WebSocket service for run streams
