@@ -5,10 +5,11 @@ import { PrismaModule } from '@quikday/prisma';
 import { QueueModule } from '../queue/queue.module';
 import { TelemetryModule } from '../telemetry/telemetry.module';
 import { ConfigModule } from '../config/config.module';
+import { RunTokenService } from './run-token.service';
 
 @Module({
   imports: [PrismaModule, forwardRef(() => QueueModule), TelemetryModule, ConfigModule],
-  providers: [RunsService],
+  providers: [RunsService, RunTokenService],
   controllers: [RunsController],
   exports: [RunsService],
 })

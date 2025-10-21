@@ -86,24 +86,47 @@ export const routeByMode: Router<RunState> = (s) => {
   const policy: TeamPolicy | undefined = (s.ctx as any).meta?.policy;
 
   // Residency hard block (e.g., tool requires US but team is EU with restrictCrossRegion)
-  if (policy && residencyBlocked(s, policy)) return 'fallback_residency';
+  if (policy && residencyBlocked(s, policy)) {
+    s.scratch = {
+      ...s.scratch,
+      fallbackReason: 'residency_blocked',
+      fallbackDetails: { policy },
+    };
+    return 'fallback';
+  }
 
   // Hard policy deny if we already know tools are disallowed (e.g., from intent->tool map)
   const prelimTools = prelimRequiredToolsFromIntent(s);
   if (policy && prelimTools.length && !areToolsAllowed(prelimTools, policy)) {
-    return 'fallback_policy';
+    s.scratch = {
+      ...s.scratch,
+      fallbackReason: 'policy_denied',
+      fallbackDetails: { tools: prelimTools },
+    };
+    return 'fallback';
   }
 
   // Quiet hours / budgets never hard-block here (unless policy says BLOCK);
   // we keep UX consistent by sending users to planner → confirm (which halts/asks).
   if (policy) {
     if (policy.quietHours.enabled && inQuietHours(s, policy)) {
-      if (policy.quietHours.behavior === 'BLOCK') return 'fallback_quiet';
+      if (policy.quietHours.behavior === 'BLOCK') {
+        s.scratch = {
+          ...s.scratch,
+          fallbackReason: 'quiet_hours',
+          fallbackDetails: { quietHours: policy.quietHours },
+        };
+        return 'fallback';
+      }
       // FORCE_PLAN/DEFER: continue to planner; confirm node will halt with a request.
     }
     if (policy.budgets.enabled && exceedsBudget(s, policy)) {
-      // Prefer planner to present Plan+Diff and explain; or block directly:
-      return 'fallback_budget';
+      s.scratch = {
+        ...s.scratch,
+        fallbackReason: 'budget_exceeded',
+        fallbackDetails: { budgets: policy.budgets },
+      };
+      return 'fallback';
     }
   }
 

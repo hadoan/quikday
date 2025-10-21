@@ -27,17 +27,25 @@ export class MockDataSource implements DataSource {
     const newId = `R-${Date.now()}`;
     const timestamp = new Date().toISOString();
 
+    const baseMessages =
+      params.messages?.map((msg) => ({
+        role: msg.role,
+        content: msg.content,
+      })) || [];
+
+    if (!baseMessages.length && params.prompt) {
+      baseMessages.push({
+        role: 'user' as const,
+        content: params.prompt,
+      });
+    }
+
     const newRun = {
       id: newId,
       prompt: params.prompt,
       timestamp,
       status: 'running' as const,
-      messages: [
-        {
-          role: 'user' as const,
-          content: params.prompt,
-        },
-      ],
+      messages: baseMessages,
     };
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any

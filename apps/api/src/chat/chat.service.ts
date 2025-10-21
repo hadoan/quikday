@@ -33,7 +33,12 @@ export class ChatService {
       timestamp: new Date().toISOString(),
     });
 
-    const run = await this.runs.createFromPrompt({ prompt, mode, teamId });
+    const run = await this.runs.createFromPrompt({
+      prompt,
+      mode,
+      teamId,
+      messages: [{ role: 'user', content: prompt }],
+    });
 
     this.logger.log('✅ Run created', {
       timestamp: new Date().toISOString(),

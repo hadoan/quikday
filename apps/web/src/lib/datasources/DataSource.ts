@@ -177,13 +177,7 @@ export interface DataSource {
   // -------------------------------------------------------------------------
   // Composer / Run Creation
   // -------------------------------------------------------------------------
-  createRun(params: {
-    prompt: string;
-    mode: 'plan' | 'auto' | 'scheduled';
-    scheduledAt?: string;
-    targets?: { appId: string; credentialId?: number }[];
-    toolAllowlist?: string[];
-  }): Promise<{ runId: string }>;
+  createRun(params: CreateRunParams): Promise<{ runId: string }>;
 
   // -------------------------------------------------------------------------
   // Run Retrieval (initial load / refresh)
@@ -234,6 +228,10 @@ export interface CreateRunParams {
   scheduledAt?: string;
   targets?: { appId: string; credentialId?: number }[];
   toolAllowlist?: string[];
+  messages?: Array<{
+    role: UiMessageRole;
+    content: string;
+  }>;
 }
 
 export interface DataSourceConfig {

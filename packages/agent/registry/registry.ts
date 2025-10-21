@@ -3,6 +3,7 @@ import { Circuit } from './support/circuit';
 import { Idempotency } from './idempotency';
 import { checkRate } from './support/rate';
 import { requireScopes } from '../guards/policy';
+import { z } from 'zod';
 
 export class ToolRegistry {
   private tools = new Map<string, Tool<any, any>>();
@@ -38,3 +39,26 @@ export class ToolRegistry {
 }
 
 export const registry = new ToolRegistry();
+
+registry.register({
+  name: 'noop',
+  in: z
+    .object({
+      prompt: z.string().optional(),
+    })
+    .passthrough(),
+  out: z
+    .object({
+      message: z.string().optional(),
+    })
+    .passthrough(),
+  scopes: [],
+  rate: 'unlimited',
+  risk: 'low',
+  call: async (args) => ({
+    message:
+      typeof args === 'object' && args && 'prompt' in args && typeof args.prompt === 'string'
+        ? args.prompt
+        : 'noop',
+  }),
+});

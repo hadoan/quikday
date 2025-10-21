@@ -37,6 +37,7 @@ const RUN_STATUS_MAP: Record<string, UiRunStatus> = {
   failed: 'failed',
   partial: 'partial',
   cancelled: 'failed',
+  fallback: 'partial',
 
   // Legacy support
   running: 'executing',

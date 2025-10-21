@@ -61,6 +61,14 @@ export class ApiDataSource implements DataSource {
   async createRun(params: CreateRunParams): Promise<{ runId: string }> {
     const url = `${this.config.apiBaseUrl}/runs`;
 
+    const history =
+      params.messages
+        ?.filter((msg) => typeof msg.content === 'string' && msg.content.trim().length > 0)
+        .map((msg) => ({
+          role: msg.role,
+          content: msg.content,
+        })) ?? undefined;
+
     const body = {
       prompt: params.prompt,
       mode: params.mode,
@@ -68,6 +76,7 @@ export class ApiDataSource implements DataSource {
       scheduledAt: params.scheduledAt,
       channelTargets: params.targets,
       toolAllowlist: params.toolAllowlist,
+      messages: history,
     };
 
     this.logger.info('🌐 Making API request to create run', {

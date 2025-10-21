@@ -1,9 +1,18 @@
-import { Injectable, NotFoundException, Logger, UnauthorizedException } from '@nestjs/common';
+import {
+  Injectable,
+  NotFoundException,
+  Logger,
+  UnauthorizedException,
+  BadRequestException,
+} from '@nestjs/common';
 import { PrismaService } from '@quikday/prisma';
 import { InjectQueue } from '@nestjs/bullmq';
 import { Queue } from 'bullmq';
 import { TelemetryService } from '../telemetry/telemetry.service';
 import { CreateRunDto } from './runs.controller';
+import { RunTokenService } from './run-token.service';
+import { getTeamPolicy, type TeamPolicy } from '@quikday/agent/guards/policy';
+import type { ChatMessage } from '@quikday/agent/state/types';
 
 @Injectable()
 export class RunsService {
@@ -12,30 +21,28 @@ export class RunsService {
   constructor(
     private prisma: PrismaService,
     private telemetry: TelemetryService,
+    private tokens: RunTokenService,
     @InjectQueue('runs') private runsQueue: Queue
   ) {}
 
   async createFromPrompt(dto: CreateRunDto, claims: any = {}) {
-    const { prompt, mode, teamId, scheduledAt, channelTargets, toolAllowlist } = dto;
+    const { mode, teamId, scheduledAt, channelTargets, toolAllowlist, messages, prompt: promptInput, meta } = dto;
 
-    this.logger.log('🔨 Creating run from prompt', {
+    this.logger.log('🔨 Creating run request', {
       timestamp: new Date().toISOString(),
       mode,
       teamId,
       hasSchedule: !!scheduledAt,
-      hasTargets: !!channelTargets,
-      hasAllowlist: !!toolAllowlist,
+      hasTargets: !!channelTargets?.length,
+      hasAllowlist: !!toolAllowlist?.length,
+      messageCount: messages?.length ?? 0,
     });
 
-    // Load or create user based on auth claims populated by KindeGuard
-    // Expected claims shape: { sub, email, name } (Kinde) or similar JWT claims
     const sub = claims?.sub || claims?.userId || undefined;
     if (!sub) {
       this.logger.warn('Missing sub in auth claims; cannot resolve user', { claims });
       throw new UnauthorizedException('Missing subject (sub) in auth claims');
     }
-    const email = claims?.email || claims?.email_address || null;
-    const displayName = claims?.name || claims?.displayName || 'Dev User';
 
     this.logger.debug('👤 Looking up user by sub from auth claims', { sub });
     const user = await this.prisma.user.findUnique({ where: { sub } });
@@ -44,11 +51,9 @@ export class RunsService {
       throw new UnauthorizedException('Authenticated user not found');
     }
 
-    // Ensure the user is a member of the target team. If the team exists and the user is not a member, add them.
     this.logger.debug('🏢 Validating team', { teamId });
     const team = teamId ? await this.prisma.team.findUnique({ where: { id: teamId } }) : null;
 
-    // If team not found it's acceptable (team can be null). Do not check membership when team is null.
     if (team) {
       const membership = await this.prisma.teamMember.findUnique({
         where: { teamId_userId: { teamId: team.id, userId: user.id } },
@@ -63,26 +68,45 @@ export class RunsService {
       this.logger.debug('No team provided or team not found; proceeding with teamless run');
     }
 
+    const normalizedMessages = this.normalizeMessages(messages, promptInput);
+    const prompt = this.resolvePrompt(promptInput, normalizedMessages);
+    if (!prompt) {
+      this.logger.warn('Run creation missing prompt and user messages', { teamId, mode });
+      throw new BadRequestException('Prompt or user message required');
+    }
+
+    const policySnapshot = await this.buildPolicySnapshot(team?.id ?? null, toolAllowlist);
+
+    const configPayload: Record<string, unknown> = {
+      channelTargets: channelTargets ?? [],
+      input: {
+        prompt,
+        messages: normalizedMessages.length ? normalizedMessages : undefined,
+      },
+      approvedSteps: [],
+    };
+
+    if (meta && Object.keys(meta).length > 0) {
+      configPayload.meta = meta;
+    }
+
     this.logger.log('💾 Persisting run to database', {
       timestamp: new Date().toISOString(),
       userId: user.id,
       teamId: team?.id ?? null,
     });
 
-    // Create the run
     const run = await this.prisma.run.create({
       data: {
-        // teamId may be undefined for teamless runs.
         teamId: team?.id ?? undefined,
         userId: user.id,
         prompt,
         mode,
-        status: mode === 'plan' ? 'planned' : 'queued',
+        status: this.initialStatusForMode(mode),
         scheduledAt: scheduledAt ? new Date(scheduledAt) : null,
-        config: {
-          channelTargets: channelTargets || [],
-        },
+        config: configPayload,
         toolAllowlist: toolAllowlist ? { tools: toolAllowlist } : undefined,
+        policySnapshot,
       },
     });
 
@@ -92,10 +116,8 @@ export class RunsService {
       status: run.status,
     });
 
-    this.logger.debug('📊 Tracking telemetry event');
     await this.telemetry.track('run_created', { runId: run.id, teamId: team?.id ?? null, mode });
 
-    // Auto-enqueue if mode is 'auto'
     if (mode === 'auto') {
       this.logger.log('🚀 Auto-enqueueing run (mode=auto)', {
         timestamp: new Date().toISOString(),
@@ -104,7 +126,6 @@ export class RunsService {
       await this.enqueue(run.id);
     }
 
-    // Schedule if mode is 'scheduled'
     if (mode === 'scheduled' && scheduledAt) {
       const delay = new Date(scheduledAt).getTime() - Date.now();
       this.logger.log('⏰ Scheduling run for delayed execution', {
@@ -113,11 +134,7 @@ export class RunsService {
         scheduledAt,
         delayMs: delay,
       });
-      await this.runsQueue.add(
-        'execute',
-        { runId: run.id },
-        { delay: delay > 0 ? delay : 0, removeOnComplete: 100, removeOnFail: 100 }
-      );
+      await this.enqueue(run.id, { delayMs: delay > 0 ? delay : 0 });
     }
 
     this.logger.log('✅ Run creation completed', {
@@ -128,18 +145,64 @@ export class RunsService {
     return run;
   }
 
-  async enqueue(runId: string) {
+  async enqueue(runId: string, opts: { delayMs?: number } = {}) {
     this.logger.log('📮 Adding job to BullMQ queue', {
       timestamp: new Date().toISOString(),
       runId,
       queue: 'runs',
       jobType: 'execute',
+      delayMs: opts.delayMs ?? 0,
     });
+
+    const run = await this.prisma.run.findUnique({ where: { id: runId } });
+    if (!run) {
+      throw new NotFoundException('Run not found');
+    }
+
+    const config = this.asRecord(run.config);
+    const input = this.extractInputFromConfig(config, run.prompt);
+    const policy = (run.policySnapshot as TeamPolicy | null) ?? null;
+    const meta = this.buildMetaForJob(config, policy);
+    const scopes = this.deriveScopesFromRun(run, config, policy);
+
+    const tokenTtl = this.tokens.defaultTtlSeconds + Math.ceil((opts.delayMs ?? 0) / 1000);
+    const tzCandidate =
+      typeof meta.tz === 'string' && meta.tz.trim().length > 0
+        ? (meta.tz as string)
+        : typeof meta.timezone === 'string' && (meta.timezone as string).trim().length > 0
+          ? (meta.timezone as string)
+          : 'Europe/Berlin';
+    meta.tz = tzCandidate;
+
+    const token = this.tokens.mint({
+      runId,
+      userId: run.userId,
+      teamId: run.teamId ?? null,
+      scopes,
+      traceId: `run:${run.id}`,
+      tz: tzCandidate,
+      meta,
+      expiresInSeconds: tokenTtl,
+    });
+
+    const jobPayload = {
+      runId,
+      mode: run.mode,
+      input,
+      scopes,
+      token,
+      policy,
+      meta,
+    };
 
     const job = await this.runsQueue.add(
       'execute',
-      { runId },
-      { removeOnComplete: 100, removeOnFail: 100 }
+      jobPayload,
+      {
+        removeOnComplete: 100,
+        removeOnFail: 100,
+        delay: opts.delayMs ?? 0,
+      }
     );
 
     this.logger.log('✅ Job added to queue', {
@@ -148,6 +211,131 @@ export class RunsService {
       jobId: job.id,
       queue: 'runs',
     });
+  }
+
+  private normalizeMessages(messages: CreateRunDto['messages'], prompt?: string): ChatMessage[] {
+    const allowedRoles = new Set(['system', 'user', 'assistant', 'tool']);
+    const normalized: ChatMessage[] = [];
+
+    if (Array.isArray(messages)) {
+      messages.forEach((msg) => {
+        if (!msg || typeof msg.content !== 'string') return;
+        const trimmed = msg.content.trim();
+        if (!trimmed) return;
+        const role = allowedRoles.has(msg.role) ? msg.role : 'user';
+        const next: ChatMessage = { role, content: trimmed };
+        if (msg.ts) next.ts = msg.ts;
+        if (msg.toolName) next.toolName = msg.toolName;
+        normalized.push(next);
+      });
+    }
+
+    const trimmedPrompt = typeof prompt === 'string' ? prompt.trim() : '';
+    if (trimmedPrompt) {
+      const lastUser = [...normalized].reverse().find((m) => m.role === 'user');
+      if (!lastUser || lastUser.content !== trimmedPrompt) {
+        normalized.push({ role: 'user', content: trimmedPrompt });
+      }
+    }
+
+    return normalized;
+  }
+
+  private resolvePrompt(prompt: string | undefined, messages: ChatMessage[]): string {
+    if (prompt && prompt.trim().length > 0) {
+      return prompt.trim();
+    }
+    const lastUser = [...messages].reverse().find((m) => m.role === 'user');
+    return lastUser?.content?.trim() ?? '';
+  }
+
+  private async buildPolicySnapshot(teamId: number | null, toolAllowlist?: string[]): Promise<TeamPolicy> {
+    const base = await getTeamPolicy(teamId !== null ? String(teamId) : undefined);
+    const allowlist = new Set<string>(base.allowlist?.tools ?? []);
+    if (Array.isArray(toolAllowlist)) {
+      toolAllowlist.forEach((tool) => {
+        if (typeof tool === 'string' && tool.trim()) allowlist.add(tool);
+      });
+    }
+    return {
+      ...base,
+      allowlist: {
+        ...base.allowlist,
+        tools: Array.from(allowlist),
+      },
+    };
+  }
+
+  private initialStatusForMode(mode: string): string {
+    switch (mode) {
+      case 'plan':
+        return 'planning';
+      case 'scheduled':
+        return 'scheduled';
+      default:
+        return 'queued';
+    }
+  }
+
+  private asRecord(value: unknown): Record<string, unknown> {
+    if (!value || typeof value !== 'object' || Array.isArray(value)) {
+      return {};
+    }
+    return value as Record<string, unknown>;
+  }
+
+  private extractInputFromConfig(config: Record<string, unknown>, fallbackPrompt: string) {
+    const input = this.asRecord(config.input);
+    const prompt = typeof input.prompt === 'string' && input.prompt.trim().length > 0 ? input.prompt : fallbackPrompt;
+    const messages = Array.isArray(input.messages) ? (input.messages as ChatMessage[]) : undefined;
+    return { prompt, messages };
+  }
+
+  private buildMetaForJob(config: Record<string, unknown>, policy: TeamPolicy | null) {
+    const meta = { ...this.asRecord(config.meta) };
+    if (Array.isArray(config.channelTargets)) {
+      meta.channelTargets = config.channelTargets;
+    }
+    if (Array.isArray(config.approvedSteps)) {
+      meta.approvedSteps = config.approvedSteps;
+    }
+    if (policy) {
+      meta.policy = policy;
+    }
+    return meta;
+  }
+
+  private deriveScopesFromRun(
+    run: { toolAllowlist: unknown },
+    config: Record<string, unknown>,
+    policy: TeamPolicy | null
+  ): string[] {
+    const scopes = new Set<string>(['runs:execute']);
+
+    const targets = Array.isArray(config.channelTargets) ? (config.channelTargets as Array<any>) : [];
+    targets.forEach((target) => {
+      if (target && typeof target.appId === 'string') {
+        scopes.add(`tool:${target.appId}`);
+      }
+      if (target && Array.isArray(target.scopes)) {
+        target.scopes
+          .filter((scope: unknown): scope is string => typeof scope === 'string')
+          .forEach((scope) => scopes.add(scope));
+      }
+    });
+
+    const allowlist = this.asRecord(run.toolAllowlist);
+    if (Array.isArray(allowlist.tools)) {
+      allowlist.tools
+        .filter((tool: unknown): tool is string => typeof tool === 'string')
+        .forEach((tool) => scopes.add(`tool:${tool}`));
+    }
+
+    if (policy?.allowlist?.scopes?.length) {
+      policy.allowlist.scopes.forEach((scope) => scopes.add(scope));
+    }
+
+    return Array.from(scopes);
   }
 
   async get(id: string) {
@@ -167,17 +355,22 @@ export class RunsService {
   }
 
   async approveSteps(runId: string, approvedSteps: string[]) {
-    // Update run to mark approved steps
+    const run = await this.prisma.run.findUnique({ where: { id: runId } });
+    if (!run) {
+      throw new NotFoundException('Run not found');
+    }
+
+    const config = this.asRecord(run.config);
+    const nextConfig = { ...config, approvedSteps };
+
     await this.prisma.run.update({
       where: { id: runId },
       data: {
-        config: {
-          approvedSteps,
-        },
+        config: nextConfig,
+        status: 'queued',
       },
     });
 
-    // Enqueue for execution
     await this.enqueue(runId);
 
     await this.telemetry.track('run_approved', { runId, stepsCount: approvedSteps.length });
@@ -230,6 +423,7 @@ export class RunsService {
             response: entry.result ?? null,
             errorCode: entry.errorCode || null,
             startedAt: new Date(entry.ts || Date.now()),
+            endedAt: entry.completedAt ? new Date(entry.completedAt) : undefined,
           },
         });
       }

@@ -1,24 +1,34 @@
 import type { Node } from '../runtime/graph.js';
 import type { RunState } from '../state/types.js';
 import { needsApproval } from '../guards/policy';
+import { events } from '../observability/events';
+import { randomUUID } from 'node:crypto';
 
 export const confirm: Node<RunState> = async (s) => {
-  if (needsApproval(s)) {
-    // If Approvals integration is present, enqueue; otherwise fallback to no-op
-    try {
-      // dynamic require to avoid build-time dependency
-      // eslint-disable-next-line @typescript-eslint/ban-ts-comment
-      // @ts-ignore
-      const Approvals = require('../../policy-engine').Approvals;
-      if (Approvals?.enqueue) {
-        await Approvals.enqueue({
-          runId: s.ctx.runId,
-          teamId: s.ctx.teamId ?? undefined,
-          steps: s.scratch?.plan ?? [],
-        });
-      }
-    } catch {
-      // no-op in build/stub environment
-    }
+  const policy = (s.ctx as any).meta?.policy;
+  const approvedSteps = new Set<string>(
+    Array.isArray((s.ctx as any).meta?.approvedSteps)
+      ? ((s.ctx as any).meta.approvedSteps as string[])
+      : [],
+  );
+
+  const plan = s.scratch?.plan ?? [];
+  const pending = plan.filter((step) => !approvedSteps.has(step.id));
+
+  if (!pending.length) {
+    return;
   }
+
+  if (!needsApproval(s, policy)) {
+    return;
+  }
+
+  const approvalId = randomUUID();
+  events.approvalAwaiting(s, pending);
+
+  const err: any = new Error('GRAPH_HALT_AWAITING_APPROVAL');
+  err.code = 'GRAPH_HALT_AWAITING_APPROVAL';
+  err.approvalId = approvalId;
+  err.payload = { approvalId, pendingSteps: pending };
+  throw err;
 };

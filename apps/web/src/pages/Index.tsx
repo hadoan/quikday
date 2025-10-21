@@ -21,6 +21,8 @@ import {
   buildPlanMessage,
   buildRunMessage,
   buildLogMessage,
+  buildOutputMessage,
+  buildUndoMessage,
 } from '@/lib/adapters/backendToViewModel';
 import { createLogger } from '@/lib/utils/logger';
 import { useToast } from '@/hooks/use-toast';
@@ -71,7 +73,34 @@ const Index = () => {
               const intent = (event.payload.intent as string) || 'Process request';
               const tools = (event.payload.tools as string[]) || [];
               const actions = (event.payload.actions as string[]) || [];
-              newMessages.push(buildPlanMessage({ intent, tools, actions }));
+              const stepsPayload =
+                (Array.isArray(event.payload.steps) && (event.payload.steps as any[])) ||
+                (Array.isArray(event.payload.plan) && (event.payload.plan as any[])) ||
+                [];
+              newMessages.push(
+                buildPlanMessage({
+                  intent,
+                  tools,
+                  actions,
+                  steps: stepsPayload as any,
+                }),
+              );
+
+              const diff = event.payload.diff as Record<string, unknown> | undefined;
+              if (diff && Object.keys(diff).length > 0) {
+                try {
+                  newMessages.push(
+                    buildOutputMessage({
+                      title: 'Proposed Changes',
+                      content: JSON.stringify(diff, null, 2),
+                      type: 'json',
+                      data: diff,
+                    }),
+                  );
+                } catch (e) {
+                  console.warn('[Index] Failed to render diff preview', e);
+                }
+              }
               break;
             }
             case 'step_started': {
@@ -132,11 +161,11 @@ const Index = () => {
                 );
               }
 
-              // If backend provides a plain text final message (no tool calls), render it as a chat bubble
+              // If backend provides structured output or summary, show it alongside plain text
               try {
                 const payload = event.payload as Record<string, unknown>;
-                // Common shapes we might receive
                 const output = (payload?.output as any) || {};
+
                 const textOut =
                   (typeof output === 'object' &&
                     (output.message || output.text || output.content)) ||
@@ -146,6 +175,42 @@ const Index = () => {
 
                 if (typeof textOut === 'string' && textOut.trim().length > 0) {
                   newMessages.push({ role: 'assistant', content: textOut });
+                }
+
+                if (event.type === 'run_completed') {
+                  if (typeof output?.summary === 'string' && output.summary.trim().length > 0) {
+                    newMessages.push(
+                      buildOutputMessage({
+                        title: 'Summary',
+                        content: output.summary,
+                        type: 'summary',
+                        data: output,
+                      }),
+                    );
+                  }
+
+                  if (Array.isArray(output?.undo) && output.undo.length > 0) {
+                    newMessages.push(buildUndoMessage(true));
+                  }
+                }
+
+                if (
+                  (event.type === 'run_status' || event.type === 'run_completed') &&
+                  (event.payload.reason || event.payload.details)
+                ) {
+                  const reason = String(event.payload.reason || 'policy');
+                  try {
+                    newMessages.push(
+                      buildOutputMessage({
+                        title: 'Run halted',
+                        content: `Reason: ${reason}`,
+                        type: 'text',
+                        data: event.payload,
+                      }),
+                    );
+                  } catch (haltErr) {
+                    console.warn('[Index] Failed to render fallback reason', haltErr);
+                  }
                 }
               } catch (e) {
                 console.warn('[Index] Failed to extract plain output message from payload', e);
@@ -239,6 +304,18 @@ const Index = () => {
       mode: 'auto',
     });
 
+    const conversationalHistory: { role: 'user' | 'assistant'; content: string }[] = [];
+    if (activeRun?.messages?.length) {
+      for (const message of activeRun.messages) {
+        if (message.role === 'user' && typeof message.content === 'string') {
+          conversationalHistory.push({ role: 'user', content: message.content });
+        }
+        if (message.role === 'assistant' && typeof message.content === 'string') {
+          conversationalHistory.push({ role: 'assistant', content: message.content });
+        }
+      }
+    }
+
     // Append user message locally first
     setRuns((prev) =>
       prev.map((run) =>
@@ -272,6 +349,7 @@ const Index = () => {
       const { runId } = await dataSource.createRun({
         prompt,
         mode: 'auto',
+        messages: [...conversationalHistory, { role: 'user', content: prompt }],
       });
 
       logger.info('✅ Run created successfully', {

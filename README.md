@@ -67,6 +67,11 @@ Quik.day is an AI-powered execution assistant for founders and small teams. You 
 
 - Copy `.env.example` to `.env` and fill values. For local dev, `KINDE_BYPASS=true` lets you skip JWT validation.
 - Postgres and Redis run via Docker Compose.
+- New control-plane settings:
+  - `RUN_TOKEN_SECRET` — signing key for per-run JWTs (defaults to `dev-run-token-secret` if omitted).
+  - `RUN_TOKEN_ISSUER` — issuer string for scoped run tokens (defaults to `runfast-control-plane`).
+  - `RUN_TOKEN_TTL_SEC` — base expiry in seconds for run tokens (default 900 seconds; delays are added automatically).
+- Frontend: set `VITE_DATA_SOURCE=live` to stream real runs from the API/WebSocket instead of mock data.
 
 **Quick Start (Docker Compose + Local Dev)**
 

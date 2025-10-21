@@ -2,8 +2,16 @@ import { Body, Controller, Get, Param, Post, UseGuards, Req } from '@nestjs/comm
 import { RunsService } from './runs.service';
 import { KindeGuard } from '../auth/kinde.guard';
 
+export interface ChatMessageDto {
+  role: 'system' | 'user' | 'assistant' | 'tool';
+  content: string;
+  ts?: string;
+  toolName?: string;
+}
+
 export interface CreateRunDto {
-  prompt: string;
+  prompt?: string;
+  messages?: ChatMessageDto[];
   mode: 'plan' | 'auto' | 'scheduled';
   teamId: number;
   scheduledAt?: string;
@@ -12,6 +20,7 @@ export interface CreateRunDto {
     credentialId?: number;
   }>;
   toolAllowlist?: string[];
+  meta?: Record<string, unknown>;
 }
 
 @Controller('runs')

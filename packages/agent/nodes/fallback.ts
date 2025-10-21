@@ -77,10 +77,25 @@
 
 import type { Node } from '../runtime/graph';
 import type { RunState } from '../state/types';
+import { events } from '../observability/events';
+
+const reasonToMessage: Record<string, string> = {
+  policy_denied: 'This action is blocked by your team policy.',
+  residency_blocked: 'The selected tools are restricted by data residency settings.',
+  quiet_hours: 'This request falls inside quiet hours. You can schedule it or request approval.',
+  budget_exceeded: 'Estimated cost exceeds the allotted budget.',
+  unspecified: 'I could not safely continue with this run.',
+};
 
 export const fallback =
-  (reason = 'unspecified'): Node<RunState> =>
+  (defaultReason = 'unspecified'): Node<RunState> =>
   async (s) => {
-    const summary = 'I couldn’t safely continue. Reason: ' + reason;
-    return { output: { ...s.output, summary, fallback: { reason } } };
+    const scratch = s.scratch ?? {};
+    const reason = (scratch as any).fallbackReason ?? defaultReason;
+    const details = (scratch as any).fallbackDetails ?? {};
+
+    events.fallback(s, reason, details);
+
+    const summary = reasonToMessage[reason] ?? reasonToMessage.unspecified;
+    return { output: { ...s.output, summary, fallback: { reason, details } } };
   };
