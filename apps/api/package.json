@@ -18,6 +18,8 @@
     "@prisma/client": "^5.18.0",
     "@quikday/agent": "workspace:*",
     "@quikday/appstore": "workspace:*",
+    "@quikday/appstore-google-calendar": "workspace:*",
+    "@quikday/appstore-gmail-email": "workspace:*",
     "@quikday/crypto": "workspace:*",
     "@quikday/prisma": "workspace:*",
     "@quikday/types": "workspace:*",

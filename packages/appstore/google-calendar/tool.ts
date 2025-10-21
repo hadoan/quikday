@@ -23,11 +23,6 @@ const eventRemindersSchema = z
   .optional();
 
 const googleCalendarToolSchema = baseCalendarEventSchema.extend({
-  userId: z
-    .number()
-    .int()
-    .positive()
-    .describe('Numeric user id that owns the Google Calendar credential.'),
   calendarId: z
     .string()
     .optional()
@@ -45,9 +40,14 @@ export type GoogleCalendarToolInput = z.infer<typeof googleCalendarToolSchema>;
 /**
  * Core logic for creating a Google Calendar event
  * This can be called by the LangChain tool in the agent package
+ * @param input - Tool input from LLM (without userId)
+ * @param userId - User ID from execution context (injected by RunProcessor)
  */
-export async function createGoogleCalendarEvent(input: GoogleCalendarToolInput): Promise<string> {
-  const { userId, calendarId, timeZone, sendUpdates, reminders, ...eventData } =
+export async function createGoogleCalendarEvent(
+  input: GoogleCalendarToolInput,
+  userId: number,
+): Promise<string> {
+  const { calendarId, timeZone, sendUpdates, reminders, ...eventData } =
     googleCalendarToolSchema.parse(input);
 
   const result = await googleCalendarService.createCalendarEvent(userId, {

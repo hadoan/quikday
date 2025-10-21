@@ -63,6 +63,12 @@ importers:
       '@quikday/appstore':
         specifier: workspace:*
         version: link:../../packages/appstore
+      '@quikday/appstore-gmail-email':
+        specifier: workspace:*
+        version: link:../../packages/appstore/gmail-email
+      '@quikday/appstore-google-calendar':
+        specifier: workspace:*
+        version: link:../../packages/appstore/google-calendar
       '@quikday/crypto':
         specifier: workspace:*
         version: link:../../packages/crypto
@@ -657,6 +663,9 @@ importers:
       '@quikday/prisma':
         specifier: workspace:*
         version: link:../../prisma
+      googleapis:
+        specifier: ^144.0.0
+        version: 144.0.0
     devDependencies:
       '@prisma/client':
         specifier: ^5.18.0

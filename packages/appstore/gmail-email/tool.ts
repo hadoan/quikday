@@ -16,7 +16,6 @@ import type { GmailSendEmailOptions } from './GmailSendEmailOptions.js';
 
 const gmailEmailSchema = baseEmailSchema
   .extend({
-    userId: z.number().int().positive().describe('Numeric user ID that owns the Gmail credential.'),
     fromName: z.string().optional().describe('Friendly display name for the From header.'),
     replyToThreadId: z
       .string()
@@ -32,10 +31,11 @@ const gmailManager = new GmailManagerService();
 /**
  * Core logic for sending email via Gmail
  * This can be called by the LangChain tool in the agent package
+ * @param input - Tool input from LLM (without userId)
+ * @param userId - User ID from execution context (injected by RunProcessor)
  */
-export async function sendGmailEmail(input: GmailToolInput): Promise<string> {
+export async function sendGmailEmail(input: GmailToolInput, userId: number): Promise<string> {
   const {
-    userId,
     to,
     subject,
     body,
