@@ -3,6 +3,9 @@ import type { AppMeta } from '@quikday/types';
 import { resolveGoogleCalendarAuthUrl } from './add.js';
 import { callback } from './callback.js';
 
+// Export calendar tool for agent use
+export * from './tool.js';
+
 export default function createApp(meta: AppMeta, deps: any) {
   return new (class GoogleCalendarApp {
     constructor(

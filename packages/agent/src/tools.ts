@@ -1,70 +1,45 @@
 import { z } from 'zod';
 import { tool } from '@langchain/core/tools';
 
-// Tool 1: Calendar
-// Make end optional and support durationMinutes to reduce friction.
-const calendarSchema = z
-  .object({
-    title: z.string().describe("Event title, e.g., 'Check-in with Sara'"),
-    start: z.string().describe("ISO or HH:MM today, e.g., '2025-10-18T09:00' or '10:00'"),
-    end: z.string().optional().describe("ISO or HH:MM today, e.g., '2025-10-18T09:30' or '10:30'"),
-    durationMinutes: z
-      .number()
-      .int()
-      .positive()
-      .max(480)
-      .optional()
-      .describe('If no end provided, duration in minutes (default 30).'),
-    attendees: z.string().optional().describe('Comma-separated emails or names'),
-    location: z.string().optional().describe('Room/URL/address'),
-  })
-  .describe('Create/update a calendar event; if end is omitted, use durationMinutes (default 30).');
+// Import from google-calendar package
+import {
+  createGoogleCalendarEvent,
+  googleCalendarToolMetadata,
+} from '@quikday/appstore-google-calendar';
 
-function toIsoFromStartAndMaybeEnd(
-  start: string,
-  end?: string,
-  durationMinutes?: number,
-): { startIso: string; endIso: string } {
-  // Parse HH:MM as today local, otherwise let Date parse ISO.
-  const parse = (s: string): Date => {
-    if (/^\d{1,2}:\d{2}$/.test(s)) {
-      const [h, m] = s.split(':').map((x) => parseInt(x, 10));
-      const d = new Date();
-      d.setSeconds(0, 0);
-      d.setHours(h ?? 0, m ?? 0, 0, 0);
-      return d;
-    }
-    const d = new Date(s);
-    return isNaN(d.getTime()) ? new Date() : d;
-  };
+// Import from gmail-email package
+import {
+  sendGmailEmail,
+  gmailToolMetadata,
+} from '@quikday/appstore-gmail-email';
 
-  const startDate = parse(start);
-  let endDate: Date;
-  if (end) {
-    endDate = parse(end);
-  } else {
-    const dur = durationMinutes ?? 30;
-    endDate = new Date(startDate.getTime() + dur * 60 * 1000);
-  }
-
-  return { startIso: startDate.toISOString(), endIso: endDate.toISOString() };
-}
-
+// Tool 1: Google Calendar
+// Using implementation from google-calendar package
 export const createCalendarEvent = tool(
   async (input: any) => {
-    const { title, start, end, durationMinutes, attendees, location } = calendarSchema.parse(input);
-    const { startIso, endIso } = toIsoFromStartAndMaybeEnd(start, end, durationMinutes);
-    const withAtt = attendees ? ` with ${attendees}` : '';
-    const where = location ? ` @ ${location}` : '';
-    return `📅 Event '${title}' from ${startIso} to ${endIso}${withAtt}${where}.`;
+    return await createGoogleCalendarEvent(input);
   },
   {
-    name: 'create_calendar_event',
-    description: 'Create/update a calendar event. If end omitted, default duration is 30 minutes.',
-    schema: calendarSchema,
+    name: googleCalendarToolMetadata.name,
+    description: googleCalendarToolMetadata.description,
+    schema: googleCalendarToolMetadata.schema,
   },
 );
-// Tool 2: Slack DM
+
+// Tool 2: Gmail Email
+// Using implementation from gmail-email package
+export const sendEmail = tool(
+  async (input: any) => {
+    return await sendGmailEmail(input);
+  },
+  {
+    name: gmailToolMetadata.name,
+    description: gmailToolMetadata.description,
+    schema: gmailToolMetadata.schema,
+  },
+);
+
+// Tool 3: Slack DM
 const slackSchema = z.object({
   to: z.string().describe('Slack handle or email'),
   message: z.string().describe('Message body'),
@@ -83,4 +58,4 @@ export const sendSlackDm = tool(
   },
 );
 
-export const tools = [createCalendarEvent, sendSlackDm];
+export const tools = [createCalendarEvent, sendEmail, sendSlackDm];

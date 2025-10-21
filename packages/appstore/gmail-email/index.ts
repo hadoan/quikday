@@ -3,6 +3,9 @@ import type { AppMeta } from '@quikday/types';
 import { resolveGmailAuthUrl } from './add.js';
 import { callback } from './callback.js';
 
+// Export Gmail tool for agent use
+export * from './tool.js';
+
 export default function createApp(meta: AppMeta, deps: any) {
   return new (class GmailApp {
     constructor(public readonly meta: AppMeta, public readonly deps: any) {
