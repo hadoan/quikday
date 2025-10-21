@@ -21,6 +21,7 @@
     "@quikday/appstore-google-calendar": "workspace:*",
     "@quikday/appstore-gmail-email": "workspace:*",
     "@quikday/crypto": "workspace:*",
+    "@quikday/libs": "workspace:*",
     "@quikday/prisma": "workspace:*",
     "@quikday/types": "workspace:*",
     "bullmq": "^5.7.8",

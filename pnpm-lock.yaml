@@ -72,6 +72,9 @@ importers:
       '@quikday/crypto':
         specifier: workspace:*
         version: link:../../packages/crypto
+      '@quikday/libs':
+        specifier: workspace:*
+        version: link:../../packages/libs
       '@quikday/prisma':
         specifier: workspace:*
         version: link:../../packages/prisma
