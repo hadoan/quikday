@@ -1,8 +1,8 @@
 import { google } from 'googleapis';
 import type { AppMeta } from '@quikday/types';
 import { getAppKeysFromSlug } from '@quikday/appstore';
-import { GoogleCalendarAuthConfig } from './GoogleCalendarAuthConfig.js';
-import { GoogleCalendarAuthUrlResult } from './GoogleCalendarAuthUrlResult.js';
+import { GoogleCalendarAuthConfig } from './types/GoogleCalendarAuthConfig.js';
+import { GoogleCalendarAuthUrlResult } from './types/GoogleCalendarAuthUrlResult.js';
 
 /**
  * OAuth scopes required for Google Calendar integration.

@@ -1,19 +1,53 @@
 /**
  * Gmail Tool Factory
- * Creates LangChain tool for calendar events - to be used by agent package
+ * Creates LangChain tool for Gmail email sending - to be used by agent package
  */
-import { baseEmailSchema, type BaseEmail, parseEmailAddresses, validateEmailAddresses } from '@quikday/appstore';
-import { generateEmailSummary, formatEmailBody } from '@quikday/appstore';
+import { z } from 'zod';
+import {
+  baseEmailSchema,
+  parseEmailAddresses,
+  validateEmailAddresses,
+  generateEmailSummary,
+  formatEmailBody,
+  textToHtml,
+} from '@quikday/appstore';
+import GmailManagerService from './gmail-manager.js';
+import type { GmailSendEmailOptions } from './GmailSendEmailOptions.js';
 
-export interface GmailToolInput extends BaseEmail {}
+const gmailEmailSchema = baseEmailSchema
+  .extend({
+    userId: z.number().int().positive().describe('Numeric user ID that owns the Gmail credential.'),
+    fromName: z.string().optional().describe('Friendly display name for the From header.'),
+    replyToThreadId: z
+      .string()
+      .optional()
+      .describe('Optional Gmail thread ID used for conversation replies.'),
+  })
+  .describe('Send an email via Gmail on behalf of an authenticated user.');
+
+export interface GmailToolInput extends z.infer<typeof gmailEmailSchema> {}
+
+const gmailManager = new GmailManagerService();
+
 
 /**
  * Core logic for sending email via Gmail
  * This can be called by the LangChain tool in the agent package
  */
 export async function sendGmailEmail(input: GmailToolInput): Promise<string> {
-  const { to, subject, body, cc, bcc, isHtml, replyTo, attachments } =
-    baseEmailSchema.parse(input);
+  const {
+    userId,
+    to,
+    subject,
+    body,
+    cc,
+    bcc,
+    isHtml,
+    replyTo,
+    attachments,
+    fromName,
+    replyToThreadId,
+  } = gmailEmailSchema.parse(input);
 
   // Parse and validate email addresses
   const toAddresses = parseEmailAddresses(to);
@@ -36,6 +70,7 @@ export async function sendGmailEmail(input: GmailToolInput): Promise<string> {
 
   // Format body
   const formattedBody = formatEmailBody(body);
+  const htmlBody = isHtml ? formattedBody : textToHtml(formattedBody);
 
   // Build email details summary
   const details: string[] = [];
@@ -46,14 +81,28 @@ export async function sendGmailEmail(input: GmailToolInput): Promise<string> {
   if (attachments) details.push(`Attachments: ${attachments}`);
   details.push(`Format: ${isHtml ? 'HTML' : 'Plain Text'}`);
 
-  // TODO: Actual Gmail API call would go here
-  // Example:
-  // const gmail = google.gmail({ version: 'v1', auth });
-  // const message = createMimeMessage({ to: validTo, subject, body: formattedBody, isHtml });
-  // const result = await gmail.users.messages.send({
-  //   userId: 'me',
-  //   requestBody: { raw: Buffer.from(message).toString('base64url') },
-  // });
+  const sendOptions: GmailSendEmailOptions = {
+    to: validTo,
+    cc: validCc.length > 0 ? validCc : undefined,
+    bcc: validBcc.length > 0 ? validBcc : undefined,
+    subject,
+    htmlBody,
+    fromName,
+    replyToThreadId,
+    replyTo: replyTo ?? undefined,
+  };
+
+  const sendResponse = await gmailManager.sendEmail(userId, sendOptions);
+  if (!sendResponse.success) {
+    return `❌ Failed to send email via Gmail: ${sendResponse.errorMessage ?? 'Unknown error'}`;
+  }
+
+  if (sendResponse.messageId) {
+    details.push(`Message ID: ${sendResponse.messageId}`);
+  }
+  if (sendResponse.gmailUrl) {
+    details.push(`Gmail URL: ${sendResponse.gmailUrl}`);
+  }
 
   const preview = formattedBody.substring(0, 100);
   const summary = generateEmailSummary(validTo[0], subject, preview);
@@ -67,8 +116,8 @@ export async function sendGmailEmail(input: GmailToolInput): Promise<string> {
 export const gmailToolMetadata = {
   name: 'send_gmail_email',
   description:
-    'Send an email via Gmail. Supports multiple recipients, CC, BCC, HTML/plain text, and attachments. Validates email addresses before sending.',
-  schema: baseEmailSchema,
+    'Send an email via Gmail. Requires the numeric user ID tied to the stored Gmail credential. Supports multiple recipients, CC, BCC, HTML/plain text, and attachments.',
+  schema: gmailEmailSchema,
   handler: sendGmailEmail,
 };
 

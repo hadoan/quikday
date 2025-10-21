@@ -5,6 +5,12 @@ import { callback } from './callback.js';
 
 // Export Gmail tool for agent use
 export * from './tool.js';
+export * from './gmail-manager.js';
+export * from './GmailManagerConfig.js';
+export * from './GmailManagerOptions.js';
+export * from './GmailIntegrationValue.js';
+export * from './GmailSendEmailOptions.js';
+export * from './GmailSendResponse.js';
 
 export default function createApp(meta: AppMeta, deps: any) {
   return new (class GmailApp {
