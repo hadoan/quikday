@@ -5,7 +5,7 @@ import { TelemetryService } from '../telemetry/telemetry.service';
 
 export interface CredentialResolutionContext {
   userId: number;
-  teamId: number;
+  teamId: number | null;
   appId: string;
   credentialId?: number; // Explicit override
 }
