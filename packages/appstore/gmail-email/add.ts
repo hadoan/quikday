@@ -48,7 +48,8 @@ export async function resolveGmailAuthUrl(params: {
   }
 
   if (!clientId) throw new Error('Gmail OAuth credentials not configured: client_id missing');
-  if (!clientSecret) throw new Error('Gmail OAuth credentials not configured: client_secret missing');
+  if (!clientSecret)
+    throw new Error('Gmail OAuth credentials not configured: client_secret missing');
 
   const baseUrl = process.env.API_BASE_URL || `${req.protocol}://${req.get('host')}`;
   const redirectUri = `${baseUrl}/integrations/${meta.slug}/callback`;
@@ -59,7 +60,9 @@ export async function resolveGmailAuthUrl(params: {
   } else {
     const userId = req.user?.id || req.user?.sub;
     state = JSON.stringify({ userId, timestamp: Date.now() });
-    console.warn('⚠️  Using unsigned OAuth state - consider using signed state for better security');
+    console.warn(
+      '⚠️  Using unsigned OAuth state - consider using signed state for better security',
+    );
   }
 
   return generateGmailAuthUrl({ clientId, clientSecret, redirectUri, state });

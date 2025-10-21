@@ -58,8 +58,10 @@ export class GmailManagerService {
       }
 
       const key = this.safeCredentialKey(credential.key);
-      const accessToken = this.getStringField(key, 'access_token') ?? this.getStringField(key, 'accessToken');
-      const refreshToken = this.getStringField(key, 'refresh_token') ?? this.getStringField(key, 'refreshToken');
+      const accessToken =
+        this.getStringField(key, 'access_token') ?? this.getStringField(key, 'accessToken');
+      const refreshToken =
+        this.getStringField(key, 'refresh_token') ?? this.getStringField(key, 'refreshToken');
       const expiresAt = this.resolveExpiresAt(credential.tokenExpiresAt, key);
 
       const email =
@@ -92,7 +94,16 @@ export class GmailManagerService {
   }
 
   async sendEmail(userId: number, options: GmailSendEmailOptions): Promise<GmailSendResponse> {
-    const { to, subject, htmlBody, cc = [], bcc = [], fromName, replyToThreadId, replyTo } = options;
+    const {
+      to,
+      subject,
+      htmlBody,
+      cc = [],
+      bcc = [],
+      fromName,
+      replyToThreadId,
+      replyTo,
+    } = options;
 
     this.logger.log(
       `Sending Gmail message ${this.formatMeta({ userId, to, subject })}`,
@@ -106,7 +117,9 @@ export class GmailManagerService {
       return { success: false, errorMessage: 'Subject is required and cannot be empty' };
     }
 
-    const invalidAddresses = [...to, ...cc, ...bcc].filter((address) => !this.isValidEmail(address));
+    const invalidAddresses = [...to, ...cc, ...bcc].filter(
+      (address) => !this.isValidEmail(address),
+    );
     if (invalidAddresses.length > 0) {
       return {
         success: false,
@@ -187,7 +200,8 @@ export class GmailManagerService {
     }
 
     const key = this.safeCredentialKey(credential.key);
-    const refreshToken = this.getStringField(key, 'refresh_token') ?? this.getStringField(key, 'refreshToken');
+    const refreshToken =
+      this.getStringField(key, 'refresh_token') ?? this.getStringField(key, 'refreshToken');
 
     if (!refreshToken) {
       throw new Error('Gmail refresh token not found. Reconnect your Gmail account.');
@@ -270,7 +284,10 @@ export class GmailManagerService {
     return threadLabel ? threadLabel.substring('gmail_thread:'.length) : null;
   }
 
-  storeGmailThreadIdInLabels(existingLabels: string | null | undefined, gmailThreadId: string): string {
+  storeGmailThreadIdInLabels(
+    existingLabels: string | null | undefined,
+    gmailThreadId: string,
+  ): string {
     const gmailThreadLabel = `gmail_thread:${gmailThreadId}`;
     if (!existingLabels) return gmailThreadLabel;
 
@@ -294,7 +311,10 @@ export class GmailManagerService {
     return `https://mail.google.com/mail/u/0/#all/${threadId}`;
   }
 
-  generateGmailWebUrl(externalMessageId?: string | null, threadIdOrLabels?: string | null): string | null {
+  generateGmailWebUrl(
+    externalMessageId?: string | null,
+    threadIdOrLabels?: string | null,
+  ): string | null {
     if (externalMessageId) {
       return this.getGmailMessageUrl(externalMessageId);
     }
@@ -376,7 +396,9 @@ export class GmailManagerService {
       }
 
       if (response.status === 401) {
-        throw new Error('Gmail access token has expired or is invalid. Reconnect your Gmail account.');
+        throw new Error(
+          'Gmail access token has expired or is invalid. Reconnect your Gmail account.',
+        );
       }
 
       throw new Error(`Failed to send email via Gmail API: ${response.status} - ${errorContent}`);
@@ -403,9 +425,19 @@ export class GmailManagerService {
     bcc?: string[];
     fromName?: string;
     replyToThreadId?: string;
-     replyTo?: string;
+    replyTo?: string;
   }): string {
-    const { from, to, subject, htmlBody, cc = [], bcc = [], fromName, replyToThreadId, replyTo } = params;
+    const {
+      from,
+      to,
+      subject,
+      htmlBody,
+      cc = [],
+      bcc = [],
+      fromName,
+      replyToThreadId,
+      replyTo,
+    } = params;
     const fromHeader = fromName ? `${fromName} <${from}>` : from;
     const lines: string[] = [];
 
@@ -499,7 +531,8 @@ export class GmailManagerService {
       try {
         const appKeys = (await getAppKeysFromSlug(this.getAppSlug())) as Record<string, unknown>;
         if (!clientId && typeof appKeys?.client_id === 'string') clientId = appKeys.client_id;
-        if (!clientSecret && typeof appKeys?.client_secret === 'string') clientSecret = appKeys.client_secret;
+        if (!clientSecret && typeof appKeys?.client_secret === 'string')
+          clientSecret = appKeys.client_secret;
       } catch (error) {
         this.logger.debug?.(
           `Failed to resolve OAuth credentials from app keys ${this.formatMeta({
@@ -532,7 +565,8 @@ export class GmailManagerService {
   }
 
   private looksLikeUuid(value: string): boolean {
-    const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/iu;
+    const UUID_REGEX =
+      /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/iu;
     return UUID_REGEX.test(value);
   }
 

@@ -29,7 +29,6 @@ export interface GmailToolInput extends z.infer<typeof gmailEmailSchema> {}
 
 const gmailManager = new GmailManagerService();
 
-
 /**
  * Core logic for sending email via Gmail
  * This can be called by the LangChain tool in the agent package

@@ -7,4 +7,3 @@ export interface GmailIntegrationValue {
   expiresAt?: Date | null;
   isConnected: boolean;
 }
-

@@ -17,4 +17,3 @@ export interface GmailManagerConfig {
    */
   slug?: string;
 }
-

@@ -8,10 +8,7 @@ import {
 } from '@quikday/appstore-google-calendar';
 
 // Import from gmail-email package
-import {
-  sendGmailEmail,
-  gmailToolMetadata,
-} from '@quikday/appstore-gmail-email';
+import { sendGmailEmail, gmailToolMetadata } from '@quikday/appstore-gmail-email';
 
 // Tool 1: Google Calendar
 // Using implementation from google-calendar package

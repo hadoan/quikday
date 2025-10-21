@@ -62,9 +62,8 @@ export function generateEmailSummary(
   bodyPreview: string = '',
   maxLength: number = 100,
 ): string {
-  const preview = bodyPreview.length > maxLength
-    ? `${bodyPreview.substring(0, maxLength)}...`
-    : bodyPreview;
-  
+  const preview =
+    bodyPreview.length > maxLength ? `${bodyPreview.substring(0, maxLength)}...` : bodyPreview;
+
   return `📧 Email to ${to}\nSubject: ${subject}\n${preview ? `Preview: ${preview}` : ''}`;
 }

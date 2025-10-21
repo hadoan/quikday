@@ -10,23 +10,12 @@ import { z } from 'zod';
  */
 export const baseEmailSchema = z
   .object({
-    to: z
-      .string()
-      .describe('Recipient email address or comma-separated list of addresses'),
+    to: z.string().describe('Recipient email address or comma-separated list of addresses'),
     subject: z.string().describe('Email subject line'),
     body: z.string().describe('Email body content (plain text or HTML)'),
-    cc: z
-      .string()
-      .optional()
-      .describe('CC recipients (comma-separated email addresses)'),
-    bcc: z
-      .string()
-      .optional()
-      .describe('BCC recipients (comma-separated email addresses)'),
-    attachments: z
-      .string()
-      .optional()
-      .describe('Comma-separated file paths or URLs to attach'),
+    cc: z.string().optional().describe('CC recipients (comma-separated email addresses)'),
+    bcc: z.string().optional().describe('BCC recipients (comma-separated email addresses)'),
+    attachments: z.string().optional().describe('Comma-separated file paths or URLs to attach'),
     isHtml: z
       .boolean()
       .optional()

@@ -79,7 +79,11 @@ export async function refreshToken(config: {
   }
 }
 
-export async function callback(params: { req: any; meta: AppMeta; prisma: any }): Promise<{ redirectTo: string }> {
+export async function callback(params: {
+  req: any;
+  meta: AppMeta;
+  prisma: any;
+}): Promise<{ redirectTo: string }> {
   const { req, meta, prisma } = params;
 
   const code = typeof req.query?.code === 'string' ? req.query.code : undefined;
@@ -111,7 +115,9 @@ export async function callback(params: { req: any; meta: AppMeta; prisma: any })
       if (age > maxAge) throw new Error(`State expired`);
     }
   } catch (error) {
-    const err: any = new Error(error instanceof Error ? error.message : 'Invalid or expired state parameter');
+    const err: any = new Error(
+      error instanceof Error ? error.message : 'Invalid or expired state parameter',
+    );
     err.statusCode = 400;
     throw err;
   }
@@ -148,19 +154,26 @@ export async function callback(params: { req: any; meta: AppMeta; prisma: any })
     // Try to resolve user
     let numericUserId: number | undefined;
     try {
-      const sub = (req?.user?.sub ?? (typeof state?.userId === 'string' ? state.userId : undefined)) as string | undefined;
+      const sub = (req?.user?.sub ??
+        (typeof state?.userId === 'string' ? state.userId : undefined)) as string | undefined;
       const email = (req?.user?.email as string | undefined) || undefined;
       const displayName = (req?.user?.name as string | undefined) || undefined;
 
       if (sub) {
-        const user = await prisma.user.upsert({ where: { sub }, update: {}, create: { sub, email: email || null, displayName: displayName || null } });
+        const user = await prisma.user.upsert({
+          where: { sub },
+          update: {},
+          create: { sub, email: email || null, displayName: displayName || null },
+        });
         numericUserId = user.id;
       } else if (email) {
         const existing = await prisma.user.findUnique({ where: { email } });
         if (existing) numericUserId = existing.id;
       }
     } catch (e) {
-      console.warn('[Gmail] Failed to resolve user, saving credential without userId', { error: e instanceof Error ? e.message : 'Unknown' });
+      console.warn('[Gmail] Failed to resolve user, saving credential without userId', {
+        error: e instanceof Error ? e.message : 'Unknown',
+      });
     }
 
     const type = meta.slug;
@@ -207,7 +220,8 @@ export async function callback(params: { req: any; meta: AppMeta; prisma: any })
     });
 
     const returnTo = state?.returnTo as string | undefined;
-    const redirectTo = returnTo && typeof returnTo === 'string' ? returnTo : `/apps/${meta.variant}/${meta.slug}`;
+    const redirectTo =
+      returnTo && typeof returnTo === 'string' ? returnTo : `/apps/${meta.variant}/${meta.slug}`;
 
     return { redirectTo };
   } catch (error) {

@@ -7,4 +7,3 @@ export interface GmailManagerOptions {
   logger?: LoggerService;
   config?: GmailManagerConfig;
 }
-

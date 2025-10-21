@@ -48,7 +48,7 @@ export function toIsoFromStartAndMaybeEnd(
   options: ParseDateOptions = {},
 ): CalendarEventTime {
   const defaultDuration = options.defaultDurationMinutes ?? 30;
-  
+
   const startDate = parseFlexibleDate(start);
   let endDate: Date;
 
@@ -71,19 +71,19 @@ export function toIsoFromStartAndMaybeEnd(
 export function formatDateRange(startIso: string, endIso: string): string {
   const start = new Date(startIso);
   const end = new Date(endIso);
-  
+
   const startStr = start.toLocaleString('en-US', {
     month: 'short',
     day: 'numeric',
     hour: '2-digit',
     minute: '2-digit',
   });
-  
+
   const endStr = end.toLocaleString('en-US', {
     hour: '2-digit',
     minute: '2-digit',
   });
-  
+
   return `${startStr} - ${endStr}`;
 }
 

@@ -5,4 +5,3 @@ export interface GmailSendResponse {
   gmailUrl?: string | null;
   errorMessage?: string;
 }
-

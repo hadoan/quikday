@@ -2,48 +2,75 @@
  * Google Calendar Tool Factory
  * Creates LangChain tool for calendar events - to be used by agent package
  */
-import { baseCalendarEventSchema, toIsoFromStartAndMaybeEnd } from '@quikday/appstore';
-import type { BaseCalendarEvent } from '@quikday/appstore';
+import { z } from 'zod';
+import { baseCalendarEventSchema } from '@quikday/appstore';
+import type { calendar_v3 } from 'googleapis';
 
-export interface GoogleCalendarToolInput extends BaseCalendarEvent {}
+import GoogleCalendarService from './lib/CalendarService.js';
+
+const googleCalendarService = new GoogleCalendarService();
+
+const eventReminderSchema = z.object({
+  method: z.string().optional().describe('Notification method, e.g., email or popup'),
+  minutes: z.number().int().nonnegative().optional().describe('Minutes before the event'),
+});
+
+const eventRemindersSchema = z
+  .object({
+    useDefault: z.boolean().optional().describe('Use calendar default reminders'),
+    overrides: z.array(eventReminderSchema).optional().describe('Custom reminders'),
+  })
+  .optional();
+
+const googleCalendarToolSchema = baseCalendarEventSchema.extend({
+  userId: z
+    .number()
+    .int()
+    .positive()
+    .describe('Numeric user id that owns the Google Calendar credential.'),
+  calendarId: z
+    .string()
+    .optional()
+    .describe('External calendar id to insert into (defaults to primary).'),
+  timeZone: z.string().optional().describe('IANA timezone to store the event under.'),
+  sendUpdates: z
+    .enum(['all', 'externalOnly', 'none'])
+    .optional()
+    .describe('Who receives update emails when the event changes.'),
+  reminders: eventRemindersSchema,
+});
+
+export type GoogleCalendarToolInput = z.infer<typeof googleCalendarToolSchema>;
 
 /**
  * Core logic for creating a Google Calendar event
  * This can be called by the LangChain tool in the agent package
  */
-export async function createGoogleCalendarEvent(
-  input: GoogleCalendarToolInput,
-): Promise<string> {
-  const { title, start, end, durationMinutes, attendees, location, description } =
-    baseCalendarEventSchema.parse(input);
+export async function createGoogleCalendarEvent(input: GoogleCalendarToolInput): Promise<string> {
+  const { userId, calendarId, timeZone, sendUpdates, reminders, ...eventData } =
+    googleCalendarToolSchema.parse(input);
 
-  // Convert to ISO timestamps
-  const { startIso, endIso } = toIsoFromStartAndMaybeEnd(start, end, durationMinutes);
+  const result = await googleCalendarService.createCalendarEvent(userId, {
+    ...eventData,
+    calendarId,
+    timeZone,
+    sendUpdates,
+    reminders: reminders as calendar_v3.Schema$Event['reminders'] | undefined,
+  });
 
-  // Format response message
-  const withAtt = attendees ? ` with ${attendees}` : '';
-  const where = location ? ` @ ${location}` : '';
-  const notes = description ? `\nNotes: ${description}` : '';
+  if (!result.success) {
+    throw new Error(result.message || 'Failed to create Google Calendar event');
+  }
 
-  // TODO: Actual Google Calendar API call would go here
-  // Example:
-  // const calendar = google.calendar({ version: 'v3', auth });
-  // const event = await calendar.events.insert({
-  //   calendarId: 'primary',
-  //   requestBody: {
-  //     summary: title,
-  //     start: { dateTime: startIso },
-  //     end: { dateTime: endIso },
-  //     attendees: attendees?.split(',').map(email => ({ email: email.trim() })),
-  //     location,
-  //     description,
-  //   },
-  // });
+  const lines = [result.message];
+  if (result.startIso && result.endIso) {
+    lines.push(`🕐 ${result.startIso} to ${result.endIso}`);
+  }
+  if (result.eventId) {
+    lines.push(`🆔 Event ID: ${result.eventId}`);
+  }
 
-  return (
-    `📅 Google Calendar Event '${title}' created\n` +
-    `🕐 ${startIso} to ${endIso}${withAtt}${where}${notes}`
-  );
+  return lines.join('\n');
 }
 
 /**
@@ -51,9 +78,8 @@ export async function createGoogleCalendarEvent(
  */
 export const googleCalendarToolMetadata = {
   name: 'create_google_calendar_event',
-  description:
-    'Create a calendar event in Google Calendar. If end time is omitted, default duration is 30 minutes. Supports flexible time formats (ISO or HH:MM).',
-  schema: baseCalendarEventSchema,
+  description: 'Create a calendar event in Google Calendar using the connected user credential.',
+  schema: googleCalendarToolSchema,
   handler: createGoogleCalendarEvent,
 };
 
@@ -63,4 +89,3 @@ export const googleCalendarToolMetadata = {
 // export async function updateGoogleCalendarEvent(input: UpdateEventInput): Promise<string> { ... }
 // export async function deleteGoogleCalendarEvent(input: DeleteEventInput): Promise<string> { ... }
 // export async function listGoogleCalendarEvents(input: ListEventsInput): Promise<string> { ... }
-
