@@ -11,22 +11,22 @@ const logger = new Logger('AgentGraph');
 
 /** Agent node: ask the LLM what to do next. */
 async function agentNode(state: typeof MessagesAnnotation.State) {
-  logger.log('🤖 [Agent] ========== COMPLETE PROMPT TO OPENAI ==========');
-  logger.debug(`🤖 [Agent] System Message: ${AGENT_SYSTEM_MESSAGE}`);
-  logger.debug(`🤖 [Agent] User Messages: ${JSON.stringify(state.messages, null, 2)}`);
-  logger.log(`🤖 [Agent] Message count: ${state.messages.length}`);
-  logger.log(`🤖 [Agent] Available tools: ${tools.map((t) => t.name).join(', ')}`);
-  logger.log('🤖 [Agent] ================================================');
+  logger.log('\ud83e\udd16 [Agent] ========== COMPLETE PROMPT TO OPENAI ==========');
+  logger.debug(`\ud83e\udd16 [Agent] System Message: ${AGENT_SYSTEM_MESSAGE}`);
+  logger.debug(`\ud83e\udd16 [Agent] User Messages: ${JSON.stringify(state.messages, null, 2)}`);
+  logger.log(`\ud83e\udd16 [Agent] Message count: ${state.messages.length}`);
+  logger.log(`\ud83e\udd16 [Agent] Available tools: ${tools.map((t) => t.name).join(', ')}`);
+  logger.log('\ud83e\udd16 [Agent] ================================================');
 
   const result = await agentWithTools.invoke({ messages: state.messages });
 
-  logger.log('🤖 [Agent] ========== OPENAI RESPONSE ==========');
-  logger.debug(`🤖 [Agent] Response: ${JSON.stringify(result, null, 2)}`);
-  logger.log(`🤖 [Agent] Has tool calls: ${!!(result as any).tool_calls?.length}`);
+  logger.log('\ud83e\udd16 [Agent] ========== OPENAI RESPONSE ==========');
+  logger.debug(`\ud83e\udd16 [Agent] Response: ${JSON.stringify(result, null, 2)}`);
+  logger.log(`\ud83e\udd16 [Agent] Has tool calls: ${!!(result as any).tool_calls?.length}`);
   if ((result as any).tool_calls?.length) {
-    logger.debug(`🤖 [Agent] Tool calls: ${JSON.stringify((result as any).tool_calls, null, 2)}`);
+    logger.debug(`\ud83e\udd16 [Agent] Tool calls: ${JSON.stringify((result as any).tool_calls, null, 2)}`);
   }
-  logger.log('🤖 [Agent] ======================================');
+  logger.log('\ud83e\udd16 [Agent] ======================================');
 
   return { messages: [result] };
 }
@@ -54,14 +54,14 @@ async function toolsNode(state: typeof MessagesAnnotation.State) {
       const safeStr = (v: unknown, max = 800) => {
         try {
           const s = typeof v === 'string' ? v : JSON.stringify(v);
-          return s.length > max ? `${s.slice(0, max)}…(truncated)` : s;
+          return s.length > max ? `${s.slice(0, max)}\u2026(truncated)` : s;
         } catch {
           return '[unserializable]';
         }
       };
 
       if (!tool) {
-        logger.warn(`🤖 [Agent] Tool not found: ${call.name} (id=${id})`);
+        logger.warn(`\ud83e\udd16 [Agent] Tool not found: ${call.name} (id=${id})`);
         return new ToolMessage({
           content: `Tool not found: ${call.name}`,
           tool_call_id: id,
@@ -70,15 +70,15 @@ async function toolsNode(state: typeof MessagesAnnotation.State) {
       }
 
       const started = Date.now();
-      logger.log(`🤖 [Agent] 🔧 Calling tool: ${call.name}`);
-      logger.debug(`🤖 [Agent] 🔧 Tool call id: ${id}`);
-      logger.debug(`🤖 [Agent] 🔧 Args: ${safeStr(call.args)}`);
+      logger.log(`\ud83e\udd16 [Agent] \ud83d\udd27 Calling tool: ${call.name}`);
+      logger.debug(`\ud83e\udd16 [Agent] \ud83d\udd27 Tool call id: ${id}`);
+      logger.debug(`\ud83e\udd16 [Agent] \ud83d\udd27 Args: ${safeStr(call.args)}`);
 
       try {
         const output = await (tool as any).invoke(call.args as any);
         const duration = Date.now() - started;
-        logger.log(`🤖 [Agent] 🔧 Tool '${call.name}' completed in ${duration}ms`);
-        logger.debug(`🤖 [Agent] 🔧 Output: ${safeStr(output)}`);
+        logger.log(`\ud83e\udd16 [Agent] \ud83d\udd27 Tool '${call.name}' completed in ${duration}ms`);
+        logger.debug(`\ud83e\udd16 [Agent] \ud83d\udd27 Output: ${safeStr(output)}`);
 
         return new ToolMessage({
           content: typeof output === 'string' ? output : JSON.stringify(output),
@@ -88,7 +88,7 @@ async function toolsNode(state: typeof MessagesAnnotation.State) {
       } catch (err) {
         const duration = Date.now() - started;
         const message = err instanceof Error ? err.message : String(err);
-        logger.error(`🤖 [Agent] 🔧 Tool '${call.name}' failed in ${duration}ms: ${message}`);
+        logger.error(`\ud83e\udd16 [Agent] \ud83d\udd27 Tool '${call.name}' failed in ${duration}ms: ${message}`);
         return new ToolMessage({
           content: `Tool '${call.name}' error: ${message}`,
           tool_call_id: id,

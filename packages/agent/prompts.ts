@@ -18,7 +18,7 @@ When scheduling events:
 - Default timezone is the user's local timezone unless specified
 If details are missing, assume safe defaults (calendar events default to 30 minutes) or ask one brief follow-up.
 If no tool fits, answer normally.
-Before any result, include a brief justification (≤12 words).`.trim();
+Before any result, include a brief justification (\u226412 words).`.trim();
 
 /**
  * System prompt for the social media posting assistant.

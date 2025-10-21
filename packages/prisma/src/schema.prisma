@@ -83,7 +83,7 @@ model Integration {
 
 model Run {
     id            String         @id @default(cuid())
-    teamId        Int
+    teamId        Int?
     userId        Int
     prompt        String
     mode          String
@@ -100,7 +100,7 @@ model Run {
     steps         Step[]
     effects       RunEffect[]
     RunScopedKeys RunScopedKey[]
-    Team          Team           @relation(fields: [teamId], references: [id])
+    Team          Team?          @relation(fields: [teamId], references: [id])
     User          User           @relation(fields: [userId], references: [id])
 }
 

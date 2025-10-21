@@ -111,7 +111,7 @@ const slackSchema = z.object({
 export const sendSlackDm = tool(
   async (input: any) => {
     const { to, message } = slackSchema.parse(input);
-    return `💬 DM to ${to}: ${message}`;
+    return `\ud83d\udcac DM to ${to}: ${message}`;
   },
   {
     name: 'send_slack_dm',

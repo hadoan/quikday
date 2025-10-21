@@ -20,8 +20,8 @@
   ],
   "sideEffects": false,
   "scripts": {
-    "build": "tsc -p tsconfig.json --outDir dist --rootDir src",
-    "dev": "tsc -p tsconfig.json --outDir dist --rootDir src --watch",
+    "build": "tsc -p tsconfig.json --outDir dist --rootDir .",
+    "dev": "tsc -p tsconfig.json --outDir dist --rootDir . --watch",
     "clean": "rm -rf dist"
   },
   "keywords": [

@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException, Logger } from '@nestjs/common';
+import { Injectable, NotFoundException, Logger, UnauthorizedException } from '@nestjs/common';
 import { PrismaService } from '@quikday/prisma';
 import { InjectQueue } from '@nestjs/bullmq';
 import { Queue } from 'bullmq';
@@ -15,7 +15,7 @@ export class RunsService {
     @InjectQueue('runs') private runsQueue: Queue
   ) {}
 
-  async createFromPrompt(dto: CreateRunDto) {
+  async createFromPrompt(dto: CreateRunDto, claims: any = {}) {
     const { prompt, mode, teamId, scheduledAt, channelTargets, toolAllowlist } = dto;
 
     this.logger.log('🔨 Creating run from prompt', {
@@ -27,30 +27,53 @@ export class RunsService {
       hasAllowlist: !!toolAllowlist,
     });
 
-    // TODO: Load or create user based on auth context
-    // For now assume a placeholder user with id 1 exists or create a minimal one
-    this.logger.debug('👤 Upserting dev user');
-    const user = await this.prisma.user.upsert({
-      where: { sub: 'dev-user' },
-      update: {},
-      create: { sub: 'dev-user', email: 'dev@example.com', displayName: 'Dev User' },
-    });
+    // Load or create user based on auth claims populated by KindeGuard
+    // Expected claims shape: { sub, email, name } (Kinde) or similar JWT claims
+    const sub = claims?.sub || claims?.userId || undefined;
+    if (!sub) {
+      this.logger.warn('Missing sub in auth claims; cannot resolve user', { claims });
+      throw new UnauthorizedException('Missing subject (sub) in auth claims');
+    }
+    const email = claims?.email || claims?.email_address || null;
+    const displayName = claims?.name || claims?.displayName || 'Dev User';
 
+    this.logger.debug('👤 Looking up user by sub from auth claims', { sub });
+    const user = await this.prisma.user.findUnique({ where: { sub } });
+    if (!user) {
+      this.logger.warn('Authenticated user not found in database', { sub });
+      throw new UnauthorizedException('Authenticated user not found');
+    }
+
+    // Ensure the user is a member of the target team. If the team exists and the user is not a member, add them.
     this.logger.debug('🏢 Validating team', { teamId });
-    // Ensure team exists
-    const team = await this.prisma.team.findUnique({ where: { id: teamId } });
-    if (!team) throw new NotFoundException('Team not found');
+    const team = teamId ? await this.prisma.team.findUnique({ where: { id: teamId } }) : null;
+
+    // If team not found it's acceptable (team can be null). Do not check membership when team is null.
+    if (team) {
+      const membership = await this.prisma.teamMember.findUnique({
+        where: { teamId_userId: { teamId: team.id, userId: user.id } },
+      });
+      if (!membership) {
+        this.logger.debug('➕ Adding user to team as member', { userId: user.id, teamId: team.id });
+        await this.prisma.teamMember.create({
+          data: { teamId: team.id, userId: user.id, role: 'member' },
+        });
+      }
+    } else {
+      this.logger.debug('No team provided or team not found; proceeding with teamless run');
+    }
 
     this.logger.log('💾 Persisting run to database', {
       timestamp: new Date().toISOString(),
       userId: user.id,
-      teamId: team.id,
+      teamId: team?.id ?? null,
     });
 
     // Create the run
     const run = await this.prisma.run.create({
       data: {
-        teamId: team.id,
+        // teamId may be undefined for teamless runs.
+        teamId: team?.id ?? undefined,
         userId: user.id,
         prompt,
         mode,
@@ -70,7 +93,7 @@ export class RunsService {
     });
 
     this.logger.debug('📊 Tracking telemetry event');
-    await this.telemetry.track('run_created', { runId: run.id, teamId: team.id, mode });
+    await this.telemetry.track('run_created', { runId: run.id, teamId: team?.id ?? null, mode });
 
     // Auto-enqueue if mode is 'auto'
     if (mode === 'auto') {

@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Param, Post, UseGuards } from '@nestjs/common';
+import { Body, Controller, Get, Param, Post, UseGuards, Req } from '@nestjs/common';
 import { RunsService } from './runs.service';
 import { KindeGuard } from '../auth/kinde.guard';
 
@@ -20,8 +20,9 @@ export class RunsController {
   constructor(private runs: RunsService) {}
 
   @Post()
-  create(@Body() body: CreateRunDto) {
-    return this.runs.createFromPrompt(body);
+  create(@Body() body: CreateRunDto, @Req() req: any) {
+    const claims = req.user || {};
+    return this.runs.createFromPrompt(body, claims);
   }
 
   @Post(':id/confirm')
