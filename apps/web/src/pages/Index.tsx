@@ -131,6 +131,24 @@ const Index = () => {
                   }),
                 );
               }
+
+              // If backend provides a plain text final message (no tool calls), render it as a chat bubble
+              try {
+                const payload = event.payload as Record<string, unknown>;
+                // Common shapes we might receive
+                const output = (payload?.output as any) || {};
+                const textOut =
+                  (typeof output === 'object' && (output.message || output.text || output.content)) ||
+                  (payload?.finalMessage as string) ||
+                  (payload?.message as string) ||
+                  (payload?.text as string);
+
+                if (typeof textOut === 'string' && textOut.trim().length > 0) {
+                  newMessages.push({ role: 'assistant', content: textOut });
+                }
+              } catch (e) {
+                console.warn('[Index] Failed to extract plain output message from payload', e);
+              }
               break;
             }
             case 'step_succeeded':
@@ -146,6 +164,21 @@ const Index = () => {
                 completedAt: (event.payload.completedAt as string) || (event.payload.ts as string),
               };
               newMessages.push(buildLogMessage([entry] as any));
+
+              // Also render plain text output if provided in the event
+              try {
+                const payload = event.payload as Record<string, unknown>;
+                const output = (payload?.output as any) || {};
+                const textOut =
+                  (typeof output === 'object' && (output.message || output.text || output.content)) ||
+                  (payload?.message as string) ||
+                  (payload?.text as string);
+                if (typeof textOut === 'string' && textOut.trim().length > 0) {
+                  newMessages.push({ role: 'assistant', content: textOut });
+                }
+              } catch (e) {
+                console.warn('[Index] Failed to extract step text output from payload', e);
+              }
               break;
             }
             case 'step_failed': {
@@ -378,6 +411,12 @@ const Index = () => {
 
               return (
                 <ChatMessage key={idx} role="assistant">
+                  {/* Fallback: plain assistant text (no tool calls) */}
+                  {message.content && !message.type && (
+                    <div className="inline-block max-w-[85%] bg-muted/60 rounded-xl px-5 py-3">
+                      <p className="text-sm whitespace-pre-wrap">{message.content}</p>
+                    </div>
+                  )}
                   {message.type === 'plan' && message.data && 'intent' in message.data && (
                     // eslint-disable-next-line @typescript-eslint/no-explicit-any
                     <PlanCard data={message.data as any} />

@@ -612,7 +612,24 @@ importers:
         specifier: ^5.18.0
         version: 5.22.0(prisma@5.22.0)
 
-  packages/appstore/gmail-email: {}
+  packages/appstore/gmail-email:
+    dependencies:
+      '@nestjs/common':
+        specifier: ^10.0.0
+        version: 10.4.20(class-transformer@0.5.1)(class-validator@0.14.2)(reflect-metadata@0.2.2)(rxjs@7.8.2)
+      '@quikday/appstore':
+        specifier: workspace:*
+        version: link:..
+      '@quikday/prisma':
+        specifier: workspace:*
+        version: link:../../prisma
+      googleapis:
+        specifier: ^144.0.0
+        version: 144.0.0
+    devDependencies:
+      '@prisma/client':
+        specifier: ^5.18.0
+        version: 5.22.0(prisma@5.22.0)
 
   packages/appstore/google-calendar:
     dependencies:

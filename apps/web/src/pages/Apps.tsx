@@ -103,6 +103,20 @@ const apps: AppListItem[] = [
     },
     categories: ['All', 'Productivity', 'Calendar', 'Google'],
   },
+  {
+    title: 'Gmail',
+    description:
+      'Send and read emails using Gmail APIs with delegated access. Connect your Gmail account to send emails from Quik.day.',
+    logoSrc: '/logo/gmail.svg',
+    installProps: {
+      type: 'gmail-email',
+      slug: 'gmail-email',
+      variant: 'email',
+      allowedMultipleInstalls: true,
+      installMethod: 'oauth',
+    },
+    categories: ['All', 'Productivity', 'Email', 'Google'],
+  },
 ];
 
 const Apps = () => {
