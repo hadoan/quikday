@@ -460,6 +460,21 @@ export class ApiDataSource implements DataSource {
       );
     }
 
+    // Plain assistant text (no tool calls) fallback if backend includes it
+    try {
+      const anyRun = run as unknown as Record<string, unknown>;
+      const output = (anyRun as any).output || (anyRun as any).final_output || {};
+      const textOut =
+        (typeof output === 'object' && (output.message || output.text || output.content)) ||
+        (anyRun.finalMessage as string) ||
+        (anyRun.message as string);
+      if (typeof textOut === 'string' && textOut.trim().length > 0) {
+        messages.push({ role: 'assistant', content: textOut });
+      }
+    } catch {
+      // ignore
+    }
+
     // Undo message (if completed and has effects)
     if (run.status === 'completed' || run.status === 'succeeded') {
       const hasEffects = run.effects && run.effects.length > 0;
