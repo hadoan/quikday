@@ -1,5 +1,10 @@
 /* Google Calendar Integration */
 import type { AppMeta } from '@quikday/types';
+import type { calendar_v3 } from 'googleapis';
+
+import GoogleCalendarService, {
+  type CreateGoogleCalendarEventOptions,
+} from './lib/CalendarService.js';
 import { resolveGoogleCalendarAuthUrl } from './add.js';
 import { callback } from './callback.js';
 
@@ -8,11 +13,16 @@ export * from './tool.js';
 
 export default function createApp(meta: AppMeta, deps: any) {
   return new (class GoogleCalendarApp {
+    readonly calendarService: GoogleCalendarService;
+
     constructor(
       public readonly meta: AppMeta,
       public readonly deps: any,
     ) {
       console.log('📅 Google Calendar app initialized', { slug: meta.slug });
+      this.calendarService = new GoogleCalendarService({
+        prisma: deps?.prisma,
+      });
     }
 
     /**
@@ -129,18 +139,161 @@ export default function createApp(meta: AppMeta, deps: any) {
         return res.status(400).json({ message: 'Invalid body' });
       }
 
-      const now = Date.now();
-      console.log('📅 [Post] Request processed successfully', {
-        timestamp: now,
+      try {
+        const userId = await this.resolveUserId(req);
+
+        const {
+          calendarId,
+          timeZone,
+          sendUpdates,
+          reminders,
+          userId: _bodyUserId,
+          teamId: _bodyTeamId,
+          ...eventPayload
+        } = body as Record<string, unknown>;
+
+        const payload = {
+          ...(eventPayload as Record<string, unknown>),
+        } as unknown as CreateGoogleCalendarEventOptions;
+
+        const normalizedCalendarId =
+          typeof calendarId === 'string' && calendarId.trim().length
+            ? calendarId.trim()
+            : undefined;
+        if (normalizedCalendarId) {
+          payload.calendarId = normalizedCalendarId;
+        }
+
+        const normalizedTimeZone =
+          typeof timeZone === 'string' && timeZone.trim().length
+            ? timeZone.trim()
+            : undefined;
+        if (normalizedTimeZone) {
+          payload.timeZone = normalizedTimeZone;
+        }
+
+        if (
+          typeof sendUpdates === 'string' &&
+          ['all', 'externalOnly', 'none'].includes(sendUpdates)
+        ) {
+          payload.sendUpdates = sendUpdates as 'all' | 'externalOnly' | 'none';
+        }
+
+        const normalizedReminders = this.normalizeReminders(reminders);
+        if (normalizedReminders) {
+          payload.reminders = normalizedReminders;
+        }
+
+        const result = await this.calendarService.createCalendarEvent(userId, payload);
+
+        if (!result.success) {
+          console.warn('📅 [Post] Google Calendar event creation failed', {
+            slug: meta.slug,
+            message: result.message,
+          });
+          return res.status(400).json({ ok: false, ...result });
+        }
+
+        console.log('📅 [Post] Google Calendar event created', {
+          slug: meta.slug,
+          eventId: result.eventId,
+          startIso: result.startIso,
+          endIso: result.endIso,
+        });
+
+        return res.status(200).json({ ok: true, ...result });
+      } catch (error) {
+        const message = error instanceof Error ? error.message : 'Unknown error';
+        console.error('📅 [Post] Failed to create Google Calendar event', {
+          slug: meta.slug,
+          error: message,
+          stack: error instanceof Error ? error.stack : undefined,
+        });
+        return res.status(500).json({ ok: false, message });
+      }
+    }
+
+    async resolveUserId(req: any): Promise<number> {
+      const prisma = this.deps?.prisma;
+      if (!prisma) {
+        throw new Error('Prisma dependency not available for Google Calendar integration');
+      }
+
+      const user = req?.user;
+      if (!user) {
+        throw new Error('Authenticated user context is required');
+      }
+
+      if (typeof user.id === 'number') {
+        return user.id;
+      }
+
+      const sub = typeof user.sub === 'string' ? user.sub : undefined;
+      if (!sub) {
+        throw new Error('Authenticated user is missing a subject identifier');
+      }
+
+      const email = typeof user.email === 'string' ? user.email : undefined;
+      const displayName = typeof user.name === 'string' ? user.name : undefined;
+
+      const updateData: any = { lastLoginAt: new Date() };
+      if (email) updateData.email = email;
+      if (displayName) updateData.displayName = displayName;
+
+      const createData: any = {
+        sub,
+        email: email ?? null,
+        displayName: displayName ?? null,
+      };
+
+      const record = await prisma.user.upsert({
+        where: { sub },
+        update: updateData,
+        create: createData,
       });
 
-      return res.status(200).json({
-        ok: true,
-        app: meta.slug,
-        variant: meta.variant,
-        received: body,
-        timestamp: now,
-      });
+      if (!record?.id) {
+        throw new Error('Failed to resolve a user record for the authenticated principal');
+      }
+
+      return record.id;
+    }
+
+    normalizeReminders(
+      value: unknown,
+    ): calendar_v3.Schema$Event['reminders'] | undefined {
+      if (!value || typeof value !== 'object') {
+        return undefined;
+      }
+
+      const record = value as Record<string, unknown>;
+      const normalized: calendar_v3.Schema$Event['reminders'] = {};
+
+      if (typeof record.useDefault === 'boolean') {
+        normalized.useDefault = record.useDefault;
+      }
+
+      if (Array.isArray(record.overrides)) {
+        const overrides = record.overrides
+          .filter((item): item is Record<string, unknown> => !!item && typeof item === 'object')
+          .map((item) => {
+            const reminder: calendar_v3.Schema$EventReminder = {};
+            if (typeof item.method === 'string' && item.method.trim().length) {
+              reminder.method = item.method.trim();
+            }
+            if (typeof item.minutes === 'number' && Number.isFinite(item.minutes)) {
+              reminder.minutes = Math.trunc(item.minutes);
+            }
+            return reminder;
+          })
+          .filter((item) => Object.keys(item).length > 0);
+
+        if (overrides.length > 0) {
+          normalized.overrides = overrides;
+        }
+      }
+
+      return Object.keys(normalized).length > 0 ? normalized : undefined;
     }
   })(meta, deps);
 }
