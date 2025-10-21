@@ -1,14 +1,17 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { z } from 'zod';
 import { PlanCard, ConfigCard, RunCard } from '@quikday/types';
-import { runAgent } from '@quikday/agent';
+import { AgentService } from '@quikday/agent';
 import { RunsService } from '../runs/runs.service';
 
 @Injectable()
 export class ChatService {
   private readonly logger = new Logger(ChatService.name);
 
-  constructor(private runs: RunsService) {}
+  constructor(
+    private runs: RunsService,
+    private agent: AgentService,
+  ) {}
 
   async handlePrompt({
     prompt,
@@ -80,7 +83,7 @@ export class ChatService {
       promptLength: prompt.length,
     });
 
-    const outputs = await runAgent(prompt);
+    const outputs = await this.agent.runAgent(prompt);
 
     this.logger.log('✅ Agent execution completed', {
       timestamp: new Date().toISOString(),

@@ -3,7 +3,7 @@ import { Job } from 'bullmq';
 import { Logger } from '@nestjs/common';
 import { RunsService } from '../runs/runs.service';
 import { CredentialService } from '../credentials/credential.service';
-import { runAgentWithEvents } from '@quikday/agent';
+import { AgentService } from '@quikday/agent';
 import { TelemetryService } from '../telemetry/telemetry.service';
 import { getToolMetadata } from '@quikday/appstore';
 import { CredentialMissingError, CredentialInvalidError, ErrorCode } from '@quikday/types';
@@ -18,7 +18,8 @@ export class RunProcessor extends WorkerHost {
     private runs: RunsService,
     private credentials: CredentialService,
     private telemetry: TelemetryService,
-    private redisPubSub: RedisPubSubService
+    private redisPubSub: RedisPubSubService,
+    private agent: AgentService,
   ) {
     super();
   }
@@ -306,9 +307,9 @@ export class RunProcessor extends WorkerHost {
       });
 
       // Set tool execution context for AUTO mode
-      if (run.mode === 'auto') {
-        const { setToolExecutionContext } = await import('@quikday/agent');
-        setToolExecutionContext({
+      const appliedToolContext = run.mode === 'auto';
+      if (appliedToolContext) {
+        this.agent.setToolExecutionContext({
           userId: executionContext.userId,
         });
         this.logger.log('🔑 Tool execution context set', {
@@ -317,49 +318,55 @@ export class RunProcessor extends WorkerHost {
         });
       }
 
-      // Invoke the agent with event callbacks for real-time updates
-      const result = await runAgentWithEvents(run.prompt, {
-        onPlanGenerated: async (plan) => {
-          this.logger.log('📋 Plan generated', { runId: run.id, tools: plan.tools });
-          await this.redisPubSub.publishRunEvent(run.id, {
-            type: 'plan_generated',
-            payload: {
-              intent: plan.intent,
-              tools: plan.tools,
-              actions: plan.tools.map((t) => `Execute ${t}`),
-            },
-          });
-        },
-        onToolStarted: async (tool, args) => {
-          this.logger.log('🔧 Tool started', { runId: run.id, tool, args });
-          await this.redisPubSub.publishRunEvent(run.id, {
-            type: 'step_started',
-            payload: {
+      let result: { messages: any[]; finalOutput: string | null };
+      try {
+        result = await this.agent.runAgentWithEvents(run.prompt, {
+          onPlanGenerated: async (plan) => {
+            this.logger.log('📋 Plan generated', { runId: run.id, tools: plan.tools });
+            await this.redisPubSub.publishRunEvent(run.id, {
+              type: 'plan_generated',
+              payload: {
+                intent: plan.intent,
+                tools: plan.tools,
+                actions: plan.tools.map((t) => `Execute ${t}`),
+              },
+            });
+          },
+          onToolStarted: async (tool, args) => {
+            this.logger.log('🔧 Tool started', { runId: run.id, tool, args });
+            await this.redisPubSub.publishRunEvent(run.id, {
+              type: 'step_started',
+              payload: {
+                tool,
+                action: `Executing ${tool}`,
+                request: args,
+              },
+            });
+          },
+          onToolCompleted: async (tool, result) => {
+            this.logger.log('✅ Tool completed', {
+              runId: run.id,
               tool,
-              action: `Executing ${tool}`,
-              request: args,
-            },
-          });
-        },
-        onToolCompleted: async (tool, result) => {
-          this.logger.log('✅ Tool completed', {
-            runId: run.id,
-            tool,
-            resultPreview: result.substring(0, 100),
-          });
-          await this.redisPubSub.publishRunEvent(run.id, {
-            type: 'step_succeeded',
-            payload: {
-              tool,
-              action: `Completed ${tool}`,
-              response: result,
-            },
-          });
-        },
-        onCompleted: async (finalMessage) => {
-          this.logger.log('🎉 Agent completed', { runId: run.id, finalMessage });
-        },
-      });
+              resultPreview: result.substring(0, 100),
+            });
+            await this.redisPubSub.publishRunEvent(run.id, {
+              type: 'step_succeeded',
+              payload: {
+                tool,
+                action: `Completed ${tool}`,
+                response: result,
+              },
+            });
+          },
+          onCompleted: async (finalMessage) => {
+            this.logger.log('🎉 Agent completed', { runId: run.id, finalMessage });
+          },
+        });
+      } finally {
+        if (appliedToolContext) {
+          this.agent.setToolExecutionContext(null);
+        }
+      }
 
       this.logger.log('✅ Agent execution completed', {
         timestamp: new Date().toISOString(),

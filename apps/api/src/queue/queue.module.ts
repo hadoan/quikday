@@ -1,5 +1,6 @@
 import { Module, forwardRef } from '@nestjs/common';
 import { BullModule } from '@nestjs/bullmq';
+import { AgentModule } from '@quikday/agent';
 import { ConfigModule } from '../config/config.module';
 import { ConfigService } from '../config/config.service';
 import { RunProcessor } from './run.processor';
@@ -12,6 +13,7 @@ import { RedisModule } from '../redis/redis.module';
   imports: [
     // avoid circular import by using forwardRef in RunsModule and here import RunsModule
     forwardRef(() => RunsModule),
+    AgentModule,
     ConfigModule,
     CredentialsModule,
     RedisModule,
