@@ -26,14 +26,7 @@ export class AppStoreRegistry {
 
     for (const slug of slugs) {
       try {
-        // Convention: @quikday/appstore/{slug}/dist/
-        const basePath = `@quikday/appstore/${slug}/dist`;
-
-        // Load metadata and factory
-        const metaMod = await import(`${basePath}/metadata`);
-        const idxMod = await import(`${basePath}/index`);
-        const metadata: AppMeta = metaMod.metadata;
-        const create: (meta: AppMeta, deps: AppDeps) => BaseApp = idxMod.default;
+        const { metadata, create } = await this.loadIntegration(slug);
 
         if (!metadata?.slug) {
           this.logger.warn(`Skipping app ${slug}: missing slug in metadata`);
@@ -56,5 +49,40 @@ export class AppStoreRegistry {
 
   list(): AppMeta[] {
     return Array.from(this.metas.values());
+  }
+
+  private async loadIntegration(slug: string): Promise<{
+    metadata: AppMeta;
+    create: (meta: AppMeta, deps: AppDeps) => BaseApp;
+  }> {
+    const candidateBases = [
+      `@quikday/appstore/${slug}/dist`,
+      `@quikday/appstore-${slug}/dist`,
+      `@quikday/appstore-${slug}`,
+    ];
+
+    let lastError: unknown;
+
+    for (const basePath of candidateBases) {
+      try {
+        const [metaMod, idxMod] = await Promise.all([
+          import(`${basePath}/metadata`),
+          import(`${basePath}/index`),
+        ]);
+
+        const metadata = metaMod?.metadata as AppMeta | undefined;
+        const create = idxMod?.default as ((meta: AppMeta, deps: AppDeps) => BaseApp) | undefined;
+
+        if (!metadata || typeof create !== 'function') {
+          throw new Error(`Invalid exports for integration ${slug} at ${basePath}`);
+        }
+
+        return { metadata, create };
+      } catch (error) {
+        lastError = error;
+      }
+    }
+
+    throw lastError ?? new Error(`Unable to resolve integration modules for ${slug}`);
   }
 }

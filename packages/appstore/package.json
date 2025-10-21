@@ -2,16 +2,22 @@
   "name": "@quikday/appstore",
   "version": "0.0.1",
   "private": true,
+  "type": "module",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "require": "./dist/index.js",
+      "default": "./dist/index.js"
+    },
+    "./*": "./*"
+  },
   "scripts": {
     "build": "tsc -p tsconfig.json",
     "watch": "tsc -w -p tsconfig.json",
     "lint": "eslint src --ext .ts,.tsx"
-  },
-  "devDependencies": {
-    "tslib": "^2.5.0",
-    "typescript": "^4.9.0"
   },
   "dependencies": {
     "@quikday/types": "workspace:*",
@@ -20,6 +26,8 @@
     "zod": "^3.22.0"
   },
   "devDependencies": {
-    "@prisma/client": "^5.18.0"
+    "@prisma/client": "^5.18.0",
+    "tslib": "^2.5.0",
+    "typescript": "^4.9.0"
   }
 }

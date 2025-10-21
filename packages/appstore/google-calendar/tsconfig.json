@@ -11,5 +11,13 @@
     "esModuleInterop": true,
     "skipLibCheck": true
   },
-  "include": ["index.ts", "metadata.ts"]
+  "include": [
+    "index.ts",
+    "metadata.ts",
+    "add.ts",
+    "callback.ts",
+    "tool.ts",
+    "lib/**/*.ts",
+    "types/**/*.ts"
+  ]
 }

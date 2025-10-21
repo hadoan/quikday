@@ -1,70 +1,108 @@
-import { z } from 'zod';
 import { tool } from '@langchain/core/tools';
+import { z } from 'zod';
 
-// Tool 1: Calendar
-// Make end optional and support durationMinutes to reduce friction.
-const calendarSchema = z
-  .object({
-    title: z.string().describe("Event title, e.g., 'Check-in with Sara'"),
-    start: z.string().describe("ISO or HH:MM today, e.g., '2025-10-18T09:00' or '10:00'"),
-    end: z.string().optional().describe("ISO or HH:MM today, e.g., '2025-10-18T09:30' or '10:30'"),
-    durationMinutes: z
-      .number()
-      .int()
-      .positive()
-      .max(480)
-      .optional()
-      .describe('If no end provided, duration in minutes (default 30).'),
-    attendees: z.string().optional().describe('Comma-separated emails or names'),
-    location: z.string().optional().describe('Room/URL/address'),
-  })
-  .describe('Create/update a calendar event; if end is omitted, use durationMinutes (default 30).');
-
-function toIsoFromStartAndMaybeEnd(
-  start: string,
-  end?: string,
-  durationMinutes?: number,
-): { startIso: string; endIso: string } {
-  // Parse HH:MM as today local, otherwise let Date parse ISO.
-  const parse = (s: string): Date => {
-    if (/^\d{1,2}:\d{2}$/.test(s)) {
-      const [h, m] = s.split(':').map((x) => parseInt(x, 10));
-      const d = new Date();
-      d.setSeconds(0, 0);
-      d.setHours(h ?? 0, m ?? 0, 0, 0);
-      return d;
-    }
-    const d = new Date(s);
-    return isNaN(d.getTime()) ? new Date() : d;
-  };
-
-  const startDate = parse(start);
-  let endDate: Date;
-  if (end) {
-    endDate = parse(end);
-  } else {
-    const dur = durationMinutes ?? 30;
-    endDate = new Date(startDate.getTime() + dur * 60 * 1000);
-  }
-
-  return { startIso: startDate.toISOString(), endIso: endDate.toISOString() };
+// Type definitions for context injection
+export interface ToolExecutionContext {
+  userId: number;
+  credentialKey?: string;
 }
 
+// Global context that will be injected by RunProcessor
+let toolExecutionContext: ToolExecutionContext | null = null;
+
+export function setToolExecutionContext(context: ToolExecutionContext | null) {
+  toolExecutionContext = context;
+}
+
+export function getToolExecutionContext(): ToolExecutionContext | null {
+  return toolExecutionContext;
+}
+
+/**
+ * Define the Google Calendar tool
+ */
 export const createCalendarEvent = tool(
   async (input: any) => {
-    const { title, start, end, durationMinutes, attendees, location } = calendarSchema.parse(input);
-    const { startIso, endIso } = toIsoFromStartAndMaybeEnd(start, end, durationMinutes);
-    const withAtt = attendees ? ` with ${attendees}` : '';
-    const where = location ? ` @ ${location}` : '';
-    return `📅 Event '${title}' from ${startIso} to ${endIso}${withAtt}${where}.`;
+    const context = getToolExecutionContext();
+    
+    if (!context) {
+      // In PLAN mode or when context not available, return placeholder
+      return `[PLANNED] Will create calendar event: ${input.title} at ${input.start}`;
+    }
+    
+    // Execute the real tool with userId context
+    try {
+      const { createGoogleCalendarEvent } = await import('@quikday/appstore-google-calendar');
+      const result = await createGoogleCalendarEvent(input, context.userId);
+      return result;
+    } catch (error) {
+      throw new Error(
+        `Failed to create calendar event: ${error instanceof Error ? error.message : String(error)}`,
+      );
+    }
   },
   {
-    name: 'create_calendar_event',
-    description: 'Create/update a calendar event. If end omitted, default duration is 30 minutes.',
-    schema: calendarSchema,
+    name: 'create_google_calendar_event',
+    description:
+      'Create a calendar event in Google Calendar. Use this when the user wants to schedule or create an event. Requires: title, start (ISO string). Optional: end (ISO string), durationMinutes (default 30), description, location, attendees (comma-separated emails).',
+    schema: z.object({
+      title: z.string().describe("Event title, e.g., 'Check-in with Sara'"),
+      start: z.string().describe("Start time in ISO 8601 format, e.g., '2025-10-22T16:00:00'"),
+      end: z.string().optional().describe("End time in ISO 8601 format, e.g., '2025-10-22T16:30:00'"),
+      durationMinutes: z
+        .number()
+        .int()
+        .positive()
+        .max(480)
+        .optional()
+        .describe('If no end provided, duration in minutes (default 30)'),
+      attendees: z.string().optional().describe('Comma-separated email addresses'),
+      location: z.string().optional().describe('Event location or meeting URL'),
+      description: z.string().optional().describe('Event description or notes'),
+    }),
   },
 );
-// Tool 2: Slack DM
+
+/**
+ * Define the Gmail tool
+ */
+export const sendEmail = tool(
+  async (input: any) => {
+    const context = getToolExecutionContext();
+    
+    if (!context) {
+      // In PLAN mode or when context not available, return placeholder
+      return `[PLANNED] Will send email to: ${input.to} with subject: ${input.subject}`;
+    }
+    
+    // Execute the real tool with userId context
+    try {
+      const { sendGmailEmail } = await import('@quikday/appstore-gmail-email');
+      const result = await sendGmailEmail(input, context.userId);
+      return result;
+    } catch (error) {
+      throw new Error(
+        `Failed to send email: ${error instanceof Error ? error.message : String(error)}`,
+      );
+    }
+  },
+  {
+    name: 'send_gmail_email',
+    description:
+      'Send an email via Gmail. Use this when the user wants to send an email or message someone. Requires: to (email address), subject, body. Optional: cc, bcc.',
+    schema: z.object({
+      to: z.string().describe('Recipient email address'),
+      subject: z.string().describe('Email subject'),
+      body: z.string().describe('Email body content'),
+      cc: z.string().optional().describe('CC email address'),
+      bcc: z.string().optional().describe('BCC email address'),
+    }),
+  },
+);
+
+/**
+ * Define the Slack DM tool (placeholder for future)
+ */
 const slackSchema = z.object({
   to: z.string().describe('Slack handle or email'),
   message: z.string().describe('Message body'),
@@ -83,4 +121,4 @@ export const sendSlackDm = tool(
   },
 );
 
-export const tools = [createCalendarEvent, sendSlackDm];
+export const tools = [createCalendarEvent, sendEmail, sendSlackDm];

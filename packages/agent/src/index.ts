@@ -2,6 +2,8 @@ import 'dotenv/config';
 import { HumanMessage, AIMessage, ToolMessage } from '@langchain/core/messages';
 export { compileApp } from './graph.js';
 export * from './prompts.js';
+export { setToolExecutionContext, getToolExecutionContext } from './tools.js';
+export type { ToolExecutionContext } from './tools.js';
 
 /**
  * Run the agent for a single user prompt and return assistant/tool outputs as strings.

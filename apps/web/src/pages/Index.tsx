@@ -138,7 +138,8 @@ const Index = () => {
                 // Common shapes we might receive
                 const output = (payload?.output as any) || {};
                 const textOut =
-                  (typeof output === 'object' && (output.message || output.text || output.content)) ||
+                  (typeof output === 'object' &&
+                    (output.message || output.text || output.content)) ||
                   (payload?.finalMessage as string) ||
                   (payload?.message as string) ||
                   (payload?.text as string);
@@ -170,7 +171,8 @@ const Index = () => {
                 const payload = event.payload as Record<string, unknown>;
                 const output = (payload?.output as any) || {};
                 const textOut =
-                  (typeof output === 'object' && (output.message || output.text || output.content)) ||
+                  (typeof output === 'object' &&
+                    (output.message || output.text || output.content)) ||
                   (payload?.message as string) ||
                   (payload?.text as string);
                 if (typeof textOut === 'string' && textOut.trim().length > 0) {

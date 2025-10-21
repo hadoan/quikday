@@ -185,10 +185,16 @@ export class RunProcessor extends WorkerHost {
             timestamp: new Date().toISOString(),
             toolName,
             hasCredential: !!credential,
+            userId: executionContext.userId,
           });
 
-          // TODO: Actual tool execution with credential.key
-          result = await this.executeTool(toolName, input, credential?.key);
+          // Execute tool with credential and userId from execution context
+          result = await this.executeTool(
+            toolName,
+            input,
+            credential?.key,
+            executionContext.userId,
+          );
 
           this.logger.log('✅ Tool execution completed successfully', {
             timestamp: new Date().toISOString(),
@@ -298,6 +304,18 @@ export class RunProcessor extends WorkerHost {
         runId: run.id,
         fullPrompt: run.prompt,
       });
+
+      // Set tool execution context for AUTO mode
+      if (run.mode === 'auto') {
+        const { setToolExecutionContext } = await import('@quikday/agent');
+        setToolExecutionContext({
+          userId: executionContext.userId,
+        });
+        this.logger.log('🔑 Tool execution context set', {
+          runId: run.id,
+          userId: executionContext.userId,
+        });
+      }
 
       // Invoke the agent with event callbacks for real-time updates
       const result = await runAgentWithEvents(run.prompt, {
@@ -431,15 +449,45 @@ export class RunProcessor extends WorkerHost {
     }
   }
 
-  private async executeTool(toolName: string, input: any, credentialKey?: any): Promise<any> {
-    // TODO: Implement actual tool execution
-    // This would call the appropriate app integration with the credential
-    return {
-      success: true,
-      id: 'mock-id',
-      url: 'https://example.com/mock',
-      data: input,
-    };
+  private async executeTool(
+    toolName: string,
+    input: any,
+    credentialKey?: any,
+    userId?: number,
+  ): Promise<any> {
+    this.logger.debug('Executing tool', {
+      toolName,
+      hasCredential: !!credentialKey,
+      userId,
+    });
+
+    // Import tool handlers dynamically based on toolName
+    switch (toolName) {
+      case 'create_google_calendar_event': {
+        const { createGoogleCalendarEvent } = await import('@quikday/appstore-google-calendar');
+        if (!userId) {
+          throw new Error('userId is required for Google Calendar tool');
+        }
+        return await createGoogleCalendarEvent(input, userId);
+      }
+
+      case 'send_gmail_email': {
+        const { sendGmailEmail } = await import('@quikday/appstore-gmail-email');
+        if (!userId) {
+          throw new Error('userId is required for Gmail tool');
+        }
+        // Assuming similar signature - update if needed
+        return await sendGmailEmail(input, userId);
+      }
+
+      case 'send_slack_dm': {
+        // Mock implementation for now
+        return `💬 DM to ${input.to}: ${input.message}`;
+      }
+
+      default:
+        throw new Error(`Unknown tool: ${toolName}`);
+    }
   }
 
   private async recordEffect(effect: {
