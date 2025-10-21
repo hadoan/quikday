@@ -13,8 +13,8 @@
     "target": "ES2021",
     "module": "es2020",
     "moduleResolution": "bundler",
-    "declaration": false,
-    "declarationMap": false
+    "declaration": true,
+    "declarationMap": true
   },
   "include": ["**/*.ts"]
 }

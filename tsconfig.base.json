@@ -15,7 +15,9 @@
     "baseUrl": ".",
     "paths": {
       "@quikday/libs": ["packages/libs"],
-      "@quikday/libs/*": ["packages/libs/*"]
+      "@quikday/libs/*": ["packages/libs/*"],
+      "@quikday/agent": ["packages/agent/dist/index"],
+      "@quikday/agent/*": ["packages/agent/dist/*"]
     }
   }
 }

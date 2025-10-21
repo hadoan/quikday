@@ -2,13 +2,16 @@ import { Processor, WorkerHost } from '@nestjs/bullmq';
 import { Job } from 'bullmq';
 import { Logger } from '@nestjs/common';
 import { RunsService } from '../runs/runs.service';
-import { CredentialService } from '../credentials/credential.service';
-import { AgentService } from '@quikday/agent';
 import { TelemetryService } from '../telemetry/telemetry.service';
-import { getToolMetadata } from '@quikday/appstore';
-import { CredentialMissingError, CredentialInvalidError, ErrorCode } from '@quikday/types';
-import { randomUUID } from 'crypto';
+import { ErrorCode } from '@quikday/types';
 import { RedisPubSubService } from '@quikday/libs';
+import { buildMainGraph } from '@quikday/agent/buildMainGraph';
+import { makeOpenAiLLM } from '@quikday/agent/llm/openai';
+import type { RunState } from '@quikday/agent/state/types';
+import { bus, type RunEvent as GraphRunEvent } from '@quikday/agent/observability/events';
+import type { RunEvent as UiRunEvent } from '../redis/redis-pubsub.service';
+
+const GRAPH_HALT_AWAITING_APPROVAL = 'GRAPH_HALT_AWAITING_APPROVAL';
 
 @Processor('runs')
 export class RunProcessor extends WorkerHost {
@@ -16,10 +19,8 @@ export class RunProcessor extends WorkerHost {
 
   constructor(
     private runs: RunsService,
-    private credentials: CredentialService,
     private telemetry: TelemetryService,
-    private redisPubSub: RedisPubSubService,
-    private agent: AgentService
+    private redisPubSub: RedisPubSubService
   ) {
     super();
   }
@@ -64,332 +65,228 @@ export class RunProcessor extends WorkerHost {
     });
 
     try {
-      this.logger.log('🏗️ Building execution context', {
+      this.logger.log('🧠 Initialising LangGraph run state', {
         timestamp: new Date().toISOString(),
         runId: run.id,
       });
 
-      // Build execution context with credential resolver
-      const executionContext = {
-        userId: run.userId,
-        teamId: run.teamId,
+      const llm = makeOpenAiLLM();
+      const graph = buildMainGraph({ llm });
+
+      const meta: Record<string, unknown> =
+        run.config && typeof run.config === 'object' ? { ...(run.config as Record<string, unknown>) } : {};
+
+      const scopes = new Set<string>();
+      const runAny = run as any;
+      if (Array.isArray(runAny?.scopes)) {
+        for (const scope of runAny.scopes) {
+          if (typeof scope === 'string') scopes.add(scope);
+        }
+      }
+      if (Array.isArray(runAny?.RunScopedKeys)) {
+        for (const scopedKey of runAny.RunScopedKeys) {
+          if (scopedKey?.scope) scopes.add(String(scopedKey.scope));
+        }
+      }
+
+      const ctx: RunState['ctx'] & { meta: Record<string, unknown> } = {
         runId: run.id,
-        channelTargets: (run.config as any)?.channelTargets || [],
+        userId: String(run.userId),
+        teamId: run.teamId ? String(run.teamId) : undefined,
+        scopes: Array.from(scopes),
+        traceId: `run:${run.id}`,
+        tz: (meta.timezone as string | undefined) ?? 'Europe/Berlin',
+        now: new Date(),
+        meta,
       };
 
-      this.logger.log('🔧 Execution context built', {
-        timestamp: new Date().toISOString(),
-        runId: run.id,
-        channelTargetsCount: executionContext.channelTargets.length,
-      });
+      const initialState: RunState = {
+        input: { prompt: run.prompt },
+        mode: run.mode?.toUpperCase() === 'AUTO' ? 'AUTO' : 'PLAN',
+        ctx,
+        scratch: {},
+        output: {},
+      };
 
-      // Create a credential-aware tool executor
-      const toolExecutor = async (toolName: string, input: any) => {
-        this.logger.log('🔨 Executing tool', {
-          timestamp: new Date().toISOString(),
-          runId: executionContext.runId,
-          toolName,
-          inputKeys: Object.keys(input || {}),
-        });
+      const publishRunEvent = (type: UiRunEvent['type'], payload: UiRunEvent['payload']) =>
+        this.redisPubSub.publishRunEvent(run.id, { type, payload });
 
-        const toolMeta = getToolMetadata(toolName);
-        if (!toolMeta) {
-          this.logger.error('❌ Unknown tool requested', {
-            timestamp: new Date().toISOString(),
-            toolName,
-          });
-          throw new Error(`Unknown tool: ${toolName}`);
-        }
+      const safePublish = (type: UiRunEvent['type'], payload: UiRunEvent['payload']) =>
+        void publishRunEvent(type, payload).catch((publishErr) =>
+          this.logger.error('❌ Failed to publish run event', {
+            runId: run.id,
+            type,
+            error: publishErr?.message ?? publishErr,
+          })
+        );
 
-        this.logger.debug('📋 Tool metadata retrieved', {
-          toolName,
-          appId: toolMeta.appId,
-          requiresCredential: toolMeta.requiresCredential,
-          effectful: toolMeta.effectful,
-        });
-
-        const stepStartedAt = new Date();
-        let credential: any = null;
-
-        // Resolve credential if required
-        if (toolMeta.requiresCredential) {
-          this.logger.log('🔐 Resolving credential', {
-            timestamp: new Date().toISOString(),
-            runId: executionContext.runId,
-            appId: toolMeta.appId,
-          });
-
-          try {
-            // Check if explicit credentialId provided for this app
-            const channelTarget = executionContext.channelTargets.find(
-              (t: any) => t.appId === toolMeta.appId
+      const applyDelta = (target: any, delta: any) => {
+        if (!delta || typeof delta !== 'object') return;
+        for (const [key, value] of Object.entries(delta)) {
+          if (Array.isArray(value)) {
+            target[key] = value.map((item) =>
+              typeof item === 'object' && item !== null ? structuredClone(item) : item
             );
-
-            credential = await this.credentials.resolveCredential({
-              userId: executionContext.userId,
-              teamId: executionContext.teamId,
-              appId: toolMeta.appId,
-              credentialId: channelTarget?.credentialId,
-            });
-
-            this.logger.log('✅ Credential resolved', {
-              timestamp: new Date().toISOString(),
-              credentialId: credential.id,
-              appId: toolMeta.appId,
-            });
-
-            this.logger.log('🔍 Validating credential', {
-              timestamp: new Date().toISOString(),
-              credentialId: credential.id,
-            });
-
-            // Validate credential
-            const isValid = await this.credentials.validateCredential(credential.id);
-            if (!isValid) {
-              this.logger.error('❌ Credential validation failed', {
-                timestamp: new Date().toISOString(),
-                credentialId: credential.id,
-                appId: toolMeta.appId,
-              });
-              throw new CredentialInvalidError(toolMeta.appId, credential.id);
-            }
-
-            this.logger.log('✅ Credential validated', {
-              timestamp: new Date().toISOString(),
-              credentialId: credential.id,
-            });
-          } catch (error: any) {
-            this.logger.error('❌ Credential resolution/validation failed', {
-              timestamp: new Date().toISOString(),
-              error: error.message,
-              errorCode: error.code || ErrorCode.E_CREDENTIAL_MISSING,
-            });
-
-            // Track failure
-            await this.telemetry.track('step_failed', {
-              runId: executionContext.runId,
-              tool: toolName,
-              appId: toolMeta.appId,
-              errorCode: error.code || ErrorCode.E_CREDENTIAL_MISSING,
-            });
-
-            throw error;
+            continue;
           }
+          if (value && typeof value === 'object') {
+            if (!target[key] || typeof target[key] !== 'object') {
+              target[key] = {};
+            }
+            applyDelta(target[key], value);
+            continue;
+          }
+          target[key] = value;
         }
+      };
 
-        // Execute the tool with credential
-        let result: any;
-        let errorCode: string | undefined;
+      let liveState: RunState = structuredClone(initialState);
+      let graphEmittedRunCompleted = false;
+
+      const handleGraphEvent = (evt: GraphRunEvent) => {
+        if (evt.runId !== run.id) {
+          return;
+        }
 
         try {
-          this.logger.log('⚡ Executing tool with credential', {
-            timestamp: new Date().toISOString(),
-            toolName,
-            hasCredential: !!credential,
-            userId: executionContext.userId,
-          });
-
-          // Execute tool with credential and userId from execution context
-          result = await this.executeTool(
-            toolName,
-            input,
-            credential?.key,
-            executionContext.userId
-          );
-
-          this.logger.log('✅ Tool execution completed successfully', {
-            timestamp: new Date().toISOString(),
-            toolName,
-            hasResult: !!result,
-          });
-
-          // Track success
-          await this.telemetry.track('step_succeeded', {
-            runId: executionContext.runId,
-            tool: toolName,
-            appId: toolMeta.appId,
-          });
-
-          // Record effect if effectful
-          if (toolMeta.effectful) {
-            this.logger.log('💾 Recording effect', {
-              timestamp: new Date().toISOString(),
-              toolName,
-              appId: toolMeta.appId,
-              canUndo: toolMeta.undoStrategy !== 'none',
-            });
-
-            await this.recordEffect({
-              runId: executionContext.runId,
-              appId: toolMeta.appId,
-              credentialId: credential?.id,
-              action: toolName,
-              externalRef: result.id || result.url,
-              idempotencyKey: randomUUID(),
-              undoStrategy: toolMeta.undoStrategy || 'none',
-              canUndo: toolMeta.undoStrategy !== 'none',
-              metadata: result,
-            });
-
-            this.logger.log('✅ Effect recorded', {
-              timestamp: new Date().toISOString(),
-            });
-          }
-        } catch (error: any) {
-          this.logger.error('❌ Tool execution failed', {
-            timestamp: new Date().toISOString(),
-            toolName,
-            error: error.message,
-            status: error.status,
-          });
-
-          // Check if vendor returned 401/403 - mark credential invalid
-          if (error.status === 401 || error.status === 403) {
-            if (credential) {
-              this.logger.warn('⚠️ Marking credential as invalid due to auth error', {
-                timestamp: new Date().toISOString(),
-                credentialId: credential.id,
-                status: error.status,
-              });
-
-              await this.credentials.markInvalid(credential.id, `Vendor returned ${error.status}`);
+          if (evt.type === 'node.exit') {
+            const delta = (evt.payload as any)?.delta;
+            if (delta) {
+              applyDelta(liveState, delta);
             }
-            throw new CredentialInvalidError(toolMeta.appId, credential?.id);
+            return;
           }
 
-          errorCode = ErrorCode.E_STEP_FAILED;
-          await this.telemetry.track('step_failed', {
-            runId: executionContext.runId,
-            tool: toolName,
-            appId: toolMeta.appId,
-            errorCode,
+          switch (evt.type) {
+            case 'run.started': {
+              this.logger.log('▶️ LangGraph run started', { runId: run.id });
+              safePublish('run_status', { status: 'running' });
+              break;
+            }
+            case 'plan.ready': {
+              const plan = Array.isArray((evt.payload as any)?.plan)
+                ? ((evt.payload as any).plan as any[])
+                : [];
+              const diff = (evt.payload as any)?.diff;
+              this.logger.log('📋 Plan ready', {
+                runId: run.id,
+                steps: plan.length,
+              });
+              safePublish('plan_generated', {
+                intent: liveState.scratch?.intent,
+                plan,
+                tools: plan.map((step: any) => step.tool),
+                actions: plan.map((step: any) => `Execute ${step.tool}`),
+                diff,
+              });
+              break;
+            }
+            case 'tool.called': {
+              const name = (evt.payload as any)?.name ?? 'unknown';
+              const args = (evt.payload as any)?.args;
+              this.logger.log('🔧 Tool started', { runId: run.id, tool: name });
+              safePublish('step_started', {
+                tool: name,
+                action: `Executing ${name}`,
+                request: args,
+              });
+              break;
+            }
+            case 'tool.succeeded': {
+              const name = (evt.payload as any)?.name ?? 'unknown';
+              const result = (evt.payload as any)?.result;
+              const ms = (evt.payload as any)?.ms;
+              this.logger.log('✅ Tool succeeded', {
+                runId: run.id,
+                tool: name,
+                durationMs: ms,
+              });
+              safePublish('step_succeeded', {
+                tool: name,
+                action: `Completed ${name}`,
+                response: result,
+                ms,
+              });
+              void this.telemetry
+                .track('step_succeeded', { runId: run.id, tool: name })
+                .catch(() => undefined);
+              break;
+            }
+            case 'tool.failed': {
+              const name = (evt.payload as any)?.name ?? 'unknown';
+              const error = (evt.payload as any)?.error;
+              this.logger.error('❌ Tool failed', { runId: run.id, tool: name, error });
+              safePublish('step_failed', { tool: name, error });
+              void this.telemetry
+                .track('step_failed', {
+                  runId: run.id,
+                  tool: name,
+                  errorCode: (error?.code as string) ?? ErrorCode.E_STEP_FAILED,
+                })
+                .catch(() => undefined);
+              break;
+            }
+            case 'approval.awaiting': {
+              const approvalId = (evt.payload as any)?.approvalId;
+              this.logger.log('⏸️ Awaiting approval', {
+                runId: run.id,
+                approvalId,
+              });
+              safePublish('run_status', {
+                status: 'awaiting_approval',
+                approvalId,
+              });
+              break;
+            }
+            case 'run.completed': {
+              graphEmittedRunCompleted = true;
+              const output = evt.payload ?? liveState.output ?? {};
+              this.logger.log('🎉 LangGraph run completed event', { runId: run.id });
+              safePublish('run_completed', {
+                status: 'done',
+                output,
+              });
+              break;
+            }
+            case 'run.failed': {
+              const error = evt.payload;
+              this.logger.error('🔴 LangGraph run failed event', { runId: run.id, error });
+              safePublish('run_status', {
+                status: 'failed',
+                error,
+              });
+              break;
+            }
+            default:
+              break;
+          }
+        } catch (handlerErr) {
+          this.logger.error('❌ Failed to handle LangGraph event', {
+            runId: run.id,
+            eventType: evt.type,
+            error: handlerErr instanceof Error ? handlerErr.message : handlerErr,
           });
-
-          throw error;
         }
-
-        const stepResult = {
-          tool: toolName,
-          action: toolMeta.description,
-          appId: toolMeta.appId,
-          credentialId: credential?.id,
-          request: input,
-          result,
-          errorCode,
-          ts: stepStartedAt.toISOString(),
-        };
-
-        this.logger.log('✅ Tool execution step completed', {
-          timestamp: new Date().toISOString(),
-          toolName,
-          duration: Date.now() - stepStartedAt.getTime(),
-        });
-
-        return stepResult;
       };
 
-      this.logger.log('🕸️ Building execution graph', {
-        timestamp: new Date().toISOString(),
-        runId: run.id,
-      });
+      bus.on('*', handleGraphEvent);
 
-      this.logger.log('🚀 Invoking AI agent', {
-        timestamp: new Date().toISOString(),
-        runId: run.id,
-        prompt: run.prompt,
-        promptLength: run.prompt.length,
-      });
-
-      this.logger.log('📝 Full prompt being sent to OpenAI:', {
-        timestamp: new Date().toISOString(),
-        runId: run.id,
-        fullPrompt: run.prompt,
-      });
-
-      // Set tool execution context for AUTO mode
-      const appliedToolContext = run.mode === 'auto';
-      if (appliedToolContext) {
-        this.agent.setToolExecutionContext({
-          userId: executionContext.userId,
-        });
-        this.logger.log('🔑 Tool execution context set', {
-          runId: run.id,
-          userId: executionContext.userId,
-        });
-      }
-
-      let result: { messages: any[]; finalOutput: string | null };
+      let final: RunState;
       try {
-        result = await this.agent.runAgentWithEvents(run.prompt, {
-          onPlanGenerated: async (plan) => {
-            this.logger.log('📋 Plan generated', { runId: run.id, tools: plan.tools });
-            await this.redisPubSub.publishRunEvent(run.id, {
-              type: 'plan_generated',
-              payload: {
-                intent: plan.intent,
-                tools: plan.tools,
-                actions: plan.tools.map((t) => `Execute ${t}`),
-              },
-            });
-          },
-          onToolStarted: async (tool, args) => {
-            this.logger.log('🔧 Tool started', { runId: run.id, tool, args });
-            await this.redisPubSub.publishRunEvent(run.id, {
-              type: 'step_started',
-              payload: {
-                tool,
-                action: `Executing ${tool}`,
-                request: args,
-              },
-            });
-          },
-          onToolCompleted: async (tool, result) => {
-            this.logger.log('✅ Tool completed', {
-              runId: run.id,
-              tool,
-              resultPreview: result.substring(0, 100),
-            });
-            await this.redisPubSub.publishRunEvent(run.id, {
-              type: 'step_succeeded',
-              payload: {
-                tool,
-                action: `Completed ${tool}`,
-                response: result,
-              },
-            });
-          },
-          onCompleted: async (finalMessage) => {
-            this.logger.log('🎉 Agent completed', { runId: run.id, finalMessage });
-          },
-        });
+        final = await graph.run('classify', initialState);
       } finally {
-        if (appliedToolContext) {
-          this.agent.setToolExecutionContext(null);
-        }
+        bus.off('*', handleGraphEvent);
       }
 
-      this.logger.log('✅ Agent execution completed', {
+      liveState = final;
+
+      this.logger.log('💾 Persisting LangGraph result', {
         timestamp: new Date().toISOString(),
         runId: run.id,
-        messagesCount: result.messages.length,
-        hasFinalOutput: !!result.finalOutput,
+        hasOutput: !!final.output,
       });
 
-      // Extract logs and output from agent result
-      const logs: any[] = [];
-      const output = result.finalOutput ? { message: result.finalOutput } : null;
-
-      this.logger.log('💾 Persisting execution results', {
-        timestamp: new Date().toISOString(),
-        runId: run.id,
-        logsCount: logs.length,
-        hasOutput: !!output,
-      });
-
-      this.logger.debug('📋 Extracted logs:', { logs });
-      this.logger.debug('📤 Extracted output:', { output });
-
-      await this.runs.persistResult(run.id, { logs, output });
+      await this.runs.persistResult(run.id, { output: final.output });
 
       this.logger.log('🎉 Updating run status to "done"', {
         timestamp: new Date().toISOString(),
@@ -398,11 +295,12 @@ export class RunProcessor extends WorkerHost {
 
       await this.runs.updateStatus(run.id, 'done');
 
-      // Publish completion event to Redis
-      await this.redisPubSub.publishRunEvent(run.id, {
-        type: 'run_completed',
-        payload: { status: 'done', output },
-      });
+      if (!graphEmittedRunCompleted) {
+        await publishRunEvent('run_completed', {
+          status: 'done',
+          output: final.output ?? {},
+        });
+      }
 
       this.logger.log('✅ Job completed successfully', {
         timestamp: new Date().toISOString(),
@@ -410,6 +308,7 @@ export class RunProcessor extends WorkerHost {
         runId: run.id,
         totalDuration: Date.now() - (job.processedOn || Date.now()),
       });
+
       await this.telemetry.track('run_completed', { runId: run.id, status: 'done' });
     } catch (err: any) {
       this.logger.error('❌ Job execution failed', {
@@ -420,10 +319,50 @@ export class RunProcessor extends WorkerHost {
         errorCode: err?.code,
       });
 
-      const errorPayload =
-        err instanceof CredentialMissingError || err instanceof CredentialInvalidError
-          ? err.toJSON()
-          : { message: err?.message, code: ErrorCode.E_PLAN_FAILED };
+      const isApprovalHalt =
+        err?.code === GRAPH_HALT_AWAITING_APPROVAL ||
+        err?.name === GRAPH_HALT_AWAITING_APPROVAL ||
+        err?.message === GRAPH_HALT_AWAITING_APPROVAL;
+
+      if (isApprovalHalt) {
+        const approvalId =
+          err?.approvalId ?? err?.payload?.approvalId ?? err?.data?.approvalId ?? undefined;
+
+        await this.runs.updateStatus(run.id, 'awaiting_approval');
+
+        if (approvalId) {
+          this.logger.log('⏸️ Run awaiting approval with ID', {
+            runId: run.id,
+            approvalId,
+          });
+        } else {
+          this.logger.log('⏸️ Run awaiting approval', {
+            runId: run.id,
+          });
+        }
+
+        await this.redisPubSub.publishRunEvent(run.id, {
+          type: 'run_status',
+          payload: approvalId
+            ? { status: 'awaiting_approval', approvalId }
+            : { status: 'awaiting_approval' },
+        });
+
+        return;
+      }
+
+      this.logger.error('❌ Job execution failed', {
+        timestamp: new Date().toISOString(),
+        jobId: job.id,
+        runId: run.id,
+        error: err?.message,
+        errorCode: err?.code,
+      });
+
+      const errorPayload = {
+        message: err?.message ?? 'run failed',
+        code: err?.code ?? ErrorCode.E_PLAN_FAILED,
+      };
 
       this.logger.log('💾 Persisting error result', {
         timestamp: new Date().toISOString(),
@@ -454,66 +393,5 @@ export class RunProcessor extends WorkerHost {
 
       throw err;
     }
-  }
-
-  private async executeTool(
-    toolName: string,
-    input: any,
-    credentialKey?: any,
-    userId?: number
-  ): Promise<any> {
-    this.logger.debug('Executing tool', {
-      toolName,
-      hasCredential: !!credentialKey,
-      userId,
-    });
-
-    // Import tool handlers dynamically based on toolName
-    switch (toolName) {
-      case 'create_google_calendar_event': {
-        const { createGoogleCalendarEvent } = await import('@quikday/appstore-google-calendar');
-        if (!userId) {
-          throw new Error('userId is required for Google Calendar tool');
-        }
-        return await createGoogleCalendarEvent(input, userId);
-      }
-
-      case 'send_gmail_email': {
-        const { sendGmailEmail } = await import('@quikday/appstore-gmail-email');
-        if (!userId) {
-          throw new Error('userId is required for Gmail tool');
-        }
-        // Assuming similar signature - update if needed
-        return await sendGmailEmail(input, userId);
-      }
-
-      case 'send_slack_dm': {
-        // Mock implementation for now
-        return `💬 DM to ${input.to}: ${input.message}`;
-      }
-
-      default:
-        throw new Error(`Unknown tool: ${toolName}`);
-    }
-  }
-
-  private async recordEffect(effect: {
-    runId: string;
-    appId: string;
-    credentialId: number;
-    action: string;
-    externalRef?: string;
-    idempotencyKey: string;
-    undoStrategy: string;
-    canUndo: boolean;
-    metadata: any;
-  }): Promise<void> {
-    // TODO: Record to RunEffect table once Prisma client is regenerated
-    await this.telemetry.track('effect_recorded', {
-      runId: effect.runId,
-      appId: effect.appId,
-      action: effect.action,
-      canUndo: effect.canUndo,
-    });
   }
 }

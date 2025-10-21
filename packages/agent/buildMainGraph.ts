@@ -1,5 +1,6 @@
 import { Graph } from './runtime/graph.js';
 import type { RunState } from './state/types.js';
+import type { LLM } from './llm/types.js';
 import { classifyIntent } from './nodes/classifyIntent.js';
 import { planner } from './nodes/planner.js';
 import { confirm } from './nodes/confirm.js';
@@ -10,8 +11,13 @@ import { routeByMode } from './guards/policy.js';
 import { hooks } from './observability/events';
 import { safeNode } from './runtime/safeNode.js';
 
-export const buildMainGraph = () =>
-  new Graph<RunState>(hooks())
+type BuildMainGraphOptions = {
+  llm: LLM;
+};
+
+export const buildMainGraph = ({ llm }: BuildMainGraphOptions) => {
+  void llm; // LLM will be threaded into nodes as LangGraph V2 matures
+  return new Graph<RunState>(hooks())
     .addNode('classify', safeNode('classify', classifyIntent))
     .addNode('planner', safeNode('planner', planner))
     .addNode('confirm', safeNode('confirm', confirm))
@@ -26,3 +32,4 @@ export const buildMainGraph = () =>
     .addEdge('executor', (s) => (s.error ? 'fallback' : 'summarize'))
     .addEdge('summarize', () => 'END')
     .addEdge('fallback', () => 'END');
+};

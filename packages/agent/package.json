@@ -13,6 +13,30 @@
       "import": "./dist/index.js",
       "require": "./dist/index.js",
       "default": "./dist/index.js"
+    },
+    "./buildMainGraph": {
+      "types": "./dist/buildMainGraph.d.ts",
+      "import": "./dist/buildMainGraph.js",
+      "require": "./dist/buildMainGraph.js",
+      "default": "./dist/buildMainGraph.js"
+    },
+    "./llm/openai": {
+      "types": "./dist/llm/openai.d.ts",
+      "import": "./dist/llm/openai.js",
+      "require": "./dist/llm/openai.js",
+      "default": "./dist/llm/openai.js"
+    },
+    "./state/types": {
+      "types": "./dist/state/types.d.ts",
+      "import": "./dist/state/types.js",
+      "require": "./dist/state/types.js",
+      "default": "./dist/state/types.js"
+    },
+    "./observability/events": {
+      "types": "./dist/observability/events.d.ts",
+      "import": "./dist/observability/events.js",
+      "require": "./dist/observability/events.js",
+      "default": "./dist/observability/events.js"
     }
   },
   "files": [
