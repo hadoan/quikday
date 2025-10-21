@@ -69,6 +69,9 @@ export class GoogleCalendarService {
     userId: number,
     input: CreateGoogleCalendarEventOptions,
   ): Promise<CalendarEventResponse> {
+    const startedAt = Date.now();
+    let eventId: string | undefined;
+    let result: CalendarEventResponse | undefined;
     this.logger.log(
       `Creating Google Calendar event ${this.formatMeta({
         userId,
@@ -76,10 +79,29 @@ export class GoogleCalendarService {
       })}`,
       this.loggerContext,
     );
+    this.logger.debug?.(
+      `Raw payload received ${this.formatMeta({
+        userId,
+        calendarId: input.calendarId ?? 'primary',
+        hasAttendees: !!input.attendees,
+        hasReminders: !!input.reminders,
+      })}`,
+      this.loggerContext,
+    );
 
     let parsed: BaseCalendarEvent;
     try {
       parsed = baseCalendarEventSchema.parse(input);
+      this.logger.debug?.(
+        `Validated event payload ${this.formatMeta({
+          userId,
+          title: parsed.title,
+          start: parsed.start,
+          end: parsed.end ?? null,
+          duration: parsed.durationMinutes ?? null,
+        })}`,
+        this.loggerContext,
+      );
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Invalid calendar event payload';
       this.logger.error(
@@ -144,13 +166,14 @@ export class GoogleCalendarService {
         this.loggerContext,
       );
 
-      return {
+      result = {
         success: true,
         message: `Event '${parsed.title}' created in Google Calendar`,
         eventId: event.id ?? undefined,
         startIso,
         endIso,
       };
+      eventId = result.eventId;
     } catch (error) {
       this.logger.error(
         `Failed to create Google Calendar event ${this.formatMeta({
@@ -164,8 +187,21 @@ export class GoogleCalendarService {
 
       const message =
         error instanceof Error ? error.message : 'Failed to create Google Calendar event';
-      return { success: false, message };
+      result = { success: false, message };
     }
+
+    this.logger.log(
+      `Completed Google Calendar create flow ${this.formatMeta({
+        userId,
+        calendarId: input.calendarId ?? 'primary',
+        eventId: eventId ?? null,
+        success: result?.success ?? false,
+        durationMs: Date.now() - startedAt,
+      })}`,
+      this.loggerContext,
+    );
+
+    return result ?? { success: false, message: 'Unknown error creating Google Calendar event' };
   }
 
   private async getAuthorizedCalendar(userId: number) {
@@ -181,14 +217,39 @@ export class GoogleCalendarService {
     if (!credential) {
       throw new Error('No Google Calendar credential found. Connect your Google Calendar account.');
     }
+    this.logger.debug?.(
+      `Resolved credential ${this.formatMeta({
+        userId,
+        credentialId: credential.id,
+        hasTokenExpiresAt: !!credential.tokenExpiresAt,
+      })}`,
+      this.loggerContext,
+    );
 
     const credentialKey = this.safeCredentialKey(credential.key);
     const tokens = this.extractTokens(credentialKey, credential);
     if (!tokens.access_token && !tokens.refresh_token) {
       throw new Error('Google Calendar tokens missing. Reconnect your Google Calendar account.');
     }
+    this.logger.debug?.(
+      `Resolved credential tokens ${this.formatMeta({
+        userId,
+        credentialId: credential.id,
+        hasAccessToken: !!tokens.access_token,
+        hasRefreshToken: !!tokens.refresh_token,
+        hasExpiry: !!tokens.expiry_date,
+      })}`,
+      this.loggerContext,
+    );
 
     const { clientId, clientSecret } = await this.getOAuthCredentials();
+    this.logger.debug?.(
+      `Loaded OAuth client configuration ${this.formatMeta({
+        clientIdSuffix: clientId.slice(-4),
+        usingCache: !!this.cachedOAuth,
+      })}`,
+      this.loggerContext,
+    );
 
     const oauth2Client = new google.auth.OAuth2(clientId, clientSecret);
     oauth2Client.setCredentials({
@@ -276,6 +337,7 @@ export class GoogleCalendarService {
 
     if (!clientId || !clientSecret) {
       try {
+        this.logger.debug?.('Attempting to resolve OAuth credentials from app keys', this.loggerContext);
         const appKeys = (await getAppKeysFromSlug(this.getAppSlug())) as Record<string, unknown>;
         if (!clientId && typeof appKeys?.client_id === 'string') clientId = appKeys.client_id;
         if (!clientSecret && typeof appKeys?.client_secret === 'string') {
@@ -312,6 +374,13 @@ export class GoogleCalendarService {
       normalized,
     );
     if (!changed) return;
+    this.logger.debug?.(
+      `Detected credential token changes ${this.formatMeta({
+        credentialId,
+        hasExpiry: !!expiryDate,
+      })}`,
+      this.loggerContext,
+    );
 
     try {
       await this.prisma.credential.update({
@@ -330,6 +399,7 @@ export class GoogleCalendarService {
         this.loggerContext,
       );
     }
+
   }
 
   private normalizeCredentials(credentials: OAuthCredentialSnapshot): GoogleCalendarTokens {
