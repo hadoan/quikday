@@ -4,13 +4,13 @@
  * based on the user's preferred language
  * defaults to 'en-US' (12h) if no navigator language is found
  */
-import { localStorage } from "../webstorage";
+import { localStorage } from '../webstorage';
 
-const is24hLocalstorageKey = "timeOption.is24hClock";
+const is24hLocalstorageKey = 'timeOption.is24hClock';
 
 export enum TimeFormat {
-  TWELVE_HOUR = "h:mma",
-  TWENTY_FOUR_HOUR = "HH:mm",
+  TWELVE_HOUR = 'h:mma',
+  TWENTY_FOUR_HOUR = 'HH:mm',
 }
 
 export const getTimeFormatStringFromUserTimeFormat = (timeFormat: number | null | undefined) => {
@@ -25,7 +25,7 @@ export const getIs24hClockFromLocalStorage = () => {
 
   if (is24hFromLocalstorage === null) return null;
 
-  return is24hFromLocalstorage === "true";
+  return is24hFromLocalstorage === 'true';
 };
 
 /**
@@ -42,7 +42,7 @@ export const isBrowserLocale24h = () => {
     return false;
   }
   // Intl.DateTimeFormat with value=undefined uses local browser settings.
-  if (!!new Intl.DateTimeFormat(undefined, { hour: "numeric" }).format(0).match(/M/i)) {
+  if (!!new Intl.DateTimeFormat(undefined, { hour: 'numeric' }).format(0).match(/M/i)) {
     setIs24hClockInLocalStorage(false);
     return false;
   } else {

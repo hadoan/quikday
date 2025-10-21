@@ -4,12 +4,12 @@ export interface ICity {
   timezone: string | null;
 }
 
-import type { ITimezoneOption } from "react-timezone-select";
+import type { ITimezoneOption } from 'react-timezone-select';
 
-import isProblematicTimezone from "./isProblematicTimezone";
+import isProblematicTimezone from './isProblematicTimezone';
 
 function findPartialMatch(itemsToSearch: string, searchString: string) {
-  const searchItems = searchString.split(" ");
+  const searchItems = searchString.split(' ');
   return searchItems.every((i) => itemsToSearch.toLowerCase().indexOf(i.toLowerCase()) >= 0);
 }
 
@@ -27,18 +27,25 @@ export const filterByCities = (tz: string, data: ICity[]): ICity[] => {
 };
 
 export const addCitiesToDropdown = (cities: ICity[] = []) => {
-  const cityTimezones = cities.reduce((acc: { [key: string]: string }, city: ICity) => {
-    if (city.timezone !== null && city.timezone !== undefined && !isProblematicTimezone(city.timezone)) {
-      acc[city.timezone] = city.city;
-    }
-    return acc;
-  }, {} as { [key: string]: string });
+  const cityTimezones = cities.reduce(
+    (acc: { [key: string]: string }, city: ICity) => {
+      if (
+        city.timezone !== null &&
+        city.timezone !== undefined &&
+        !isProblematicTimezone(city.timezone)
+      ) {
+        acc[city.timezone] = city.city;
+      }
+      return acc;
+    },
+    {} as { [key: string]: string },
+  );
   return cityTimezones;
 };
 
 export const handleOptionLabel = (option: ITimezoneOption, cities: ICity[]) => {
-  const timezoneValue = option.label.split(")")[0].replace("(", " ").replace("T", "T ");
-  const cityName = option.label.split(") ")[1];
-  const refactoredOption = option.value.replace(/_/g, " ");
+  const timezoneValue = option.label.split(')')[0].replace('(', ' ').replace('T', 'T ');
+  const cityName = option.label.split(') ')[1];
+  const refactoredOption = option.value.replace(/_/g, ' ');
   return cities.length > 0 ? `${cityName}${timezoneValue}` : `${refactoredOption}${timezoneValue}`;
 };

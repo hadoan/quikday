@@ -35,18 +35,8 @@ const gmailManager = new GmailManagerService();
  * @param userId - User ID from execution context (injected by RunProcessor)
  */
 export async function sendGmailEmail(input: GmailToolInput, userId: number): Promise<string> {
-  const {
-    to,
-    subject,
-    body,
-    cc,
-    bcc,
-    isHtml,
-    replyTo,
-    attachments,
-    fromName,
-    replyToThreadId,
-  } = gmailEmailSchema.parse(input);
+  const { to, subject, body, cc, bcc, isHtml, replyTo, attachments, fromName, replyToThreadId } =
+    gmailEmailSchema.parse(input);
 
   // Parse and validate email addresses
   const toAddresses = parseEmailAddresses(to);

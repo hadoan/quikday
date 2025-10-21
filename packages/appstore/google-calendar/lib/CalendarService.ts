@@ -185,17 +185,23 @@ export class GoogleCalendarService {
         this.loggerContext,
       );
 
-      let message = error instanceof Error ? error.message : 'Failed to create Google Calendar event';
-      
+      let message =
+        error instanceof Error ? error.message : 'Failed to create Google Calendar event';
+
       // Provide helpful error messages for common issues
-      if (message.includes('Calendar API has not been used') || message.includes('API has not been used')) {
-        message = 'Google Calendar API is not enabled. Please enable it in your Google Cloud Console: https://console.cloud.google.com/apis/library/calendar-json.googleapis.com';
+      if (
+        message.includes('Calendar API has not been used') ||
+        message.includes('API has not been used')
+      ) {
+        message =
+          'Google Calendar API is not enabled. Please enable it in your Google Cloud Console: https://console.cloud.google.com/apis/library/calendar-json.googleapis.com';
       } else if (message.includes('invalid_grant') || message.includes('Token has been expired')) {
         message = 'Your Google Calendar connection has expired. Please reconnect your account.';
       } else if (message.includes('insufficient permissions') || message.includes('403')) {
-        message = 'Insufficient permissions to access Google Calendar. Please reconnect with the required calendar permissions.';
+        message =
+          'Insufficient permissions to access Google Calendar. Please reconnect with the required calendar permissions.';
       }
-      
+
       result = { success: false, message };
     }
 
@@ -346,7 +352,10 @@ export class GoogleCalendarService {
 
     if (!clientId || !clientSecret) {
       try {
-        this.logger.debug?.('Attempting to resolve OAuth credentials from app keys', this.loggerContext);
+        this.logger.debug?.(
+          'Attempting to resolve OAuth credentials from app keys',
+          this.loggerContext,
+        );
         const appKeys = (await getAppKeysFromSlug(this.getAppSlug())) as Record<string, unknown>;
         if (!clientId && typeof appKeys?.client_id === 'string') clientId = appKeys.client_id;
         if (!clientSecret && typeof appKeys?.client_secret === 'string') {
@@ -408,7 +417,6 @@ export class GoogleCalendarService {
         this.loggerContext,
       );
     }
-
   }
 
   private normalizeCredentials(credentials: OAuthCredentialSnapshot): GoogleCalendarTokens {

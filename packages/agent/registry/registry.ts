@@ -1,0 +1,40 @@
+import type { Tool } from './types.js';
+import { Circuit } from './support/circuit';
+import { Idempotency } from './idempotency';
+import { checkRate } from './support/rate';
+import { requireScopes } from '../guards/policy';
+
+export class ToolRegistry {
+  private tools = new Map<string, Tool<any, any>>();
+  private circuits = new Map<string, Circuit>();
+
+  register<TIn, TOut>(tool: Tool<TIn, TOut>) {
+    this.tools.set(tool.name, tool);
+    this.circuits.set(tool.name, new Circuit({ failureThreshold: 5, resetMs: 60_000 }));
+    return this;
+  }
+
+  get(name: string) {
+    const t = this.tools.get(name);
+    if (!t) throw new Error(`Tool not found: ${name}`);
+    return t;
+  }
+
+  async call<TIn, TOut>(name: string, args: TIn, ctx: any): Promise<TOut> {
+    const tool = this.get(name) as Tool<TIn, TOut>;
+    requireScopes(ctx.scopes, tool.scopes);
+    checkRate(tool.name, ctx.userId, tool.rate);
+    const circuit = this.circuits.get(tool.name)!;
+
+    return circuit.exec(async () => {
+      const key = Idempotency.key(ctx.runId, name, args);
+      const hit = await Idempotency.find<TOut>(key);
+      if (hit) return hit;
+      const out = await tool.call(args, ctx);
+      await Idempotency.store(key, out);
+      return out;
+    });
+  }
+}
+
+export const registry = new ToolRegistry();

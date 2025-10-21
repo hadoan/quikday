@@ -8,7 +8,7 @@ import { TelemetryService } from '../telemetry/telemetry.service';
 import { getToolMetadata } from '@quikday/appstore';
 import { CredentialMissingError, CredentialInvalidError, ErrorCode } from '@quikday/types';
 import { randomUUID } from 'crypto';
-import { RedisPubSubService } from '../redis/redis-pubsub.service';
+import { RedisPubSubService } from '@quikday/libs';
 
 @Processor('runs')
 export class RunProcessor extends WorkerHost {
@@ -19,7 +19,7 @@ export class RunProcessor extends WorkerHost {
     private credentials: CredentialService,
     private telemetry: TelemetryService,
     private redisPubSub: RedisPubSubService,
-    private agent: AgentService,
+    private agent: AgentService
   ) {
     super();
   }
@@ -194,7 +194,7 @@ export class RunProcessor extends WorkerHost {
             toolName,
             input,
             credential?.key,
-            executionContext.userId,
+            executionContext.userId
           );
 
           this.logger.log('✅ Tool execution completed successfully', {
@@ -460,7 +460,7 @@ export class RunProcessor extends WorkerHost {
     toolName: string,
     input: any,
     credentialKey?: any,
-    userId?: number,
+    userId?: number
   ): Promise<any> {
     this.logger.debug('Executing tool', {
       toolName,

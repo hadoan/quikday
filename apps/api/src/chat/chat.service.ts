@@ -10,7 +10,7 @@ export class ChatService {
 
   constructor(
     private runs: RunsService,
-    private agent: AgentService,
+    private agent: AgentService
   ) {}
 
   async handlePrompt({

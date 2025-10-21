@@ -11,6 +11,11 @@
     "sourceMap": true,
     "declaration": true,
     "declarationMap": true,
-    "outDir": "dist"
+    "outDir": "dist",
+    "baseUrl": ".",
+    "paths": {
+      "@quikday/libs": ["packages/libs"],
+      "@quikday/libs/*": ["packages/libs/*"]
+    }
   }
 }

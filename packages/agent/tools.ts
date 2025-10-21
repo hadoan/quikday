@@ -24,12 +24,12 @@ export function getToolExecutionContext(): ToolExecutionContext | null {
 export const createCalendarEvent = tool(
   async (input: any) => {
     const context = getToolExecutionContext();
-    
+
     if (!context) {
       // In PLAN mode or when context not available, return placeholder
       return `[PLANNED] Will create calendar event: ${input.title} at ${input.start}`;
     }
-    
+
     // Execute the real tool with userId context
     try {
       const { createGoogleCalendarEvent } = await import('@quikday/appstore-google-calendar');
@@ -48,7 +48,10 @@ export const createCalendarEvent = tool(
     schema: z.object({
       title: z.string().describe("Event title, e.g., 'Check-in with Sara'"),
       start: z.string().describe("Start time in ISO 8601 format, e.g., '2025-10-22T16:00:00'"),
-      end: z.string().optional().describe("End time in ISO 8601 format, e.g., '2025-10-22T16:30:00'"),
+      end: z
+        .string()
+        .optional()
+        .describe("End time in ISO 8601 format, e.g., '2025-10-22T16:30:00'"),
       durationMinutes: z
         .number()
         .int()
@@ -69,12 +72,12 @@ export const createCalendarEvent = tool(
 export const sendEmail = tool(
   async (input: any) => {
     const context = getToolExecutionContext();
-    
+
     if (!context) {
       // In PLAN mode or when context not available, return placeholder
       return `[PLANNED] Will send email to: ${input.to} with subject: ${input.subject}`;
     }
-    
+
     // Execute the real tool with userId context
     try {
       const { sendGmailEmail } = await import('@quikday/appstore-gmail-email');

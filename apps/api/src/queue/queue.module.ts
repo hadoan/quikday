@@ -7,7 +7,7 @@ import { RunProcessor } from './run.processor';
 import { RunsModule } from '../runs/runs.module';
 import { TelemetryModule } from '../telemetry/telemetry.module';
 import { CredentialsModule } from '../credentials/credentials.module';
-import { RedisModule } from '../redis/redis.module';
+import { RedisModule } from '@quikday/libs';
 
 @Module({
   imports: [

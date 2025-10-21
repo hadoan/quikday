@@ -165,9 +165,7 @@ export default function createApp(meta: AppMeta, deps: any) {
         }
 
         const normalizedTimeZone =
-          typeof timeZone === 'string' && timeZone.trim().length
-            ? timeZone.trim()
-            : undefined;
+          typeof timeZone === 'string' && timeZone.trim().length ? timeZone.trim() : undefined;
         if (normalizedTimeZone) {
           payload.timeZone = normalizedTimeZone;
         }
@@ -259,9 +257,7 @@ export default function createApp(meta: AppMeta, deps: any) {
       return record.id;
     }
 
-    normalizeReminders(
-      value: unknown,
-    ): calendar_v3.Schema$Event['reminders'] | undefined {
+    normalizeReminders(value: unknown): calendar_v3.Schema$Event['reminders'] | undefined {
       if (!value || typeof value !== 'object') {
         return undefined;
       }

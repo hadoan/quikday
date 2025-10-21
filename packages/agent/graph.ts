@@ -24,7 +24,9 @@ async function agentNode(state: typeof MessagesAnnotation.State) {
   logger.debug(`\ud83e\udd16 [Agent] Response: ${JSON.stringify(result, null, 2)}`);
   logger.log(`\ud83e\udd16 [Agent] Has tool calls: ${!!(result as any).tool_calls?.length}`);
   if ((result as any).tool_calls?.length) {
-    logger.debug(`\ud83e\udd16 [Agent] Tool calls: ${JSON.stringify((result as any).tool_calls, null, 2)}`);
+    logger.debug(
+      `\ud83e\udd16 [Agent] Tool calls: ${JSON.stringify((result as any).tool_calls, null, 2)}`,
+    );
   }
   logger.log('\ud83e\udd16 [Agent] ======================================');
 
@@ -77,7 +79,9 @@ async function toolsNode(state: typeof MessagesAnnotation.State) {
       try {
         const output = await (tool as any).invoke(call.args as any);
         const duration = Date.now() - started;
-        logger.log(`\ud83e\udd16 [Agent] \ud83d\udd27 Tool '${call.name}' completed in ${duration}ms`);
+        logger.log(
+          `\ud83e\udd16 [Agent] \ud83d\udd27 Tool '${call.name}' completed in ${duration}ms`,
+        );
         logger.debug(`\ud83e\udd16 [Agent] \ud83d\udd27 Output: ${safeStr(output)}`);
 
         return new ToolMessage({
@@ -88,7 +92,9 @@ async function toolsNode(state: typeof MessagesAnnotation.State) {
       } catch (err) {
         const duration = Date.now() - started;
         const message = err instanceof Error ? err.message : String(err);
-        logger.error(`\ud83e\udd16 [Agent] \ud83d\udd27 Tool '${call.name}' failed in ${duration}ms: ${message}`);
+        logger.error(
+          `\ud83e\udd16 [Agent] \ud83d\udd27 Tool '${call.name}' failed in ${duration}ms: ${message}`,
+        );
         return new ToolMessage({
           content: `Tool '${call.name}' error: ${message}`,
           tool_call_id: id,

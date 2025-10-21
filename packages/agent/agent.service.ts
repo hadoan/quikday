@@ -15,7 +15,7 @@ export interface RunAgentCallbacks {
   onCompleted?: (finalMessage: string) => void;
 }
 
- @Injectable()
+@Injectable()
 export class AgentService {
   /**
    * Execute the agent once and return the formatted outputs.

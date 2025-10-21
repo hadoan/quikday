@@ -2,7 +2,7 @@ import { Injectable, Logger, OnModuleDestroy } from '@nestjs/common';
 import { WebSocketServer, WebSocket } from 'ws';
 import { Server } from 'http';
 import { PrismaService } from '@quikday/prisma';
-import { RedisPubSubService } from '../redis/redis-pubsub.service';
+import { RedisPubSubService } from '@quikday/libs';
 
 interface ConnectionState {
   runId: string;
