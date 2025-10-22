@@ -24,7 +24,7 @@ import { AgentModule } from './agent';
     TeamsModule,
     CredentialsModule,
     WebSocketModule,
-    IntegrationsModule,
+    // IntegrationsModule,
     UsersModule,
     AgentModule,
     AgentTestModule,

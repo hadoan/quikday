@@ -17,6 +17,7 @@ export class AgentService {
   async run(initialState: RunState, entryPoint = 'classify'): Promise<RunState> {
     const graph = this.createGraph();
     const { userId, teamId } = initialState.ctx;
+    console.log('Running agent graph test', { entryPoint, initialState });
     return withLlmContext(
       {
         userId,

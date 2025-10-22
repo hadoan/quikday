@@ -7,6 +7,7 @@ import { json } from 'express';
 import { WebSocketService } from './websocket/websocket.service';
 import type { LogLevel } from '@nestjs/common';
 import { FileLogger } from './logging/file-logger';
+import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 
 async function bootstrap() {
   // Load env from monorepo root if present (so API can run under turbo)
@@ -47,6 +48,20 @@ async function bootstrap() {
     credentials: true,
     allowedHeaders: ['Content-Type', 'Authorization', 'X-Workspace-Id'],
     methods: ['GET', 'POST', 'PATCH', 'PUT', 'DELETE', 'OPTIONS'],
+  });
+  // Swagger setup
+  const swaggerConfig = new DocumentBuilder()
+    .setTitle('Runfast API')
+    .setDescription('API documentation for Runfast')
+    .setVersion('1.0')
+    .addBearerAuth(
+      { type: 'http', scheme: 'bearer', bearerFormat: 'JWT' },
+      'bearer',
+    )
+    .build();
+  const swaggerDoc = SwaggerModule.createDocument(app, swaggerConfig);
+  SwaggerModule.setup('docs', app, swaggerDoc, {
+    swaggerOptions: { persistAuthorization: true },
   });
   const port = Number(process.env.PORT || 3000);
 

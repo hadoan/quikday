@@ -216,6 +216,10 @@ enum AppCategories {
     social
     cloudstorage
     ai
+    docs
+    data
+    devtools
+    finance
 }
 
 model App {

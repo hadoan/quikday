@@ -4,6 +4,7 @@ import { Idempotency } from './idempotency';
 import { checkRate } from './support/rate';
 import { requireScopes } from '../guards/policy';
 import { z } from 'zod';
+import { slackPostMessage } from "./tools/slack.postMessage";
 
 export class ToolRegistry {
   private tools = new Map<string, Tool<any, any>>();
@@ -62,3 +63,6 @@ registry.register({
         : 'noop',
   }),
 });
+
+
+registry.register(slackPostMessage);

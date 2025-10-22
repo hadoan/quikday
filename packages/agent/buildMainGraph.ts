@@ -1,7 +1,7 @@
 import { Graph } from './runtime/graph';
 import type { RunState } from './state/types';
 import type { LLM } from './llm/types';
-import { classifyIntent } from './nodes/classifyIntent';
+import { makeClassifyIntent } from "./nodes/classifyIntent";
 import { planner } from './nodes/planner';
 import { confirm } from './nodes/confirm';
 import { executor } from './nodes/executor';
@@ -18,11 +18,11 @@ type BuildMainGraphOptions = {
 export const buildMainGraph = ({ llm }: BuildMainGraphOptions) => {
   void llm; // LLM will be threaded into nodes as LangGraph V2 matures
   return new Graph<RunState>(hooks())
-    .addNode('classify', safeNode('classify', classifyIntent))
+    .addNode('classify', makeClassifyIntent(llm))
     .addNode('planner', safeNode('planner', planner))
     .addNode('confirm', safeNode('confirm', confirm))
     .addNode('executor', safeNode('executor', executor))
-    .addNode('summarize', safeNode('summarize', summarize))
+    .addNode('summarize', summarize(llm))
     .addNode('fallback', fallback('policy_denied'))
 
     .addEdge('START', () => 'classify')
