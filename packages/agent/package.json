@@ -1,95 +1,22 @@
 {
   "name": "@quikday/agent",
-  "version": "0.1.0",
-  "description": "Quik.day agent library",
-  "private": false,
-  "type": "module",
-  "main": "dist/index.js",
-  "module": "dist/index.js",
-  "types": "dist/index.d.ts",
-  "exports": {
-    ".": {
-      "types": "./dist/index.d.ts",
-      "import": "./dist/index.js",
-      "require": "./dist/index.js",
-      "default": "./dist/index.js"
-    },
-    "./buildMainGraph": {
-      "types": "./dist/buildMainGraph.d.ts",
-      "import": "./dist/buildMainGraph.js",
-      "require": "./dist/buildMainGraph.js",
-      "default": "./dist/buildMainGraph.js"
-    },
-    "./testPrompt": {
-      "types": "./dist/testPrompt.d.ts",
-      "import": "./dist/testPrompt.js",
-      "require": "./dist/testPrompt.js",
-      "default": "./dist/testPrompt.js"
-    },
-    "./llm/openai": {
-      "types": "./dist/llm/openai.d.ts",
-      "import": "./dist/llm/openai.js",
-      "require": "./dist/llm/openai.js",
-      "default": "./dist/llm/openai.js"
-    },
-    "./nest": {
-      "types": "./dist/nest/index.d.ts",
-      "import": "./dist/nest/index.js",
-      "require": "./dist/nest/index.js",
-      "default": "./dist/nest/index.js"
-    },
-    "./state/types": {
-      "types": "./dist/state/types.d.ts",
-      "import": "./dist/state/types.js",
-      "require": "./dist/state/types.js",
-      "default": "./dist/state/types.js"
-    },
-    "./observability/events": {
-      "types": "./dist/observability/events.d.ts",
-      "import": "./dist/observability/events.js",
-      "require": "./dist/observability/events.js",
-      "default": "./dist/observability/events.js"
-    }
-  },
-  "files": [
-    "dist"
-  ],
-  "sideEffects": false,
-  "scripts": {
-    "build": "tsc -p tsconfig.json --outDir dist --rootDir . && node ./scripts/fix-import-extensions.mjs",
-    "dev": "tsc -p tsconfig.json --outDir dist --rootDir . --watch",
-    "clean": "rm -rf dist",
-    "test": "vitest run"
-  },
-  "keywords": [
-    "quikday",
-    "agent",
-    "langgraph"
-  ],
-  "author": "",
-  "license": "MIT",
-  "publishConfig": {
-    "access": "public"
-  },
+  "description": "",
+  "version": "0.0.0",
+  "private": true,
   "dependencies": {
     "@langchain/core": "^1.0.1",
     "@langchain/langgraph": "^1.0.0",
     "@langchain/openai": "^1.0.0",
-    "@nestjs/common": "^10.4.2",
-    "@quikday/appstore": "workspace:*",
-    "@quikday/appstore-google-calendar": "workspace:*",
-    "@quikday/appstore-gmail-email": "workspace:*",
-    "@quikday/libs": "workspace:*",
-    "@quikday/prisma": "workspace:*",
     "dotenv": "^17.2.3",
-    "openai": "^4.72.0",
-    "zod": "^4.1.12"
+    "zod": "^4.1.12",
+    "@quikday/prisma": "workspace:*",
+    "@quikday/libs": "workspace:*",
+    "@nestjs/common": "^10.4.2"
   },
   "devDependencies": {
-    "@nestjs/testing": "^10.4.2",
-    "@types/node": "^22.16.5",
-    "vitest": "^3.0.0",
+    "@types/node": "^24.8.1",
     "typescript": "^5.9.3",
-    "@quikday/tsconfig": "workspace:*"
+    "vitest": "^0.34.0",
+    "@nestjs/testing": "^10.4.2"
   }
 }
