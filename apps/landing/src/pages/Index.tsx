@@ -1,14 +1,16 @@
 import { Navbar } from "@/components/Navbar";
 import { Hero } from "@/components/Hero";
 import { ProblemSolution } from "@/components/ProblemSolution";
-import { ThreePillars } from "@/components/ThreePillars";
-import { Benefits } from "@/components/Benefits";
-import { Kits } from "@/components/Kits";
+import { HowItWorks } from "@/components/HowItWorks";
+import { GovernanceStrip } from "@/components/GovernanceStrip";
+import { UseCases } from "@/components/UseCases";
 import { Integrations } from "@/components/Integrations";
 import { OpenSource } from "@/components/OpenSource";
 import { Pricing } from "@/components/Pricing";
 import { BetaSignup } from "@/components/BetaSignup";
 import { SocialProof } from "@/components/SocialProof";
+import { Trust } from "@/components/Trust";
+import { FinalCTA } from "@/components/FinalCTA";
 import { Footer } from "@/components/Footer";
 import { Helmet } from "react-helmet";
 
@@ -19,17 +21,17 @@ const Index = () => {
     "name": "Quik.day",
     "applicationCategory": "AutomationApplication",
     "operatingSystem": "Web",
-    "description": "Execution automation for founders and lean GTM teams. Run work fast. Review only when it matters. Undo built-in.",
+    "description": "Execution automation for founders and lean teams. Run work fast. Review only when it matters. Undo built-in.",
     "offers": {
       "@type": "AggregateOffer",
       "lowPrice": "19.00",
       "highPrice": "99.00",
       "priceCurrency": "EUR",
       "offers": [
-        {"@type": "Offer", "name": "LTD", "price": "29.00", "priceCurrency": "EUR", "category": "OneTimePayments"},
         {"@type": "Offer", "name": "Starter", "price": "19.00", "priceCurrency": "EUR", "category": "Subscription"},
         {"@type": "Offer", "name": "Pro", "price": "49.00", "priceCurrency": "EUR", "category": "Subscription"},
-        {"@type": "Offer", "name": "Team", "price": "99.00", "priceCurrency": "EUR", "category": "Subscription"}
+        {"@type": "Offer", "name": "Team", "price": "99.00", "priceCurrency": "EUR", "category": "Subscription"},
+        {"@type": "Offer", "name": "Early Adopter LTD (Solo)", "price": "29.00", "priceCurrency": "EUR", "category": "OneTimePayments"}
       ]
     },
     "brand": {
@@ -67,8 +69,8 @@ const Index = () => {
       },
       {
         "@type": "HowToStep",
-        "name": "Choose the kit",
-        "text": "Select 'Multi-channel post' and paste your copy."
+        "name": "Choose the routine",
+        "text": "Select 'Launch Post' and paste your copy."
       },
       {
         "@type": "HowToStep",
@@ -82,21 +84,15 @@ const Index = () => {
     <>
       <Helmet>
         <title>Quik.day — Run work fast. Review only when it matters.</title>
-        <meta 
-          name="description" 
-          content="Execution automation for founders and lean GTM teams. One-tap runs, review when needed, Undo built-in. Open source. Built in public." 
-        />
+        <meta name="description" content="Execution automation for founders and lean teams. One‑tap runs for simple tasks. Short Confirm for risky changes with Undo. Per‑run transparency. Open source." />
         <link rel="canonical" href="https://quik.day/" />
         <link rel="alternate" href="https://quik.day/" hreflang="en" />
         <link rel="alternate" href="https://quik.day/" hreflang="x-default" />
-        <meta name="keywords" content="automation for founders, GTM automation, workflow automation, Zapier alternative, indie hacker tools, Slack automation, CRM automation, Notion workflows, Google Calendar automation, QuickBooks automation" />
+        <meta name="keywords" content="governed execution, command console, Plan & Diff, approvals, Undo, Slack automation, CRM automation, Notion actions, Google Calendar automation, QuickBooks automation" />
         
         {/* Open Graph */}
         <meta property="og:title" content="Quik.day — Run work fast. Review only when it matters." />
-        <meta 
-          property="og:description" 
-          content="Automation for founders and lean GTM teams. One-tap runs, review when needed, Undo built in." 
-        />
+        <meta property="og:description" content="Automation for founders and lean teams. One‑tap runs, short Confirm, Undo built‑in, per‑run estimates." />
         <meta property="og:type" content="website" />
         <meta property="og:url" content="https://quik.day/" />
         <meta property="og:image" content="https://quik.day/og.png" />
@@ -105,10 +101,7 @@ const Index = () => {
         <meta name="twitter:card" content="summary_large_image" />
         <meta name="twitter:site" content="@quikday" />
         <meta name="twitter:title" content="Quik.day — Run work fast. Review only when it matters." />
-        <meta 
-          name="twitter:description" 
-          content="Run work fast. Review only when it matters. Undo built-in." 
-        />
+        <meta name="twitter:description" content="Run work fast. Review only when it matters. Undo built-in." />
         <meta name="twitter:image" content="https://quik.day/og.png" />
         
         {/* Structured Data */}
@@ -146,14 +139,16 @@ const Index = () => {
         <main>
           <Hero />
           <ProblemSolution />
-          <ThreePillars />
-          <Benefits />
-          <Kits />
-          <Integrations />
+          <HowItWorks />
+          <GovernanceStrip />
           <OpenSource />
+          <UseCases />
+          <Integrations />
           <Pricing />
+          <Trust />
           <BetaSignup />
           <SocialProof />
+          <FinalCTA />
         </main>
         <Footer />
       </div>

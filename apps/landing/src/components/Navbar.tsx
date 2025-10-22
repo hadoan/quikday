@@ -25,7 +25,8 @@ export const Navbar = () => {
   };
 
   const navLinks = [
-    { label: "Kits", href: "#kits" },
+    { label: "How it works", href: "#how-it-works" },
+    { label: "Use cases", href: "#use-cases" },
     { label: "Integrations", href: "#integrations" },
     { label: "Pricing", href: "#pricing" },
     { label: "Lifetime Deal (€29)", href: "#pricing-ltd" },

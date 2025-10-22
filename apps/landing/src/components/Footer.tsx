@@ -48,7 +48,7 @@ export const Footer = () => {
       { label: "Docs", href: "#docs" },
       { label: "API", href: "#api" },
       { label: "Integrations", href: "#integrations" },
-      { label: "Kits", href: "#kits" },
+      { label: "Routines", href: "#use-cases" },
       { label: "Pricing", href: "#pricing" },
     ],
     Company: [
@@ -62,7 +62,7 @@ export const Footer = () => {
       { label: "Privacy", href: "#privacy" },
       { label: "Terms", href: "#terms" },
       { label: "Security", href: "#security" },
-      { label: "OSS License", href: "#license" },
+      { label: "AGPL License", href: "https://github.com/hadoan/quikday/blob/main/LICENSE" },
       { label: "Contact", href: "#contact" },
     ],
   };
@@ -87,7 +87,7 @@ export const Footer = () => {
               <span className="text-xl font-bold">Quik.day</span>
             </div>
             <p className="text-sm text-muted-foreground mb-6 max-w-sm">
-              Run work fast. Review only when it matters. Open source automation for lean teams.
+              Run work fast. Review only when it matters. Open source governed execution for lean teams.
             </p>
             
             {/* Newsletter */}

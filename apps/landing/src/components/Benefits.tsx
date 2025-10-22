@@ -11,7 +11,7 @@ export const Benefits = () => {
       description: "Pull context from CRM, notes, recent emails, and meetings",
     },
     {
-      title: "Runs complete workflows",
+      title: "Runs complete routines",
       description: "Post → log → notify → follow-up, end to end",
     },
     {

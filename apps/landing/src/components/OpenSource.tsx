@@ -57,7 +57,7 @@ export const OpenSource = () => {
 
           <div className="flex flex-wrap gap-4 justify-center">
             <div className="px-4 py-2 bg-accent/50 rounded-lg text-sm font-medium">
-              MIT License
+              GNU AGPLv3
             </div>
             <div className="px-4 py-2 bg-accent/50 rounded-lg text-sm font-medium">
               Contributions welcome

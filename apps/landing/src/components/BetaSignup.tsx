@@ -114,12 +114,12 @@ export const BetaSignup = () => {
               </div>
 
               <div>
-                <Label htmlFor="useCase">Main use-case</Label>
-                <textarea 
+                <Label htmlFor="useCase">Which Routines would you run first?</Label>
+                <textarea
                   id="useCase"
                   value={useCase}
                   onChange={(e) => setUseCase(e.target.value)}
-                  placeholder="What workflows would you automate?"
+                  placeholder="Outbound 10 • Post-Demo Care • Release Ripple • Morning Loop"
                   className="w-full mt-2 px-4 py-3 rounded-xl border border-input bg-background text-sm transition-smooth focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20 min-h-[100px] resize-y"
                 />
               </div>
