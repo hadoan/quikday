@@ -14,7 +14,7 @@ export interface RunCtx {
 export interface PlanStep {
   id: string;
   tool: string; // "calendar.createEvent"
-  args: unknown;
+  args: any;
   risk: Risk;
   idempotencyKey?: string;
   costEstimateCents?: number;
@@ -72,6 +72,9 @@ export interface RunState {
     plan?: PlanStep[];
     stepsRun?: number;
     errors?: Array<{ code: string; message: string }>;
+    // internal routing/fallback info added by guards/policy
+    fallbackReason?: string;
+    fallbackDetails?: unknown;
   };
   output?: {
     summary?: string;

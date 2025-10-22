@@ -1,15 +1,19 @@
-import { EventEmitter } from 'node:events';
 import type { Hooks } from '../runtime/graph';
 import type { RunState } from '../state/types.js';
 import { redactForLog } from '../guards/redaction.js';
+import type { RedisPubSubService } from '@quikday/libs';
 
 /** ─────────────────────────────────────────────────────────────────────────────
  * Event types & payloads
  * ──────────────────────────────────────────────────────────────────────────── */
 export type RunEventType =
-  | 'run.started'
-  | 'run.completed'
-  | 'run.failed'
+  | 'run_status'
+  | 'run_completed'
+  | 'step_started'
+  | 'step_succeeded'
+  | 'step_failed'
+  | 'plan_generated'
+  | 'connection_established'
   | 'node.enter'
   | 'node.exit'
   | 'edge.taken'
@@ -25,7 +29,7 @@ export type RunEventType =
 export interface RunEvent<T = any> {
   runId: string;
   type: RunEventType;
-  at: string; // ISO timestamp
+  ts: string; // ISO timestamp
   payload?: T; // JSON-safe, redacted
   traceId?: string;
   userId?: string;
@@ -33,27 +37,32 @@ export interface RunEvent<T = any> {
 }
 
 /** ─────────────────────────────────────────────────────────────────────────────
- * Minimal event bus (process-local)
- * You can replace this with a shared bus if you want (e.g., Redis pub/sub).
+ * Redis pub/sub integration
+ * Uses the shared RedisPubSubService from @quikday/libs
  * ──────────────────────────────────────────────────────────────────────────── */
-class RunEventBus {
-  private ee = new EventEmitter();
+let redisPubSub: RedisPubSubService | null = null;
 
-  on(type: RunEventType | '*', listener: (evt: RunEvent) => void) {
-    this.ee.on(type, listener);
-  }
-
-  off(type: RunEventType | '*', listener: (evt: RunEvent) => void) {
-    this.ee.off(type, listener);
-  }
-
-  emit(evt: RunEvent) {
-    this.ee.emit(evt.type, evt);
-    this.ee.emit('*', evt); // wildcard listeners
-  }
+/**
+ * Initialize the Redis pub/sub service for event broadcasting.
+ * Call this once during application bootstrap.
+ */
+export function setRedisPubSub(service: RedisPubSubService) {
+  redisPubSub = service;
 }
 
-export const bus = new RunEventBus();
+/**
+ * Subscribe to events for a specific run using Redis pub/sub
+ */
+export function subscribeToRunEvents(
+  runId: string,
+  handler: (evt: RunEvent) => void,
+): () => void {
+  if (!redisPubSub) {
+    console.warn('RedisPubSub service not initialized. Events will not be received.');
+    return () => { };
+  }
+  return redisPubSub.onRunEvent(runId, handler as any);
+}
 
 /** ─────────────────────────────────────────────────────────────────────────────
  * Sinks (plug these into real infra in your worker/bootstrap)
@@ -61,15 +70,13 @@ export const bus = new RunEventBus();
  * ──────────────────────────────────────────────────────────────────────────── */
 export type Sinks = {
   persist?: (evt: RunEvent) => Promise<void>; // e.g., Prisma RunEvent create
-  broadcast?: (evt: RunEvent) => Promise<void>; // e.g., WS publish
   webhook?: (evt: RunEvent) => Promise<void>; // e.g., signed webhook sender
   console?: (evt: RunEvent) => void; // local dev logging
 };
 
 const defaultSinks: Required<Sinks> = {
-  persist: async () => {},
-  broadcast: async () => {},
-  webhook: async () => {},
+  persist: async () => { },
+  webhook: async () => { },
   console: (evt) => {
     // Lightweight dev log
     if (process.env.NODE_ENV !== 'production') {
@@ -93,22 +100,29 @@ export function hooks(
     const evt: RunEvent = {
       runId: s.ctx.runId,
       type,
-      at: new Date().toISOString(),
+      ts: new Date().toISOString(),
       payload: payload ? redactForLog(payload, redactionOpts) : undefined,
       traceId: s.ctx.traceId,
       userId: s.ctx.userId,
       teamId: s.ctx.teamId,
     };
-    bus.emit(evt);
+
+    // Broadcast via Redis pub/sub
+    if (redisPubSub) {
+      void redisPubSub.publishRunEvent(s.ctx.runId, {
+        type: evt.type,
+        payload: evt.payload,
+      });
+    }
+
     out.console(evt);
     // fire-and-forget; don't block the graph
     void out.persist(evt);
-    void out.broadcast(evt);
     // webhook only for externally interesting events
     if (
-      type === 'run.started' ||
-      type === 'run.completed' ||
-      type === 'run.failed' ||
+      type === 'run_status' ||
+      type === 'run_completed' ||
+      type === 'step_failed' ||
       type === 'fallback'
     ) {
       void out.webhook(evt);
@@ -127,11 +141,11 @@ export function hooks(
  * Use these from your worker/registry/planner nodes.
  * ──────────────────────────────────────────────────────────────────────────── */
 export const events = {
-  runStarted: (s: RunState) => _emit('run.started', s),
-  runCompleted: (s: RunState) => _emit('run.completed', s, s.output),
+  runStarted: (s: RunState) => _emit('run_status', s, { status: 'started' }),
+  runCompleted: (s: RunState) => _emit('run_completed', s, s.output),
   runFailed: (s: RunState, error: { message: string; code?: string }) =>
-    _emit('run.failed', s, error),
-  planReady: (s: RunState, plan: any, diff?: any) => _emit('plan.ready', s, { plan, diff }),
+    _emit('step_failed', s, error),
+  planReady: (s: RunState, plan: any, diff?: any) => _emit('plan_generated', s, { plan, diff }),
   fallback: (s: RunState, reason: string, details?: any) =>
     _emit('fallback', s, { reason, details }),
   toolCalled: (s: RunState, name: string, args?: any) => _emit('tool.called', s, { name, args }),
@@ -154,20 +168,27 @@ function _emit(type: RunEventType, s: RunState, payload?: any) {
   const evt: RunEvent = {
     runId: s.ctx.runId,
     type,
-    at: new Date().toISOString(),
+    ts: new Date().toISOString(),
     payload: payload ? redactForLog(payload) : undefined,
     traceId: s.ctx.traceId,
     userId: s.ctx.userId,
     teamId: s.ctx.teamId,
   };
-  bus.emit(evt);
+
+  // Broadcast via Redis pub/sub
+  if (redisPubSub) {
+    void redisPubSub.publishRunEvent(s.ctx.runId, {
+      type: evt.type,
+      payload: evt.payload,
+    });
+  }
+
   globalSinks.console?.(evt);
   void globalSinks.persist?.(evt);
-  void globalSinks.broadcast?.(evt);
   if (
-    type === 'run.started' ||
-    type === 'run.completed' ||
-    type === 'run.failed' ||
+    type === 'run_status' ||
+    type === 'run_completed' ||
+    type === 'step_failed' ||
     type === 'fallback'
   ) {
     void globalSinks.webhook?.(evt);

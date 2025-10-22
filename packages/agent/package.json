@@ -66,6 +66,7 @@
     "@quikday/appstore": "workspace:*",
     "@quikday/appstore-google-calendar": "workspace:*",
     "@quikday/appstore-gmail-email": "workspace:*",
+    "@quikday/libs": "workspace:*",
     "dotenv": "^17.2.3",
     "zod": "^4.1.12"
   },

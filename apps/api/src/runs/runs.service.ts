@@ -104,7 +104,8 @@ export class RunsService {
         mode,
         status: this.initialStatusForMode(mode),
         scheduledAt: scheduledAt ? new Date(scheduledAt) : null,
-        config: configPayload,
+        // Prisma expects Json types; cast to any to satisfy types at build time
+        config: configPayload as any,
         toolAllowlist: toolAllowlist ? { tools: toolAllowlist } : undefined,
         policySnapshot,
       },
@@ -253,7 +254,7 @@ export class RunsService {
     const base = await getTeamPolicy(teamId !== null ? String(teamId) : undefined);
     const allowlist = new Set<string>(base.allowlist?.tools ?? []);
     if (Array.isArray(toolAllowlist)) {
-      toolAllowlist.forEach((tool) => {
+      toolAllowlist.forEach((tool: string) => {
         if (typeof tool === 'string' && tool.trim()) allowlist.add(tool);
       });
     }
@@ -313,14 +314,14 @@ export class RunsService {
     const scopes = new Set<string>(['runs:execute']);
 
     const targets = Array.isArray(config.channelTargets) ? (config.channelTargets as Array<any>) : [];
-    targets.forEach((target) => {
+    targets.forEach((target: any) => {
       if (target && typeof target.appId === 'string') {
         scopes.add(`tool:${target.appId}`);
       }
       if (target && Array.isArray(target.scopes)) {
         target.scopes
           .filter((scope: unknown): scope is string => typeof scope === 'string')
-          .forEach((scope) => scopes.add(scope));
+          .forEach((scope: string) => scopes.add(scope));
       }
     });
 

@@ -220,16 +220,87 @@ export class GoogleCalendarService {
   }
 
   private async getAuthorizedCalendar(userId: number) {
-    const credential = await this.prisma.credential.findFirst({
-      where: {
-        userId,
-        appId: this.getAppSlug(),
-        invalid: false,
+    const appSlug = this.getAppSlug();
+    const teamIds = await this.getUserTeamIds(userId);
+
+    type ResolutionStrategy = {
+      label: string;
+      where: Prisma.CredentialWhereInput;
+      orderBy?:
+        | Prisma.CredentialOrderByWithRelationInput
+        | Prisma.CredentialOrderByWithRelationInput[];
+    };
+
+    const strategies: ResolutionStrategy[] = [
+      {
+        label: 'user-current-profile',
+        where: {
+          userId,
+          appId: appSlug,
+          isUserCurrentProfile: true,
+          invalid: false,
+        },
+        orderBy: { updatedAt: 'desc' },
       },
-      orderBy: { updatedAt: 'desc' },
-    });
+      {
+        label: 'user-fallback',
+        where: {
+          userId,
+          appId: appSlug,
+          invalid: false,
+        },
+        orderBy: { updatedAt: 'desc' },
+      },
+    ];
+
+    if (teamIds.length > 0) {
+      strategies.splice(1, 0, {
+        label: 'team-default-profile',
+        where: {
+          teamId: { in: teamIds },
+          appId: appSlug,
+          isTeamDefaultProfile: true,
+          invalid: false,
+        },
+        orderBy: { updatedAt: 'desc' },
+      });
+      strategies.push({
+        label: 'team-fallback',
+        where: {
+          teamId: { in: teamIds },
+          appId: appSlug,
+          invalid: false,
+        },
+        orderBy: { updatedAt: 'desc' },
+      });
+    }
+
+    let credential: Credential | null = null;
+    let resolvedVia: string | undefined;
+
+    for (const strategy of strategies) {
+      const result = await this.prisma.credential.findFirst({
+        where: strategy.where,
+        ...(strategy.orderBy ? { orderBy: strategy.orderBy } : {}),
+      });
+
+      if (result) {
+        credential = result;
+        resolvedVia = strategy.label;
+        break;
+      }
+    }
 
     if (!credential) {
+      this.logger.debug?.(
+        `No credential matched ${this.formatMeta({
+          userId,
+          appId: appSlug,
+          teamIds,
+          attempts: strategies.map((strategy) => strategy.label),
+        })}`,
+        this.loggerContext,
+      );
       throw new Error('No Google Calendar credential found. Connect your Google Calendar account.');
     }
     this.logger.debug?.(
@@ -237,6 +308,7 @@ export class GoogleCalendarService {
         userId,
         credentialId: credential.id,
         hasTokenExpiresAt: !!credential.tokenExpiresAt,
+        resolvedVia: resolvedVia ?? 'unknown',
       })}`,
       this.loggerContext,
     );
@@ -284,6 +356,31 @@ export class GoogleCalendarService {
       credentialId: credential.id,
       tokenRecord: credentialKey,
     };
+  }
+
+  private async getUserTeamIds(userId: number): Promise<number[]> {
+    try {
+      const memberships = await this.prisma.teamMember.findMany({
+        where: { userId },
+        select: { teamId: true },
+      });
+      const unique = new Set<number>();
+      for (const membership of memberships) {
+        if (typeof membership.teamId === 'number') {
+          unique.add(membership.teamId);
+        }
+      }
+      return [...unique];
+    } catch (error) {
+      this.logger.debug?.(
+        `Failed to load team memberships ${this.formatMeta({
+          userId,
+          error: this.renderError(error),
+        })}`,
+        this.loggerContext,
+      );
+      return [];
+    }
   }
 
   private parseAttendees(attendees?: string): calendar_v3.Schema$EventAttendee[] {
