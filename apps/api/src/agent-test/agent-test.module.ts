@@ -1,6 +1,6 @@
 import { Module } from '@nestjs/common';
-import { AgentModule } from '@quikday/agent/nest';
 import { AgentTestController } from './agent-test.controller';
+import { AgentModule } from '../agent';
 
 @Module({
   imports: [AgentModule.forRoot()],

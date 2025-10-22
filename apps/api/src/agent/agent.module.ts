@@ -1,7 +1,7 @@
 import { DynamicModule, Module, Provider } from '@nestjs/common';
 import { AgentService } from './agent.service';
 import { AGENT_LLM, type AgentModuleOptions } from './agent.tokens';
-import { makeOpenAiLLM } from '../llm/openai';
+import { makeOpenAiLLM } from '@quikday/agent/llm/openai';
 
 @Module({})
 export class AgentModule {

@@ -1,10 +1,10 @@
 import { Inject, Injectable } from '@nestjs/common';
-import { buildMainGraph } from '../buildMainGraph';
-import type { RunState } from '../state/types';
-import type { Graph } from '../runtime/graph';
-import type { LLM } from '../llm/types';
+import { buildMainGraph } from '@quikday/agent/buildMainGraph';
+import type { RunState } from '@quikday/agent/state/types';
+import type { Graph } from '@quikday/agent/runtime/graph';
+import type { LLM } from '@quikday/agent/llm/types';
 import { AGENT_LLM } from './agent.tokens';
-import { withLlmContext } from '../llm/context';
+import { withLlmContext } from '@quikday/agent/llm/context';
 
 @Injectable()
 export class AgentService {

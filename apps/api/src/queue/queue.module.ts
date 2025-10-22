@@ -7,7 +7,7 @@ import { RunsModule } from '../runs/runs.module';
 import { TelemetryModule } from '../telemetry/telemetry.module';
 import { CredentialsModule } from '../credentials/credentials.module';
 import { RedisModule } from '@quikday/libs';
-import { AgentModule } from '@quikday/agent/nest';
+import { AgentModule } from '../agent';
 
 @Module({
   imports: [

@@ -1,15 +1,23 @@
+
 {
   "extends": "@quikday/tsconfig/base.json",
   "compilerOptions": {
-    "module": "NodeNext",
-    "moduleResolution": "NodeNext",
-    "experimentalDecorators": true,
-    "emitDecoratorMetadata": true,
-    "target": "ES2020",
-    "rootDir": "src",
+    "rootDir": ".",
     "outDir": "dist",
-    "composite": false
+    "incremental": true,
+    "tsBuildInfoFile": "./dist/tsconfig.tsbuildinfo",
+    "emitDecoratorMetadata": true,
+    "experimentalDecorators": true,
+    "types": ["node"],
+    "skipLibCheck": true,
+    "strict": false,
+    "target": "ES2020",
+    "module": "commonjs",
+    "moduleResolution": "node",
+    "declaration": true,
+    "declarationMap": true
   },
-  "include": ["src"],
+  "include": ["**/*.ts"]
+  ,
   "exclude": ["dist", "node_modules"]
 }

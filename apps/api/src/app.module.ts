@@ -11,6 +11,7 @@ import { WebSocketModule } from './websocket/websocket.module';
 import { IntegrationsModule } from './integrations/integrations.module';
 import { UsersModule } from './users/users.module';
 import { AgentTestModule } from './agent-test/agent-test.module';
+import { AgentModule } from './agent';
 
 @Module({
   imports: [
@@ -25,6 +26,7 @@ import { AgentTestModule } from './agent-test/agent-test.module';
     WebSocketModule,
     IntegrationsModule,
     UsersModule,
+    AgentModule,
     AgentTestModule,
   ],
 })
