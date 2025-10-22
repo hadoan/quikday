@@ -1,7 +1,7 @@
 import { DynamicModule, Module, Provider } from '@nestjs/common';
-import { AgentService } from './agent.service.js';
-import { AGENT_LLM, type AgentModuleOptions } from './agent.tokens.js';
-import { makeOpenAiLLM } from '../llm/openai.js';
+import { AgentService } from './agent.service';
+import { AGENT_LLM, type AgentModuleOptions } from './agent.tokens';
+import { makeOpenAiLLM } from '../llm/openai';
 
 @Module({})
 export class AgentModule {

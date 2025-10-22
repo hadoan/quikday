@@ -1,6 +1,7 @@
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import { Test, type TestingModule } from '@nestjs/testing';
 import { AgentModule, AgentService, AGENT_LLM } from '../nest/index.js';
+import { DEFAULT_AGENT_TEST_PROMPT } from '../testPrompt.js';
 import type { RunState } from '../state/types.js';
 import type { LLM } from '../llm/types.js';
 
@@ -24,7 +25,7 @@ describeIfOpenAI('AgentModule (real LLM)', () => {
   });
 
   it('plans scheduling prompt and reaches OpenAI', async () => {
-    const prompt = 'Schedule an online call with ha@yopmail.com at 10 pm tomorrow';
+    const prompt = DEFAULT_AGENT_TEST_PROMPT;
 
     const initialState: RunState = {
       input: { prompt },

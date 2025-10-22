@@ -1,6 +1,6 @@
-// import type { Node } from "../runtime/graph.js";
-// import type { RunState } from "../state/types.js";
-// import { redact } from "../guards/redaction.js";
+// import type { Node } from "../runtime/graph";
+// import type { RunState } from "../state/types";
+// import { redact } from "../guards/redaction";
 
 // export type FallbackReason =
 //     | "policy_denied"

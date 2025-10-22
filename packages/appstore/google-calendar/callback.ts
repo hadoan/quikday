@@ -217,8 +217,8 @@ export async function callback(params: {
   }
 
   // Resolve OAuth credentials: prefer DB keys, fallback to env
-  let clientId = undefined;
-  let clientSecret = undefined;
+  let clientId: string | undefined = undefined;
+  let clientSecret: string | undefined = undefined;
   let credentialSource = 'env';
 
   try {

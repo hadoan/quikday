@@ -1,10 +1,11 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { Test, type TestingModule } from '@nestjs/testing';
 import { AgentModule, AgentService } from '../nest/index.js';
+import { DEFAULT_AGENT_TEST_PROMPT } from '../testPrompt.js';
 import type { RunState } from '../state/types.js';
 import type { LLM } from '../llm/types.js';
 
-const prompt = 'Schedule an online call with ha@yopmail.com at 10 pm tomorrow';
+const prompt = DEFAULT_AGENT_TEST_PROMPT;
 
 describe('AgentModule', () => {
   let moduleRef: TestingModule;
@@ -32,7 +33,7 @@ describe('AgentModule', () => {
       mode: 'PLAN',
       ctx: {
         runId: 'run-test',
-        userId: '42',
+        userId: '1',
         scopes: ['runs:execute'],
         traceId: 'trace-run-test',
         tz: 'UTC',

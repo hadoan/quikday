@@ -20,6 +20,12 @@
       "require": "./dist/buildMainGraph.js",
       "default": "./dist/buildMainGraph.js"
     },
+    "./testPrompt": {
+      "types": "./dist/testPrompt.d.ts",
+      "import": "./dist/testPrompt.js",
+      "require": "./dist/testPrompt.js",
+      "default": "./dist/testPrompt.js"
+    },
     "./llm/openai": {
       "types": "./dist/llm/openai.d.ts",
       "import": "./dist/llm/openai.js",
@@ -50,7 +56,7 @@
   ],
   "sideEffects": false,
   "scripts": {
-    "build": "tsc -p tsconfig.json --outDir dist --rootDir .",
+    "build": "tsc -p tsconfig.json --outDir dist --rootDir . && node ./scripts/fix-import-extensions.mjs",
     "dev": "tsc -p tsconfig.json --outDir dist --rootDir . --watch",
     "clean": "rm -rf dist",
     "test": "vitest run"
@@ -81,8 +87,9 @@
   },
   "devDependencies": {
     "@nestjs/testing": "^10.4.2",
-    "@types/node": "^24.8.1",
+    "@types/node": "^22.16.5",
     "vitest": "^3.0.0",
-    "typescript": "^5.9.3"
+    "typescript": "^5.9.3",
+    "@quikday/tsconfig": "workspace:*"
   }
 }

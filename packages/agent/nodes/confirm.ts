@@ -1,5 +1,5 @@
-import type { Node } from '../runtime/graph.js';
-import type { RunState } from '../state/types.js';
+import type { Node } from '../runtime/graph';
+import type { RunState } from '../state/types';
 import { needsApproval } from '../guards/policy';
 import { events } from '../observability/events';
 import { randomUUID } from 'node:crypto';

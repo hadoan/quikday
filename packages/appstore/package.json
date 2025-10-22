@@ -28,6 +28,7 @@
   "devDependencies": {
     "@prisma/client": "^5.18.0",
     "tslib": "^2.5.0",
-    "typescript": "^4.9.0"
+    "typescript": "^4.9.0",
+    "@quikday/tsconfig": "workspace:*"
   }
 }

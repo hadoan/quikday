@@ -1,10 +1,10 @@
 import { Inject, Injectable } from '@nestjs/common';
-import { buildMainGraph } from '../buildMainGraph.js';
-import type { RunState } from '../state/types.js';
-import type { Graph } from '../runtime/graph.js';
-import type { LLM } from '../llm/types.js';
-import { AGENT_LLM } from './agent.tokens.js';
-import { withLlmContext } from '../llm/context.js';
+import { buildMainGraph } from '../buildMainGraph';
+import type { RunState } from '../state/types';
+import type { Graph } from '../runtime/graph';
+import type { LLM } from '../llm/types';
+import { AGENT_LLM } from './agent.tokens';
+import { withLlmContext } from '../llm/context';
 
 @Injectable()
 export class AgentService {

@@ -1,5 +1,6 @@
-import type { Node } from '../runtime/graph.js';
-import type { RunState, PlanStep } from '../state/types.js';
+import type { Node } from '../runtime/graph';
+import type { RunState, PlanStep } from '../state/types';
+// Import with explicit  extension so the emitted ESM JS resolves correctly at runtime
 import { events } from '../observability/events';
 
 const makePlanForIntent = (state: RunState): PlanStep[] => {

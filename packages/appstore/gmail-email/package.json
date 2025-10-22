@@ -12,7 +12,8 @@
     "googleapis": "^144.0.0"
   },
   "devDependencies": {
-    "@prisma/client": "^5.18.0"
+    "@prisma/client": "^5.18.0",
+    "@quikday/tsconfig": "workspace:*"
   },
   "scripts": {
     "build": "tsc -p tsconfig.json"

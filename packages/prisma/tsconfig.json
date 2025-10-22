@@ -1,11 +1,15 @@
 {
-  "extends": "../../tsconfig.base.json",
+  "extends": "@quikday/tsconfig/base.json",
   "compilerOptions": {
     "module": "NodeNext",
     "moduleResolution": "NodeNext",
+    "experimentalDecorators": true,
+    "emitDecoratorMetadata": true,
+    "target": "ES2020",
     "rootDir": "src",
     "outDir": "dist",
     "composite": false
   },
-  "include": ["src"]
+  "include": ["src"],
+  "exclude": ["dist", "node_modules"]
 }

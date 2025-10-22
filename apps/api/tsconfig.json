@@ -1,12 +1,15 @@
 {
-  "extends": "../../tsconfig.base.json",
+  "extends": "@quikday/tsconfig/base.json",
   "compilerOptions": {
     "rootDir": "../..",
     "outDir": "dist",
     "incremental": true,
     "tsBuildInfoFile": "./dist/tsconfig.tsbuildinfo",
     "emitDecoratorMetadata": true,
-    "experimentalDecorators": true
+    "experimentalDecorators": true,
+    "target": "ES2020",
+    "module": "commonjs",
+    "downlevelIteration": true
   },
   "exclude": ["node_modules", "dist", "test", "**/*spec.ts"],
   "include": ["src"]

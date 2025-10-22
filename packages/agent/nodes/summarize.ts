@@ -1,5 +1,5 @@
-import type { Node } from '../runtime/graph.js';
-import type { RunState } from '../state/types.js';
+import type { Node } from '../runtime/graph';
+import type { RunState } from '../state/types';
 
 export const summarize: Node<RunState> = async (s) => {
   // Simple summarizer stub - replace with real LLM call in full implementation

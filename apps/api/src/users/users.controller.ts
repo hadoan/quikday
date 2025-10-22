@@ -1,5 +1,5 @@
 import { Controller, Post, Req, Res, UseGuards, Body } from '@nestjs/common';
-import { Response, Request } from 'express';
+import type { Response, Request } from 'express';
 import { KindeGuard } from '../auth/kinde.guard';
 import { AuthService } from '../auth/auth.service';
 

@@ -54,8 +54,8 @@ export async function resolveGoogleCalendarAuthUrl(params: {
 }): Promise<GoogleCalendarAuthUrlResult> {
   const { req, meta, signedState } = params;
 
-  let clientId = undefined;
-  let clientSecret = undefined;
+  let clientId: string | undefined = undefined;
+  let clientSecret: string | undefined = undefined;
 
   try {
     const appKeys = (await getAppKeysFromSlug(meta.slug)) as Record<string, unknown>;

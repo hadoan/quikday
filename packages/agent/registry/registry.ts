@@ -1,4 +1,4 @@
-import type { Tool } from './types.js';
+import type { Tool } from './types';
 import { Circuit } from './support/circuit';
 import { Idempotency } from './idempotency';
 import { checkRate } from './support/rate';

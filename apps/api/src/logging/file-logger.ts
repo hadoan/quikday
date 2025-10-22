@@ -13,7 +13,8 @@ export class FileLogger extends ConsoleLogger {
   private readonly mirrorToConsole: boolean;
 
   constructor(context?: string, options: FileLoggerOptions = {}) {
-    super(context, { logLevels: options.levels });
+    // ConsoleLogger expects a string context; provide a safe default when undefined
+    super(context ?? 'FileLogger', { logLevels: options.levels });
 
     const targetPath = resolve(process.cwd(), options.logFilePath ?? 'logs/nest-api.log');
     const dir = dirname(targetPath);

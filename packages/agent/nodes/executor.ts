@@ -1,6 +1,6 @@
-import type { Node } from '../runtime/graph.js';
-import type { RunState } from '../state/types.js';
-import { registry } from '../registry/registry.js';
+import type { Node } from '../runtime/graph';
+import type { RunState } from '../state/types';
+import { registry } from '../registry/registry';
 import { z } from 'zod';
 import { events } from '../observability/events';
 

@@ -1,5 +1,5 @@
 {
-  "extends": "../../../tsconfig.base.json",
+  "extends": "@quikday/tsconfig/base.json",
   "compilerOptions": {
     "target": "ES2021",
     "module": "NodeNext",
@@ -19,5 +19,6 @@
     "tool.ts",
     "lib/**/*.ts",
     "types/**/*.ts"
-  ]
+  ],
+  "exclude": ["dist", "node_modules"]
 }

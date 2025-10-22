@@ -1,5 +1,5 @@
 import { Controller, Get, Param, Post, Req, Res, UseGuards } from '@nestjs/common';
-import { Response, Request } from 'express';
+import type { Response, Request } from 'express';
 import { KindeGuard } from '../auth/kinde.guard';
 import { Public } from '../auth/public.decorator';
 import { AppStoreRegistry } from './appstore.registry';

@@ -1,15 +1,15 @@
-import { Graph } from './runtime/graph.js';
-import type { RunState } from './state/types.js';
-import type { LLM } from './llm/types.js';
-import { classifyIntent } from './nodes/classifyIntent.js';
-import { planner } from './nodes/planner.js';
-import { confirm } from './nodes/confirm.js';
-import { executor } from './nodes/executor.js';
-import { summarize } from './nodes/summarize.js';
-import { fallback } from './nodes/fallback.js';
-import { routeByMode } from './guards/policy.js';
+import { Graph } from './runtime/graph';
+import type { RunState } from './state/types';
+import type { LLM } from './llm/types';
+import { classifyIntent } from './nodes/classifyIntent';
+import { planner } from './nodes/planner';
+import { confirm } from './nodes/confirm';
+import { executor } from './nodes/executor';
+import { summarize } from './nodes/summarize';
+import { fallback } from './nodes/fallback';
+import { routeByMode } from './guards/policy';
 import { hooks } from './observability/events';
-import { safeNode } from './runtime/safeNode.js';
+import { safeNode } from './runtime/safeNode';
 
 type BuildMainGraphOptions = {
   llm: LLM;

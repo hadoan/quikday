@@ -27,7 +27,8 @@ type Json = JsonPrimitive | { [k: string]: Json } | Json[];
 export type ChatRole = 'system' | 'user' | 'assistant' | 'tool';
 
 export interface ChatMessage {
-  [k: string]: Json;
+  // Allow optional properties (which may be undefined) while still permitting arbitrary Json values
+  [k: string]: Json | undefined;
   id?: string;
   role: ChatRole;
   content: string;

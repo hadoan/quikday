@@ -1,5 +1,5 @@
 {
-  "extends": "../../tsconfig.base.json",
+  "extends": "@quikday/tsconfig/base.json",
   "compilerOptions": {
     "rootDir": ".",
     "outDir": "dist",
@@ -17,4 +17,6 @@
     "declarationMap": true
   },
   "include": ["**/*.ts"]
+  ,
+  "exclude": ["dist", "node_modules"]
 }

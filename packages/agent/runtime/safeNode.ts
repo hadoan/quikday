@@ -1,5 +1,5 @@
 // runtime/safeNode.ts
-import type { RunState } from '../state/types.js';
+import type { RunState } from '../state/types';
 
 /**
  * Signature-preserving error guard for graph nodes.
