@@ -1,15 +1,15 @@
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Checkbox } from '@/components/ui/checkbox';
-import { Github } from 'lucide-react';
-import { useState } from 'react';
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Github } from "lucide-react";
+import { useState } from "react";
 
 export const BetaSignup = () => {
-  const [email, setEmail] = useState('');
-  const [role, setRole] = useState('');
-  const [teamSize, setTeamSize] = useState('');
-  const [useCase, setUseCase] = useState('');
+  const [email, setEmail] = useState("");
+  const [role, setRole] = useState("");
+  const [teamSize, setTeamSize] = useState("");
+  const [useCase, setUseCase] = useState("");
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -29,10 +29,10 @@ export const BetaSignup = () => {
         useCase,
       };
 
-      const res = await fetch('/api/beta-signup', {
-        method: 'POST',
+      const res = await fetch("/api/beta-signup", {
+        method: "POST",
         headers: {
-          'Content-Type': 'application/json',
+          "Content-Type": "application/json",
         },
         body: JSON.stringify(payload),
       });
@@ -43,12 +43,12 @@ export const BetaSignup = () => {
       }
 
       setSuccess("Thanks — we'll email you when your spot opens.");
-      setEmail('');
-      setRole('');
-      setTeamSize('');
-      setUseCase('');
+      setEmail("");
+      setRole("");
+      setTeamSize("");
+      setUseCase("");
     } catch (err: any) {
-      setError(err?.message || 'Something went wrong. Please try again.');
+      setError(err?.message || "Something went wrong. Please try again.");
     } finally {
       setLoading(false);
     }
@@ -60,7 +60,7 @@ export const BetaSignup = () => {
         <div className="max-w-2xl mx-auto">
           <div className="text-center mb-12">
             <h2 className="text-4xl md:text-5xl font-bold mb-4">
-              Join the{' '}
+              Join the{" "}
               <span className="bg-gradient-to-r from-primary to-purple-500 bg-clip-text text-transparent">
                 Beta
               </span>
@@ -74,9 +74,9 @@ export const BetaSignup = () => {
             <form onSubmit={handleSubmit} className="space-y-6">
               <div>
                 <Label htmlFor="email">Email *</Label>
-                <Input
-                  id="email"
-                  type="email"
+                <Input 
+                  id="email" 
+                  type="email" 
                   placeholder="you@company.com"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
@@ -87,7 +87,7 @@ export const BetaSignup = () => {
 
               <div>
                 <Label htmlFor="role">Role</Label>
-                <select
+                <select 
                   id="role"
                   value={role}
                   onChange={(e) => setRole(e.target.value)}
@@ -103,9 +103,9 @@ export const BetaSignup = () => {
 
               <div>
                 <Label htmlFor="teamSize">Team size</Label>
-                <Input
-                  id="teamSize"
-                  type="text"
+                <Input 
+                  id="teamSize" 
+                  type="text" 
                   placeholder="e.g., 1-5"
                   value={teamSize}
                   onChange={(e) => setTeamSize(e.target.value)}
@@ -114,12 +114,12 @@ export const BetaSignup = () => {
               </div>
 
               <div>
-                <Label htmlFor="useCase">Main use-case</Label>
+                <Label htmlFor="useCase">Which Routines would you run first?</Label>
                 <textarea
                   id="useCase"
                   value={useCase}
                   onChange={(e) => setUseCase(e.target.value)}
-                  placeholder="What workflows would you automate?"
+                  placeholder="Outbound 10 • Post-Demo Care • Release Ripple • Morning Loop"
                   className="w-full mt-2 px-4 py-3 rounded-xl border border-input bg-background text-sm transition-smooth focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20 min-h-[100px] resize-y"
                 />
               </div>
@@ -152,21 +152,17 @@ export const BetaSignup = () => {
               )}
 
               <div className="space-y-3 pt-4">
-                <Button
-                  type="submit"
-                  variant="hero"
-                  className="w-full"
+                <Button 
+                  type="submit" 
+                  variant="hero" 
+                  className="w-full" 
                   size="lg"
                   disabled={loading}
                 >
-                  {loading ? 'Joining...' : 'Join Beta'}
+                  {loading ? "Joining..." : "Join Beta"}
                 </Button>
                 <Button type="button" variant="secondary" className="w-full" size="lg" asChild>
-                  <a
-                    href="https://github.com/hadoan/quikday"
-                    target="_blank"
-                    rel="noopener noreferrer"
-                  >
+                  <a href="https://github.com/hadoan/quikday" target="_blank" rel="noopener noreferrer">
                     <Github className="h-5 w-5" />
                     Sign up with GitHub
                   </a>
