@@ -1,22 +1,48 @@
 {
   "name": "@quikday/agent",
-  "description": "",
   "version": "0.0.0",
+  "description": "Quik.day agent library",
   "private": true,
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "require": "./dist/index.js",
+      "default": "./dist/index.js"
+    },
+    "./*": {
+      "types": "./dist/*.d.ts",
+      "require": "./dist/*.js",
+      "default": "./dist/*.js"
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "sideEffects": false,
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "dev": "tsc -p tsconfig.json --watch",
+    "clean": "rm -rf dist",
+    "test": "vitest run"
+  },
   "dependencies": {
     "@langchain/core": "^1.0.1",
     "@langchain/langgraph": "^1.0.0",
     "@langchain/openai": "^1.0.0",
-    "dotenv": "^17.2.3",
-    "zod": "^4.1.12",
-    "@quikday/prisma": "workspace:*",
+    "@nestjs/common": "^10.4.2",
     "@quikday/libs": "workspace:*",
-    "@nestjs/common": "^10.4.2"
+    "@quikday/prisma": "workspace:*",
+    "dotenv": "^17.2.3",
+    "openai": "^4.72.0",
+    "zod": "^4.1.12"
   },
   "devDependencies": {
+    "@nestjs/testing": "^10.4.2",
+    "@quikday/tsconfig": "workspace:*",
     "@types/node": "^24.8.1",
     "typescript": "^5.9.3",
-    "vitest": "^0.34.0",
-    "@nestjs/testing": "^10.4.2"
+    "vitest": "^0.34.0"
   }
 }
