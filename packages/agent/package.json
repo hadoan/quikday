@@ -26,6 +26,12 @@
       "require": "./dist/llm/openai.js",
       "default": "./dist/llm/openai.js"
     },
+    "./nest": {
+      "types": "./dist/nest/index.d.ts",
+      "import": "./dist/nest/index.js",
+      "require": "./dist/nest/index.js",
+      "default": "./dist/nest/index.js"
+    },
     "./state/types": {
       "types": "./dist/state/types.d.ts",
       "import": "./dist/state/types.js",
@@ -46,7 +52,8 @@
   "scripts": {
     "build": "tsc -p tsconfig.json --outDir dist --rootDir .",
     "dev": "tsc -p tsconfig.json --outDir dist --rootDir . --watch",
-    "clean": "rm -rf dist"
+    "clean": "rm -rf dist",
+    "test": "vitest run"
   },
   "keywords": [
     "quikday",
@@ -68,10 +75,13 @@
     "@quikday/appstore-gmail-email": "workspace:*",
     "@quikday/libs": "workspace:*",
     "dotenv": "^17.2.3",
+    "openai": "^4.72.0",
     "zod": "^4.1.12"
   },
   "devDependencies": {
+    "@nestjs/testing": "^10.4.2",
     "@types/node": "^24.8.1",
+    "vitest": "^3.0.0",
     "typescript": "^5.9.3"
   }
 }

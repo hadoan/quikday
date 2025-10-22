@@ -146,6 +146,13 @@ With `KINDE_BYPASS=true`, you can use any bearer token locally:
 - `pnpm build` — Build all packages/apps
 - `pnpm up` — `docker compose up -d db redis` then run dev
 
+**Running Tests**
+
+- Install deps once with `pnpm install` (already required for dev).
+- Agent package unit tests: `pnpm --filter @quikday/agent test`
+- API worker integration tests (focused suite): `pnpm --filter @quikday/api test -- run.processor.spec.ts`
+- Add `--watch` to either command while iterating locally.
+
 **What’s Implemented**
 
 - Endpoints:

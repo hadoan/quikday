@@ -5,12 +5,11 @@ import { RunsService } from '../runs/runs.service';
 import { TelemetryService } from '../telemetry/telemetry.service';
 import { ErrorCode } from '@quikday/types';
 import { RedisPubSubService } from '@quikday/libs';
-import { buildMainGraph } from '@quikday/agent/buildMainGraph';
-import { makeOpenAiLLM } from '@quikday/agent/llm/openai';
 import type { RunState } from '@quikday/agent/state/types';
 import type { Run } from '@prisma/client';
 import { setRedisPubSub, subscribeToRunEvents, type RunEvent as GraphRunEvent } from '@quikday/agent/observability/events';
 import type { RunEvent as UiRunEvent } from '../redis/redis-pubsub.service';
+import { AgentService } from '@quikday/agent/nest';
 
 const GRAPH_HALT_AWAITING_APPROVAL = 'GRAPH_HALT_AWAITING_APPROVAL';
 
@@ -44,7 +43,8 @@ export class RunProcessor extends WorkerHost {
   constructor(
     private runs: RunsService,
     private telemetry: TelemetryService,
-    private redisPubSub: RedisPubSubService
+    private redisPubSub: RedisPubSubService,
+    private agent: AgentService
   ) {
     super();
     // Initialize Redis pub/sub for agent events
@@ -85,8 +85,7 @@ export class RunProcessor extends WorkerHost {
     const { initialState, publishRunEvent, safePublish } = this.buildInputAndCtx(run, job);
 
     // prepare runtime helpers
-    const llm = makeOpenAiLLM();
-    const graph = buildMainGraph({ llm });
+    const graph = this.agent.createGraph();
 
     const stepLogs: StepLogEntry[] = [];
 

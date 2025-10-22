@@ -7,6 +7,7 @@ import { RunsModule } from '../runs/runs.module';
 import { TelemetryModule } from '../telemetry/telemetry.module';
 import { CredentialsModule } from '../credentials/credentials.module';
 import { RedisModule } from '@quikday/libs';
+import { AgentModule } from '@quikday/agent/nest';
 
 @Module({
   imports: [
@@ -15,6 +16,7 @@ import { RedisModule } from '@quikday/libs';
     ConfigModule,
     CredentialsModule,
     RedisModule,
+    AgentModule.forRoot(),
     BullModule.forRootAsync({
       imports: [ConfigModule],
       useFactory: (config: ConfigService) => ({
