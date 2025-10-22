@@ -27,6 +27,7 @@ model User {
     workspace    Workspace?
     Credential   Credential[]
     ApiKey       ApiKey[]
+    LLMLogs      LLMLog[]
 }
 
 model Workspace {
@@ -49,6 +50,7 @@ model Team {
     runs         Run[]
     createdAt    DateTime      @default(now())
     Credential   Credential[]
+    LLMLogs      LLMLog[]
 }
 
 model TeamMember {
@@ -147,6 +149,29 @@ model RunEffect {
 
     @@index([runId])
     @@index([idempotencyKey])
+}
+
+model LLMLog {
+    id               Int      @id @default(autoincrement())
+    userId           Int
+    user             User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+    teamId           Int?
+    team             Team?    @relation(fields: [teamId], references: [id], onDelete: Cascade)
+    prompt           String   @db.Text
+    result           String   @db.Text
+    promptTokens     Int      @default(0)
+    completionTokens Int      @default(0)
+    totalTokens      Int      @default(0)
+    requestType      String
+    apiEndpoint      String?
+    model            String   @default("gpt-4o-mini")
+    createdAt        DateTime @default(now())
+    updatedAt        DateTime @updatedAt
+
+    @@index([userId])
+    @@index([teamId])
+    @@index([createdAt])
+    @@index([userId, createdAt])
 }
 
 model Credential {

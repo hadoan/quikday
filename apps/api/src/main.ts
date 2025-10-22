@@ -5,6 +5,8 @@ import { NestFactory } from '@nestjs/core';
 import { AppModule } from './app.module';
 import { json } from 'express';
 import { WebSocketService } from './websocket/websocket.service';
+import type { LogLevel } from '@nestjs/common';
+import { FileLogger } from './logging/file-logger';
 
 async function bootstrap() {
   // Load env from monorepo root if present (so API can run under turbo)
@@ -28,11 +30,17 @@ async function bootstrap() {
   }
 
   // Configure logger levels from environment
-  const logLevels = process.env.LOG_LEVEL
-    ? (process.env.LOG_LEVEL.split(',').map((level) => level.trim()) as any[])
-    : ['log', 'error', 'warn'];
+  const logLevels = (process.env.LOG_LEVEL
+    ? process.env.LOG_LEVEL.split(',').map((level) => level.trim())
+    : ['log', 'error', 'warn']) as LogLevel[];
 
-  const app = await NestFactory.create(AppModule, { logger: logLevels });
+  const fileLogger = new FileLogger('NestApplication', {
+    logFilePath: process.env.LOG_FILE ?? 'logs/nest-api.log',
+    levels: logLevels,
+    mirrorToConsole: process.env.LOG_TO_CONSOLE !== 'false',
+  });
+
+  const app = await NestFactory.create(AppModule, { logger: fileLogger });
   app.use(json({ limit: '2mb' }));
   app.enableCors({
     origin: true,

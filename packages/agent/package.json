@@ -74,6 +74,7 @@
     "@quikday/appstore-google-calendar": "workspace:*",
     "@quikday/appstore-gmail-email": "workspace:*",
     "@quikday/libs": "workspace:*",
+    "@quikday/prisma": "workspace:*",
     "dotenv": "^17.2.3",
     "openai": "^4.72.0",
     "zod": "^4.1.12"

@@ -150,7 +150,9 @@ With `KINDE_BYPASS=true`, you can use any bearer token locally:
 
 - Install deps once with `pnpm install` (already required for dev).
 - Agent package unit tests: `pnpm --filter @quikday/agent test`
+- Real LLM validation (requires `OPENAI_API_KEY`): `OPENAI_API_KEY=... pnpm --filter @quikday/agent test -- agent.module.real-llm.spec.ts`
 - API worker integration tests (focused suite): `pnpm --filter @quikday/api test -- run.processor.spec.ts`
+- To exercise the real OpenAI LLM path, set `OPENAI_API_KEY` and rerun the agent tests (the suite skips this check if the key is missing).
 - Add `--watch` to either command while iterating locally.
 
 **What’s Implemented**

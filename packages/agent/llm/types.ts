@@ -1,5 +1,13 @@
 export type Json = string | number | boolean | null | Json[] | { [k: string]: Json };
 
+export interface LlmCallMetadata {
+  userId: number | string;
+  teamId?: number | string | null;
+  requestType?: string;
+  apiEndpoint?: string;
+  runId?: string;
+}
+
 export interface LLM {
   text(args: {
     system?: string;
@@ -7,6 +15,7 @@ export interface LLM {
     temperature?: number;
     maxTokens?: number;
     timeoutMs?: number;
+    metadata?: LlmCallMetadata;
   }): Promise<string>;
 
   // optional, if you do structured outputs elsewhere
@@ -17,5 +26,6 @@ export interface LLM {
     temperature?: number;
     maxTokens?: number;
     timeoutMs?: number;
+    metadata?: LlmCallMetadata;
   }): Promise<T>;
 }
