@@ -55,9 +55,9 @@ export class WebSocketService implements OnModuleDestroy {
       timestamp: new Date().toISOString(),
     });
 
-    // Subscribe to Redis events for this run
+    // Subscribe to Pubsub events for this run
     const unsubscribe = this.eventBus.on(runId, (event) => {
-      this.logger.log(`📨 Received Redis event for ${runId}: ${event.type}`);
+      this.logger.log(`📨 Received Pubsub event for ${runId}: ${event.type}`);
       this.sendMessage(ws, event);
 
       // Clean up on terminal state
