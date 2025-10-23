@@ -8,7 +8,7 @@ import { RedisPubSubService } from '@quikday/libs';
 import type { RunState } from '@quikday/agent/state/types';
 import type { Run } from '@prisma/client';
 import { setRedisPubSub, subscribeToRunEvents, type RunEvent as GraphRunEvent } from '@quikday/agent/observability/events';
-import type { RunEvent as UiRunEvent } from '../redis/redis-pubsub.service';
+import type { UiRunEvent } from '@quikday/libs/redis/UiRunEvent'
 import { AgentService } from '../agent';
 
 const GRAPH_HALT_AWAITING_APPROVAL = 'GRAPH_HALT_AWAITING_APPROVAL';

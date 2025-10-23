@@ -10,15 +10,19 @@
     "dev": "tsc -w -p tsconfig.build.json"
   },
   "dependencies": {
-    "ioredis": "^5.8.1"
+    "ioredis": "^5.8.1",
+    "lru-cache": "^11.2.2",
+    "uuid": "^13.0.0"
   },
   "peerDependencies": {
     "@nestjs/common": "^10.0.0",
     "ioredis": "^5.0.0"
   },
   "devDependencies": {
+    "@quikday/tsconfig": "workspace:*",
+    "@types/lru-cache": "^7.10.10",
     "@types/node": "^22.16.5",
-    "typescript": "^5.6.3",
-    "@quikday/tsconfig": "workspace:*"
+    "@types/uuid": "^11.0.0",
+    "typescript": "^5.6.3"
   }
 }
