@@ -1,7 +1,7 @@
-import type { Node } from "../runtime/graph";
-import type { RunState } from "../state/types";
-import type { LLM } from "../llm/types";
-import { redactForLog } from "../guards/redaction";
+import type { Node } from '../runtime/graph';
+import type { RunState } from '../state/types';
+import type { LLM } from '../llm/types';
+import { redactForLog } from '../guards/redaction';
 
 // Bring in the Json type your redactor uses
 type Json = string | number | boolean | null | Json[] | { [k: string]: Json };
@@ -36,7 +36,7 @@ export const summarize = (llm: LLM): Node<RunState> => {
 
     const text = await llm.text({
       system:
-        "Summarize succinctly in under 2 sentences. Do not reveal emails or secrets. If channels exist, mention them (e.g., #general).",
+        'Summarize succinctly in under 2 sentences. Do not reveal emails or secrets. If channels exist, mention them (e.g., #general).',
       user: JSON.stringify(safe),
       maxTokens: 180,
       temperature: 0.2,

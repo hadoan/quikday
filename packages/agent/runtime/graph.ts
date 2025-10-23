@@ -1,4 +1,4 @@
-export type Node<S> = (s: S) => Promise<Partial<S> | void>;
+export type Node<S, E = any> = (s: S, eventBus: E) => Promise<Partial<S> | void>;
 export type Router<S> = (s: S) => string | { next: string; reason?: string } | 'END';
 
 export type Hooks<S> = {
@@ -7,13 +7,13 @@ export type Hooks<S> = {
   onEdge?: (from: string, to: string, s: S) => void;
 };
 
-export class Graph<S> {
-  private nodes = new Map<string, Node<S>>();
+export class Graph<S, E> {
+  private nodes = new Map<string, Node<S, E>>();
   private edges = new Map<string, Router<S>>();
 
   constructor(private hooks: Hooks<S> = {}) {}
 
-  addNode(id: string, fn: Node<S>) {
+  addNode(id: string, fn: Node<S, E>) {
     this.nodes.set(id, fn);
     return this;
   }
@@ -22,12 +22,12 @@ export class Graph<S> {
     return this;
   }
 
-  async run(start: string, state: S, maxSteps = 64): Promise<S> {
+  async run(start: string, state: S, eventBus: E, maxSteps = 64): Promise<S> {
     let current = start;
     let s = structuredClone(state);
     for (let i = 0; i < maxSteps && current !== 'END'; i++) {
       this.hooks.onEnter?.(current, s);
-      const delta = await this.nodes.get(current)!(s);
+      const delta = await this.nodes.get(current)!(s, eventBus);
       if (delta) Object.assign(s as any, deepMerge(s, delta));
       this.hooks.onExit?.(current, s, delta);
       const r = this.edges.get(current)!(s);

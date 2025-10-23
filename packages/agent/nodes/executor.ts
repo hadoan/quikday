@@ -1,8 +1,9 @@
-import type { Node } from "../runtime/graph";
-import type { RunState } from "../state/types";
-import { registry } from "../registry/registry";
-import { events } from "../observability/events";
-import { redactForLog } from "../guards/redaction";
+import type { Node } from '../runtime/graph';
+import type { RunState } from '../state/types';
+import type { RunEventBus } from '@quikday/libs';
+import { registry } from '../registry/registry';
+import { events } from '../observability/events';
+import { redactForLog } from '../guards/redaction';
 
 // add near top with other imports
 type Json = string | number | boolean | null | Json[] | { [k: string]: Json };
@@ -15,7 +16,6 @@ function toJson(value: unknown): Json {
     return null;
   }
 }
-
 
 // // ---- Transient error detection ------------------------------------------------
 // type TransientLike =
@@ -30,11 +30,12 @@ function toJson(value: unknown): Json {
 //   | "CIRCUIT_OPEN";
 
 function isTransient(err: any): boolean {
-  const code = (err?.code ?? "").toString().toUpperCase();
+  const code = (err?.code ?? '').toString().toUpperCase();
   const status = Number(err?.status ?? err?.response?.status ?? 0);
-  if (code === "RATE_LIMIT") return true;
-  if (code === "CIRCUIT_OPEN") return true;
-  if (["ETIMEDOUT", "ECONNRESET", "EAI_AGAIN", "ENETUNREACH", "ECONNABORTED"].includes(code)) return true;
+  if (code === 'RATE_LIMIT') return true;
+  if (code === 'CIRCUIT_OPEN') return true;
+  if (['ETIMEDOUT', 'ECONNRESET', 'EAI_AGAIN', 'ENETUNREACH', 'ECONNABORTED'].includes(code))
+    return true;
   if (status === 429) return true;
   if (status >= 500 && status < 600) return true;
   return false;
@@ -43,7 +44,7 @@ function isTransient(err: any): boolean {
 // ---- Retry with exponential backoff + jitter ---------------------------------
 async function withRetry<T>(
   fn: () => Promise<T>,
-  opts: { retries: number; baseMs: number; maxMs: number }
+  opts: { retries: number; baseMs: number; maxMs: number },
 ): Promise<T> {
   let attempt = 0;
   let lastErr: any;
@@ -65,7 +66,7 @@ async function withRetry<T>(
 
 // ---- Derive undo args (delegates to tool if provided) ------------------------
 async function deriveUndoArgs(tool: any, result: any, args: any) {
-  if (typeof tool.undo === "function") {
+  if (typeof tool.undo === 'function') {
     try {
       return await tool.undo({ result, args });
     } catch {
@@ -76,7 +77,7 @@ async function deriveUndoArgs(tool: any, result: any, args: any) {
 }
 
 // ---- Executor node -----------------------------------------------------------
-export const executor: Node<RunState> = async (s) => {
+export const executor: Node<RunState, RunEventBus> = async (s, eventBus) => {
   const commits: Array<{ stepId: string; result: unknown }> = [];
   const undo: Array<{ stepId: string; tool: string; args: unknown }> = [];
 
@@ -88,10 +89,10 @@ export const executor: Node<RunState> = async (s) => {
     if (!parsed.success) {
       const zerr = parsed.error?.flatten?.() ?? parsed.error;
       const err: any = new Error(`Invalid args for ${step.tool}`);
-      err.code = "E_ARGS_INVALID";
+      err.code = 'E_ARGS_INVALID';
       err.details = zerr;
-      events.toolFailed(s, step.tool, { code: err.code, details: zerr });
-      (s as any).error = { node: "executor", message: err.message, code: err.code };
+      events.toolFailed(s, eventBus, step.tool, { code: err.code, details: zerr });
+      (s as any).error = { node: 'executor', message: err.message, code: err.code };
       throw err;
     }
     const args = parsed.data;
@@ -99,19 +100,20 @@ export const executor: Node<RunState> = async (s) => {
     // Redact args for event emission
     const safeArgs = redactForLog(args);
 
-    events.toolCalled(s, step.tool, safeArgs);
-    const t0 = (globalThis.performance?.now?.() ?? Date.now());
+    events.toolCalled(s, eventBus, step.tool, safeArgs);
+    const t0 = globalThis.performance?.now?.() ?? Date.now();
 
     try {
-      const result = await withRetry(
-        async () => registry.call(step.tool, args, s.ctx),
-        { retries: 3, baseMs: 500, maxMs: 5000 }
-      );
+      const result = await withRetry(async () => registry.call(step.tool, args, s.ctx), {
+        retries: 3,
+        baseMs: 500,
+        maxMs: 5000,
+      });
 
       const duration = (globalThis.performance?.now?.() ?? Date.now()) - t0;
       // Redact result for events
       const safeResult = redactForLog(result as any);
-      events.toolSucceeded(s, step.tool, safeResult, duration);
+      events.toolSucceeded(s, eventBus, step.tool, safeResult, duration);
 
       commits.push({ stepId: step.id, result });
 
@@ -122,12 +124,12 @@ export const executor: Node<RunState> = async (s) => {
     } catch (error: any) {
       // Prepare structured error payload for events
       const payload = {
-        code: (error?.code ?? "E_STEP_FAILED") as string,
+        code: (error?.code ?? 'E_STEP_FAILED') as string,
         message: error?.message ?? String(error),
         status: error?.status ?? error?.response?.status,
       };
-      events.toolFailed(s, step.tool, payload);
-      (s as any).error = { node: "executor", ...payload };
+      events.toolFailed(s, eventBus, step.tool, payload);
+      (s as any).error = { node: 'executor', ...payload };
       throw error;
     }
   }
@@ -140,8 +142,7 @@ export const executor: Node<RunState> = async (s) => {
       tool: u.tool,
       args: toJson(u.args),
     })) as Json;
-
-    (events as any).undoEnqueued(s, redactForLog(undoForEvents));
+    (events as any).undoEnqueued(s, eventBus, redactForLog(undoForEvents));
   }
 
   return { output: { ...s.output, commits, undo } };

@@ -77,6 +77,7 @@
 
 import type { Node } from '../runtime/graph';
 import type { RunState } from '../state/types';
+import type { RunEventBus } from '@quikday/libs';
 import { events } from '../observability/events';
 
 const reasonToMessage: Record<string, string> = {
@@ -88,13 +89,13 @@ const reasonToMessage: Record<string, string> = {
 };
 
 export const fallback =
-  (defaultReason = 'unspecified'): Node<RunState> =>
-  async (s) => {
+  (defaultReason = 'unspecified'): Node<RunState, RunEventBus> =>
+  async (s, eventBus) => {
     const scratch = s.scratch ?? {};
     const reason = (scratch as any).fallbackReason ?? defaultReason;
     const details = (scratch as any).fallbackDetails ?? {};
 
-    events.fallback(s, reason, details);
+    events.fallback(s, eventBus, reason, details);
 
     const summary = reasonToMessage[reason] ?? reasonToMessage.unspecified;
     return { output: { ...s.output, summary, fallback: { reason, details } } };

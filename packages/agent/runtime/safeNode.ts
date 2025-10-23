@@ -1,4 +1,5 @@
 // runtime/safeNode.ts
+import { RunEventBus } from '@quikday/libs';
 import type { RunState } from '../state/types';
 
 /**
@@ -6,11 +7,13 @@ import type { RunState } from '../state/types';
  * Works with any node shape: (state, ctx), (state, ctx, signal), etc.
  */
 export const safeNode =
-  <T extends (...args: any[]) => any>(nodeName: string, fn: T) =>
+  <T extends (...args: any[]) => any>(nodeName: string, fn: T, eventBus: RunEventBus) =>
   async (...args: Parameters<T>): Promise<Awaited<ReturnType<T>>> => {
     try {
       // Keep the original signature and return type. Await once to avoid nested Promises.
-      const res = await fn(...args);
+      // Call the wrapped node with the original parameters and append the shared eventBus
+      // so nodes with signature (state, eventBus) or (state, ctx, eventBus) continue to work.
+      const res = await fn(...(args as any[]), eventBus);
       return await (res as Promise<Awaited<ReturnType<T>>>);
     } catch (err) {
       // Attempt to annotate state + emit events if available

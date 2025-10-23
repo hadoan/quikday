@@ -10,11 +10,13 @@ import { CredentialsModule } from './credentials/credentials.module';
 import { WebSocketModule } from './websocket/websocket.module';
 import { IntegrationsModule } from './integrations/integrations.module';
 import { UsersModule } from './users/users.module';
-import { AgentTestModule } from './agent-test/agent-test.module';
+// import { AgentTestModule } from './agent-test/agent-test.module';
 import { AgentModule } from './agent';
+import { InMemoryEventBus, PubSubModule } from '@quikday/libs';
 
 @Module({
   imports: [
+    PubSubModule,
     ConfigModule,
     PrismaModule,
     AuthModule,
@@ -27,7 +29,7 @@ import { AgentModule } from './agent';
     // IntegrationsModule,
     UsersModule,
     AgentModule,
-    AgentTestModule,
+    // AgentTestModule,
   ],
 })
 export class AppModule {}

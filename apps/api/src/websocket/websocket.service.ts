@@ -1,8 +1,9 @@
-import { Injectable, Logger, OnModuleDestroy } from '@nestjs/common';
+import { Inject, Injectable, Logger, OnModuleDestroy } from '@nestjs/common';
 import { WebSocketServer, WebSocket } from 'ws';
 import { Server } from 'http';
 import { PrismaService } from '@quikday/prisma';
 import { RedisPubSubService } from '@quikday/libs';
+import { RunEventBus } from '@quikday/libs/pubsub/event-bus';
 
 interface ConnectionState {
   runId: string;
@@ -20,7 +21,8 @@ export class WebSocketService implements OnModuleDestroy {
 
   constructor(
     private readonly prisma: PrismaService,
-    private readonly redisPubSub: RedisPubSubService
+    // private readonly redisPubSub: RedisPubSubService
+    @Inject('RunEventBus') private eventBus: RunEventBus
   ) {}
 
   /**
@@ -54,13 +56,14 @@ export class WebSocketService implements OnModuleDestroy {
     });
 
     // Subscribe to Redis events for this run
-    const unsubscribe = this.redisPubSub.onRunEvent(runId, (event) => {
+    const unsubscribe = this.eventBus.on(runId, (event) => {
       this.logger.log(`📨 Received Redis event for ${runId}: ${event.type}`);
       this.sendMessage(ws, event);
 
       // Clean up on terminal state
-      if (['succeeded', 'failed', 'completed', 'done'].includes(event.payload?.status)) {
-        this.logger.log(`✅ Run ${runId} reached terminal state: ${event.payload.status}`);
+      const payloadAny = event.payload as any;
+      if (payloadAny && ['succeeded', 'failed', 'completed', 'done'].includes(payloadAny.status)) {
+        this.logger.log(`✅ Run ${runId} reached terminal state: ${payloadAny.status}`);
         // Keep connection open for client to close
       }
     });
@@ -126,6 +129,15 @@ export class WebSocketService implements OnModuleDestroy {
    * Send message to WebSocket client with error handling
    */
   private sendMessage(ws: WebSocket, message: any) {
+    console.log(
+      '-------------------------------- Sending WebSocket message -----------------------------'
+    );
+    this.logger.log('📤 Sending WebSocket message', {
+      runId: this.connState.get(ws)?.runId,
+      messageType: message.type,
+      timestamp: new Date().toISOString(),
+    });
+
     try {
       if (ws.readyState === WebSocket.OPEN) {
         ws.send(JSON.stringify(message));
@@ -205,22 +217,22 @@ export class WebSocketService implements OnModuleDestroy {
     }
   }
 
-  /**
-   * Get connection statistics
-   */
-  getStats() {
-    const redisStats = this.redisPubSub.getStats();
+  // /**
+  //  * Get connection statistics
+  //  */
+  // getStats() {
+  //   const redisStats = this.redisPubSub.getStats();
 
-    return {
-      activeConnections: this.connState.size,
-      redis: redisStats,
-      connections: Array.from(this.connState.values()).map((state) => ({
-        runId: state.runId,
-        duration: Date.now() - state.connectedAt.getTime(),
-        lastStatus: state.lastStatus,
-      })),
-    };
-  }
+  //   return {
+  //     activeConnections: this.connState.size,
+  //     redis: redisStats,
+  //     connections: Array.from(this.connState.values()).map((state) => ({
+  //       runId: state.runId,
+  //       duration: Date.now() - state.connectedAt.getTime(),
+  //       lastStatus: state.lastStatus,
+  //     })),
+  //   };
+  // }
 
   /**
    * Cleanup on module destroy

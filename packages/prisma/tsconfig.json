@@ -1,4 +1,3 @@
-
 {
   "extends": "@quikday/tsconfig/base.json",
   "compilerOptions": {
@@ -17,7 +16,6 @@
     "declaration": true,
     "declarationMap": true
   },
-  "include": ["**/*.ts"]
-  ,
+  "include": ["**/*.ts"],
   "exclude": ["dist", "node_modules"]
 }

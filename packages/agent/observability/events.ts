@@ -1,7 +1,7 @@
 import type { Hooks } from '../runtime/graph';
 import type { RunState } from '../state/types';
 import { redactForLog } from '../guards/redaction';
-import type { RedisPubSubService } from '@quikday/libs';
+import type { RedisPubSubService, RunEventBus } from '@quikday/libs';
 
 /** ─────────────────────────────────────────────────────────────────────────────
  * Event types & payloads
@@ -36,19 +36,19 @@ export interface RunEvent<T = any> {
   teamId?: string | undefined;
 }
 
-/** ─────────────────────────────────────────────────────────────────────────────
- * Redis pub/sub integration
- * Uses the shared RedisPubSubService from @quikday/libs
- * ──────────────────────────────────────────────────────────────────────────── */
-let redisPubSub: RedisPubSubService | null = null;
+// /** ─────────────────────────────────────────────────────────────────────────────
+//  * Redis pub/sub integration
+//  * Uses the shared RedisPubSubService from @quikday/libs
+//  * ──────────────────────────────────────────────────────────────────────────── */
+// let redisPubSub: RedisPubSubService | null = null;
 
-/**
- * Initialize the Redis pub/sub service for event broadcasting.
- * Call this once during application bootstrap.
- */
-export function setRedisPubSub(service: RedisPubSubService) {
-  redisPubSub = service;
-}
+// /**
+//  * Initialize the Redis pub/sub service for event broadcasting.
+//  * Call this once during application bootstrap.
+//  */
+// export function setRedisPubSub(service: RedisPubSubService) {
+//   redisPubSub = service;
+// }
 
 /**
  * Subscribe to events for a specific run using Redis pub/sub
@@ -56,12 +56,9 @@ export function setRedisPubSub(service: RedisPubSubService) {
 export function subscribeToRunEvents(
   runId: string,
   handler: (evt: RunEvent) => void,
+  eventBus: RunEventBus,
 ): () => void {
-  if (!redisPubSub) {
-    console.warn('RedisPubSub service not initialized. Events will not be received.');
-    return () => { };
-  }
-  return redisPubSub.onRunEvent(runId, handler as any);
+  return eventBus.on(runId, handler as any);
 }
 
 /** ─────────────────────────────────────────────────────────────────────────────
@@ -75,8 +72,8 @@ export type Sinks = {
 };
 
 const defaultSinks: Required<Sinks> = {
-  persist: async () => { },
-  webhook: async () => { },
+  persist: async () => {},
+  webhook: async () => {},
   console: (evt) => {
     // Lightweight dev log
     if (process.env.NODE_ENV !== 'production') {
@@ -91,6 +88,7 @@ const defaultSinks: Required<Sinks> = {
  * Call this once per run with the sinks you want.
  * ──────────────────────────────────────────────────────────────────────────── */
 export function hooks(
+  eventBus: RunEventBus,
   sinks: Sinks = {},
   redactionOpts?: Parameters<typeof redactForLog>[1],
 ): Hooks<RunState> {
@@ -108,12 +106,10 @@ export function hooks(
     };
 
     // Broadcast via Redis pub/sub
-    if (redisPubSub) {
-      void redisPubSub.publishRunEvent(s.ctx.runId, {
-        type: evt.type,
-        payload: evt.payload,
-      });
-    }
+    eventBus.publish(s.ctx.runId, {
+      type: evt.type,
+      payload: evt.payload,
+    });
 
     out.console(evt);
     // fire-and-forget; don't block the graph
@@ -141,20 +137,27 @@ export function hooks(
  * Use these from your worker/registry/planner nodes.
  * ──────────────────────────────────────────────────────────────────────────── */
 export const events = {
-  runStarted: (s: RunState) => _emit('run_status', s, { status: 'started' }),
-  runCompleted: (s: RunState) => _emit('run_completed', s, s.output),
-  runFailed: (s: RunState, error: { message: string; code?: string }) =>
-    _emit('step_failed', s, error),
-  planReady: (s: RunState, plan: any, diff?: any) => _emit('plan_generated', s, { plan, diff }),
-  fallback: (s: RunState, reason: string, details?: any) =>
-    _emit('fallback', s, { reason, details }),
-  toolCalled: (s: RunState, name: string, args?: any) => _emit('tool.called', s, { name, args }),
-  toolSucceeded: (s: RunState, name: string, result?: any, ms?: number) =>
-    _emit('tool.succeeded', s, { name, result, ms }),
-  toolFailed: (s: RunState, name: string, error: any) => _emit('tool.failed', s, { name, error }),
-  approvalAwaiting: (s: RunState, steps: any[]) => _emit('approval.awaiting', s, { steps }),
-  undoEnqueued: (s: RunState, actions: any[]) => _emit('undo.enqueued', s, { actions }),
-  undoCompleted: (s: RunState) => _emit('undo.completed', s),
+  runStarted: (s: RunState, eventBus: RunEventBus) =>
+    _emit('run_status', s, eventBus, { status: 'started' }),
+  runCompleted: (s: RunState, eventBus: RunEventBus) =>
+    _emit('run_completed', s, eventBus, s.output),
+  runFailed: (s: RunState, eventBus: RunEventBus, error: { message: string; code?: string }) =>
+    _emit('step_failed', s, eventBus, error),
+  planReady: (s: RunState, eventBus: RunEventBus, plan: any, diff?: any) =>
+    _emit('plan_generated', s, eventBus, { plan, diff }),
+  fallback: (s: RunState, eventBus: RunEventBus, reason: string, details?: any) =>
+    _emit('fallback', s, eventBus, { reason, details }),
+  toolCalled: (s: RunState, eventBus: RunEventBus, name: string, args?: any) =>
+    _emit('tool.called', s, eventBus, { name, args }),
+  toolSucceeded: (s: RunState, eventBus: RunEventBus, name: string, result?: any, ms?: number) =>
+    _emit('tool.succeeded', s, eventBus, { name, result, ms }),
+  toolFailed: (s: RunState, eventBus: RunEventBus, name: string, error: any) =>
+    _emit('tool.failed', s, eventBus, { name, error }),
+  approvalAwaiting: (s: RunState, eventBus: RunEventBus, steps: any[]) =>
+    _emit('approval.awaiting', s, eventBus, { steps }),
+  undoEnqueued: (s: RunState, eventBus: RunEventBus, actions: any[]) =>
+    _emit('undo.enqueued', s, eventBus, { actions }),
+  undoCompleted: (s: RunState, eventBus: RunEventBus) => _emit('undo.completed', s, eventBus),
 };
 
 let globalSinks: Sinks = defaultSinks;
@@ -164,7 +167,7 @@ export function initEventSinks(sinks: Sinks) {
   globalSinks = { ...defaultSinks, ...sinks };
 }
 
-function _emit(type: RunEventType, s: RunState, payload?: any) {
+function _emit(type: RunEventType, s: RunState, eventBus: RunEventBus, payload?: any) {
   const evt: RunEvent = {
     runId: s.ctx.runId,
     type,
@@ -175,13 +178,10 @@ function _emit(type: RunEventType, s: RunState, payload?: any) {
     teamId: s.ctx.teamId,
   };
 
-  // Broadcast via Redis pub/sub
-  if (redisPubSub) {
-    void redisPubSub.publishRunEvent(s.ctx.runId, {
-      type: evt.type,
-      payload: evt.payload,
-    });
-  }
+  eventBus.publish(s.ctx.runId, {
+    type: evt.type,
+    payload: evt.payload,
+  });
 
   globalSinks.console?.(evt);
   void globalSinks.persist?.(evt);

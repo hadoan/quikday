@@ -4,7 +4,7 @@
   "packageManager": "pnpm@10.17.0",
   "scripts": {
     "dev": "dotenv -e .env -- turbo run dev",
-    "dev:api": "dotenv -e .env -- pnpm --filter @quikday/api dev",
+    "dev:api": "dotenv -e .env -- turbo run dev --filter=@quikday/api...",
     "dev:web": "dotenv -e .env -- pnpm --filter ./apps/web dev",
     "dev:landing": "dotenv -e .env -- pnpm --filter ./apps/landing dev",
     "build": "turbo run build",

@@ -16,7 +16,18 @@ import type { ChatMessage } from '@quikday/agent/state/types';
 
 @Injectable()
 export class RunsService {
-  private readonly logger = new Logger(RunsService.name);
+  private isNoLog = true;
+  private readonly logger =
+    this.isNoLog === true
+      ? ({
+          log: (_: any, __?: any) => {},
+          debug: (_: any, __?: any) => {
+            console.log('----');
+          },
+          warn: (_: any, __?: any) => {},
+          error: (_: any, __?: any) => {},
+        } as unknown as Logger)
+      : new Logger(RunsService.name);
 
   constructor(
     private prisma: PrismaService,
@@ -26,7 +37,16 @@ export class RunsService {
   ) {}
 
   async createFromPrompt(dto: CreateRunDto, claims: any = {}) {
-    const { mode, teamId, scheduledAt, channelTargets, toolAllowlist, messages, prompt: promptInput, meta } = dto;
+    const {
+      mode,
+      teamId,
+      scheduledAt,
+      channelTargets,
+      toolAllowlist,
+      messages,
+      prompt: promptInput,
+      meta,
+    } = dto;
 
     this.logger.log('🔨 Creating run request', {
       timestamp: new Date().toISOString(),
@@ -196,15 +216,11 @@ export class RunsService {
       meta,
     };
 
-    const job = await this.runsQueue.add(
-      'execute',
-      jobPayload,
-      {
-        removeOnComplete: 100,
-        removeOnFail: 100,
-        delay: opts.delayMs ?? 0,
-      }
-    );
+    const job = await this.runsQueue.add('execute', jobPayload, {
+      removeOnComplete: 100,
+      removeOnFail: 100,
+      delay: opts.delayMs ?? 0,
+    });
 
     this.logger.log('✅ Job added to queue', {
       timestamp: new Date().toISOString(),
@@ -250,7 +266,10 @@ export class RunsService {
     return lastUser?.content?.trim() ?? '';
   }
 
-  private async buildPolicySnapshot(teamId: number | null, toolAllowlist?: string[]): Promise<TeamPolicy> {
+  private async buildPolicySnapshot(
+    teamId: number | null,
+    toolAllowlist?: string[]
+  ): Promise<TeamPolicy> {
     const base = await getTeamPolicy(teamId !== null ? String(teamId) : undefined);
     const allowlist = new Set<string>(base.allowlist?.tools ?? []);
     if (Array.isArray(toolAllowlist)) {
@@ -287,7 +306,10 @@ export class RunsService {
 
   private extractInputFromConfig(config: Record<string, unknown>, fallbackPrompt: string) {
     const input = this.asRecord(config.input);
-    const prompt = typeof input.prompt === 'string' && input.prompt.trim().length > 0 ? input.prompt : fallbackPrompt;
+    const prompt =
+      typeof input.prompt === 'string' && input.prompt.trim().length > 0
+        ? input.prompt
+        : fallbackPrompt;
     const messages = Array.isArray(input.messages) ? (input.messages as ChatMessage[]) : undefined;
     return { prompt, messages };
   }
@@ -313,7 +335,9 @@ export class RunsService {
   ): string[] {
     const scopes = new Set<string>(['runs:execute']);
 
-    const targets = Array.isArray(config.channelTargets) ? (config.channelTargets as Array<any>) : [];
+    const targets = Array.isArray(config.channelTargets)
+      ? (config.channelTargets as Array<any>)
+      : [];
     targets.forEach((target: any) => {
       if (target && typeof target.appId === 'string') {
         scopes.add(`tool:${target.appId}`);

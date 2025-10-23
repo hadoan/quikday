@@ -20,6 +20,10 @@ export class RedisPubSubService implements OnModuleDestroy {
   private readonly SERVICE = process.env.SERVICE_NAME ?? 'runs-api';
   private readonly redisUrl = process.env.REDIS_URL || 'redis://localhost:6379';
 
+  // NEW: allow handling own-origin events (needed when pub & sub are same process)
+  private readonly ignoreSelfOrigin =
+    (process.env.REDIS_IGNORE_SELF_ORIGIN ?? 'false').toLowerCase() === 'true';
+
   constructor() {
     this.publisher = new Redis(this.redisUrl, {
       maxRetriesPerRequest: null,
@@ -67,8 +71,8 @@ export class RedisPubSubService implements OnModuleDestroy {
       }
       this.dedupe.set(event.id, true);
 
-      // NEW: ignore our own-origin messages to prevent echo
-      if (event.origin === this.SERVICE) {
+      // ✅ Only ignore self-origin when explicitly enabled
+      if (this.ignoreSelfOrigin && event.origin === this.SERVICE) {
         return;
       }
 
@@ -78,7 +82,7 @@ export class RedisPubSubService implements OnModuleDestroy {
       // Notify all handlers for this channel
       const handlers = this.eventHandlers.get(channel);
       if (handlers?.size) {
-        Array.from(handlers).forEach(handler => {
+        Array.from(handlers).forEach((handler) => {
           try {
             handler(event);
           } catch (error) {
@@ -113,13 +117,18 @@ export class RedisPubSubService implements OnModuleDestroy {
    */
   async publishRunEvent(
     runId: string,
-    event: Omit<RunEvent, 'runId' | 'ts' | 'id' | 'origin'>
+    event: Omit<RunEvent, 'runId' | 'ts' | 'id' | 'origin'>,
   ): Promise<void> {
+    console.log(
+      '---------------------------------- publishRunEvent called -----------------------------',
+    );
+    console.log({ runId, event });
+    // return;
     const channel = `run:${runId}`;
     const fullEvent: RunEvent = {
       ...event,
-      id: uuidv7(),                // NEW
-      origin: this.SERVICE,        // NEW
+      id: uuidv7(), // NEW
+      origin: this.SERVICE, // NEW
       runId,
       ts: new Date().toISOString(),
     };

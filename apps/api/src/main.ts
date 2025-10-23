@@ -31,9 +31,11 @@ async function bootstrap() {
   }
 
   // Configure logger levels from environment
-  const logLevels = (process.env.LOG_LEVEL
-    ? process.env.LOG_LEVEL.split(',').map((level) => level.trim())
-    : ['log', 'error', 'warn']) as LogLevel[];
+  const logLevels = (
+    process.env.LOG_LEVEL
+      ? process.env.LOG_LEVEL.split(',').map((level) => level.trim())
+      : ['log', 'error', 'warn']
+  ) as LogLevel[];
 
   const fileLogger = new FileLogger('NestApplication', {
     logFilePath: process.env.LOG_FILE ?? 'logs/nest-api.log',
@@ -54,10 +56,7 @@ async function bootstrap() {
     .setTitle('Runfast API')
     .setDescription('API documentation for Runfast')
     .setVersion('1.0')
-    .addBearerAuth(
-      { type: 'http', scheme: 'bearer', bearerFormat: 'JWT' },
-      'bearer',
-    )
+    .addBearerAuth({ type: 'http', scheme: 'bearer', bearerFormat: 'JWT' }, 'bearer')
     .build();
   const swaggerDoc = SwaggerModule.createDocument(app, swaggerConfig);
   SwaggerModule.setup('docs', app, swaggerDoc, {

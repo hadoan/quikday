@@ -23,14 +23,7 @@ const shouldLog = (metadata?: Partial<LlmCallMetadata>) =>
 
 export function makeOpenAiLLM(client = new OpenAI({ apiKey: process.env.OPENAI_API_KEY })): LLM {
   return {
-    async text({
-      system,
-      user,
-      temperature = 0.2,
-      maxTokens = 300,
-      timeoutMs = 15_000,
-      metadata,
-    }) {
+    async text({ system, user, temperature = 0.2, maxTokens = 300, timeoutMs = 15_000, metadata }) {
       const ctrl = new AbortController();
       const t = setTimeout(() => ctrl.abort(), timeoutMs);
 

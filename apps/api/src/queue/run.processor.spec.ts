@@ -68,7 +68,12 @@ describe('RunProcessor.process', () => {
     };
 
     const redis = new FakeRedisPubSubService();
-    const processor = new RunProcessor(runsService as any, telemetry as any, redis as any, agentService as any);
+    const processor = new RunProcessor(
+      runsService as any,
+      telemetry as any,
+      redis as any,
+      agentService as any
+    );
 
     graphRunMock.mockImplementation(async (_entry, initialState) => {
       redis.emit('run-123', {
@@ -124,7 +129,10 @@ describe('RunProcessor.process', () => {
     );
     expect(redis.published.some((entry) => entry.event.type === 'run_completed')).toBe(true);
     expect(redis.hasHandler('run-123')).toBe(false);
-    expect(telemetry.track).toHaveBeenCalledWith('run_completed', { runId: 'run-123', status: 'done' });
+    expect(telemetry.track).toHaveBeenCalledWith('run_completed', {
+      runId: 'run-123',
+      status: 'done',
+    });
     expect(agentService.createGraph).toHaveBeenCalledTimes(1);
   });
 
@@ -139,7 +147,12 @@ describe('RunProcessor.process', () => {
       createGraph: vi.fn(() => ({ run: graphRunMock })),
     };
     const redis = new FakeRedisPubSubService();
-    const processor = new RunProcessor(runsService as any, telemetry as any, redis as any, agentService as any);
+    const processor = new RunProcessor(
+      runsService as any,
+      telemetry as any,
+      redis as any,
+      agentService as any
+    );
 
     const job = {
       id: 'job-2',

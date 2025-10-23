@@ -5,7 +5,10 @@ type LlmContextValue = Partial<LlmCallMetadata> & { runId?: string };
 
 const storage = new AsyncLocalStorage<LlmContextValue>();
 
-export const withLlmContext = async <T>(context: LlmContextValue, fn: () => Promise<T>): Promise<T> =>
+export const withLlmContext = async <T>(
+  context: LlmContextValue,
+  fn: () => Promise<T>,
+): Promise<T> =>
   await new Promise<T>((resolve, reject) => {
     storage.run(context, async () => {
       try {

@@ -6,7 +6,7 @@ import { RunProcessor } from './run.processor';
 import { RunsModule } from '../runs/runs.module';
 import { TelemetryModule } from '../telemetry/telemetry.module';
 import { CredentialsModule } from '../credentials/credentials.module';
-import { RedisModule } from '@quikday/libs';
+import { RedisModule, PubSubModule } from '@quikday/libs';
 import { AgentModule } from '../agent';
 
 @Module({
@@ -16,6 +16,7 @@ import { AgentModule } from '../agent';
     ConfigModule,
     CredentialsModule,
     RedisModule,
+    PubSubModule,
     AgentModule.forRoot(),
     BullModule.forRootAsync({
       imports: [ConfigModule],

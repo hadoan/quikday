@@ -1,10 +1,11 @@
 import type { Node } from '../runtime/graph';
 import type { RunState } from '../state/types';
+import type { RunEventBus } from '@quikday/libs';
 import { needsApproval } from '../guards/policy';
 import { events } from '../observability/events';
 import { randomUUID } from 'node:crypto';
 
-export const confirm: Node<RunState> = async (s) => {
+export const confirm: Node<RunState, RunEventBus> = async (s, eventBus) => {
   const policy = (s.ctx as any).meta?.policy;
   const approvedSteps = new Set<string>(
     Array.isArray((s.ctx as any).meta?.approvedSteps)
@@ -24,7 +25,7 @@ export const confirm: Node<RunState> = async (s) => {
   }
 
   const approvalId = randomUUID();
-  events.approvalAwaiting(s, pending);
+  events.approvalAwaiting(s, eventBus, pending);
 
   const err: any = new Error('GRAPH_HALT_AWAITING_APPROVAL');
   err.code = 'GRAPH_HALT_AWAITING_APPROVAL';

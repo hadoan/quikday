@@ -1,8 +1,8 @@
-import { useState } from "react";
-import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
-import { Github, Play, X } from "lucide-react";
-import heroBg from "@/assets/hero-bg.jpg";
+import { useState } from 'react';
+import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
+import { Github, Play, X } from 'lucide-react';
+import heroBg from '@/assets/hero-bg.jpg';
 
 export const Hero = () => {
   const [showDemo, setShowDemo] = useState(false);
@@ -10,11 +10,7 @@ export const Hero = () => {
     <section className="relative min-h-[90vh] flex items-center overflow-hidden">
       {/* Background */}
       <div className="absolute inset-0 z-0">
-        <img 
-          src={heroBg} 
-          alt="" 
-          className="w-full h-full object-cover opacity-20"
-        />
+        <img src={heroBg} alt="" className="w-full h-full object-cover opacity-20" />
         <div className="absolute inset-0 bg-gradient-to-b from-background via-background/50 to-background" />
       </div>
 
@@ -32,8 +28,14 @@ export const Hero = () => {
 
           {/* Subheadline */}
           <p className="text-xl md:text-2xl text-muted-foreground mb-2 max-w-4xl mx-auto leading-relaxed">
-            Press an <span className="font-semibold text-foreground">Action</span>, see <span className="font-semibold text-foreground">Plan & Diff</span>, <span className="font-semibold text-foreground">Approve</span>, and it runs — with <span className="font-semibold text-foreground">Undo</span> and <span className="font-semibold text-foreground">audit</span> built in.
-            Not a workflow builder. A <span className="font-semibold text-foreground">governed command console</span> for email, calendar, tasks, and social.
+            Press an <span className="font-semibold text-foreground">Action</span>, see{' '}
+            <span className="font-semibold text-foreground">Plan & Diff</span>,{' '}
+            <span className="font-semibold text-foreground">Approve</span>, and it runs — with{' '}
+            <span className="font-semibold text-foreground">Undo</span> and{' '}
+            <span className="font-semibold text-foreground">audit</span> built in. Not a workflow
+            builder. A{' '}
+            <span className="font-semibold text-foreground">governed command console</span> for
+            email, calendar, tasks, and social.
           </p>
 
           {/* Trust strip */}
@@ -54,7 +56,9 @@ export const Hero = () => {
               See 30-second demo
             </Button>
             <Button variant="secondary" size="lg" className="min-w-[160px]" asChild>
-              <a href="#join-beta" data-ab="hero-joinbeta-secondary">Join Beta</a>
+              <a href="#join-beta" data-ab="hero-joinbeta-secondary">
+                Join Beta
+              </a>
             </Button>
             <Button variant="outline" size="lg" className="min-w-[180px]" asChild>
               <a

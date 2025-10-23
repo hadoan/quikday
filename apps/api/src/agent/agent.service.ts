@@ -5,13 +5,17 @@ import type { Graph } from '@quikday/agent/runtime/graph';
 import type { LLM } from '@quikday/agent/llm/types';
 import { AGENT_LLM } from './agent.tokens';
 import { withLlmContext } from '@quikday/agent/llm/context';
+import { RunEventBus } from '@quikday/libs';
 
 @Injectable()
 export class AgentService {
-  constructor(@Inject(AGENT_LLM) private readonly llm: LLM) {}
+  constructor(
+    @Inject(AGENT_LLM) private readonly llm: LLM,
+    @Inject('RunEventBus') private eventBus: RunEventBus
+  ) {}
 
-  createGraph(): Graph<RunState> {
-    return buildMainGraph({ llm: this.llm });
+  createGraph(): Graph<RunState, RunEventBus> {
+    return buildMainGraph({ llm: this.llm, eventBus: this.eventBus });
   }
 
   async run(initialState: RunState, entryPoint = 'classify'): Promise<RunState> {
@@ -26,7 +30,7 @@ export class AgentService {
         requestType: 'agent_graph',
         apiEndpoint: entryPoint,
       },
-      () => graph.run(entryPoint, initialState),
+      () => graph.run(entryPoint, initialState, this.eventBus)
     );
   }
 }
