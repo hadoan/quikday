@@ -36,12 +36,12 @@ async function postToSlack(
 
     // 2) Try dynamic import of your connector so this file doesn't hard-depend at build time
     try {
-        // eslint-disable-next-line @typescript-eslint/no-var-requires
-        const mod: any = await import("@quikday/appstore-slack");
-        if (mod?.SlackService) {
-            const slack = new mod.SlackService({ userId: ctx.userId, teamId: ctx.teamId });
-            return await slack.postMessage({ channel, text });
-        }
+        // // eslint-disable-next-line @typescript-eslint/no-var-requires
+        // const mod: any = await import("@quikday/appstore-slack");
+        // if (mod?.SlackService) {
+        //     const slack = new mod.SlackService({ userId: ctx.userId, teamId: ctx.teamId });
+        //     return await slack.postMessage({ channel, text });
+        // }
     } catch {
         // ignore — fall through to stub
     }

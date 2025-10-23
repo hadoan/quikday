@@ -2,142 +2,192 @@ import type { Node } from "../runtime/graph";
 import type { RunState } from "../state/types";
 import type { LLM } from "../llm/types";
 import { z } from "zod";
+import { INTENTS, type IntentId } from "./intents";
 
-// ── JSON contract the LLM must return ─────────────────────────────────────────
-const Out = z.object({
-  intent: z.enum(["calendar.schedule", "slack.notify", "unknown"]),
-  confidence: z.number().min(0).max(1),
+// IntentId now sourced from ./intents
+const ALLOWED = new Set<IntentId>(INTENTS.map(i => i.id) as IntentId[]);
+
+// ---------------- JSON contract from LLM (flexible, future-proof) ------------
+const LlmOut = z.object({
+  intent: z.string(),                 // free string, we’ll constrain to ALLOWED later
+  confidence: z.number().min(0).max(1).optional().default(0.7),
   reason: z.string().optional(),
-  targets: z
-    .object({
-      slack: z
-        .object({
-          channel: z.string().regex(/^#?[a-z0-9_-]+$/i).optional(),
-          missing: z.array(z.literal("channel")).optional(),
-        })
-        .partial()
-        .optional(),
-    })
-    .partial()
-    .optional(),
+  // Minimal, expandable slots. Keep lean.
+  targets: z.object({
+    time: z.object({
+      text: z.string().optional(),    // "tomorrow 4pm"
+      iso: z.string().optional(),     // "2025-10-22T16:00:00+02:00"
+      durationMin: z.number().optional()
+    }).partial().optional(),
+
+    attendees: z.array(z.string()).optional(),  // emails/usernames
+    email: z.object({
+      to: z.array(z.string()).optional(),
+      subject: z.string().optional(),
+      threadId: z.string().optional()
+    }).partial().optional(),
+
+    slack: z.object({
+      channel: z.string().regex(/^#?[a-z0-9_\-]+$/i).optional(), // "#general"
+      user: z.string().optional()                                 // "@alice"
+    }).partial().optional(),
+
+    notion: z.object({
+      db: z.string().optional(),
+      pageTitle: z.string().optional()
+    }).partial().optional(),
+
+    sheets: z.object({
+      sheet: z.string().optional(),
+      tab: z.string().optional(),
+    }).partial().optional(),
+
+    social: z.object({
+      platform: z.enum(["linkedin","twitter"]).optional(),
+      firstComment: z.string().optional()
+    }).partial().optional(),
+
+    crm: z.object({
+      system: z.enum(["hubspot","close"]).optional(),
+      contact: z.string().optional()
+    }).partial().optional(),
+
+    dev: z.object({
+      system: z.enum(["github","jira"]).optional(),
+      repo: z.string().optional(),
+      projectKey: z.string().optional(),
+      assignees: z.array(z.string()).optional(),
+      labels: z.array(z.string()).optional()
+    }).partial().optional(),
+  }).partial().optional(),
 });
-type LlmOut = z.infer<typeof Out>;
+type LlmOutType = z.infer<typeof LlmOut>;
 
-// ── Minimal heuristic fallback if LLM fails ───────────────────────────────────
-function heuristic(text: string): LlmOut {
-  const wantsCalendar = /\b(calendar|schedule|meeting|invite)\b/i.test(text);
-  const mentionsSlack = /\bslack\b/i.test(text) || /#\w+/.test(text);
-  const channelHash = text.match(/(^|\s)#([a-z0-9_-]+)/i)?.[2];
-  const channelPhrase =
-    text.match(/\b(?:in|to)\s+channel\s+#?([a-z0-9_-]+)/i)?.[1] ??
-    text.match(/\b(?:to|in)\s+#?([a-z0-9_-]+)/i)?.[1];
-  const channel = channelHash ? `#${channelHash}` : channelPhrase ? `#${channelPhrase}` : undefined;
+// ---------------- Heuristic fallback (tiny, fast) -----------------------------
+function heuristic(text: string): LlmOutType {
+  const t = text.toLowerCase();
 
-  const intent = wantsCalendar ? "calendar.schedule" : mentionsSlack ? "slack.notify" : "unknown";
-  const targets = mentionsSlack ? { slack: channel ? { channel } : { missing: ["channel" as const] } } : undefined;
+  const has = (...w: string[]) => w.some(x => t.includes(x));
+  const channel = (t.match(/(^|\s)#([a-z0-9_\-]+)/i)?.[2]) ? `#${t.match(/(^|\s)#([a-z0-9_\-]+)/i)![2]}` : undefined;
+
+  let intent: IntentId | "unknown" = "unknown";
+  if (has("calendar","schedule","meeting","invite","reschedule","slot")) intent = "calendar.schedule";
+  else if (has("draft","send","email","gmail")) intent = has("read","show","search") ? "email.read" : "email.send";
+  else if (has("slack","channel","#")) intent = "slack.notify";
+  else if (has("notion","page","database","db")) intent = "notion.upsert";
+  else if (has("sheet","sheets","csv")) intent = has("append","write","log") ? "sheets.write" : "sheets.read";
+  else if (has("linkedin","post","schedule on linkedin")) intent = "linkedin.post";
+  else if (has("twitter","tweet","x.com","schedule tweet")) intent = "twitter.post";
+  else if (has("hubspot","close.com","crm","contact")) intent = "crm.upsert";
+  else if (has("github","repo","issue")) intent = "github.create_issue";
+  else if (has("jira","project","issue")) intent = "jira.create_issue";
 
   return {
     intent,
-    confidence: intent === "unknown" ? 0.4 : (mentionsSlack && !channel) ? 0.75 : 0.9,
-    reason:
-      intent === "unknown"
-        ? "No strong scheduling or Slack cues detected"
-        : mentionsSlack && !channel
-          ? "Slack requested but channel unspecified"
-          : "Clear lexical cues",
-    targets,
+    confidence: intent === "unknown" ? 0.4 : 0.85,
+    reason: "Heuristic routing",
+    targets: {
+      slack: channel ? { channel } : undefined
+    }
   };
 }
 
-// ── Prompt used for the classifier ────────────────────────────────────────────
-const SYSTEM = `You are a classification router for an AI assistant. 
-Return ONLY compact JSON that matches the schema.
-Infer intent and targets conservatively. 
-If unsure, choose "unknown" and lower confidence.`;
+// ---------------- Prompts -----------------------------------------------------
+const SYSTEM = `You are a conservative intent router. 
+Pick the single best intent from the provided list, or return "unknown" if not confident.
+Extract only lightweight targets needed by a planner (channel, time, attendees, etc.).
+Return ONLY compact JSON.`;
 
 function userPrompt(text: string) {
-  return `Classify the user request.
+  const menu = INTENTS.map(i => `- ${i.id}: ${i.desc}`).join("\n");
+  return `Classify this user request into ONE intent from the list below (or "unknown" if not confident).
+Provide minimal targets/slots only if clearly present.
 
-User text:
+User:
 """
 ${text}
 """
 
-Valid intents: "calendar.schedule", "slack.notify", "unknown".
+Intents:
+${menu}
 
-Targets:
-- For Slack, detect { "slack": { "channel": "#general" } } if a #channel is present.
-- If Slack is requested but no channel is given, return { "slack": { "missing": ["channel"] } }.
-
-Output JSON fields:
-{ "intent": <string>, "confidence": <0..1>, "reason": <string>, "targets": { "slack"?: { "channel"?: <string>, "missing"?: ["channel"] } } }`;
+Output JSON:
+{
+  "intent": "<one of the intents above or 'unknown'>",
+  "confidence": 0..1,
+  "reason": "<short>",
+  "targets": {
+    "time"?: { "text"?: string, "iso"?: string, "durationMin"?: number },
+    "attendees"?: string[],
+    "email"?: { "to"?: string[], "subject"?: string, "threadId"?: string },
+    "slack"?: { "channel"?: "#general", "user"?: "@alice" },
+    "notion"?: { "db"?: string, "pageTitle"?: string },
+    "sheets"?: { "sheet"?: string, "tab"?: string },
+    "social"?: { "platform"?: "linkedin"|"twitter", "firstComment"?: string },
+    "crm"?: { "system"?: "hubspot"|"close", "contact"?: string },
+    "dev"?: { "system"?: "github"|"jira", "repo"?: string, "projectKey"?: string, "assignees"?: string[], "labels"?: string[] }
+  }
+}`;
 }
 
-// ── Factory: inject LLM (DI) ─────────────────────────────────────────────────
+// ---------------- Factory: LLM DI --------------------------------------------
 export const makeClassifyIntent = (llm: LLM): Node<RunState> => {
   return async (s) => {
-    const text =
-      s.input.prompt ??
-      s.input.messages?.map((m) => m.content).join("\n") ??
-      "";
+    const text = s.input.prompt ?? s.input.messages?.map(m => m.content).join("\n") ?? "";
 
-    // Fast-path: empty input → unknown
     if (!text.trim()) {
-      console.log(`[classifyIntent] run=${s.ctx.runId} Empty input, returning unknown`);
       return {
         scratch: {
           ...s.scratch,
           intent: "unknown",
-          intentMeta: { confidence: 0.0, reason: "empty input" },
+          intentMeta: { confidence: 0, reason: "empty input" },
         },
       };
     }
 
-    // Call LLM
-    let parsed: LlmOut | null = null;
+    let out: LlmOutType | null = null;
+
     try {
-      console.log(`[classifyIntent] run=${s.ctx.runId} Calling LLM for classification (input length: ${text.length})`);
-      
-      const jsonStr = await llm.text({
+      const raw = await llm.text({
         system: SYSTEM,
         user: userPrompt(text),
-        temperature: 0.0,
+        temperature: 0,
         maxTokens: 220,
         timeoutMs: 12_000,
       });
 
-      // Be resilient to accidental backticks or prose
-      const firstBrace = jsonStr.indexOf("{");
-      const lastBrace = jsonStr.lastIndexOf("}");
-      const justJson = firstBrace >= 0 && lastBrace > firstBrace ? jsonStr.slice(firstBrace, lastBrace + 1) : jsonStr;
-      const raw = JSON.parse(justJson);
-      parsed = Out.parse(raw);
+      // Extract JSON payload safely
+      const first = raw.indexOf("{");
+      const last  = raw.lastIndexOf("}");
+      const json  = first >= 0 && last > first ? raw.slice(first, last + 1) : raw;
+      const parsed = LlmOut.parse(JSON.parse(json));
 
-      console.log(`[classifyIntent] run=${s.ctx.runId} LLM parsing successful`);
-    } catch (error) {
-      console.log(`[classifyIntent] run=${s.ctx.runId} LLM failed, falling back to heuristic: ${error instanceof Error ? error.message : String(error)}`);
+      // Constrain to allowed intents
+      const picked = (ALLOWED.has(parsed.intent as IntentId) ? parsed.intent as IntentId : "unknown");
+      out = { ...parsed, intent: picked };
+    } catch (e) {
+      // swallow and fallback
     }
 
-    // Confidence threshold & fallback
-    const out = parsed && parsed.confidence >= 0 && parsed.confidence <= 1 ? parsed : heuristic(text);
+    if (!out || out.intent === "unknown") {
+      out = heuristic(text);
+    }
 
-    const result = {
-      intent: out.intent,
-      confidence: out.confidence,
-      reason: out.reason,
-      targets: out.targets,
-    };
+    // Normalize some common slots/targets for downstream planner
+    const targets = out.targets ?? {};
+    if (targets.slack?.channel && !targets.slack.channel.startsWith("#")) {
+      targets.slack.channel = `#${targets.slack.channel}`;
+    }
 
-    console.log(`[classifyIntent] run=${s.ctx.runId} Classification complete: ${out.intent} (confidence: ${out.confidence})`);
-
+    // Final write
     return {
       scratch: {
         ...s.scratch,
-        intent: out.intent,
+        intent: (ALLOWED.has(out.intent as IntentId) ? out.intent : "unknown"),
         intentMeta: {
-          confidence: out.confidence,
+          confidence: out.confidence ?? 0.7,
           reason: out.reason,
-          targets: out.targets,
+          targets
         },
       },
     };

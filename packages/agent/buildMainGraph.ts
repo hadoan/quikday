@@ -25,11 +25,17 @@ export const buildMainGraph = ({ llm }: BuildMainGraphOptions) => {
     .addNode('summarize', summarize(llm))
     .addNode('fallback', fallback('policy_denied'))
 
-    .addEdge('START', () => 'classify')
-    .addEdge('classify', routeByMode)
-    .addEdge('planner', () => 'confirm')
-    .addEdge('confirm', () => 'executor')
-    .addEdge('executor', (s) => (s.error ? 'fallback' : 'summarize'))
-    .addEdge('summarize', () => 'END')
+    // .addEdge('START', () => 'classify')
+    // .addEdge('classify', routeByMode)
+    // .addEdge('planner', () => 'confirm')
+    // .addEdge('confirm', () => 'executor')
+    // .addEdge('executor', (s) => (s.error ? 'fallback' : 'summarize'))
+    // .addEdge('summarize', () => 'END')
+    // .addEdge('fallback', () => 'END');
+
+    .addEdge('START',    () => 'classify')
+    .addEdge('classify', () => 'planner')                 // <- skip routeByMode
+    .addEdge('planner',  () => 'executor')                // <- skip confirm
+    .addEdge('executor', (s) => (s.error ? 'fallback' : 'END'))
     .addEdge('fallback', () => 'END');
 };

@@ -16,6 +16,7 @@ export interface PlanStep {
   tool: string; // "calendar.createEvent"
   args: any;
   risk: Risk;
+  dependsOn?: string[];
   idempotencyKey?: string;
   costEstimateCents?: number;
 }
