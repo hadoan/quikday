@@ -12,5 +12,5 @@ export interface RunEvent {
 
 export interface RunEventBus {
   publish(runId: string, event: Omit<RunEvent, 'runId' | 'ts' | 'id' | 'origin'>): Promise<void>;
-  on(runId: string, handler: (event: RunEvent) => void): () => void; // returns unsubscribe
+  on(runId: string, handler: (event: RunEvent) => void, opts?: { label?: string }): () => void; // returns unsubscribe
 }

@@ -4,7 +4,8 @@ import { RunEvent, RunEventBus } from './event-bus';
 
 @Injectable()
 export class InMemoryEventBus implements RunEventBus {
-  private handlers = new Map<string, Set<(e: RunEvent) => void>>();
+  // Map<runKey, Map<subscriberId, handler>> — keep subscriber IDs for better logs
+  private handlers = new Map<string, Map<string, (e: RunEvent) => void>>();
   private SERVICE = process.env.SERVICE_NAME ?? 'monolith';
   private readonly logger = new Logger(InMemoryEventBus.name);
 
@@ -22,18 +23,20 @@ export class InMemoryEventBus implements RunEventBus {
     };
     const key = `run:${runId}`;
     const set = this.handlers.get(key);
-    if (!set?.size) {
+    if (!set || set.size === 0) {
       this.logger.debug({ msg: 'no handlers for run', runId });
       return;
     }
+    // Helpful debug: how many handlers/subscribers will receive this event
+    this.logger.debug({ msg: 'handlers count', runId, count: set.size });
     // Call handlers asynchronously (microtask) to avoid deep synchronous recursion
     // if a handler itself publishes events which synchronously invoke other handlers.
-    for (const h of Array.from(set)) {
+    for (const [subId, h] of Array.from(set.entries())) {
       try {
         this.logger.debug({
           msg: 'delivering event to handler',
           runId,
-          handler: String(h),
+          handlerId: subId,
           event: full,
         });
         // Schedule handler invocation in a microtask and await it so exceptions
@@ -42,14 +45,14 @@ export class InMemoryEventBus implements RunEventBus {
         this.logger.verbose({
           msg: 'handler delivered',
           runId,
-          handler: String(h),
+          handlerId: subId,
           eventId: full.id,
         });
       } catch (e) {
         const err = e as Error;
         // Logger.error(message: string, trace?: string, context?: string)
         this.logger.error(
-          `handler threw error for run ${runId} handler=${String(h)}: ${err?.message}`,
+          `handler threw error for run ${runId} handler=${subId}: ${err?.message}`,
           err?.stack,
           InMemoryEventBus.name,
         );
@@ -57,31 +60,35 @@ export class InMemoryEventBus implements RunEventBus {
     }
   }
 
-  on(runId: string, handler: (event: RunEvent) => void): () => void {
+  on(runId: string, handler: (event: RunEvent) => void, opts?: { label?: string }): () => void {
     const key = `run:${runId}`;
-    let set = this.handlers.get(key);
-    if (!set) {
-      set = new Set();
-      this.handlers.set(key, set);
+    let map = this.handlers.get(key);
+    if (!map) {
+      map = new Map();
+      this.handlers.set(key, map);
     }
-    set.add(handler);
+
+    // Create a subscriber id using provided label, function name or fallback to 'subscriber'
+    const base = opts?.label || (handler as any)?.name || 'subscriber';
+    const subId = `${base}-${randomUUID().slice(0, 8)}`;
+    map.set(subId, handler);
     this.logger.debug({
       msg: 'handler subscribed',
       runId,
-      handler: String(handler),
-      totalHandlers: set.size,
+      subscriberId: subId,
+      totalHandlers: map.size,
     });
     return () => {
-      const s = this.handlers.get(key);
-      if (!s) return;
-      s.delete(handler);
+      const m = this.handlers.get(key);
+      if (!m) return;
+      m.delete(subId);
       this.logger.debug({
         msg: 'handler unsubscribed',
         runId,
-        handler: String(handler),
-        remaining: s.size,
+        subscriberId: subId,
+        remaining: m.size,
       });
-      if (s.size === 0) {
+      if (m.size === 0) {
         this.handlers.delete(key);
         this.logger.verbose({ msg: 'no handlers remain for run, key deleted', runId });
       }

@@ -128,7 +128,7 @@ export class RunProcessor extends WorkerHost {
         runId: run.id,
       });
 
-      const unsubscribe = subscribeToRunEvents(run.id, handleGraphEvent, this.eventBus);
+      const unsubscribe = subscribeToRunEvents(run.id, handleGraphEvent, this.eventBus, 'worker');
       let final: RunState;
       try {
         final = await graph.run('classify', initialState, this.eventBus);

@@ -57,8 +57,11 @@ export function subscribeToRunEvents(
   runId: string,
   handler: (evt: RunEvent) => void,
   eventBus: RunEventBus,
+  label?: string,
 ): () => void {
-  return eventBus.on(runId, handler as any);
+  // Pass optional label through to the underlying RunEventBus so subscribers
+  // can be identified in logs (e.g., 'worker' or 'ws-<id>').
+  return eventBus.on(runId, handler as any, { label });
 }
 
 /** ─────────────────────────────────────────────────────────────────────────────

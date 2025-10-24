@@ -1,5 +1,6 @@
 import { Inject, Injectable, Logger, OnModuleDestroy } from '@nestjs/common';
 import { WebSocketServer, WebSocket } from 'ws';
+import { randomUUID } from 'crypto';
 import { Server } from 'http';
 import { PrismaService } from '@quikday/prisma';
 import { RedisPubSubService } from '@quikday/libs';
@@ -11,6 +12,9 @@ interface ConnectionState {
   lastStatus?: string;
   lastStepCount: number;
   connectedAt: Date;
+  // last sent message dedupe
+  lastSentMessage?: string;
+  lastSentAt?: number;
 }
 
 @Injectable()
@@ -55,8 +59,11 @@ export class WebSocketService implements OnModuleDestroy {
       timestamp: new Date().toISOString(),
     });
 
-    // Subscribe to Pubsub events for this run
-    const unsubscribe = this.eventBus.on(runId, (event) => {
+    // Subscribe to Pubsub events for this run. Give subscription a short
+    // connection-specific label so the event bus can generate meaningful
+    // handler IDs (e.g., ws-3a6b27e6-XXXX).
+    const connId = randomUUID().slice(0, 8);
+    const handler = (event: any) => {
       this.logger.log(`📨 Received Pubsub event for ${runId}: ${event.type}`);
       this.sendMessage(ws, event);
 
@@ -66,7 +73,9 @@ export class WebSocketService implements OnModuleDestroy {
         this.logger.log(`✅ Run ${runId} reached terminal state: ${payloadAny.status}`);
         // Keep connection open for client to close
       }
-    });
+    };
+
+    const unsubscribe = this.eventBus.on(runId, handler, { label: `ws-${connId}` });
 
     // Initialize connection state
     this.connState.set(ws, {
@@ -139,10 +148,55 @@ export class WebSocketService implements OnModuleDestroy {
     });
 
     try {
+      const state = this.connState.get(ws);
+      const payloadStr = JSON.stringify(message);
+
+      // Build a normalized fingerprint for dedupe by removing common transient
+      // fields that differ across identical logical events (id, ts, origin).
+      const fingerprintObj = state
+        ? ((): any => {
+            try {
+              const c = JSON.parse(payloadStr);
+              // Top-level transient fields
+              delete c.id;
+              delete c.ts;
+              delete c.origin;
+              // Remove transient fields from payload if present
+              if (c.payload && typeof c.payload === 'object') {
+                delete c.payload.id;
+                delete c.payload.ts;
+                delete c.payload.origin;
+              }
+              return c;
+            } catch {
+              return null;
+            }
+          })()
+        : null;
+
+      const fingerprintStr = fingerprintObj ? JSON.stringify(fingerprintObj) : null;
+
+      // Simple per-connection dedupe: skip messages with identical fingerprint sent within 500ms
+      if (state && fingerprintStr) {
+        const now = Date.now();
+        if (
+          state.lastSentMessage === fingerprintStr &&
+          state.lastSentAt &&
+          now - state.lastSentAt < 500
+        ) {
+          this.logger.debug('⏱️ Deduped websocket message (recent fingerprint)', {
+            runId: state.runId,
+            messageType: message.type,
+          });
+          return;
+        }
+        state.lastSentMessage = fingerprintStr;
+        state.lastSentAt = now;
+      }
+
       if (ws.readyState === WebSocket.OPEN) {
-        ws.send(JSON.stringify(message));
+        ws.send(payloadStr);
       } else {
-        const state = this.connState.get(ws);
         this.logger.warn('⚠️ Cannot send message, WebSocket not open', {
           runId: state?.runId,
           readyState: ws.readyState,
