@@ -156,8 +156,26 @@ export class RunProcessor extends WorkerHost {
       });
       await this.runs.updateStatus(run.id, 'done');
 
+      // Emit run_completed and include lastAssistant (if any) for UI convenience.
+      // Derive last assistant message from commits (reverse find).
+      const commits = Array.isArray(final?.output?.commits) ? final.output.commits : [];
+      // Prefer assistant message from commits (tool outputs). If none, fall back to
+      // the run-level summary (used by the fallback node) so policy_denied / fallback
+      // messages are surfaced to the UI as an assistant-like message.
+      let lastAssistant: string | null = null;
+      const commitWithMessage = ([...commits].reverse().find((c: any) =>
+        c?.stepId && c?.result && typeof (c?.result as any)?.message === 'string'
+      ) as any) || null;
+      if (commitWithMessage) {
+        lastAssistant = (commitWithMessage.result as any).message as string;
+      } else if (final?.output && typeof final.output?.summary === 'string') {
+        lastAssistant = final.output.summary as string;
+      } else {
+        lastAssistant = null;
+      }
+
       if (!graphEmittedRunCompleted) {
-        await publishRunEvent('run_completed', { status: 'done', output: final.output ?? {} });
+        await publishRunEvent('run_completed', { status: 'done', output: final.output ?? {}, lastAssistant });
       }
 
       this.logger.log('✅ Job completed successfully', {

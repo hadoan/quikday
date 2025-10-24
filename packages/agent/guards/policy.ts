@@ -71,108 +71,81 @@ export async function getTeamPolicy(teamId?: string): Promise<TeamPolicy> {
 }
 
 /** ─────────────────────────────────────────────────────────────────────────────
- * Router: decides where to go after classify.
- * Returns a node id string ("planner", "fallback_*") or "END".
+ * Tool metadata: categories, scopes, always-allow set
  * ──────────────────────────────────────────────────────────────────────────── */
-export const routeByMode: Router<RunState> = (s) => {
-  // Fast path: malformed state
-  if (!s || !s.ctx) return 'fallback_policy';
 
-  const confidence = s.scratch?.intentMeta?.confidence ?? 1;
-  const mode = s.mode; // "PLAN" | "AUTO"
+// Known tool ids used across planner/executor
+export type ToolId =
+  | 'calendar.checkAvailability'
+  | 'calendar.createEvent'
+  | 'slack.postMessage'
+  | 'email.read'
+  | 'email.send'
+  | 'notion.upsert'
+  | 'sheets.read'
+  | 'sheets.write'
+  | 'github.create_issue'
+  | 'jira.create_issue'
+  | 'chat.respond';
 
-  // Policy fetch can be async; if you prefer, preload it and attach in ctx.meta.
-  // For synchronous router, assume it was preloaded into ctx.meta?.policy
-  const policy: TeamPolicy | undefined = (s.ctx as any).meta?.policy;
-
-  // Residency hard block (e.g., tool requires US but team is EU with restrictCrossRegion)
-  if (policy && residencyBlocked(s, policy)) {
-    s.scratch = {
-      ...s.scratch,
-      fallbackReason: 'residency_blocked',
-      fallbackDetails: { policy },
-    };
-    return 'fallback';
-  }
-
-  // Hard policy deny if we already know tools are disallowed (e.g., from intent->tool map)
-  const prelimTools = prelimRequiredToolsFromIntent(s);
-  if (policy && prelimTools.length && !areToolsAllowed(prelimTools, policy)) {
-    s.scratch = {
-      ...s.scratch,
-      fallbackReason: 'policy_denied',
-      fallbackDetails: { tools: prelimTools },
-    };
-    return 'fallback';
-  }
-
-  // Quiet hours / budgets never hard-block here (unless policy says BLOCK);
-  // we keep UX consistent by sending users to planner → confirm (which halts/asks).
-  if (policy) {
-    if (policy.quietHours.enabled && inQuietHours(s, policy)) {
-      if (policy.quietHours.behavior === 'BLOCK') {
-        s.scratch = {
-          ...s.scratch,
-          fallbackReason: 'quiet_hours',
-          fallbackDetails: { quietHours: policy.quietHours },
-        };
-        return 'fallback';
-      }
-      // FORCE_PLAN/DEFER: continue to planner; confirm node will halt with a request.
-    }
-    if (policy.budgets.enabled && exceedsBudget(s, policy)) {
-      s.scratch = {
-        ...s.scratch,
-        fallbackReason: 'budget_exceeded',
-        fallbackDetails: { budgets: policy.budgets },
-      };
-      return 'fallback';
-    }
-  }
-
-  // Confidence & mode: low confidence always PLAN; otherwise honor requested mode
-  if (mode === 'PLAN' || confidence < (policy?.riskRules.minConfidenceAuto ?? 0.6)) {
-    return 'planner'; // confirm gate will ask for approval/info
-  }
-
-  // AUTO: still go through planner (then confirm may no-op if safe)
-  return 'planner';
+// Category helps risk & policy reasoning
+export const TOOL_CATEGORY: Record<ToolId, 'safe' | 'read' | 'write' | 'messaging'> = {
+  'calendar.checkAvailability': 'read',
+  'calendar.createEvent': 'write',
+  'slack.postMessage': 'messaging',
+  'email.read': 'read',
+  'email.send': 'messaging',
+  'notion.upsert': 'write',
+  'sheets.read': 'read',
+  'sheets.write': 'write',
+  'github.create_issue': 'write',
+  'jira.create_issue': 'write',
+  'chat.respond': 'safe', // ⬅️ Local LLM reply; no external side effects
 };
 
-/** ─────────────────────────────────────────────────────────────────────────────
- * Approval decision used by confirm node.
- * ──────────────────────────────────────────────────────────────────────────── */
-export function needsApproval(s: RunState, policy?: TeamPolicy): boolean {
-  const p = policy ?? (s.ctx as any).meta?.policy;
-  const steps = s.scratch?.plan ?? [];
-
-  const highRisk = steps.some((st) => st.risk === 'high');
-  const minApprovers = Math.max(
-    p?.reviewerRules.minApprovers ?? 0,
-    ...steps.map((st) => p?.reviewerRules.toolOverrides[st.tool] ?? 0),
-  );
-
-  if (!p) return highRisk; // default conservative
-
-  // Require approval for high risk?
-  if (p.riskRules.requireApprovalForHighRisk && highRisk) return true;
-
-  // If policy mandates approvers for any step/tool:
-  return (minApprovers ?? 0) > 0;
+// Scopes required per tool (adjust to your connectors)
+export function toolToScopes(tool: string): string[] {
+  if (tool === 'chat.respond') return []; // ⬅️ no external scopes
+  if (tool.startsWith('calendar.')) return ['calendar:write']; // checkAvailability can be tolerated under write umbrella or split if needed
+  if (tool.startsWith('slack.')) return ['slack:write'];
+  if (tool.startsWith('email.')) return ['email:send']; // matches email.send
+  if (tool.startsWith('notion.')) return ['notion:write'];
+  if (tool.startsWith('sheets.read')) return ['sheets:read'];
+  if (tool.startsWith('sheets.write')) return ['sheets:write'];
+  if (tool.startsWith('github.')) return ['github:write'];
+  if (tool.startsWith('jira.')) return ['jira:write'];
+  return [];
 }
 
-/** Throw if the run token doesn’t include required scopes. */
-export function requireScopes(have: string[], need: string[]) {
-  const miss = need.filter((s) => !have.includes(s));
-  if (miss.length) {
-    const e = new Error(`Missing scopes: ${miss.join(', ')}`);
-    (e as any).code = 'SCOPES_MISSING';
-    throw e;
+// Tools that are always permitted regardless of allowlist/scopes
+const SAFE_ALWAYS = new Set<ToolId>(['chat.respond']);
+
+/** Central guard used by executor & router to enforce policy per tool. */
+export function isToolAllowedByPolicy(
+  tool: string,
+  policy?: TeamPolicy,
+  runAllowlist?: string[],
+): boolean {
+  // Always allow local, side-effect-free chat
+  if (SAFE_ALWAYS.has(tool as ToolId)) return true;
+
+  // If there is a per-run allowlist, respect it
+  if (Array.isArray(runAllowlist) && runAllowlist.length > 0) {
+    if (!runAllowlist.includes(tool)) return false;
   }
+
+  // If team allowlist is empty => allow all (except future explicit denies)
+  if (!policy || !policy.allowlist.tools.length) return true;
+
+  return policy.allowlist.tools.includes(tool);
 }
 
-/** Is a set of tools allowed by policy allowlist? */
+/** Is a set of tools allowed by policy allowlist? (kept for router’s pre-check) */
 export function areToolsAllowed(tools: string[], policy: TeamPolicy): boolean {
+  // If all tools in the set are SAFE_ALWAYS, allow quickly
+  const onlySafe = tools.every((t) => SAFE_ALWAYS.has(t as ToolId));
+  if (onlySafe) return true;
+
   if (!policy.allowlist.tools.length) return true; // empty allowlist means all allowed
   return tools.every((t) => policy.allowlist.tools.includes(t));
 }
@@ -222,10 +195,22 @@ export function prelimRequiredToolsFromIntent(s: RunState): string[] {
       return ['calendar.createEvent'];
     case 'slack.notify':
       return ['slack.postMessage'];
+    case 'email.send':
     case 'email.reply':
-      return ['gmail.send'];
+      return ['email.send'];
     case 'notion.create':
-      return ['notion.createPage'];
+    case 'notion.upsert':
+      return ['notion.upsert'];
+    case 'sheets.write':
+      return ['sheets.write'];
+    case 'sheets.read':
+      return ['sheets.read'];
+    case 'github.create_issue':
+      return ['github.create_issue'];
+    case 'jira.create_issue':
+      return ['jira.create_issue'];
+    case 'chat.respond':
+      return []; // ⬅️ no external tools/scopes; never block
     default:
       return [];
   }
@@ -239,16 +224,114 @@ export function hasRequiredScopes(
 ): boolean {
   const need = new Set<string>();
   for (const st of steps) {
-    const toolScopes = toolToScopes(st.tool, policy); // map your tools to scopes
-    toolScopes.forEach((s) => need.add(s));
+    toolToScopes(st.tool).forEach((s) => need.add(s));
   }
+
+  // If team policy specifies an allowlist of scopes, ensure we don't exceed it
+  const policyScopes = policy?.allowlist.scopes ?? [];
+  if (policyScopes.length) {
+    for (const sc of need) if (!policyScopes.includes(sc)) return false;
+  }
+
   return Array.from(need).every((s) => ctxScopes.includes(s));
 }
 
-// Map tool → scopes (centralize in your ToolRegistry if you prefer)
-function toolToScopes(tool: string, _policy?: TeamPolicy): string[] {
-  if (tool.startsWith('calendar.')) return ['calendar:write'];
-  if (tool.startsWith('slack.')) return ['slack:write'];
-  if (tool.startsWith('gmail.')) return ['gmail:send'];
-  return [];
+/** Throw if the run token doesn’t include required scopes. */
+export function requireScopes(have: string[], need: string[]) {
+  const miss = need.filter((s) => !have.includes(s));
+  if (miss.length) {
+    const e = new Error(`Missing scopes: ${miss.join(', ')}`);
+    (e as any).code = 'SCOPES_MISSING';
+    throw e;
+  }
+}
+
+/** ─────────────────────────────────────────────────────────────────────────────
+ * Router: decides where to go after classify.
+ * Returns a node id string ("planner", "fallback_*") or "END".
+ * ──────────────────────────────────────────────────────────────────────────── */
+export const routeByMode: Router<RunState> = (s) => {
+  // Fast path: malformed state
+  if (!s || !s.ctx) return 'fallback_policy';
+
+  const confidence = s.scratch?.intentMeta?.confidence ?? 1;
+  const mode = s.mode; // "PLAN" | "AUTO"
+
+  // Policy fetch can be async; if you prefer, preload it and attach in ctx.meta.
+  // For synchronous router, assume it was preloaded into ctx.meta?.policy
+  const policy: TeamPolicy | undefined = (s.ctx as any).meta?.policy;
+
+  // Residency hard block
+  if (policy && residencyBlocked(s, policy)) {
+    s.scratch = {
+      ...s.scratch,
+      fallbackReason: 'residency_blocked',
+      fallbackDetails: { policy },
+    };
+    return 'fallback';
+  }
+
+  // Hard policy deny only for external tools (skip safe chat)
+  const prelimTools = prelimRequiredToolsFromIntent(s).filter(
+    (t) => !SAFE_ALWAYS.has(t as ToolId),
+  );
+  if (policy && prelimTools.length && !areToolsAllowed(prelimTools, policy)) {
+    s.scratch = {
+      ...s.scratch,
+      fallbackReason: 'policy_denied',
+      fallbackDetails: { tools: prelimTools },
+    };
+    return 'fallback';
+  }
+
+  // Quiet hours / budgets may BLOCK depending on policy
+  if (policy) {
+    if (policy.quietHours.enabled && inQuietHours(s, policy)) {
+      if (policy.quietHours.behavior === 'BLOCK') {
+        s.scratch = {
+          ...s.scratch,
+          fallbackReason: 'quiet_hours',
+          fallbackDetails: { quietHours: policy.quietHours },
+        };
+        return 'fallback';
+      }
+      // FORCE_PLAN/DEFER: continue to planner; confirm node will halt/ask.
+    }
+    if (policy.budgets.enabled && exceedsBudget(s, policy)) {
+      s.scratch = {
+        ...s.scratch,
+        fallbackReason: 'budget_exceeded',
+        fallbackDetails: { budgets: policy.budgets },
+      };
+      return 'fallback';
+    }
+  }
+
+  // Confidence & mode: low confidence always PLAN; otherwise honor requested mode
+  if (mode === 'PLAN' || confidence < (policy?.riskRules.minConfidenceAuto ?? 0.6)) {
+    return 'planner';
+  }
+
+  // AUTO: still go through planner (confirm may no-op if safe)
+  return 'planner';
+};
+
+/** Approval decision used by confirm node. */
+export function needsApproval(s: RunState, policy?: TeamPolicy): boolean {
+  const p = policy ?? (s.ctx as any).meta?.policy;
+  const steps = s.scratch?.plan ?? [];
+
+  const highRisk = steps.some((st) => st.risk === 'high' && st.tool !== 'chat.respond');
+  const minApprovers = Math.max(
+    p?.reviewerRules.minApprovers ?? 0,
+    ...steps.map((st) => p?.reviewerRules.toolOverrides[st.tool] ?? 0),
+  );
+
+  if (!p) return highRisk; // default conservative
+
+  // Require approval for high risk?
+  if (p.riskRules.requireApprovalForHighRisk && highRisk) return true;
+
+  // If policy mandates approvers for any step/tool:
+  return (minApprovers ?? 0) > 0;
 }

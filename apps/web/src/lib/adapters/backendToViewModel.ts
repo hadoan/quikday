@@ -294,6 +294,9 @@ function mapEventType(type: string): UiEvent['type'] {
 
     run_status: 'run_status',
     status: 'run_status', // alias
+    'assistant.delta': 'assistant.delta',
+    'assistant.final': 'assistant.final',
+    run_snapshot: 'run_snapshot',
   };
 
   return typeMap[type.toLowerCase()] || 'run_status';

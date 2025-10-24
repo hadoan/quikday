@@ -12,6 +12,7 @@ import { hooks } from './observability/events';
 import { safeNode } from './runtime/safeNode';
 import { RunEventBus } from '@quikday/libs';
 import { Run } from 'openai/resources/beta/threads/runs/runs';
+import { registerToolsWithLLM } from './registry/registry';
 
 type BuildMainGraphOptions = {
   llm: LLM;
@@ -19,7 +20,7 @@ type BuildMainGraphOptions = {
 };
 
 export const buildMainGraph = ({ llm, eventBus }: BuildMainGraphOptions) => {
-  void llm; // LLM will be threaded into nodes as LangGraph V2 matures
+  registerToolsWithLLM(llm);
   return (
     new Graph<RunState, RunEventBus>(hooks(eventBus))
       .addNode('classify', makeClassifyIntent(llm))

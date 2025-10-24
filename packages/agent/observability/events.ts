@@ -11,6 +11,8 @@ import { CHANNEL_WORKER } from '@quikday/libs';
 export type RunEventType =
   | 'run_status'
   | 'run_completed'
+  | 'assistant.delta'
+  | 'assistant.final'
   | 'step_started'
   | 'step_succeeded'
   | 'step_failed'
@@ -158,12 +160,30 @@ export const events = {
     _emit('plan_generated', s, eventBus, { plan, diff }),
   fallback: (s: RunState, eventBus: RunEventBus, reason: string, details?: any) =>
     _emit('fallback', s, eventBus, { reason, details }),
-  toolCalled: (s: RunState, eventBus: RunEventBus, name: string, args?: any) =>
-    _emit('tool.called', s, eventBus, { name, args }),
-  toolSucceeded: (s: RunState, eventBus: RunEventBus, name: string, result?: any, ms?: number) =>
-    _emit('tool.succeeded', s, eventBus, { name, result, ms }),
-  toolFailed: (s: RunState, eventBus: RunEventBus, name: string, error: any) =>
-    _emit('tool.failed', s, eventBus, { name, error }),
+  // Include optional stepId so downstream subscribers (UI/websocket) can map
+  // assistant messages and tool events to the originating step.
+  toolCalled: (
+    s: RunState,
+    eventBus: RunEventBus,
+    name: string,
+    args?: any,
+    stepId?: string,
+  ) => _emit('tool.called', s, eventBus, { name, args, stepId }),
+  toolSucceeded: (
+    s: RunState,
+    eventBus: RunEventBus,
+    name: string,
+    result?: any,
+    ms?: number,
+    stepId?: string,
+  ) => _emit('tool.succeeded', s, eventBus, { name, result, ms, stepId }),
+  toolFailed: (
+    s: RunState,
+    eventBus: RunEventBus,
+    name: string,
+    error: any,
+    stepId?: string,
+  ) => _emit('tool.failed', s, eventBus, { name, error, stepId }),
   approvalAwaiting: (s: RunState, eventBus: RunEventBus, steps: any[]) =>
     _emit('approval.awaiting', s, eventBus, { steps }),
   undoEnqueued: (s: RunState, eventBus: RunEventBus, actions: any[]) =>

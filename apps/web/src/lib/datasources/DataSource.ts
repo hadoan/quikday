@@ -136,7 +136,10 @@ export interface UiErrorData {
 
 export type UiEventType =
   | 'connection_established'
+  | 'run_snapshot'
   | 'plan_generated'
+  | 'assistant.delta'
+  | 'assistant.final'
   | 'step_started'
   | 'step_output'
   | 'step_succeeded'

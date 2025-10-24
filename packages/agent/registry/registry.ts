@@ -5,6 +5,8 @@ import { checkRate } from './support/rate';
 import { requireScopes } from '../guards/policy';
 import { z } from 'zod';
 import { slackPostMessage } from './tools/slack.postMessage';
+import { chatRespondTool } from './tools/chatRespond';
+import { LLM } from '../llm/types';
 
 export class ToolRegistry {
   private tools = new Map<string, Tool<any, any>>();
@@ -64,4 +66,9 @@ registry.register({
   }),
 });
 
+
 registry.register(slackPostMessage);
+
+export function registerToolsWithLLM(llm: LLM) {
+  registry.register(chatRespondTool(llm));
+}

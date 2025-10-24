@@ -110,6 +110,35 @@ export class WebSocketService implements OnModuleDestroy {
     });
 
     this.logger.log('📨 Sent initial connection status', { runId });
+
+    // Send a run snapshot to populate UI immediately (lastAssistant helps replay)
+    (async () => {
+      try {
+        const run = await this.prisma.run.findUnique({ where: { id: runId } });
+        let lastAssistant: string | null = null;
+        if (run && run.output) {
+          const commits = Array.isArray((run.output as any)?.commits) ? (run.output as any).commits : [];
+          const match = [...commits].reverse().find((c: any) =>
+            c?.stepId && c?.result && typeof (c.result as any)?.message === 'string'
+          );
+          lastAssistant = match ? (match.result as any).message : null;
+        }
+
+        this.sendMessage(ws, {
+          type: 'run_snapshot',
+          payload: {
+            status: run?.status ?? 'unknown',
+            activeNode: null,
+            planPreview: null,
+            lastAssistant,
+          },
+          ts: new Date().toISOString(),
+          runId,
+        });
+      } catch (err) {
+        this.logger.debug('Could not build run_snapshot', { runId, error: (err as any)?.message });
+      }
+    })();
   }
 
   /**

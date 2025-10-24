@@ -103,6 +103,21 @@ const Index = () => {
               }
               break;
             }
+            case 'run_snapshot': {
+              // Snapshot includes status and lastAssistant for quick UI hydration
+              try {
+                const status = (event.payload.status as UiRunSummary['status']) || run.status;
+                const lastAssistant = event.payload.lastAssistant as string | undefined;
+                if (lastAssistant && typeof lastAssistant === 'string' && lastAssistant.trim()) {
+                  newMessages.push({ role: 'assistant', content: lastAssistant });
+                }
+                // Update run status via nextStatus below
+                // fallthrough handled by run_status processing after switch
+              } catch (e) {
+                console.warn('[Index] Failed to handle run_snapshot', e);
+              }
+              break;
+            }
             case 'step_started': {
               // Show step starting (optional - could show loading state)
               console.log('[Index] Step started:', event.payload.tool, event.payload.action);
@@ -177,6 +192,15 @@ const Index = () => {
                   newMessages.push({ role: 'assistant', content: textOut });
                 }
 
+                // Also respect run-level lastAssistant (convenience field from the backend)
+                const lastAssistant = (event.payload as any)?.lastAssistant as string | undefined;
+                if (typeof lastAssistant === 'string' && lastAssistant.trim().length > 0) {
+                  const last = newMessages[newMessages.length - 1];
+                  if (!(last && last.role === 'assistant' && last.content === lastAssistant)) {
+                    newMessages.push({ role: 'assistant', content: lastAssistant });
+                  }
+                }
+
                 if (event.type === 'run_completed') {
                   if (typeof output?.summary === 'string' && output.summary.trim().length > 0) {
                     newMessages.push(
@@ -245,6 +269,27 @@ const Index = () => {
                 }
               } catch (e) {
                 console.warn('[Index] Failed to extract step text output from payload', e);
+              }
+              break;
+            }
+            // case 'assistant.final':
+            case 'assistant.delta': {
+              try {
+                const payloadRec = event.payload as Record<string, unknown>;
+                const resp = payloadRec?.response as unknown as Record<string, unknown> | undefined;
+                const text =
+                  (payloadRec?.text as string) ||
+                  (payloadRec?.message as string) ||
+                  (resp?.message as string) ||
+                  '';
+                if (typeof text === 'string' && text.trim().length > 0) {
+                  const last = newMessages[newMessages.length - 1];
+                  if (!(last && last.role === 'assistant' && last.content === text)) {
+                    newMessages.push({ role: 'assistant', content: text });
+                  }
+                }
+              } catch (e) {
+                console.warn('[Index] Failed to handle assistant event', e);
               }
               break;
             }

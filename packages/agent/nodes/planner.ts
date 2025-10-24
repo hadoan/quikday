@@ -19,9 +19,24 @@ const TOOL_WHITELIST = [
   'sheets.write',
   'github.create_issue',
   'jira.create_issue',
+  'chat.respond',  
 ] as const;
 
 type AllowedTool = (typeof TOOL_WHITELIST)[number];
+
+// 2) Tiny helper: chat-only plan
+function chatOnlyPlan(prompt?: string): PlanStep[] {
+  return finalizeSteps([
+    {
+      tool: 'chat.respond' as AllowedTool,
+      args: {
+        prompt: prompt ?? '',
+        system:
+          'You are a helpful assistant. If no tool fits, answer normally. Keep it concise unless asked for details.'
+      },
+    },
+  ]);
+}
 
 const StepInSchema = z.object({
   tool: z.enum(TOOL_WHITELIST),
@@ -394,10 +409,52 @@ function patchAndHardenPlan(
 
 export const planner: Node<RunState, RunEventBus> = async (s, eventBus) => {
   const intent = s.scratch?.intent as IntentId | undefined;
+  const confidence = (s.scratch as any)?.intentMeta?.confidence ?? 0;
+  const userText =
+    s.input.prompt ??
+    (s.input.messages?.map((m) => (typeof m.content === 'string' ? m.content : '')).join('\n') ?? '');
 
   let steps: PlanStep[] | null = null;
   let questions: z.infer<typeof QuestionSchema>[] = [];
+  // If the explicit intent is chat.respond, prefer a chat-only plan
+  if (intent === 'chat.respond') {
+    steps = chatOnlyPlan(userText);
 
+    const diff = safe({
+      summary: 'Answer with assistant (chat.respond).',
+      steps: steps.map(({ id, tool, dependsOn }) => ({ id, tool, dependsOn })),
+      questions: [],
+      intentDesc: INTENTS.find((x) => x.id === intent)?.desc,
+    });
+
+    events.planReady(s, eventBus, safe(steps), diff);
+
+    return {
+      scratch: { ...s.scratch, plan: steps, missing: [] },
+      output: { ...s.output, diff },
+    };
+  }
+
+  // ✳️ NEW: If unknown or low-confidence, answer like ChatGPT (no tools)
+  if (!intent || intent === (INTENT as any).UNKNOWN || confidence < 0.6) {
+    steps = chatOnlyPlan(userText);
+
+    const diff = safe({
+      summary: 'Answer normally (no tools).',
+      steps: steps.map(({ id, tool, dependsOn }) => ({ id, tool, dependsOn })),
+      questions: [],
+      intentDesc: INTENTS.find((x) => x.id === intent)?.desc,
+    });
+
+    events.planReady(s, eventBus, safe(steps), diff);
+
+    return {
+      scratch: { ...s.scratch, plan: steps, missing: [] },
+      output: { ...s.output, diff },
+    };
+  }
+
+  // 🔽 Existing planning path for real intents stays the same...
   // Try LLM planning if we have an LLM client
   if (intent) {
     const system = buildSystemPrompt();
@@ -421,16 +478,9 @@ export const planner: Node<RunState, RunEventBus> = async (s, eventBus) => {
     if (intent === INTENT.CALENDAR_SCHEDULE) {
       const { start, end } = resolveWhen(s);
       if (!start || !end) {
-        // No times → synthesize questions
         questions = [
-          {
-            key: 'when.startISO',
-            question: 'What start time should I use for the meeting (ISO 8601)?',
-          },
-          {
-            key: 'when.endISO',
-            question: 'What end time should I use for the meeting (ISO 8601)?',
-          },
+          { key: 'when.startISO', question: 'What start time should I use for the meeting (ISO 8601)?' },
+          { key: 'when.endISO', question: 'What end time should I use for the meeting (ISO 8601)?' },
         ];
         steps = [];
       } else {
@@ -439,12 +489,11 @@ export const planner: Node<RunState, RunEventBus> = async (s, eventBus) => {
     }
   }
 
-  // Dev NOOP fallback if still empty and no questions
-  if ((!steps || steps.length === 0) && (!questions || questions.length === 0)) {
-    steps = devNoopFallback(s.input.prompt);
-  }
+  // ⛔️ Old dev noop fallback removed from normal flow:
+  // if ((!steps || steps.length === 0) && (!questions || questions.length === 0)) {
+  //   steps = devNoopFallback(s.input.prompt);
+  // }
 
-  // Build diff
   const diff = safe({
     summary:
       steps && steps.length > 0
@@ -453,14 +502,12 @@ export const planner: Node<RunState, RunEventBus> = async (s, eventBus) => {
           ? `Missing information needed: ${questions.map((q) => q.key).join(', ')}`
           : 'No actions proposed.',
     steps: (steps ?? []).map(({ id, tool, dependsOn }) => ({ id, tool, dependsOn })),
-    questions, // expose to UI/Confirm node
+    questions,
     intentDesc: INTENTS.find((x) => x.id === intent)?.desc,
   });
 
-  // Emit preview
   events.planReady(s, eventBus, safe(steps ?? []), diff);
 
-  // Persist questions in scratch so your confirm/ask flow can prompt user
   return {
     scratch: { ...s.scratch, plan: steps ?? [], missing: questions ?? [] },
     output: { ...s.output, diff },
