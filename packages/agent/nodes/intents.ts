@@ -5,6 +5,7 @@
  */
 export const INTENTS = [
   // Tier 0 — Core
+  { id: "chat.respond", desc: "Answer normally with no tools (fallback/greetings)." },
   { id: 'calendar.schedule', desc: 'Find/create events, propose slots, invite/hold.' },
   { id: 'email.read', desc: 'Read Gmail threads or search inbox.' },
   { id: 'email.send', desc: 'Draft and/or send Gmail emails, label/archive.' },

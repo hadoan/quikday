@@ -9,6 +9,11 @@ export class InMemoryEventBus implements RunEventBus {
   private handlers = new Map<string, Map<string, (e: RunEvent) => void>>();
   private SERVICE = process.env.SERVICE_NAME ?? 'monolith';
   private readonly logger = new Logger(InMemoryEventBus.name);
+  // short-term cache to dedupe identical events published in quick succession
+  // Map<runChannelKey, Map<fingerprint, ts>>
+  private recentEvents = new Map<string, Map<string, number>>();
+  // dedupe window in ms
+  private readonly DEDUPE_WINDOW_MS = 250;
 
   async publish(
     runId: string,
@@ -28,6 +33,33 @@ export class InMemoryEventBus implements RunEventBus {
     if (!set || set.size === 0) {
       this.logger.debug({ msg: 'no handlers for run+channel', runId, channel });
       return;
+    }
+    // Dedupe: compute a simple fingerprint of type + payload to avoid
+    // delivering the same logical event multiple times in a short window.
+    // This guards against accidental double-publishes from different code
+    // paths during graph execution.
+    try {
+      const fpObj = { type: full.type, payload: full.payload };
+      const fp = JSON.stringify(fpObj);
+      const now = Date.now();
+      let map = this.recentEvents.get(key);
+      if (!map) {
+        map = new Map<string, number>();
+        this.recentEvents.set(key, map);
+      }
+      const last = map.get(fp);
+      if (last && now - last < this.DEDUPE_WINDOW_MS) {
+        this.logger.debug({ msg: 'skipping duplicate event (deduped)', runId, channel, type: full.type });
+        return;
+      }
+      map.set(fp, now);
+      // prune old entries lazily
+      for (const [k, ts] of Array.from(map.entries())) {
+        if (now - ts > this.DEDUPE_WINDOW_MS * 4) map.delete(k);
+      }
+    } catch (e) {
+      // if fingerprinting fails for any reason, continue without dedupe
+      this.logger.debug({ msg: 'event fingerprinting failed, skipping dedupe', err: (e as Error).message });
     }
     // Helpful debug: how many handlers/subscribers will receive this event
     this.logger.debug({ msg: 'handlers count', runId, channel, count: set.size });

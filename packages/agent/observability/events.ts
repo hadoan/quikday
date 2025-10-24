@@ -2,8 +2,8 @@ import type { Hooks } from '../runtime/graph';
 import type { RunState } from '../state/types';
 import { redactForLog } from '../guards/redaction';
 import type { RedisPubSubService, RunEventBus } from '@quikday/libs';
-import type { PubSubChannel } from '@quikday/libs/pubsub/channels';
-import { CHANNEL_WORKER } from '@quikday/libs/pubsub/channels';
+import type { PubSubChannel } from '@quikday/libs';
+import { CHANNEL_WORKER } from '@quikday/libs';
 
 /** ─────────────────────────────────────────────────────────────────────────────
  * Event types & payloads

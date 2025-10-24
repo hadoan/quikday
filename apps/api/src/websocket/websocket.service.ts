@@ -5,7 +5,7 @@ import { Server } from 'http';
 import { PrismaService } from '@quikday/prisma';
 import { RedisPubSubService } from '@quikday/libs';
 import { RunEventBus } from '@quikday/libs/pubsub/event-bus';
-import { CHANNEL_WEBSOCKET } from '@quikday/libs/pubsub/channels';
+import { CHANNEL_WEBSOCKET } from '@quikday/libs';
 
 interface ConnectionState {
   runId: string;
