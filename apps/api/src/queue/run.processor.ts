@@ -16,6 +16,7 @@ import type { RunEvent as UiRunEvent } from '@quikday/libs/redis/RunEvent';
 import { AgentService } from '../agent';
 import { InMemoryEventBus } from '@quikday/libs';
 import { RunEventBus } from '@quikday/libs/pubsub/event-bus';
+import { createGraphEventHandler } from './create-graph-event-handler';
 
 const GRAPH_HALT_AWAITING_APPROVAL = 'GRAPH_HALT_AWAITING_APPROVAL';
 
@@ -118,7 +119,7 @@ export class RunProcessor extends WorkerHost {
     let liveState: RunState = structuredClone(initialState);
     let graphEmittedRunCompleted = false;
 
-    const handleGraphEvent = this.createGraphEventHandler({
+    const handleGraphEvent = createGraphEventHandler({
       run,
       liveStateRef: { get: () => liveState, set: (s: RunState) => (liveState = s) },
       markStep,
@@ -126,6 +127,8 @@ export class RunProcessor extends WorkerHost {
       safePublish,
       stepLogs,
       setGraphEmitted: (v: boolean) => (graphEmittedRunCompleted = v),
+      logger: this.logger,
+      telemetry: this.telemetry,
     });
 
     try {
@@ -150,12 +153,41 @@ export class RunProcessor extends WorkerHost {
 
       liveState = final;
 
-      // persist + finalize
-      await this.runs.persistResult(run.id, {
-        output: final.output,
-        logs: formatLogsForPersistence(),
-      });
-      await this.runs.updateStatus(run.id, 'done');
+      const awaiting = final?.scratch?.awaiting;
+      if (
+        awaiting?.reason === 'missing_info' &&
+        Array.isArray(awaiting.questions) &&
+        awaiting.questions.length > 0
+      ) {
+        const questions = awaiting.questions ?? (final.output?.diff as any)?.questions ?? [];
+
+        // Persist the awaiting state + questions onto the run output
+        await this.runs.persistResult(run.id, {
+          output: {
+            ...(final.output ?? {}),
+            diff: {
+              ...(final.output?.diff ?? {}),
+              questions,
+              // ensure there's a human summary (use existing if present)
+              summary:
+                final.output?.diff?.summary ??
+                `Missing information needed: ${questions.map((q: any) => q.key).join(', ')}`,
+            },
+            // explicit awaiting marker so we can reliably resume after refresh
+            awaiting: { type: 'input', questions },
+          } as any,
+          logs: formatLogsForPersistence(),
+        });
+        // Flip status to awaiting_input (do NOT complete the run)
+        await this.runs.updateStatus(run.id, 'awaiting_input');
+      } else {
+        // persist + finalize
+        await this.runs.persistResult(run.id, {
+          output: final.output,
+          logs: formatLogsForPersistence(),
+        });
+        await this.runs.updateStatus(run.id, 'done');
+      }
 
       // Emit run_completed and include lastAssistant (if any) for UI convenience.
       // Derive last assistant message from commits (reverse find).
@@ -164,9 +196,12 @@ export class RunProcessor extends WorkerHost {
       // the run-level summary (used by the fallback node) so policy_denied / fallback
       // messages are surfaced to the UI as an assistant-like message.
       let lastAssistant: string | null = null;
-      const commitWithMessage = ([...commits].reverse().find((c: any) =>
-        c?.stepId && c?.result && typeof (c?.result as any)?.message === 'string'
-      ) as any) || null;
+      const commitWithMessage =
+        ([...commits]
+          .reverse()
+          .find(
+            (c: any) => c?.stepId && c?.result && typeof (c?.result as any)?.message === 'string'
+          ) as any) || null;
       if (commitWithMessage) {
         lastAssistant = (commitWithMessage.result as any).message as string;
       } else if (final?.output && typeof final.output?.summary === 'string') {
@@ -176,7 +211,14 @@ export class RunProcessor extends WorkerHost {
       }
 
       if (!graphEmittedRunCompleted) {
-        await publishRunEvent('run_completed', { status: 'done', output: final.output ?? {}, lastAssistant });
+        if (final.scratch?.awaiting) {
+          return;
+        }
+        await publishRunEvent('run_completed', {
+          status: 'done',
+          output: final.output ?? {},
+          lastAssistant,
+        });
       }
 
       this.logger.log('✅ Job completed successfully', {
@@ -278,13 +320,28 @@ export class RunProcessor extends WorkerHost {
       meta,
     };
 
+    // Pull whatever is in DB (might be generic JSON)
+    const rawOut = (run?.output ?? {}) as Record<string, any>;
+
+    // 1) Move any persisted output.scratch into state.scratch
+    const persistedScratch =
+      rawOut.scratch && typeof rawOut.scratch === 'object'
+        ? (rawOut.scratch as Record<string, unknown>)
+        : {};
+
+    // 2) Everything else is considered the "real" output
+    const { scratch: _drop, ...restOutput } = rawOut;
+
+    // 3) Build state (job scratch wins over persisted)
     const initialState: RunState = {
       input,
       mode: (job.data.mode ?? run.mode)?.toUpperCase() === 'AUTO' ? 'AUTO' : 'PLAN',
       ctx,
-      // Seed scratch from job data if provided (used when resuming after user confirm)
-      scratch: structuredClone((job.data as any)?.scratch ?? {}),
-      output: {},
+      scratch: {
+        ...(persistedScratch as any),
+        ...structuredClone((job.data as any)?.scratch ?? {}),
+      },
+      output: restOutput as RunState['output'], // <- minimal cast after stripping scratch
     };
 
     const publishRunEvent = (type: UiRunEvent['type'], payload: UiRunEvent['payload']) =>
@@ -368,151 +425,6 @@ export class RunProcessor extends WorkerHost {
       completedAt: entry.completedAt,
       ms: entry.ms,
     }));
-  }
-
-  private createGraphEventHandler(opts: {
-    run: any;
-    liveStateRef: { get: () => RunState; set: (s: RunState) => void };
-    markStep: (
-      tool: string,
-      status: 'succeeded' | 'failed',
-      updater?: (entry: StepLogEntry) => void
-    ) => void;
-    applyDelta: (target: any, delta: any) => void;
-    safePublish: (type: UiRunEvent['type'], payload: UiRunEvent['payload']) => void;
-    stepLogs: StepLogEntry[];
-    setGraphEmitted: (v: boolean) => void;
-  }) {
-    const { run, liveStateRef, markStep, applyDelta, safePublish, stepLogs, setGraphEmitted } =
-      opts;
-
-    return (evt: GraphRunEvent) => {
-      if (evt.runId !== run.id) return;
-      try {
-        switch (evt.type) {
-          case 'node.enter': {
-            const node = (evt.payload as any)?.node;
-            if (node === 'planner') safePublish('run_status', { status: 'planning' });
-            if (node === 'executor') safePublish('run_status', { status: 'executing' });
-            break;
-          }
-          case 'node.exit': {
-            const delta = (evt.payload as any)?.delta;
-            if (delta) applyDelta(liveStateRef.get(), delta);
-            break;
-          }
-          case 'run_status': {
-            this.logger.log('▶️ LangGraph run started', { runId: run.id });
-            safePublish('run_status', { status: 'running' });
-            break;
-          }
-          case 'plan.ready': {
-            const plan = Array.isArray((evt.payload as any)?.plan)
-              ? ((evt.payload as any).plan as any[])
-              : [];
-            const diff = (evt.payload as any)?.diff;
-            this.logger.log('📋 Plan ready', { runId: run.id, steps: plan.length });
-            safePublish('plan_generated', {
-              intent: liveStateRef.get().scratch?.intent,
-              plan,
-              tools: plan.map((step: any) => step.tool),
-              actions: plan.map((step: any) => `Execute ${step.tool}`),
-              diff,
-            });
-            break;
-          }
-          case 'tool.called': {
-            const name = (evt.payload as any)?.name ?? 'unknown';
-            const args = (evt.payload as any)?.args;
-            const startedAt = new Date().toISOString();
-            this.logger.log('🔧 Tool started', { runId: run.id, tool: name });
-            stepLogs.push({
-              tool: name,
-              action: `Executing ${name}`,
-              request: args,
-              status: 'started',
-              startedAt,
-            });
-            safePublish('step_started', { tool: name, action: `Executing ${name}`, request: args });
-            break;
-          }
-          case 'tool.succeeded': {
-            const name = (evt.payload as any)?.name ?? 'unknown';
-            const result = (evt.payload as any)?.result;
-            const ms = (evt.payload as any)?.ms;
-            this.logger.log('✅ Tool succeeded', { runId: run.id, tool: name, durationMs: ms });
-            markStep(name, 'succeeded', (entry) => {
-              entry.result = result;
-              entry.ms = typeof ms === 'number' ? ms : undefined;
-              entry.action = `Completed ${name}`;
-            });
-            safePublish('step_succeeded', {
-              tool: name,
-              action: `Completed ${name}`,
-              response: result,
-              ms,
-            });
-            void this.telemetry
-              .track('step_succeeded', { runId: run.id, tool: name })
-              .catch(() => undefined);
-            break;
-          }
-          case 'tool.failed': {
-            const name = (evt.payload as any)?.name ?? 'unknown';
-            const error = (evt.payload as any)?.error;
-            this.logger.error('❌ Tool failed', { runId: run.id, tool: name, error });
-            markStep(name, 'failed', (entry) => {
-              entry.errorCode = (error?.code as string) ?? ErrorCode.E_STEP_FAILED;
-              entry.errorMessage = error?.message as string | undefined;
-              entry.action = `Failed ${name}`;
-            });
-            safePublish('step_failed', { tool: name, error });
-            void this.telemetry
-              .track('step_failed', {
-                runId: run.id,
-                tool: name,
-                errorCode: (error?.code as string) ?? ErrorCode.E_STEP_FAILED,
-              })
-              .catch(() => undefined);
-            break;
-          }
-          case 'approval.awaiting': {
-            const approvalId = (evt.payload as any)?.approvalId;
-            this.logger.log('⏸️ Awaiting approval', { runId: run.id, approvalId });
-            safePublish('run_status', { status: 'awaiting_approval', approvalId });
-            break;
-          }
-          case 'fallback': {
-            const reason = (evt.payload as any)?.reason ?? 'unspecified';
-            const details = (evt.payload as any)?.details;
-            this.logger.warn('⚠️ Run fell back', { runId: run.id, reason, details });
-            safePublish('run_status', { status: 'fallback', reason, details });
-            break;
-          }
-          case 'run_completed': {
-            setGraphEmitted(true);
-            const output = evt.payload ?? liveStateRef.get().output ?? {};
-            this.logger.log('🎉 LangGraph run completed event', { runId: run.id });
-            safePublish('run_completed', { status: 'done', output });
-            break;
-          }
-          case 'step_failed': {
-            const error = evt.payload;
-            this.logger.error('🔴 LangGraph run failed event', { runId: run.id, error });
-            safePublish('run_status', { status: 'failed', error });
-            break;
-          }
-          default:
-            break;
-        }
-      } catch (handlerErr) {
-        this.logger.error('❌ Failed to handle LangGraph event', {
-          runId: run.id,
-          eventType: evt.type,
-          error: handlerErr instanceof Error ? handlerErr.message : handlerErr,
-        });
-      }
-    };
   }
 
   private async handleExecutionError(opts: {

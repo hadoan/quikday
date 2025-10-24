@@ -41,8 +41,9 @@ export const buildMainGraph = ({ llm, eventBus }: BuildMainGraphOptions) => {
       .addEdge('START', () => 'classify')
       .addEdge('classify', () => 'planner') // <- skip routeByMode
       .addEdge('planner', () => 'confirm')     // <-- put confirm back
-      .addEdge('confirm', () => 'executor')
-      .addEdge('executor', (s) => (s.error ? 'fallback' : 'END'))
+      .addEdge('confirm', (s) => (s.scratch?.awaiting ? 'END' : 'executor'))
+      .addEdge('executor', (s) => (s.error ? 'fallback' : 'summarize'))
+      .addEdge('summarize', () => 'END')
       .addEdge('fallback', () => 'END')
   );
 };

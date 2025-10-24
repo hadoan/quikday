@@ -59,6 +59,9 @@ export interface ChatMessage {
 //     output?: Out;                       // typed output
 // }
 
+export type Question = { key: string; question: string };
+
+
 export interface RunError {
   node: string;
   message: string;
@@ -77,10 +80,22 @@ export interface RunState {
     // internal routing/fallback info added by guards/policy
     fallbackReason?: string;
     fallbackDetails?: unknown;
+    missing?: Question[];                   // planner can drop questions here
+    answers?: Record<string, string>;       // user-provided answers by key
+    awaiting?: {                            // when we pause the run
+      reason: 'missing_info';
+      questions: Question[];
+      ts: string;
+    } | null;
   };
   output?: {
     summary?: string;
-    diff?: unknown;
+    diff?: {
+      questions?: Question[];
+      steps?: any[];
+      summary?: string;
+      intentDesc?: string;
+    };
     commits?: Array<{ stepId: string; result: unknown }>;
     undo?: Array<{ stepId: string; tool: string; args: unknown }>;
   };

@@ -236,6 +236,30 @@ export class ApiDataSource implements DataSource {
   }
 
   // -------------------------------------------------------------------------
+  // Answers + Confirm (awaiting_input flow)
+  // -------------------------------------------------------------------------
+  async applyAnswers(runId: string, answers: Record<string, unknown>): Promise<{ ok: true }> {
+    const url = `${this.config.apiBaseUrl}/runs/${runId}/answers`;
+
+    await this.fetch(url, {
+      method: 'POST',
+      body: JSON.stringify({ answers }),
+    });
+
+    return { ok: true };
+  }
+
+  async confirm(runId: string): Promise<{ ok: true }> {
+    const url = `${this.config.apiBaseUrl}/runs/${runId}/confirm`;
+
+    await this.fetch(url, {
+      method: 'POST',
+    });
+
+    return { ok: true };
+  }
+
+  // -------------------------------------------------------------------------
   // Credentials
   // -------------------------------------------------------------------------
   async listCredentials(appId: string, owner: 'user' | 'team'): Promise<UiCredential[]> {

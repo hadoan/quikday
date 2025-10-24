@@ -88,7 +88,7 @@ const Index = () => {
       try {
         // Questions may be in payload.diff.questions (plan_generated)
         const planQs = (event.payload as any)?.diff?.questions as any[] | undefined;
-        if (Array.isArray(planQs) && planQs.length > 0) {
+        if (event.runId && event.runId === activeRunId && Array.isArray(planQs) && planQs.length > 0) {
           setQuestions(planQs as any);
         }
 
@@ -96,7 +96,7 @@ const Index = () => {
         const raw = (event.payload as any)?._raw as any;
         const node = raw?.payload?.node as string | undefined;
         const nestedQs = raw?.payload?.delta?.output?.diff?.questions as any[] | undefined;
-        if (node === 'planner' && Array.isArray(nestedQs) && nestedQs.length > 0) {
+        if (event.runId && event.runId === activeRunId && node === 'planner' && Array.isArray(nestedQs) && nestedQs.length > 0) {
           setQuestions(nestedQs as any);
         }
       } catch (qErr) {
@@ -226,6 +226,24 @@ const Index = () => {
               }
 
               // If backend provides structured output or summary, show it alongside plain text
+              // Handle awaiting_input specially: persist questions to the active run and
+              // surface the QuestionsPanel (which posts answers + confirm). We also set
+              // the run status to 'awaiting_input' so UI components can react.
+              try {
+                const payload = event.payload as Record<string, unknown>;
+                if ((payload?.status as string) === 'awaiting_input' && Array.isArray(payload?.questions) && event.runId === activeRunId) {
+                  const qs = (payload.questions as any[]) || [];
+                  // Save questions to the active run object so UI can render them inline
+                  setRuns((prevRuns) =>
+                    prevRuns.map((r) => (r.id === activeRunId ? { ...r, status: 'awaiting_input', awaitingQuestions: qs } : r)),
+                  );
+
+                  // Also set the local questions state (used by QuestionsPanel currently)
+                  setQuestions(qs as any);
+                }
+              } catch (e) {
+                // ignore
+              }
               try {
                 const payload = event.payload as Record<string, unknown>;
                 const output = (payload?.output as any) || {};
@@ -487,6 +505,8 @@ const Index = () => {
     };
     setRuns((prev) => [newRun, ...prev]);
     setActiveRunId(newId);
+    // Clear any outstanding questions when starting a fresh run
+    setQuestions([]);
   };
 
   const handleViewProfile = () => {
@@ -574,7 +594,7 @@ const Index = () => {
             {activeRun && (!activeRun.messages || activeRun.messages.length === 0) && (
               <div className="text-center text-muted-foreground py-8">No messages yet</div>
             )}
-            <ChatStream messages={activeRun?.messages ?? []} />
+            <ChatStream runId={activeRunId} messages={activeRun?.messages ?? []} />
             {/** Questions panel (planner missing-info) */}
             {questions.length > 0 && (
               <QuestionsPanel

@@ -6,6 +6,34 @@ import { events } from '../observability/events';
 import { randomUUID } from 'node:crypto';
 
 export const confirm: Node<RunState, RunEventBus> = async (s, eventBus) => {
+  const questions =
+    s.output?.diff?.questions ??
+    s.scratch?.missing ??
+    [];
+
+  // Check if all questions have answers already
+  const answers = s.scratch?.answers ?? {};
+  const unanswered = questions.filter(q => !answers[q.key]);
+
+  if (unanswered.length > 0) {
+    // Mark the run as waiting and emit an event for the UI
+    s.scratch = {
+      ...s.scratch,
+      awaiting: {
+        reason: 'missing_info',
+        questions: unanswered,
+        ts: new Date().toISOString(),
+      },
+    };
+
+    // Tell clients we’re waiting for input (WS)
+    events.awaitingInput(s, eventBus, unanswered);
+
+    // We *end* the graph here; UI will POST answers to /runs/:id/confirm to resume
+    return { output: { ...s.output } };
+  }
+
+  s.scratch = { ...s.scratch, awaiting: null };
   const policy = (s.ctx as any).meta?.policy;
   const approvedSteps = new Set<string>(
     Array.isArray((s.ctx as any).meta?.approvedSteps)
@@ -15,38 +43,6 @@ export const confirm: Node<RunState, RunEventBus> = async (s, eventBus) => {
 
   const plan = s.scratch?.plan ?? [];
   const pending = plan.filter((step) => !approvedSteps.has(step.id));
-
-  // If there are any 'missing' questions recorded on scratch, see if the
-  // runtime.scratch now contains answers for some of them and remove
-  // resolved items so the graph can proceed without re-asking.
-  const missing = Array.isArray((s.scratch as any)?.missing) ? ((s.scratch as any).missing as any[]) : [];
-  if (missing.length) {
-    const getByPath = (obj: any, path: string) => {
-      if (!obj || !path) return undefined;
-      const parts = path.split('.');
-      let cur: any = obj;
-      for (const p of parts) {
-        if (cur == null) return undefined;
-        cur = cur[p];
-      }
-      return cur;
-    };
-
-    const unresolved = missing.filter((q: any) => {
-      const val = getByPath(s.scratch, q.key);
-      return val === undefined || val === null || (typeof val === 'string' && val.trim() === '');
-    });
-
-    // mutate scratch so the graph hooks will emit a node.exit delta and
-    // subscribers (UI) will observe the updated missing list.
-    if (unresolved.length !== missing.length) {
-      s.scratch = { ...(s.scratch ?? {}), missing: unresolved } as any;
-    }
-  }
-
-  if (!pending.length) {
-    return;
-  }
 
   if (!needsApproval(s, policy)) {
     return;

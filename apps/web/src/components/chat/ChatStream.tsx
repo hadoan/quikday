@@ -14,7 +14,7 @@ import { LogCard } from '@/components/cards/LogCard';
 import { OutputCard } from '@/components/cards/OutputCard';
 import { UndoCard } from '@/components/cards/UndoCard';
 
-export function ChatStream({ messages }: { messages: UiRunSummary['messages'] }) {
+export function ChatStream({ runId, messages }: { runId?: string; messages: UiRunSummary['messages'] }) {
   return (
     <div className="space-y-6">
       {messages?.map((m, i) => {
@@ -48,7 +48,7 @@ export function ChatStream({ messages }: { messages: UiRunSummary['messages'] })
         if (m.type === 'run') {
           return (
             <ChatMessage key={i} role="assistant">
-              <RunCard data={m.data as UiRunData} />
+              <RunCard data={m.data as UiRunData} runId={runId} />
             </ChatMessage>
           );
         }

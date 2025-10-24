@@ -28,7 +28,8 @@ export type RunEventType =
   | 'fallback'
   | 'approval.awaiting'
   | 'undo.enqueued'
-  | 'undo.completed';
+  | 'undo.completed'
+  | 'awaiting.input';
 
 export interface RunEvent<T = any> {
   runId: string;
@@ -189,6 +190,8 @@ export const events = {
   undoEnqueued: (s: RunState, eventBus: RunEventBus, actions: any[]) =>
     _emit('undo.enqueued', s, eventBus, { actions }),
   undoCompleted: (s: RunState, eventBus: RunEventBus) => _emit('undo.completed', s, eventBus),
+  awaitingInput: (s, bus, questions: Array<{ key: string; question: string }>) =>
+    _emit('awaiting.input', s, bus, { questions }),
 };
 
 let globalSinks: Sinks = defaultSinks;

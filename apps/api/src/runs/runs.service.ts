@@ -20,13 +20,13 @@ export class RunsService {
   private readonly logger =
     this.isNoLog === true
       ? ({
-          log: (_: any, __?: any) => {},
-          debug: (_: any, __?: any) => {
-            console.log('----');
-          },
-          warn: (_: any, __?: any) => {},
-          error: (_: any, __?: any) => {},
-        } as unknown as Logger)
+        log: (_: any, __?: any) => { },
+        debug: (_: any, __?: any) => {
+          console.log('----');
+        },
+        warn: (_: any, __?: any) => { },
+        error: (_: any, __?: any) => { },
+      } as unknown as Logger)
       : new Logger(RunsService.name);
 
   constructor(
@@ -34,7 +34,7 @@ export class RunsService {
     private telemetry: TelemetryService,
     private tokens: RunTokenService,
     @InjectQueue('runs') private runsQueue: Queue
-  ) {}
+  ) { }
 
   async createFromPrompt(dto: CreateRunDto, claims: any = {}) {
     const {
@@ -467,23 +467,45 @@ export class RunsService {
   }
 
   /**
-   * Persist user-provided answers (from confirm) into the run's output.scratch
-   * object so they are auditable and can be used when re-enqueuing the run.
-   */
+  * Persist user-provided answers into run.output.scratch and clear any pause flag.
+  * - Merges into output.scratch.answers (preserves prior answers).
+  * - Clears output.scratch.awaiting so the run can resume on re-enqueue.
+  */
   async applyUserAnswers(runId: string, answers: Record<string, unknown>) {
     const run = await this.prisma.run.findUnique({ where: { id: runId } });
     if (!run) throw new NotFoundException('Run not found');
 
-    const existingOutput = run.output && typeof run.output === 'object' ? (run.output as Record<string, any>) : {};
-    const existingScratch = existingOutput.scratch && typeof existingOutput.scratch === 'object'
-      ? (existingOutput.scratch as Record<string, unknown>)
-      : {};
+    // Normalize existing output/scratch structure
+    const existingOutput =
+      run.output && typeof run.output === 'object' ? (run.output as Record<string, any>) : {};
+    const existingScratch =
+      existingOutput.scratch && typeof existingOutput.scratch === 'object'
+        ? (existingOutput.scratch as Record<string, any>)
+        : {};
 
-    const nextScratch = { ...existingScratch, ...answers };
+    const existingAnswers =
+      existingScratch.answers && typeof existingScratch.answers === 'object'
+        ? (existingScratch.answers as Record<string, unknown>)
+        : {};
+
+    // Merge answers + clear awaiting
+    const nextScratch = {
+      ...existingScratch,
+      answers: { ...existingAnswers, ...(answers ?? {}) },
+      awaiting: null, // <- important: clear pause marker
+    };
+
     const nextOutput = { ...existingOutput, scratch: nextScratch };
 
-  await this.prisma.run.update({ where: { id: runId }, data: { output: nextOutput as any } });
+    await this.prisma.run.update({
+      where: { id: runId },
+      data: { output: nextOutput as any },
+    });
 
-    await this.telemetry.track('run_confirmed', { runId, answersCount: Object.keys(answers || {}).length });
+    await this.telemetry.track('run_confirmed', {
+      runId,
+      answersCount: Object.keys(answers || {}).length,
+    });
   }
+
 }
