@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Param, Post, UseGuards, Req } from '@nestjs/common';
+import { Body, Controller, Get, Param, Post, UseGuards, Req, BadRequestException, NotFoundException } from '@nestjs/common';
 import { RunsService } from './runs.service';
 import { KindeGuard } from '../auth/kinde.guard';
 
@@ -31,7 +31,7 @@ export interface ConfirmDto {
 @Controller('runs')
 @UseGuards(KindeGuard)
 export class RunsController {
-  constructor(private runs: RunsService) {}
+  constructor(private runs: RunsService) { }
 
   @Post()
   create(@Body() body: CreateRunDto, @Req() req: any) {
@@ -41,17 +41,17 @@ export class RunsController {
 
   @Post(':id/confirm')
   async confirm(@Param('id') id: string, @Body() body: ConfirmDto) {
-    const answers = body?.answers ?? {};
+    const run = await this.runs.get(id);
+    if (!run) throw new NotFoundException('Run not found');
 
-    // Persist the provided answers so the resumed run can access them
-    await this.runs.applyUserAnswers(id, answers);
+    const questions = (run.output as any)?.diff?.questions ?? (run.output as any)?.questions ?? [];
+    const { ok, errors } = validateAnswers(questions, body?.answers ?? {});
+    if (!ok) {
+      return new BadRequestException({ message: 'Validation failed', validationErrors: errors });
+    }
 
-    // Mark run as queued so it's visible to workers and UI
-    await this.runs.updateStatus(id, 'queued');
-
-    // Re-enqueue the run and include the answers as scratch so the worker
-    // initialises the graph with these values available in runtime.scratch
-    await this.runs.enqueue(id, { scratch: answers });
+    await this.runs.applyUserAnswers(id, body.answers!);
+    await this.runs.enqueue(id); // re-run with answers
     return { ok: true };
   }
 
@@ -72,3 +72,7 @@ export class RunsController {
     return this.runs.get(id);
   }
 }
+function validateAnswers(questions: any, arg1: Record<string, unknown>): { ok: any; errors: any; } {
+  throw new Error('Function not implemented.');
+}
+

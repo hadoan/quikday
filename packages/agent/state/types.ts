@@ -1,3 +1,5 @@
+import z from "zod";
+
 export type RunMode = 'PLAN' | 'AUTO';
 export type Risk = 'low' | 'high';
 
@@ -38,28 +40,32 @@ export interface ChatMessage {
   meta?: Record<string, Json>;
 }
 
-// // Extensible RunState
-// export interface RunState<
-//     In extends Json = { prompt?: string; messages?: ChatMessage[]; attachments?: Json },
-//     Out extends Json = { summary?: string; diff?: Json; commits?: { stepId: string; result: Json }[]; undo?: { stepId: string; tool: string; args: Json }[] },
-//     Step extends { id: string; tool: string; args: Json; risk: "low" | "high"; idempotencyKey?: string; costEstimateCents?: number } = { id: string; tool: string; args: Json; risk: "low" | "high"; idempotencyKey?: string; costEstimateCents?: number },
-//     Meta extends Json = { confidence?: number; reason?: string }
-// > {
-//     input: In;
-//     mode: RunMode;
-//     ctx: RunCtx;                        // you can make RunCtx generic too (with meta)
-//     scratch?: {
-//         intent?: string;
-//         intentMeta?: Meta;                // typed intent metadata
-//         plan?: Step[];                    // typed plan steps
-//         stepsRun?: number;
-//         errors?: Array<{ code: string; message: string }>;
-//         artifacts?: Record<string, Json>; // small caches/extractions
-//     };
-//     output?: Out;                       // typed output
-// }
+export type QuestionType =
+  | 'text'        // 1-line text (names, subjects, channels)
+  | 'textarea'    // multi-line (email body, long messages)
+  | 'email'       // single email
+  | 'email_list'  // multiple emails
+  | 'datetime'
+  | 'date'
+  | 'time'
+  | 'number'
+  | 'select'
+  | 'multiselect';
 
-export type Question = { key: string; question: string };
+
+export type Question = {
+  key: string;                  // e.g. "email.subject", "email.to", "slack.channel"
+  question: string;             // prompt shown to the user
+  type: QuestionType;           // drives the UI control
+  placeholder?: string;
+  example?: string | string[];  // match type (array for lists)
+  options?: string[];           // for select/multiselect
+  min?: number;                 // optional numeric/string length bounds
+  max?: number;
+  required?: boolean;           // default true
+  format?: string;               // optional regex like '/^#?[a-z0-9-_]+$/i'
+};
+
 
 
 export interface RunError {
