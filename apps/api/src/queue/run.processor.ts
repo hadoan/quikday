@@ -27,6 +27,7 @@ type RunJobData = {
   token?: string;
   meta?: Record<string, unknown>;
   policy?: Record<string, unknown> | null;
+  scratch?: Record<string, unknown> | undefined;
 };
 
 type StepLogEntry = {
@@ -281,7 +282,8 @@ export class RunProcessor extends WorkerHost {
       input,
       mode: (job.data.mode ?? run.mode)?.toUpperCase() === 'AUTO' ? 'AUTO' : 'PLAN',
       ctx,
-      scratch: {},
+      // Seed scratch from job data if provided (used when resuming after user confirm)
+      scratch: structuredClone((job.data as any)?.scratch ?? {}),
       output: {},
     };
 

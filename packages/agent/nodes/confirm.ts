@@ -16,6 +16,34 @@ export const confirm: Node<RunState, RunEventBus> = async (s, eventBus) => {
   const plan = s.scratch?.plan ?? [];
   const pending = plan.filter((step) => !approvedSteps.has(step.id));
 
+  // If there are any 'missing' questions recorded on scratch, see if the
+  // runtime.scratch now contains answers for some of them and remove
+  // resolved items so the graph can proceed without re-asking.
+  const missing = Array.isArray((s.scratch as any)?.missing) ? ((s.scratch as any).missing as any[]) : [];
+  if (missing.length) {
+    const getByPath = (obj: any, path: string) => {
+      if (!obj || !path) return undefined;
+      const parts = path.split('.');
+      let cur: any = obj;
+      for (const p of parts) {
+        if (cur == null) return undefined;
+        cur = cur[p];
+      }
+      return cur;
+    };
+
+    const unresolved = missing.filter((q: any) => {
+      const val = getByPath(s.scratch, q.key);
+      return val === undefined || val === null || (typeof val === 'string' && val.trim() === '');
+    });
+
+    // mutate scratch so the graph hooks will emit a node.exit delta and
+    // subscribers (UI) will observe the updated missing list.
+    if (unresolved.length !== missing.length) {
+      s.scratch = { ...(s.scratch ?? {}), missing: unresolved } as any;
+    }
+  }
+
   if (!pending.length) {
     return;
   }

@@ -23,6 +23,11 @@ export interface CreateRunDto {
   meta?: Record<string, unknown>;
 }
 
+export interface ConfirmDto {
+  answers?: Record<string, unknown>;
+  approve?: boolean;
+}
+
 @Controller('runs')
 @UseGuards(KindeGuard)
 export class RunsController {
@@ -35,8 +40,18 @@ export class RunsController {
   }
 
   @Post(':id/confirm')
-  async confirm(@Param('id') id: string) {
-    await this.runs.enqueue(id);
+  async confirm(@Param('id') id: string, @Body() body: ConfirmDto) {
+    const answers = body?.answers ?? {};
+
+    // Persist the provided answers so the resumed run can access them
+    await this.runs.applyUserAnswers(id, answers);
+
+    // Mark run as queued so it's visible to workers and UI
+    await this.runs.updateStatus(id, 'queued');
+
+    // Re-enqueue the run and include the answers as scratch so the worker
+    // initialises the graph with these values available in runtime.scratch
+    await this.runs.enqueue(id, { scratch: answers });
     return { ok: true };
   }
 

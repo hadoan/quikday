@@ -166,7 +166,12 @@ export class RunsService {
     return run;
   }
 
-  async enqueue(runId: string, opts: { delayMs?: number } = {}) {
+  async enqueue(runId: string, opts: { delayMs?: number; scratch?: Record<string, unknown> } = {}) {
+    // opts may include a `scratch` object containing answers/values to seed
+    // the resumed graph's runtime.scratch. Keep the signature backwards
+    // compatible by accepting an extra `scratch` property.
+    const optsWithScratch = opts as { delayMs?: number; scratch?: Record<string, unknown> };
+
     this.logger.log('📮 Adding job to BullMQ queue', {
       timestamp: new Date().toISOString(),
       runId,
@@ -214,6 +219,8 @@ export class RunsService {
       token,
       policy,
       meta,
+      // Pass-through scratch (if any) so the worker can seed runtime.scratch
+      ...(optsWithScratch.scratch ? { scratch: optsWithScratch.scratch } : {}),
     };
 
     const job = await this.runsQueue.add('execute', jobPayload, {
@@ -457,5 +464,26 @@ export class RunsService {
       where: { id },
       data: { output: result.output ?? null, error: result.error ?? null },
     });
+  }
+
+  /**
+   * Persist user-provided answers (from confirm) into the run's output.scratch
+   * object so they are auditable and can be used when re-enqueuing the run.
+   */
+  async applyUserAnswers(runId: string, answers: Record<string, unknown>) {
+    const run = await this.prisma.run.findUnique({ where: { id: runId } });
+    if (!run) throw new NotFoundException('Run not found');
+
+    const existingOutput = run.output && typeof run.output === 'object' ? (run.output as Record<string, any>) : {};
+    const existingScratch = existingOutput.scratch && typeof existingOutput.scratch === 'object'
+      ? (existingOutput.scratch as Record<string, unknown>)
+      : {};
+
+    const nextScratch = { ...existingScratch, ...answers };
+    const nextOutput = { ...existingOutput, scratch: nextScratch };
+
+  await this.prisma.run.update({ where: { id: runId }, data: { output: nextOutput as any } });
+
+    await this.telemetry.track('run_confirmed', { runId, answersCount: Object.keys(answers || {}).length });
   }
 }
