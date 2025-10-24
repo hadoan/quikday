@@ -1,6 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { randomUUID } from 'crypto';
 import { RunEvent, RunEventBus } from './event-bus';
+import type { PubSubChannel } from './channels';
 
 @Injectable()
 export class InMemoryEventBus implements RunEventBus {
@@ -12,8 +13,9 @@ export class InMemoryEventBus implements RunEventBus {
   async publish(
     runId: string,
     event: Omit<RunEvent, 'runId' | 'ts' | 'id' | 'origin'>,
+    channel: PubSubChannel,
   ): Promise<void> {
-    this.logger.debug({ msg: 'publish called', runId, event });
+    this.logger.debug({ msg: 'publish called', runId, event, channel });
     const full: RunEvent = {
       ...event,
       id: randomUUID(),
@@ -21,14 +23,14 @@ export class InMemoryEventBus implements RunEventBus {
       runId,
       ts: new Date().toISOString(),
     };
-    const key = `run:${runId}`;
+    const key = `run:${runId}:${channel}`;
     const set = this.handlers.get(key);
     if (!set || set.size === 0) {
-      this.logger.debug({ msg: 'no handlers for run', runId });
+      this.logger.debug({ msg: 'no handlers for run+channel', runId, channel });
       return;
     }
     // Helpful debug: how many handlers/subscribers will receive this event
-    this.logger.debug({ msg: 'handlers count', runId, count: set.size });
+    this.logger.debug({ msg: 'handlers count', runId, channel, count: set.size });
     // Call handlers asynchronously (microtask) to avoid deep synchronous recursion
     // if a handler itself publishes events which synchronously invoke other handlers.
     for (const [subId, h] of Array.from(set.entries())) {
@@ -36,6 +38,7 @@ export class InMemoryEventBus implements RunEventBus {
         this.logger.debug({
           msg: 'delivering event to handler',
           runId,
+          channel,
           handlerId: subId,
           event: full,
         });
@@ -45,6 +48,7 @@ export class InMemoryEventBus implements RunEventBus {
         this.logger.verbose({
           msg: 'handler delivered',
           runId,
+          channel,
           handlerId: subId,
           eventId: full.id,
         });
@@ -60,8 +64,13 @@ export class InMemoryEventBus implements RunEventBus {
     }
   }
 
-  on(runId: string, handler: (event: RunEvent) => void, opts?: { label?: string }): () => void {
-    const key = `run:${runId}`;
+  on(
+    runId: string,
+    handler: (event: RunEvent) => void,
+    channel: PubSubChannel,
+    opts?: { label?: string },
+  ): () => void {
+    const key = `run:${runId}:${channel}`;
     let map = this.handlers.get(key);
     if (!map) {
       map = new Map();
@@ -75,6 +84,7 @@ export class InMemoryEventBus implements RunEventBus {
     this.logger.debug({
       msg: 'handler subscribed',
       runId,
+      channel: channel,
       subscriberId: subId,
       totalHandlers: map.size,
     });
@@ -85,6 +95,7 @@ export class InMemoryEventBus implements RunEventBus {
       this.logger.debug({
         msg: 'handler unsubscribed',
         runId,
+        channel: channel,
         subscriberId: subId,
         remaining: m.size,
       });

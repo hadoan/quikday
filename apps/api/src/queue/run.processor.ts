@@ -11,6 +11,7 @@ import {
   subscribeToRunEvents,
   type RunEvent as GraphRunEvent,
 } from '@quikday/agent/observability/events';
+import { CHANNEL_WORKER, CHANNEL_WEBSOCKET } from '@quikday/libs/pubsub/channels';
 import type { RunEvent as UiRunEvent } from '@quikday/libs/redis/RunEvent';
 import { AgentService } from '../agent';
 import { InMemoryEventBus } from '@quikday/libs';
@@ -80,7 +81,11 @@ export class RunProcessor extends WorkerHost {
 
     // mark running and notify
     await this.runs.updateStatus(run.id, 'running');
-    await this.eventBus.publish(run.id, { type: 'run_status', payload: { status: 'running' } });
+    await this.eventBus.publish(
+      run.id,
+      { type: 'run_status', payload: { status: 'running' } },
+      CHANNEL_WEBSOCKET
+    );
 
     this.logger.log('▶️ Starting run execution', {
       timestamp: new Date().toISOString(),
@@ -128,7 +133,13 @@ export class RunProcessor extends WorkerHost {
         runId: run.id,
       });
 
-      const unsubscribe = subscribeToRunEvents(run.id, handleGraphEvent, this.eventBus, 'worker');
+      const unsubscribe = subscribeToRunEvents(
+        run.id,
+        handleGraphEvent,
+        this.eventBus,
+        CHANNEL_WORKER,
+        'worker'
+      );
       let final: RunState;
       try {
         final = await graph.run('classify', initialState, this.eventBus);
@@ -257,7 +268,7 @@ export class RunProcessor extends WorkerHost {
     };
 
     const publishRunEvent = (type: UiRunEvent['type'], payload: UiRunEvent['payload']) =>
-      this.eventBus.publish(run.id, { type, payload });
+      this.eventBus.publish(run.id, { type, payload }, CHANNEL_WEBSOCKET);
 
     const safePublish = (type: UiRunEvent['type'], payload: UiRunEvent['payload']) =>
       void publishRunEvent(type, payload).catch((publishErr) =>
@@ -518,12 +529,16 @@ export class RunProcessor extends WorkerHost {
         '⏸️ Run awaiting approval',
         approvalId ? { runId: run.id, approvalId } : { runId: run.id }
       );
-      await this.eventBus.publish(run.id, {
-        type: 'run_status',
-        payload: approvalId
-          ? { status: 'awaiting_approval', approvalId }
-          : { status: 'awaiting_approval' },
-      });
+      await this.eventBus.publish(
+        run.id,
+        {
+          type: 'run_status',
+          payload: approvalId
+            ? { status: 'awaiting_approval', approvalId }
+            : { status: 'awaiting_approval' },
+        },
+        CHANNEL_WEBSOCKET
+      );
       return;
     }
 
@@ -541,10 +556,14 @@ export class RunProcessor extends WorkerHost {
       logs: formatLogsForPersistence(),
     });
     await this.runs.updateStatus(run.id, 'failed');
-    await this.eventBus.publish(run.id, {
-      type: 'run_status',
-      payload: { status: 'failed', error: errorPayload },
-    });
+    await this.eventBus.publish(
+      run.id,
+      {
+        type: 'run_status',
+        payload: { status: 'failed', error: errorPayload },
+      },
+      CHANNEL_WEBSOCKET
+    );
     await this.telemetry.track('run_completed', {
       runId: run.id,
       status: 'failed',

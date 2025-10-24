@@ -5,6 +5,7 @@ import { Server } from 'http';
 import { PrismaService } from '@quikday/prisma';
 import { RedisPubSubService } from '@quikday/libs';
 import { RunEventBus } from '@quikday/libs/pubsub/event-bus';
+import { CHANNEL_WEBSOCKET } from '@quikday/libs/pubsub/channels';
 
 interface ConnectionState {
   runId: string;
@@ -75,7 +76,9 @@ export class WebSocketService implements OnModuleDestroy {
       }
     };
 
-    const unsubscribe = this.eventBus.on(runId, handler, { label: `ws-${connId}` });
+    const unsubscribe = this.eventBus.on(runId, handler, CHANNEL_WEBSOCKET, {
+      label: `ws-${connId}`,
+    });
 
     // Initialize connection state
     this.connState.set(ws, {

@@ -2,6 +2,8 @@ import type { Hooks } from '../runtime/graph';
 import type { RunState } from '../state/types';
 import { redactForLog } from '../guards/redaction';
 import type { RedisPubSubService, RunEventBus } from '@quikday/libs';
+import type { PubSubChannel } from '@quikday/libs/pubsub/channels';
+import { CHANNEL_WORKER } from '@quikday/libs/pubsub/channels';
 
 /** ─────────────────────────────────────────────────────────────────────────────
  * Event types & payloads
@@ -57,11 +59,12 @@ export function subscribeToRunEvents(
   runId: string,
   handler: (evt: RunEvent) => void,
   eventBus: RunEventBus,
+  channel: PubSubChannel,
   label?: string,
 ): () => void {
-  // Pass optional label through to the underlying RunEventBus so subscribers
-  // can be identified in logs (e.g., 'worker' or 'ws-<id>').
-  return eventBus.on(runId, handler as any, { label });
+  // Pass channel and optional label through to the underlying RunEventBus so
+  // subscribers can be identified and segregated by channel.
+  return eventBus.on(runId, handler as any, channel, { label });
 }
 
 /** ─────────────────────────────────────────────────────────────────────────────
@@ -109,10 +112,15 @@ export function hooks(
     };
 
     // Broadcast via Redis pub/sub
-    eventBus.publish(s.ctx.runId, {
-      type: evt.type,
-      payload: evt.payload,
-    });
+    // Graph hooks are intended for the worker to consume.
+    eventBus.publish(
+      s.ctx.runId,
+      {
+        type: evt.type,
+        payload: evt.payload,
+      },
+      CHANNEL_WORKER,
+    );
 
     out.console(evt);
     // fire-and-forget; don't block the graph
@@ -181,10 +189,16 @@ function _emit(type: RunEventType, s: RunState, eventBus: RunEventBus, payload?:
     teamId: s.ctx.teamId,
   };
 
-  eventBus.publish(s.ctx.runId, {
-    type: evt.type,
-    payload: evt.payload,
-  });
+  // Convenience emitters publish to the worker channel by default so the
+  // worker process can consume graph events.
+  eventBus.publish(
+    s.ctx.runId,
+    {
+      type: evt.type,
+      payload: evt.payload,
+    },
+    CHANNEL_WORKER,
+  );
 
   globalSinks.console?.(evt);
   void globalSinks.persist?.(evt);

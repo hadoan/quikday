@@ -1,4 +1,6 @@
 // event-bus.ts
+import type { PubSubChannel } from './channels';
+
 export type RunEventType = string;
 
 export interface RunEvent {
@@ -11,6 +13,19 @@ export interface RunEvent {
 }
 
 export interface RunEventBus {
-  publish(runId: string, event: Omit<RunEvent, 'runId' | 'ts' | 'id' | 'origin'>): Promise<void>;
-  on(runId: string, handler: (event: RunEvent) => void, opts?: { label?: string }): () => void; // returns unsubscribe
+  // Channel is required so publishers and subscribers specify intent.
+  publish(
+    runId: string,
+    event: Omit<RunEvent, 'runId' | 'ts' | 'id' | 'origin'>,
+    channel: PubSubChannel,
+  ): Promise<void>;
+
+  // Subscribe to a specific channel for a run. Handlers registered on one
+  // channel won't receive events published to another channel for the same run.
+  on(
+    runId: string,
+    handler: (event: RunEvent) => void,
+    channel: PubSubChannel,
+    opts?: { label?: string },
+  ): () => void; // returns unsubscribe
 }
