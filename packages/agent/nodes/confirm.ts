@@ -20,11 +20,11 @@ export const confirm: Node<RunState, RunEventBus> = async (s, eventBus) => {
     s.scratch = {
       ...s.scratch,
       awaiting: {
-        reason: 'missing_info',
+        type: 'input' as const,
         questions: unanswered,
-        ts: new Date().toISOString(),
-      },
-    };
+        askedAt: new Date().toISOString(),
+      } as any,
+    } as any;
 
     // Tell clients we’re waiting for input (WS)
     events.awaitingInput(s, eventBus, unanswered);

@@ -1,22 +1,21 @@
+// apps/api/src/queue/run.processor.ts
 import { Processor, WorkerHost } from '@nestjs/bullmq';
 import { Job } from 'bullmq';
 import { Inject, Logger } from '@nestjs/common';
 import { RunsService } from '../runs/runs.service';
 import { TelemetryService } from '../telemetry/telemetry.service';
 import { ErrorCode } from '@quikday/types';
-import { RedisPubSubService } from '@quikday/libs';
 import type { RunState } from '@quikday/agent/state/types';
 import type { Run } from '@prisma/client';
 import {
   subscribeToRunEvents,
-  type RunEvent as GraphRunEvent,
 } from '@quikday/agent/observability/events';
 import { CHANNEL_WORKER, CHANNEL_WEBSOCKET } from '@quikday/libs';
 import type { RunEvent as UiRunEvent } from '@quikday/libs/redis/RunEvent';
 import { AgentService } from '../agent';
-import { InMemoryEventBus } from '@quikday/libs';
 import { RunEventBus } from '@quikday/libs/pubsub/event-bus';
 import { createGraphEventHandler } from './create-graph-event-handler';
+import { RunOutcome } from '@quikday/agent/runtime/graph';
 
 const GRAPH_HALT_AWAITING_APPROVAL = 'GRAPH_HALT_AWAITING_APPROVAL';
 
@@ -51,13 +50,10 @@ export class RunProcessor extends WorkerHost {
   constructor(
     private runs: RunsService,
     private telemetry: TelemetryService,
-    // private redisPubSub: RedisPubSubService,
     private agent: AgentService,
     @Inject('RunEventBus') private eventBus: RunEventBus
   ) {
     super();
-    // Initialize Redis pub/sub for agent events
-    // setRedisPubSub(redisPubSub);
   }
 
   async process(job: Job<RunJobData>) {
@@ -75,10 +71,6 @@ export class RunProcessor extends WorkerHost {
       processedOn: job.processedOn,
     });
 
-    this.logger.log('📖 Fetching run details from database', {
-      timestamp: new Date().toISOString(),
-      runId: jobRunId,
-    });
     const run = await this.runs.get(jobRunId);
 
     // mark running and notify
@@ -101,12 +93,12 @@ export class RunProcessor extends WorkerHost {
     // Build runtime input + ctx
     const { initialState, publishRunEvent, safePublish } = this.buildInputAndCtx(run, job);
 
-    // prepare runtime helpers
+    // prepare runtime graph
     const graph = this.agent.createGraph();
 
     const stepLogs: StepLogEntry[] = [];
 
-    // Bind applyDelta to retain `this` (method uses this.applyDelta for recursion)
+    // helpers
     const applyDelta = this.applyDelta.bind(this);
     const markStep = (
       tool: string,
@@ -115,7 +107,7 @@ export class RunProcessor extends WorkerHost {
     ) => this.markStep(stepLogs, tool, status, updater);
     const formatLogsForPersistence = () => this.formatLogsForPersistence(stepLogs);
 
-    // mutable refs for handlers
+    // mutable state mirror for event handlers
     let liveState: RunState = structuredClone(initialState);
     let graphEmittedRunCompleted = false;
 
@@ -132,7 +124,7 @@ export class RunProcessor extends WorkerHost {
     });
 
     try {
-      this.logger.log('🧠 Initialising LangGraph run state', {
+      this.logger.log('🧠 Initialising graph run state', {
         timestamp: new Date().toISOString(),
         runId: run.id,
       });
@@ -144,57 +136,70 @@ export class RunProcessor extends WorkerHost {
         CHANNEL_WORKER,
         'worker'
       );
+
       let final: RunState;
       try {
         final = await graph.run('classify', initialState, this.eventBus);
       } finally {
         unsubscribe();
       }
-
       liveState = final;
 
-      const awaiting = final?.scratch?.awaiting;
+      const awaiting = final?.scratch?.awaiting as any;
       if (
-        awaiting?.reason === 'missing_info' &&
-        Array.isArray(awaiting.questions) &&
+        ((awaiting?.type === 'input') as boolean) &&
+        Array.isArray(awaiting?.questions) &&
         awaiting.questions.length > 0
       ) {
         const questions = awaiting.questions ?? (final.output?.diff as any)?.questions ?? [];
+        const askedAt = awaiting?.askedAt || new Date().toISOString();
 
-        // Persist the awaiting state + questions onto the run output
+        // Persist awaiting to output (both UI-friendly and runtime-friendly)
         await this.runs.persistResult(run.id, {
           output: {
             ...(final.output ?? {}),
             diff: {
               ...(final.output?.diff ?? {}),
               questions,
-              // ensure there's a human summary (use existing if present)
               summary:
                 final.output?.diff?.summary ??
                 `Missing information needed: ${questions.map((q: any) => q.key).join(', ')}`,
             },
-            // explicit awaiting marker so we can reliably resume after refresh
             awaiting: { type: 'input', questions },
+            scratch: {
+              ...((final.output as any)?.scratch ?? {}),
+              awaiting: { type: 'input', questions, askedAt },
+            },
+            audit: {
+              ...(final.output as any)?.audit,
+              qna: [
+                ...(((final.output as any)?.audit ?? {}).qna ?? []),
+                { ts: askedAt, runId: run.id, phase: 'asked', questions } as any,
+              ],
+            },
           } as any,
           logs: formatLogsForPersistence(),
         });
-        // Flip status to awaiting_input (do NOT complete the run)
+
         await this.runs.updateStatus(run.id, 'awaiting_input');
-      } else {
-        // persist + finalize
-        await this.runs.persistResult(run.id, {
-          output: final.output,
-          logs: formatLogsForPersistence(),
-        });
-        await this.runs.updateStatus(run.id, 'done');
+
+        await this.eventBus.publish(
+          run.id,
+          { type: 'run_status', payload: { status: 'awaiting_input', questions } },
+          CHANNEL_WEBSOCKET
+        );
+        return;
       }
 
-      // Emit run_completed and include lastAssistant (if any) for UI convenience.
-      // Derive last assistant message from commits (reverse find).
+      // Normal finalize
+      await this.runs.persistResult(run.id, {
+        output: final.output,
+        logs: formatLogsForPersistence(),
+      });
+      await this.runs.updateStatus(run.id, 'done');
+
+      // Emit run_completed with lastAssistant for UI
       const commits = Array.isArray(final?.output?.commits) ? final.output.commits : [];
-      // Prefer assistant message from commits (tool outputs). If none, fall back to
-      // the run-level summary (used by the fallback node) so policy_denied / fallback
-      // messages are surfaced to the UI as an assistant-like message.
       let lastAssistant: string | null = null;
       const commitWithMessage =
         ([...commits]
@@ -211,9 +216,6 @@ export class RunProcessor extends WorkerHost {
       }
 
       if (!graphEmittedRunCompleted) {
-        if (final.scratch?.awaiting) {
-          return;
-        }
         await publishRunEvent('run_completed', {
           status: 'done',
           output: final.output ?? {},
@@ -248,6 +250,7 @@ export class RunProcessor extends WorkerHost {
         : {};
     const configInput = (config.input as RunState['input']) ?? undefined;
     const jobInput = (job.data.input ?? {}) as Partial<RunState['input']>;
+
     const input: RunState['input'] = {
       prompt:
         typeof jobInput.prompt === 'string' && jobInput.prompt.trim().length > 0
@@ -323,16 +326,16 @@ export class RunProcessor extends WorkerHost {
     // Pull whatever is in DB (might be generic JSON)
     const rawOut = (run?.output ?? {}) as Record<string, any>;
 
-    // 1) Move any persisted output.scratch into state.scratch
+    // Move any persisted output.scratch into state.scratch
     const persistedScratch =
       rawOut.scratch && typeof rawOut.scratch === 'object'
         ? (rawOut.scratch as Record<string, unknown>)
         : {};
 
-    // 2) Everything else is considered the "real" output
+    // Everything else is the real output
     const { scratch: _drop, ...restOutput } = rawOut;
 
-    // 3) Build state (job scratch wins over persisted)
+    // Build initial state (job scratch wins over persisted)
     const initialState: RunState = {
       input,
       mode: (job.data.mode ?? run.mode)?.toUpperCase() === 'AUTO' ? 'AUTO' : 'PLAN',
@@ -341,7 +344,7 @@ export class RunProcessor extends WorkerHost {
         ...(persistedScratch as any),
         ...structuredClone((job.data as any)?.scratch ?? {}),
       },
-      output: restOutput as RunState['output'], // <- minimal cast after stripping scratch
+      output: restOutput as RunState['output'],
     };
 
     const publishRunEvent = (type: UiRunEvent['type'], payload: UiRunEvent['payload']) =>
@@ -365,13 +368,6 @@ export class RunProcessor extends WorkerHost {
    * - Merges nested objects recursively.
    * - Replaces arrays (array items that are objects are cloned with structuredClone).
    * - Overwrites primitives.
-   *
-   * Example:
-   * const target = { a: 1, b: { x: 2 }, c: [{ id: 1 }] };
-   * applyDelta(target, { b: { y: 3 }, c: [{ id: 2 }], d: 'new' });
-   * // => target becomes { a: 1, b: { x: 2, y: 3 }, c: [{ id: 2 }], d: 'new' }
-   *
-   * Note: this mutates `target`. If you need an immutable merge, clone first.
    */
   private applyDelta(target: any, delta: any) {
     if (!delta || typeof delta !== 'object') return;

@@ -212,7 +212,14 @@ export const makeClassifyIntent = (llm: LLM): Node<RunState> => {
     }
 
     let out: LlmOutType | null = null;
-    const questions = (s.scratch?.missing ?? []) as { key: string; question: string; type?: string }[];
+    const questions = (
+      // Prefer persisted awaiting/questions from previous pause
+      ((s.output as any)?.awaiting?.questions as any[]) ||
+      ((s.output as any)?.diff?.questions as any[]) ||
+      (s.scratch?.awaiting?.questions as any[]) ||
+      (s.scratch?.missing as any[]) ||
+      []
+    ) as { key: string; question: string; type?: string }[];
     const answers = (s.scratch?.answers ?? s.scratch ?? {}) as Record<string, unknown>;
     const prompt = userPrompt(text, questions, answers);
 

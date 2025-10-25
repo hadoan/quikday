@@ -488,14 +488,47 @@ export class RunsService {
         ? (existingScratch.answers as Record<string, unknown>)
         : {};
 
-    // Merge answers + clear awaiting
-    const nextScratch = {
+    // Merge answers + clear awaiting, and apply normalized fields by dot-path
+    const nextScratch: Record<string, any> = {
       ...existingScratch,
       answers: { ...existingAnswers, ...(answers ?? {}) },
       awaiting: null, // <- important: clear pause marker
     };
 
-    const nextOutput = { ...existingOutput, scratch: nextScratch };
+    const setByPath = (obj: Record<string, any>, path: string, value: unknown) => {
+      if (!path || typeof path !== 'string') return;
+      const parts = path.split('.');
+      let cur = obj;
+      for (let i = 0; i < parts.length - 1; i++) {
+        const k = parts[i];
+        if (!cur[k] || typeof cur[k] !== 'object') cur[k] = {};
+        cur = cur[k];
+      }
+      cur[parts[parts.length - 1]] = value;
+    };
+
+    for (const [k, v] of Object.entries(answers ?? {})) {
+      if (k.includes('.')) {
+        setByPath(nextScratch, k, v);
+      } else {
+        nextScratch[k] = v;
+      }
+    }
+
+    // Also clear any top-level awaiting used by UI hints and append audit trail entries
+    const { awaiting: _dropAwait, audit: existingAudit, ...restExistingOutput } = existingOutput as any;
+    const ts = new Date().toISOString();
+    const auditQna: any[] = [
+      ...(((existingAudit ?? {}).qna ?? []) as any[]),
+      { ts, runId, phase: 'answered', answers },
+      { ts, runId, phase: 'validated' },
+    ];
+
+    const nextOutput = {
+      ...restExistingOutput,
+      scratch: nextScratch,
+      audit: { ...(existingAudit ?? {}), qna: auditQna },
+    };
 
     await this.prisma.run.update({
       where: { id: runId },
@@ -506,6 +539,37 @@ export class RunsService {
       runId,
       answersCount: Object.keys(answers || {}).length,
     });
+  }
+
+  async persistValidationErrors(
+    runId: string,
+    answers: Record<string, unknown>,
+    errors: Record<string, string>,
+  ) {
+    const run = await this.prisma.run.findUnique({ where: { id: runId } });
+    if (!run) throw new NotFoundException('Run not found');
+
+    const existingOutput =
+      run.output && typeof run.output === 'object' ? (run.output as Record<string, any>) : {};
+
+    const nextAwaiting = {
+      ...((existingOutput.awaiting as Record<string, any>) ?? {}),
+      errors,
+    };
+    const ts = new Date().toISOString();
+    const existingAudit = (existingOutput.audit as any) ?? {};
+    const auditQna: any[] = [
+      ...(((existingAudit ?? {}).qna ?? []) as any[]),
+      { ts, runId, phase: 'rejected', answers, errors },
+    ];
+
+    const nextOutput = {
+      ...existingOutput,
+      awaiting: nextAwaiting,
+      audit: { ...(existingAudit ?? {}), qna: auditQna },
+    } as any;
+
+    await this.prisma.run.update({ where: { id: runId }, data: { output: nextOutput } });
   }
 
 }

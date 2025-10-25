@@ -3,6 +3,7 @@ import OpenAI from 'openai';
 import { prisma } from '@quikday/prisma';
 import type { LLM, LlmCallMetadata } from './types';
 import { getLlmContext } from './context';
+import { logLlmGeneration } from '../observability/langfuse';
 
 const DEFAULT_MODEL = process.env.OPENAI_MODEL ?? 'gpt-4o-mini';
 
@@ -75,6 +76,24 @@ export function makeOpenAiLLM(client = new OpenAI({ apiKey: process.env.OPENAI_A
               console.error('Failed to persist LLM log', err);
             }
           });
+
+        // Also emit to Langfuse if configured
+        void logLlmGeneration({
+          runId: effectiveMetadata.runId,
+          userId,
+          teamId: teamId ?? undefined,
+          requestType,
+          apiEndpoint,
+          model,
+          system,
+          user,
+          completion: result,
+          usage,
+        }).catch((err) => {
+          if (process.env.NODE_ENV !== 'production') {
+            console.error('Langfuse log failed', err);
+          }
+        });
       }
 
       return result;

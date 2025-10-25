@@ -35,6 +35,7 @@
     "@quikday/libs": "workspace:*",
     "@quikday/prisma": "workspace:*",
     "dotenv": "^17.2.3",
+    "langfuse": "^3.20.0",
     "openai": "^4.72.0",
     "zod": "^4.1.12"
   },

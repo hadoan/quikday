@@ -44,13 +44,19 @@ export class RunsController {
     const run = await this.runs.get(id);
     if (!run) throw new NotFoundException('Run not found');
 
-    const questions = (run.output as any)?.diff?.questions ?? (run.output as any)?.questions ?? [];
-    const { ok, errors } = validateAnswers(questions, body?.answers ?? {});
+    const questions =
+      (run.output as any)?.awaiting?.questions ??
+      (run.output as any)?.diff?.questions ??
+      [];
+    const { ok, errors, normalized } = validateAnswers(questions, body?.answers ?? {});
+
     if (!ok) {
-      return new BadRequestException({ message: 'Validation failed', validationErrors: errors });
+      // Persist UI mirror errors + audit and respond with structured errors
+      await this.runs.persistValidationErrors(id, body?.answers ?? {}, errors);
+      throw new BadRequestException({ message: 'Validation failed', validationErrors: errors });
     }
 
-    await this.runs.applyUserAnswers(id, body.answers!);
+    await this.runs.applyUserAnswers(id, normalized);
     await this.runs.enqueue(id); // re-run with answers
     return { ok: true };
   }
