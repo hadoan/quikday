@@ -25,50 +25,45 @@ const TOOL_WHITELIST = [
 
 type AllowedTool = (typeof TOOL_WHITELIST)[number];
 
-// Chat-only tiny helper
-function chatOnlyPlan(prompt?: string): PlanStep[] {
-  return finalizeSteps([
-    {
-      tool: 'chat.respond' as AllowedTool,
-      args: {
-        prompt: prompt ?? '',
-        system:
-          'You are a helpful assistant. If no tool fits, answer normally. Keep it concise unless asked for details.',
-      },
-    },
-  ]);
-}
-
 // Step schema the LLM returns
 const StepInSchema = z.object({
   tool: z.enum(TOOL_WHITELIST),
   args: z.record(z.string(), z.any()).default({}),
 });
 
-// ✅ New: typed questions for structured UI
+// ✅ Typed questions for structured UI
 const QuestionSchema = z.object({
-  key: z.string(),                // e.g., "when.startISO"
-  question: z.string(),           // human prompt (label)
+  key: z.string(),
+  question: z.string(),
   type: z.enum([
-    'datetime', // ISO 8601 date-time
-    'date',     // YYYY-MM-DD
-    'time',     // HH:mm
-    'text',     // free text (fallback)
+    'datetime',
+    'date',
+    'time',
+    'text',
+    'textarea',
+    'email',
+    'email_list',
     'number',
     'select',
     'multiselect',
   ]).default('text'),
   required: z.boolean().default(true),
-  options: z.array(z.string()).optional(),   // for select/multiselect
-  placeholder: z.string().optional(),        // UI hint
-  format: z.string().optional(),             // regex or named format (e.g., "email","email_list","iso8601")
-  rationale: z.string().optional(),          // optional explanation for UI/tooling
+  options: z.array(z.string()).optional(),
+  placeholder: z.string().optional(),
+  format: z.string().optional(),
+  rationale: z.string().optional(),
+});
+
+// ✅ Inputs sections: required as list, valid as key->value map
+const InputsMetaSchema = z.object({
+  required_inputs: z.array(z.string()).default([]),
+  valid_inputs: z.record(z.string(), z.any()).default({}),
 });
 
 const PlanInSchema = z.object({
   steps: z.array(StepInSchema).min(0),
   questions: z.array(QuestionSchema).optional(),
-});
+}).merge(InputsMetaSchema);
 
 /* ------------------ Small Helpers ------------------ */
 
@@ -79,7 +74,6 @@ const getSlackChannel = (s: RunState) =>
   (s.scratch as any)?.intentMeta?.targets?.slack?.channel as string | undefined;
 
 const getAttendeesPreview = (s: RunState) =>
-  // Redact actual emails from prompts; use one mask per detected email
   (((s.scratch as any)?.entities?.emails as string[]) ?? []).map(() => '****');
 
 const isEmail = (v?: string) =>
@@ -143,12 +137,48 @@ function finalizeSteps(steps: Omit<PlanStep, 'id' | 'risk' | 'dependsOn'>[]): Pl
   });
 }
 
+/* ------------------ NEW: Inputs computation ------------------ */
+
+function requiredInputsForIntent(intent: IntentId): string[] {
+  switch (intent) {
+    case INTENT.CALENDAR_SCHEDULE:
+      return ['attendees.emails', 'when.startISO', 'when.endISO'];
+    case 'email.send':
+      return ['email.to', 'email.subject', 'email.body'];
+    default:
+      return [];
+  }
+}
+
+// Return a map of key -> extracted value (not just presence)
+function validInputsFromState(s: RunState): Record<string, any> {
+  const { start, end } = resolveWhen(s);
+  const dict: Record<string, any> = {};
+  if (start) dict['when.startISO'] = start;
+  if (end) dict['when.endISO'] = end;
+
+  const attendeesCsv = deriveAttendeesCsv(s);
+  if (attendeesCsv) dict['attendees.emails'] = attendeesCsv;
+
+  // Email.send fields from answers (authoritative if present)
+  const ans = (s.scratch as any)?.answers ?? {};
+  if (typeof ans['email.to'] === 'string' && ans['email.to'].trim()) {
+    dict['email.to'] = ans['email.to'].trim();
+  }
+  if (typeof ans['email.subject'] === 'string' && ans['email.subject'].trim()) {
+    dict['email.subject'] = ans['email.subject'].trim();
+  }
+  if (typeof ans['email.body'] === 'string' && ans['email.body'].trim()) {
+    dict['email.body'] = ans['email.body'].trim();
+  }
+  return dict;
+}
+
 /* ------------------ Fallbacks ------------------ */
 
 function fallbackSchedulePlan(s: RunState): PlanStep[] {
   const { start, end } = resolveWhen(s);
   const title = getTitle(s);
-  const attendees = getAttendeesPreview(s);
   const slackChannel = getSlackChannel(s);
 
   const core: Omit<PlanStep, 'id' | 'risk' | 'dependsOn'>[] = [
@@ -182,12 +212,11 @@ function fallbackSchedulePlan(s: RunState): PlanStep[] {
 /* ------------------ LLM glue ------------------ */
 async function planWithLLM(llm: LLM, s: RunState, system: string, user: string): Promise<string | null> {
   try {
-    // Use the shared LLM.text interface so observability (Langfuse) captures prompts
     return await llm.text({
       system,
       user,
       temperature: 0,
-      maxTokens: 600,
+      maxTokens: 700,
       timeoutMs: 15_000,
       metadata: {
         requestType: 'planner',
@@ -202,7 +231,7 @@ async function planWithLLM(llm: LLM, s: RunState, system: string, user: string):
   }
 }
 
-/* ------------------ Prompts (general, typed questions) ------------------ */
+/* ------------------ Prompts (include inputs + today/tz, valid_inputs as dict) ------------------ */
 
 function buildSystemPrompt() {
   return [
@@ -211,6 +240,8 @@ function buildSystemPrompt() {
     'Output a single JSON object with this structure:',
     '{',
     '  "steps": [ { "tool": <allowed>, "args": { /* minimal args to execute */ } } ],',
+    '  "required_inputs": string[],',
+    '  "valid_inputs": { [key: string]: any },',
     '  "questions": [',
     '     {',
     '       "key": string,',
@@ -231,6 +262,7 @@ function buildSystemPrompt() {
     '- Do NOT invent tools, fields, or values.',
     '- Keep args minimal but sufficient for the executor to run.',
     '- Use provided ISO timestamps; do NOT fabricate times.',
+    '- Treat "today" and relative dates in the provided timezone.',
     '- Do NOT expose PII beyond what is provided; attendees may be redacted.',
     '- If required information is missing, DO NOT guess.',
     "  Populate 'questions' with specific inputs using the correct 'type' and optional 'options'.",
@@ -241,8 +273,8 @@ function buildSystemPrompt() {
     "- If a Slack target is present, add slack.postMessage AFTER calendar.createEvent and include { channel, text }.",
     '',
     'Validation hints:',
-    "- For date-time: type='datetime', format='iso8601'.",
-    "- For email address: type='text', format='email' (or 'email_list' if multiple).",
+    "- For date-time: type=\"datetime\", format=\"iso8601\".",
+    "- For email address: use type=\"text\" with format=\"email\" (or \"email_list\" for multiple).",
   ].join('\n');
 }
 
@@ -252,15 +284,24 @@ function buildUserPrompt(s: RunState, intent: IntentId) {
   const attendeesPreview = getAttendeesPreview(s);
   const slackChannel = getSlackChannel(s);
 
+  const todayISO = (s.ctx.now instanceof Date ? s.ctx.now : new Date()).toISOString();
+  const timezone = s.ctx.tz || 'UTC';
+
+  const required_inputs = requiredInputsForIntent(intent);
+  const valid_inputs = validInputsFromState(s);
+
   const payload = {
     intent,
     allowedTools: TOOL_WHITELIST,
+    meta: { todayISO, timezone },
     context: {
       title,
       when: { start, end }, // may be nulls
       attendeesPreview,
       targets: slackChannel ? { slack: { channel: slackChannel } } : {},
     },
+    required_inputs,
+    valid_inputs,
 
     // Examples the model can pattern-match against
     samples: [
@@ -275,28 +316,25 @@ function buildUserPrompt(s: RunState, intent: IntentId) {
             targets: { slack: { channel: '#general' } },
           },
           allowedTools: ['calendar.checkAvailability', 'calendar.createEvent', 'slack.postMessage'],
+          required_inputs: ['attendees.emails', 'when.startISO', 'when.endISO'],
+          valid_inputs: { 'when.startISO': '2025-10-23T20:00:00Z', 'when.endISO': '2025-10-23T20:30:00Z' },
         },
         expected_output: {
           steps: [
+            { tool: 'calendar.checkAvailability', args: { start: '2025-10-23T20:00:00Z', end: '2025-10-23T20:30:00Z' } },
+            { tool: 'calendar.createEvent', args: { title: 'Online call', start: '2025-10-23T20:00:00Z', end: '2025-10-23T20:30:00Z', notifyAttendees: true } },
+            { tool: 'slack.postMessage', args: { channel: '#general', text: 'Scheduled: *Online call* from 20:00 to 20:30. Invites sent.' } },
+          ],
+          required_inputs: ['attendees.emails', 'when.startISO', 'when.endISO'],
+          valid_inputs: { 'when.startISO': '2025-10-23T20:00:00Z', 'when.endISO': '2025-10-23T20:30:00Z' },
+          questions: [
             {
-              tool: 'calendar.checkAvailability',
-              args: { start: '2025-10-23T20:00:00Z', end: '2025-10-23T20:30:00Z' },
-            },
-            {
-              tool: 'calendar.createEvent',
-              args: {
-                title: 'Online call',
-                start: '2025-10-23T20:00:00Z',
-                end: '2025-10-23T20:30:00Z',
-                notifyAttendees: true,
-              },
-            },
-            {
-              tool: 'slack.postMessage',
-              args: {
-                channel: '#general',
-                text: 'Scheduled: *Online call* from 20:00 to 20:30. Invites sent.',
-              },
+              key: 'attendees.emails',
+              question: 'Who should be invited? (emails)',
+              type: 'email_list',
+              required: true,
+              placeholder: 'sara@example.com, alex@acme.com',
+              rationale: 'Needed to send calendar invites.',
             },
           ],
         },
@@ -305,33 +343,19 @@ function buildUserPrompt(s: RunState, intent: IntentId) {
         description: 'calendar.schedule MISSING → ask typed questions (no guessing)',
         input: {
           intent: 'calendar.schedule',
-          context: {
-            title: 'Team Sync',
-            when: { start: null, end: null },
-            attendeesPreview: ['****'],
-          },
+          context: { title: 'Team Sync', when: { start: null, end: null }, attendeesPreview: ['****'] },
           allowedTools: ['calendar.checkAvailability', 'calendar.createEvent'],
+          required_inputs: ['attendees.emails', 'when.startISO', 'when.endISO'],
+          valid_inputs: {},
         },
         expected_output: {
           steps: [],
+          required_inputs: ['attendees.emails', 'when.startISO', 'when.endISO'],
+          valid_inputs: {},
           questions: [
-            {
-              key: 'when.startISO',
-              question: 'What start time should I use for the meeting?',
-              type: 'datetime',
-              required: true,
-              placeholder: '2025-10-24T10:00:00Z',
-              format: 'iso8601',
-              rationale: 'Required to check availability and create the event.',
-            },
-            {
-              key: 'when.endISO',
-              question: 'What end time should I use for the meeting?',
-              type: 'datetime',
-              required: true,
-              placeholder: '2025-10-24T10:30:00Z',
-              format: 'iso8601',
-            },
+            { key: 'when.startISO', question: 'What start time should I use for the meeting?', type: 'datetime', required: true, placeholder: '2025-10-24T10:00:00Z', format: 'iso8601', rationale: 'Required to check availability and create the event.' },
+            { key: 'when.endISO', question: 'What end time should I use for the meeting?', type: 'datetime', required: true, placeholder: '2025-10-24T10:30:00Z', format: 'iso8601' },
+            { key: 'attendees.emails', question: 'Who should be invited? (emails)', type: 'email_list', required: true, placeholder: 'sara@example.com, alex@acme.com' },
           ],
         },
       },
@@ -341,9 +365,13 @@ function buildUserPrompt(s: RunState, intent: IntentId) {
           intent: 'email.send',
           context: { subject: null, toPreview: [], summary: null },
           allowedTools: ['email.send'],
+          required_inputs: ['email.to', 'email.subject', 'email.body'],
+          valid_inputs: {},
         },
         expected_output: {
           steps: [],
+          required_inputs: ['email.to', 'email.subject', 'email.body'],
+          valid_inputs: {},
           questions: [
             { key: 'email.to', question: 'Who should receive the email?', type: 'text', format: 'email_list', placeholder: 'alice@example.com, bob@acme.com' },
             { key: 'email.subject', question: 'Email subject?', type: 'text', placeholder: 'Quick intro' },
@@ -365,10 +393,11 @@ function patchAndHardenPlan(
 ): {
   steps: PlanStep[];
   questions: z.infer<typeof QuestionSchema>[];
+  required_inputs: string[];
+  valid_inputs: Record<string, any>;
 } {
   const { start, end } = resolveWhen(s);
   const title = getTitle(s);
-  const attendees = getAttendeesPreview(s);
   const slackChannel = getSlackChannel(s);
 
   const questions = [...(drafted.questions ?? [])];
@@ -376,14 +405,21 @@ function patchAndHardenPlan(
   // 1) Filter to allowed tools (defensive)
   let steps = (drafted.steps ?? []).filter((st) => TOOL_WHITELIST.includes(st.tool as AllowedTool));
 
-  // 2) If schedule intent & times missing → force typed questions, clear steps
-  const isSchedule = s.scratch?.intent === INTENT.CALENDAR_SCHEDULE;
-  const missingTimes = isSchedule && (!start || !end);
+  // 2) Compute inputs (state first, then merge model-provided for extras)
+  const intent = s.scratch?.intent as IntentId;
+  const required_inputs = requiredInputsForIntent(intent);
+  const state_valid = validInputsFromState(s);
+  const model_valid = drafted.valid_inputs ?? {};
+  const valid_inputs: Record<string, any> = { ...model_valid, ...state_valid }; // state wins
+
+  // 3) If schedule intent & times missing → force typed questions, clear steps
+  const isSchedule = intent === INTENT.CALENDAR_SCHEDULE;
+  const missing = new Set(required_inputs.filter((k) => !(k in valid_inputs)));
 
   if (isSchedule) {
-    if (missingTimes) {
+    if (missing.has('when.startISO') || missing.has('when.endISO')) {
       const keys = new Set(questions.map((q) => q.key));
-      if (!keys.has('when.startISO')) {
+      if (missing.has('when.startISO') && !keys.has('when.startISO')) {
         questions.push({
           key: 'when.startISO',
           question: 'What start time should I use for the meeting (ISO 8601)?',
@@ -394,7 +430,7 @@ function patchAndHardenPlan(
           rationale: 'Required to check availability and create the event.',
         });
       }
-      if (!keys.has('when.endISO')) {
+      if (missing.has('when.endISO') && !keys.has('when.endISO')) {
         questions.push({
           key: 'when.endISO',
           question: 'What end time should I use for the meeting (ISO 8601)?',
@@ -457,15 +493,9 @@ function patchAndHardenPlan(
         }
       }
     }
-  }
 
-  // If we saw attendee names in targets but no valid emails could be derived, ask for emails list
-  try {
-    const targets = (s.scratch as any)?.intentMeta?.targets ?? {};
-    const hasAttendeeHints = Array.isArray(targets?.attendees) && (targets.attendees as any[]).length > 0;
-    const hasEmails = !!deriveAttendeesCsv(s);
-    const isSchedule = s.scratch?.intent === INTENT.CALENDAR_SCHEDULE;
-    if (isSchedule && hasAttendeeHints && !hasEmails) {
+    // Ask for attendees emails if still missing
+    if (missing.has('attendees.emails')) {
       const keys = new Set(questions.map((q) => q.key));
       if (!keys.has('attendees.emails')) {
         questions.push({
@@ -478,11 +508,9 @@ function patchAndHardenPlan(
         } as any);
       }
     }
-  } catch {
-    // non-fatal
   }
 
-  return { steps: finalizeSteps(steps as any), questions };
+  return { steps: finalizeSteps(steps as any), questions, required_inputs, valid_inputs };
 }
 
 /* ------------------ Planner Node ------------------ */
@@ -496,43 +524,49 @@ export const makePlanner = (llm: LLM): Node<RunState, RunEventBus> => async (s, 
 
   let steps: PlanStep[] | null = null;
   let questions: z.infer<typeof QuestionSchema>[] = [];
+  let required_inputs: string[] = [];
+  let valid_inputs: Record<string, any> = {};
 
   // 1) Explicit chat.respond → chat-only
   if (intent === 'chat.respond') {
-    steps = chatOnlyPlan(userText);
-
+    steps = finalizeSteps([{
+      tool: 'chat.respond',
+      args: {
+        prompt: userText ?? '',
+        system: 'You are a helpful assistant. If no tool fits, answer normally. Keep it concise unless asked for details.',
+      },
+    }]);
     const diff = safe({
       summary: 'Answer with assistant (chat.respond).',
       steps: steps.map(({ id, tool, dependsOn }) => ({ id, tool, dependsOn })),
+      required_inputs: [],
+      valid_inputs: {},
       questions: [],
       intentDesc: INTENTS.find((x) => x.id === intent)?.desc,
     });
-
     events.planReady(s, eventBus, safe(steps), diff);
-
-    return {
-      scratch: { ...s.scratch, plan: steps, missing: [] },
-      output: { ...s.output, diff },
-    };
+    return { scratch: { ...s.scratch, plan: steps, missing: [] }, output: { ...s.output, diff } };
   }
 
   // 2) Unknown/low-confidence → answer normally (no tools)
   if (!intent || intent === (INTENT as any).UNKNOWN || confidence < 0.6) {
-    steps = chatOnlyPlan(userText);
-
+    steps = finalizeSteps([{
+      tool: 'chat.respond',
+      args: {
+        prompt: userText ?? '',
+        system: 'You are a helpful assistant. If no tool fits, answer normally. Keep it concise unless asked for details.',
+      },
+    }]);
     const diff = safe({
       summary: 'Answer normally (no tools).',
       steps: steps.map(({ id, tool, dependsOn }) => ({ id, tool, dependsOn })),
+      required_inputs: [],
+      valid_inputs: {},
       questions: [],
       intentDesc: INTENTS.find((x) => x.id === intent)?.desc,
     });
-
     events.planReady(s, eventBus, safe(steps), diff);
-
-    return {
-      scratch: { ...s.scratch, plan: steps, missing: [] },
-      output: { ...s.output, diff },
-    };
+    return { scratch: { ...s.scratch, plan: steps, missing: [] }, output: { ...s.output, diff } };
   }
 
   // 3) Try LLM planning
@@ -547,6 +581,11 @@ export const makePlanner = (llm: LLM): Node<RunState, RunEventBus> => async (s, 
         const hardened = patchAndHardenPlan(s, parsed);
         steps = hardened.steps;
         questions = hardened.questions;
+        required_inputs = hardened.required_inputs.length
+          ? hardened.required_inputs
+          : requiredInputsForIntent(intent);
+        // Always recompute valid from state and overlay model-provided extras (state wins)
+        valid_inputs = { ...(parsed.valid_inputs ?? {}), ...validInputsFromState(s) };
       } catch {
         steps = null; // fall back
       }
@@ -556,26 +595,37 @@ export const makePlanner = (llm: LLM): Node<RunState, RunEventBus> => async (s, 
   // 4) Deterministic fallback for calendar.schedule if nothing produced
   if ((!steps || steps.length === 0) && (!questions || questions.length === 0)) {
     if (intent === INTENT.CALENDAR_SCHEDULE) {
+      required_inputs = requiredInputsForIntent(intent);
+      valid_inputs = validInputsFromState(s);
       const { start, end } = resolveWhen(s);
       if (!start || !end) {
-        questions = [
-          {
-            key: 'when.startISO',
-            question: 'What start time should I use for the meeting (ISO 8601)?',
-            type: 'datetime',
+        const qs: z.infer<typeof QuestionSchema>[] = [];
+        if (!start) qs.push({
+          key: 'when.startISO',
+          question: 'What start time should I use for the meeting (ISO 8601)?',
+          type: 'datetime',
+          required: true,
+          placeholder: '2025-10-24T10:00:00Z',
+          format: 'iso8601',
+        });
+        if (!end) qs.push({
+          key: 'when.endISO',
+          question: 'What end time should I use for the meeting (ISO 8601)?',
+          type: 'datetime',
+          required: true,
+          placeholder: '2025-10-24T10:30:00Z',
+          format: 'iso8601',
+        });
+        if (!('attendees.emails' in valid_inputs)) {
+          qs.push({
+            key: 'attendees.emails',
+            question: 'Who should be invited? (emails)',
+            type: 'email_list',
             required: true,
-            placeholder: '2025-10-24T10:00:00Z',
-            format: 'iso8601',
-          },
-          {
-            key: 'when.endISO',
-            question: 'What end time should I use for the meeting (ISO 8601)?',
-            type: 'datetime',
-            required: true,
-            placeholder: '2025-10-24T10:30:00Z',
-            format: 'iso8601',
-          },
-        ];
+            placeholder: 'sara@example.com, alex@acme.com',
+          } as any);
+        }
+        questions = qs;
         steps = [];
       } else {
         steps = fallbackSchedulePlan(s);
@@ -583,6 +633,7 @@ export const makePlanner = (llm: LLM): Node<RunState, RunEventBus> => async (s, 
     }
   }
 
+  // 5) Build diff including inputs sections
   const diff = safe({
     summary:
       steps && steps.length > 0
@@ -591,6 +642,8 @@ export const makePlanner = (llm: LLM): Node<RunState, RunEventBus> => async (s, 
           ? `Missing information needed: ${questions.map((q) => q.key).join(', ')}`
           : 'No actions proposed.',
     steps: (steps ?? []).map(({ id, tool, dependsOn }) => ({ id, tool, dependsOn })),
+    required_inputs: required_inputs ?? [],
+    valid_inputs: valid_inputs ?? {},
     questions,
     intentDesc: INTENTS.find((x) => x.id === intent)?.desc,
   });
@@ -598,7 +651,12 @@ export const makePlanner = (llm: LLM): Node<RunState, RunEventBus> => async (s, 
   events.planReady(s, eventBus, safe(steps ?? []), diff);
 
   return {
-    scratch: { ...s.scratch, plan: steps ?? [], missing: questions ?? [] },
+    scratch: {
+      ...s.scratch,
+      plan: steps ?? [],
+      missing: questions ?? [],
+      inputs: { required: required_inputs, valid: valid_inputs },
+    },
     output: { ...s.output, diff },
   };
 };
