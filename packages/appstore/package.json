@@ -17,7 +17,7 @@
   "scripts": {
     "build": "tsc -p tsconfig.json",
     "watch": "tsc -w -p tsconfig.json",
-    "lint": "eslint src --ext .ts,.tsx"
+    "lint": "eslint ./*.ts --ext .ts,.tsx"
   },
   "dependencies": {
     "@quikday/types": "workspace:*",

@@ -77,3 +77,4 @@ export function validateEmailAddresses(addresses: string[]): {
 
   return { valid, invalid };
 }
+

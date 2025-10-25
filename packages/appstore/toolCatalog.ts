@@ -187,3 +187,4 @@ export function getToolsByApp(appId: string): ToolMetadata[] {
 export function getAllTools(): ToolMetadata[] {
   return Object.values(TOOL_CATALOG);
 }
+

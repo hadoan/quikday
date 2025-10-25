@@ -95,3 +95,4 @@ export function validateDateRange(startIso: string, endIso: string): boolean {
   const end = new Date(endIso);
   return end.getTime() > start.getTime();
 }
+
