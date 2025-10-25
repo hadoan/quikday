@@ -28,7 +28,7 @@ export const buildMainGraph = ({ llm, eventBus }: BuildMainGraphOptions) => {
       .addNode('confirm', safeNode('confirm', confirm, eventBus))
       .addNode('executor', safeNode('executor', executor, eventBus))
       .addNode('summarize', summarize(llm))
-      .addNode('fallback', fallback('policy_denied'))
+      .addNode('fallback', fallback('unspecified'))
 
       // .addEdge('START', () => 'classify')
       // .addEdge('classify', routeByMode)

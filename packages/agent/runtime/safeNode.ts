@@ -29,6 +29,11 @@ export const safeNode =
           message: err instanceof Error ? err.message : String(err),
           stack: err instanceof Error ? err.stack : undefined,
         };
+        // Map common operational errors to a clearer fallback reason for UX
+        const msg = ((err instanceof Error ? err.message : String(err)) || '').toLowerCase();
+        let reason = 'unspecified';
+        if (msg.includes('tool not found')) reason = 'unspecified';
+        (state as any).scratch = { ...(state as any).scratch, fallbackReason: reason };
       }
       ctx?.events?.emit?.('step_failed', { node: nodeName, error: (state as any)?.error });
 
