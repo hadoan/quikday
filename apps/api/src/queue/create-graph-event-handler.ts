@@ -126,8 +126,12 @@ export function createGraphEventHandler(opts: {
                 }
                 case 'approval.awaiting': {
                     const approvalId = (evt.payload as any)?.approvalId;
+                    const steps = Array.isArray((evt.payload as any)?.steps)
+                        ? ((evt.payload as any).steps as any[])
+                        : [];
                     logger.log('⏸️ Awaiting approval', { runId: run.id, approvalId });
-                    safePublish('run_status', { status: 'awaiting_approval', approvalId });
+                    // Include pending steps so the UI can render an approval CTA with step ids
+                    safePublish('run_status', { status: 'awaiting_approval', approvalId, steps });
                     break;
                 }
                 case 'fallback': {

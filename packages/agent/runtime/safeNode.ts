@@ -16,6 +16,11 @@ export const safeNode =
       const res = await fn(...(args as any[]), eventBus);
       return await (res as Promise<Awaited<ReturnType<T>>>);
     } catch (err) {
+      // Allow graph-level control flow errors to bubble (do not convert to fallback)
+      const code = (err as any)?.code || (err as any)?.name || (err as any)?.message;
+      if (code === 'GRAPH_HALT_AWAITING_APPROVAL') {
+        throw err;
+      }
       // Attempt to annotate state + emit events if available
       const [state, ctx] = args as unknown as [RunState | undefined, any];
       if (args.length >= 1 && state && typeof state === 'object') {

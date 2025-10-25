@@ -6,6 +6,12 @@ import { events } from '../observability/events';
 import { randomUUID } from 'node:crypto';
 
 export const confirm: Node<RunState, RunEventBus> = async (s, eventBus) => {
+  // Feature toggle: approvals can be disabled via ctx.meta.approvalsEnabled or env
+  // Default: disabled (can be re-enabled later)
+  const metaFlag = (s.ctx as any)?.meta?.approvalsEnabled;
+  const envFlag = (process.env.AGENT_APPROVALS_ENABLED ?? 'false').toString().toLowerCase();
+  const approvalsEnabled = typeof metaFlag === 'boolean' ? metaFlag : envFlag === 'true';
+
   const questions =
     s.output?.diff?.questions ??
     s.scratch?.missing ??
@@ -44,13 +50,13 @@ export const confirm: Node<RunState, RunEventBus> = async (s, eventBus) => {
   const plan = s.scratch?.plan ?? [];
   const pending = plan.filter((step) => !approvedSteps.has(step.id));
 
-  if (!needsApproval(s, policy)) {
-    return;
-  }
+  // If approvals disabled, or policy does not require, or everything is already approved → continue
+  if (!approvalsEnabled || !needsApproval(s, policy) || pending.length === 0) return;
 
   const approvalId = randomUUID();
   events.approvalAwaiting(s, eventBus, pending);
 
+  // Signal the worker to pause this run and await approval
   const err: any = new Error('GRAPH_HALT_AWAITING_APPROVAL');
   err.code = 'GRAPH_HALT_AWAITING_APPROVAL';
   err.approvalId = approvalId;

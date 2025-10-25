@@ -13,8 +13,21 @@ import { RunCard } from '@/components/cards/RunCard';
 import { LogCard } from '@/components/cards/LogCard';
 import { OutputCard } from '@/components/cards/OutputCard';
 import { UndoCard } from '@/components/cards/UndoCard';
+import { getDataSource, getFeatureFlags } from '@/lib/flags/featureFlags';
 
 export function ChatStream({ runId, messages }: { runId?: string; messages: UiRunSummary['messages'] }) {
+  const flags = getFeatureFlags();
+  const dataSource = getDataSource();
+
+  // Find last known run status from messages (if any)
+  const lastStatus = React.useMemo(() => {
+    for (let i = messages.length - 1; i >= 0; i--) {
+      const m = messages[i] as any;
+      if (m?.type === 'run' && m?.data?.status) return String(m.data.status);
+    }
+    return undefined as string | undefined;
+  }, [messages]);
+
   return (
     <div className="space-y-6">
       {messages?.map((m, i) => {
@@ -30,7 +43,7 @@ export function ChatStream({ runId, messages }: { runId?: string; messages: UiRu
 
         // Assistant messages: render structured types with corresponding cards
         if (m.type === 'plan') {
-          const pd = m.data as UiPlanData;
+          const pd = m.data as UiPlanData & { steps?: Array<{ id: string }> };
           const plan = {
             intent: pd?.intent || 'Plan',
             tools: pd?.tools || [],
@@ -38,9 +51,22 @@ export function ChatStream({ runId, messages }: { runId?: string; messages: UiRu
             mode: 'plan' as const,
           };
 
+          const steps = Array.isArray((pd as any)?.steps) ? ((pd as any).steps as Array<{ id: string }>) : [];
+          const canApprove = flags.liveApprovals && runId && lastStatus === 'awaiting_approval' && steps.length > 0;
+          const onConfirm = canApprove
+            ? async () => {
+                try {
+                  await (dataSource as any).approve?.(runId, steps.map((s) => s.id));
+                } catch (e) {
+                  // eslint-disable-next-line no-console
+                  console.error('approve failed', e);
+                }
+              }
+            : undefined;
+
           return (
             <ChatMessage key={i} role="assistant">
-              <PlanCard data={plan} />
+              <PlanCard data={plan} onConfirm={onConfirm} />
             </ChatMessage>
           );
         }

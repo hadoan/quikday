@@ -78,7 +78,48 @@ const getSlackChannel = (s: RunState) =>
   (s.scratch as any)?.intentMeta?.targets?.slack?.channel as string | undefined;
 
 const getAttendeesPreview = (s: RunState) =>
+  // Redact actual emails from prompts; use one mask per detected email
   (((s.scratch as any)?.entities?.emails as string[]) ?? []).map(() => '****');
+
+const isEmail = (v?: string) =>
+  typeof v === 'string' && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v.trim());
+
+function getEmailsFromAnswers(s: RunState): string[] {
+  const ans = (s.scratch as any)?.answers ?? {};
+  const out = new Set<string>();
+  const add = (v?: unknown) => {
+    if (!v) return;
+    if (Array.isArray(v)) v.forEach((x) => add(x));
+    else if (typeof v === 'string') v.split(',').forEach((x) => {
+      const t = x.trim();
+      if (isEmail(t)) out.add(t);
+    });
+  };
+  add(ans['attendees.emails']);
+  add(ans['email.to']);
+  return Array.from(out);
+}
+
+function getEmailsFromEntities(s: RunState): string[] {
+  const ents = (s.scratch as any)?.entities;
+  const emails = Array.isArray(ents?.emails) ? (ents.emails as string[]) : [];
+  return emails.filter((e) => isEmail(e));
+}
+
+function getEmailsFromTargets(s: RunState): string[] {
+  const targets = (s.scratch as any)?.intentMeta?.targets ?? {};
+  const attendees = Array.isArray(targets?.attendees) ? (targets.attendees as string[]) : [];
+  return attendees.filter((e) => isEmail(e));
+}
+
+function deriveAttendeesCsv(s: RunState): string | undefined {
+  const emails = new Set<string>();
+  getEmailsFromAnswers(s).forEach((e) => emails.add(e));
+  getEmailsFromEntities(s).forEach((e) => emails.add(e));
+  getEmailsFromTargets(s).forEach((e) => emails.add(e));
+  if (emails.size === 0) return undefined;
+  return Array.from(emails).join(', ');
+}
 
 const resolveWhen = (s: RunState) => {
   const start = (s.scratch as any)?.when?.startISO ?? (s.scratch as any)?.schedule?.start ?? null;
@@ -110,10 +151,17 @@ function fallbackSchedulePlan(s: RunState): PlanStep[] {
   const slackChannel = getSlackChannel(s);
 
   const core: Omit<PlanStep, 'id' | 'risk' | 'dependsOn'>[] = [
-    { tool: 'calendar.checkAvailability', args: { start, end, attendees } },
+    { tool: 'calendar.checkAvailability', args: { start, end, attendees: deriveAttendeesCsv(s) } },
     {
       tool: 'calendar.createEvent',
-      args: { title, start, end, attendees, notifyAttendees: true, location: 'Google Meet' },
+      args: {
+        title,
+        start,
+        end,
+        attendees: deriveAttendeesCsv(s),
+        notifyAttendees: true,
+        location: 'Google Meet',
+      },
     },
   ];
 
@@ -371,12 +419,22 @@ function patchAndHardenPlan(
       const hasCheck = steps.some((s) => s.tool === 'calendar.checkAvailability');
 
       if (hasCreate && !hasCheck) {
-        steps.unshift({ tool: 'calendar.checkAvailability', args: { start, end, attendees } });
+        steps.unshift({
+          tool: 'calendar.checkAvailability',
+          args: { start, end, attendees: deriveAttendeesCsv(s) },
+        });
       }
       if (!hasCreate) {
         steps.push({
           tool: 'calendar.createEvent',
-          args: { title, start, end, attendees, notifyAttendees: true, location: 'Google Meet' },
+          args: {
+            title,
+            start,
+            end,
+            attendees: deriveAttendeesCsv(s),
+            notifyAttendees: true,
+            location: 'Google Meet',
+          },
         });
       }
       const hasSlack = steps.some((s) => s.tool === 'slack.postMessage');
@@ -392,13 +450,14 @@ function patchAndHardenPlan(
 
       for (const st of steps) {
         if (st.tool === 'calendar.checkAvailability') {
-          st.args = { start, end, attendees, ...(st.args ?? {}) };
+          st.args = { start, end, attendees: deriveAttendeesCsv(s), ...(st.args ?? {}) };
         }
         if (st.tool === 'calendar.createEvent') {
           st.args = {
             title,
             start,
             end,
+            attendees: deriveAttendeesCsv(s),
             notifyAttendees: true,
             location: 'Google Meet',
             ...(st.args ?? {}),
@@ -406,6 +465,29 @@ function patchAndHardenPlan(
         }
       }
     }
+  }
+
+  // If we saw attendee names in targets but no valid emails could be derived, ask for emails list
+  try {
+    const targets = (s.scratch as any)?.intentMeta?.targets ?? {};
+    const hasAttendeeHints = Array.isArray(targets?.attendees) && (targets.attendees as any[]).length > 0;
+    const hasEmails = !!deriveAttendeesCsv(s);
+    const isSchedule = s.scratch?.intent === INTENT.CALENDAR_SCHEDULE;
+    if (isSchedule && hasAttendeeHints && !hasEmails) {
+      const keys = new Set(questions.map((q) => q.key));
+      if (!keys.has('attendees.emails')) {
+        questions.push({
+          key: 'attendees.emails',
+          question: 'Who should be invited? (emails)',
+          type: 'email_list',
+          required: true,
+          placeholder: 'sara@example.com, alex@acme.com',
+          rationale: 'Needed to send calendar invites.',
+        } as any);
+      }
+    }
+  } catch {
+    // non-fatal
   }
 
   return { steps: finalizeSteps(steps as any), questions };
