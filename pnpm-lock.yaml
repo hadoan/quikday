@@ -669,6 +669,44 @@ importers:
         specifier: ^4.9.0
         version: 4.9.5
 
+  packages/appstore/close-crm:
+    dependencies:
+      '@nestjs/common':
+        specifier: ^10.0.0
+        version: 10.4.20(class-transformer@0.5.1)(class-validator@0.14.2)(reflect-metadata@0.2.2)(rxjs@7.8.2)
+      '@quikday/appstore':
+        specifier: workspace:*
+        version: link:..
+      '@quikday/prisma':
+        specifier: workspace:*
+        version: link:../../prisma
+    devDependencies:
+      '@prisma/client':
+        specifier: ^5.18.0
+        version: 5.22.0(prisma@5.22.0)
+      '@quikday/tsconfig':
+        specifier: workspace:*
+        version: link:../../tsconfig
+
+  packages/appstore/github-devtools:
+    dependencies:
+      '@nestjs/common':
+        specifier: ^10.0.0
+        version: 10.4.20(class-transformer@0.5.1)(class-validator@0.14.2)(reflect-metadata@0.2.2)(rxjs@7.8.2)
+      '@quikday/appstore':
+        specifier: workspace:*
+        version: link:..
+      '@quikday/prisma':
+        specifier: workspace:*
+        version: link:../../prisma
+    devDependencies:
+      '@prisma/client':
+        specifier: ^5.18.0
+        version: 5.22.0(prisma@5.22.0)
+      '@quikday/tsconfig':
+        specifier: workspace:*
+        version: link:../../tsconfig
+
   packages/appstore/gmail-email:
     dependencies:
       '@nestjs/common':
@@ -713,8 +751,103 @@ importers:
         specifier: workspace:*
         version: link:../../tsconfig
 
+  packages/appstore/googlesheets-data:
+    dependencies:
+      '@nestjs/common':
+        specifier: ^10.0.0
+        version: 10.4.20(class-transformer@0.5.1)(class-validator@0.14.2)(reflect-metadata@0.2.2)(rxjs@7.8.2)
+      '@quikday/appstore':
+        specifier: workspace:*
+        version: link:..
+      '@quikday/prisma':
+        specifier: workspace:*
+        version: link:../../prisma
+    devDependencies:
+      '@prisma/client':
+        specifier: ^5.18.0
+        version: 5.22.0(prisma@5.22.0)
+      '@quikday/tsconfig':
+        specifier: workspace:*
+        version: link:../../tsconfig
+
+  packages/appstore/hubspot-crm:
+    dependencies:
+      '@nestjs/common':
+        specifier: ^10.0.0
+        version: 10.4.20(class-transformer@0.5.1)(class-validator@0.14.2)(reflect-metadata@0.2.2)(rxjs@7.8.2)
+      '@quikday/appstore':
+        specifier: workspace:*
+        version: link:..
+      '@quikday/prisma':
+        specifier: workspace:*
+        version: link:../../prisma
+    devDependencies:
+      '@prisma/client':
+        specifier: ^5.18.0
+        version: 5.22.0(prisma@5.22.0)
+      '@quikday/tsconfig':
+        specifier: workspace:*
+        version: link:../../tsconfig
+
+  packages/appstore/jira-devtools:
+    dependencies:
+      '@nestjs/common':
+        specifier: ^10.0.0
+        version: 10.4.20(class-transformer@0.5.1)(class-validator@0.14.2)(reflect-metadata@0.2.2)(rxjs@7.8.2)
+      '@quikday/appstore':
+        specifier: workspace:*
+        version: link:..
+      '@quikday/prisma':
+        specifier: workspace:*
+        version: link:../../prisma
+    devDependencies:
+      '@prisma/client':
+        specifier: ^5.18.0
+        version: 5.22.0(prisma@5.22.0)
+      '@quikday/tsconfig':
+        specifier: workspace:*
+        version: link:../../tsconfig
+
   packages/appstore/linkedin-social:
     devDependencies:
+      '@quikday/tsconfig':
+        specifier: workspace:*
+        version: link:../../tsconfig
+
+  packages/appstore/notion-docs:
+    dependencies:
+      '@nestjs/common':
+        specifier: ^10.0.0
+        version: 10.4.20(class-transformer@0.5.1)(class-validator@0.14.2)(reflect-metadata@0.2.2)(rxjs@7.8.2)
+      '@quikday/appstore':
+        specifier: workspace:*
+        version: link:..
+      '@quikday/prisma':
+        specifier: workspace:*
+        version: link:../../prisma
+    devDependencies:
+      '@prisma/client':
+        specifier: ^5.18.0
+        version: 5.22.0(prisma@5.22.0)
+      '@quikday/tsconfig':
+        specifier: workspace:*
+        version: link:../../tsconfig
+
+  packages/appstore/slack-messaging:
+    dependencies:
+      '@nestjs/common':
+        specifier: ^10.0.0
+        version: 10.4.20(class-transformer@0.5.1)(class-validator@0.14.2)(reflect-metadata@0.2.2)(rxjs@7.8.2)
+      '@quikday/appstore':
+        specifier: workspace:*
+        version: link:..
+      '@quikday/prisma':
+        specifier: workspace:*
+        version: link:../../prisma
+    devDependencies:
+      '@prisma/client':
+        specifier: ^5.18.0
+        version: 5.22.0(prisma@5.22.0)
       '@quikday/tsconfig':
         specifier: workspace:*
         version: link:../../tsconfig
