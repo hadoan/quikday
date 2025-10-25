@@ -161,7 +161,7 @@ export const RunCard = ({ data, runId }: RunCardProps) => {
           ))}
         </div>
 
-        <div className="mt-4 flex gap-2">
+        {/* <div className="mt-4 flex gap-2">
           <button
             onClick={onSubmit}
             disabled={submitting || qs.some((q) => !(answers[q.key] ?? '').trim())}
@@ -169,7 +169,7 @@ export const RunCard = ({ data, runId }: RunCardProps) => {
           >
             {submitting ? 'Submitting…' : 'Submit & Continue'}
           </button>
-        </div>
+        </div> */}
       </div>
     );
   }

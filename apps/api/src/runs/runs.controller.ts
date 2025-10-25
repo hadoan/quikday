@@ -1,7 +1,7 @@
 import { Body, Controller, Get, Param, Post, UseGuards, Req, BadRequestException, NotFoundException } from '@nestjs/common';
 import { RunsService } from './runs.service';
 import { KindeGuard } from '../auth/kinde.guard';
-
+import { validateAnswers } from '@quikday/agent/validation/answers';
 export interface ChatMessageDto {
   role: 'system' | 'user' | 'assistant' | 'tool';
   content: string;
@@ -72,7 +72,3 @@ export class RunsController {
     return this.runs.get(id);
   }
 }
-function validateAnswers(questions: any, arg1: Record<string, unknown>): { ok: any; errors: any; } {
-  throw new Error('Function not implemented.');
-}
-

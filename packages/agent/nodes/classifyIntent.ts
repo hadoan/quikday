@@ -4,6 +4,9 @@ import type { LLM } from '../llm/types';
 import { z } from 'zod';
 import { INTENTS, type IntentId } from './intents';
 
+type QaItem = { key: string; question: string; type?: string };
+type Answers = Record<string, unknown>;
+
 // IntentId now sourced from ./intents
 const ALLOWED = new Set<IntentId>(INTENTS.map((i) => i.id) as IntentId[]);
 
@@ -133,20 +136,36 @@ Pick the single best intent from the provided list, or return "unknown" if not c
 Extract only lightweight targets needed by a planner (channel, time, attendees, etc.).
 Return ONLY compact JSON.`;
 
-function userPrompt(text: string) {
+function userPrompt(text: string, questions: QaItem[] = [], answers: Answers = {}) {
   const menu = INTENTS.map((i) => `- ${i.id}: ${i.desc}`).join('\n');
+
+  const qaBlock =
+    questions.length || Object.keys(answers).length
+      ? `
+Previously asked questions (for missing info):
+${JSON.stringify(questions, null, 2)}
+
+User-provided answers (dot-path keys):
+${JSON.stringify(answers, null, 2)}
+`
+      : '';
+
   return `Classify this user request into ONE intent from the list below (or "unknown" if not confident).
-Provide minimal targets/slots only if clearly present.
+Then, FOLD the provided answers into the output targets/slots. Prefer explicit answers over heuristics.
+If both start and end are provided (via answers or user text), include ISO datetimes in targets.time.iso
+(you may derive from date+time if clearly unambiguous). Never invent values.
+
 
 User:
 """
 ${text}
 """
+${qaBlock}
 
 Intents:
 ${menu}
 
-Output JSON:
+Output ONLY compact JSON:
 {
   "intent": "<one of the intents above or 'unknown'>",
   "confidence": 0..1,
@@ -162,13 +181,25 @@ Output JSON:
     "crm"?: { "system"?: "hubspot"|"close", "contact"?: string },
     "dev"?: { "system"?: "github"|"jira", "repo"?: string, "projectKey"?: string, "assignees"?: string[], "labels"?: string[] }
   }
-}`;
+}
+
+Rules:
+- Use the answers map to populate the above targets (dot-paths like "when.startISO", "email.to", "slack.channel").
+- Normalize:
+  - Slack channels must start with "#".
+  - "email.to" and "attendees" should be arrays of strings.
+  - If you have start+end (from answers or text), set targets.time.iso to an ISO range string (e.g., "2025-11-02T09:00:00Z/2025-11-02T09:30:00Z").
+- If unclear, omit the field. Do NOT ask new questions here.
+
+`;
 }
 
 // ---------------- Factory: LLM DI --------------------------------------------
 export const makeClassifyIntent = (llm: LLM): Node<RunState> => {
   return async (s) => {
     const text = s.input.prompt ?? s.input.messages?.map((m) => m.content).join('\n') ?? '';
+
+
 
     if (!text.trim()) {
       return {
@@ -181,11 +212,14 @@ export const makeClassifyIntent = (llm: LLM): Node<RunState> => {
     }
 
     let out: LlmOutType | null = null;
+    const questions = (s.scratch?.missing ?? []) as { key: string; question: string; type?: string }[];
+    const answers = (s.scratch?.answers ?? s.scratch ?? {}) as Record<string, unknown>;
+    const prompt = userPrompt(text, questions, answers);
 
     try {
       const raw = await llm.text({
         system: SYSTEM,
-        user: userPrompt(text),
+        user: prompt,
         temperature: 0,
         maxTokens: 220,
         timeoutMs: 12_000,

@@ -206,7 +206,7 @@ function _emit(type: RunEventType, s: RunState, eventBus: RunEventBus, payload?:
     runId: s.ctx.runId,
     type,
     ts: new Date().toISOString(),
-    payload: payload ? redactForLog(payload) : undefined,
+    payload: payload ? ( type !== 'awaiting.input' ? redactForLog(payload) : payload ) : undefined,
     traceId: s.ctx.traceId,
     userId: s.ctx.userId,
     teamId: s.ctx.teamId,
