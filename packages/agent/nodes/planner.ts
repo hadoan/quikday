@@ -5,6 +5,7 @@ import { events } from '../observability/events';
 import { INTENTS, type IntentId, INTENT } from './intents';
 import { z } from 'zod';
 import type { RunEventBus } from '@quikday/libs';
+import type { LLM } from '../llm/types';
 
 /* ------------------ Whitelist & Schemas ------------------ */
 
@@ -179,31 +180,22 @@ function fallbackSchedulePlan(s: RunState): PlanStep[] {
 }
 
 /* ------------------ LLM glue ------------------ */
-
-/**
- * Expect an LLM client on state services:
- * (s.services as any)?.llm.complete({ system, user, temperature: 0, response_format: { type: "json_object" } })
- */
-async function callLLM(s: RunState, system: string, user: string): Promise<string | null> {
-  const llm = (s as any)?.services?.llm as
-    | {
-      complete: (opts: {
-        system: string;
-        user: string;
-        temperature?: number;
-        response_format?: any;
-      }) => Promise<string>;
-    }
-    | undefined;
-
-  if (!llm) return null;
-
+async function planWithLLM(llm: LLM, s: RunState, system: string, user: string): Promise<string | null> {
   try {
-    return await llm.complete({
+    // Use the shared LLM.text interface so observability (Langfuse) captures prompts
+    return await llm.text({
       system,
       user,
       temperature: 0,
-      response_format: { type: 'json_object' },
+      maxTokens: 600,
+      timeoutMs: 15_000,
+      metadata: {
+        requestType: 'planner',
+        apiEndpoint: 'planner.plan',
+        runId: s.ctx.runId as any,
+        userId: s.ctx.userId as any,
+        teamId: (s.ctx.teamId as any) ?? undefined,
+      },
     });
   } catch {
     return null;
@@ -495,7 +487,7 @@ function patchAndHardenPlan(
 
 /* ------------------ Planner Node ------------------ */
 
-export const planner: Node<RunState, RunEventBus> = async (s, eventBus) => {
+export const makePlanner = (llm: LLM): Node<RunState, RunEventBus> => async (s, eventBus) => {
   const intent = s.scratch?.intent as IntentId | undefined;
   const confidence = (s.scratch as any)?.intentMeta?.confidence ?? 0;
   const userText =
@@ -547,7 +539,7 @@ export const planner: Node<RunState, RunEventBus> = async (s, eventBus) => {
   if (intent) {
     const system = buildSystemPrompt();
     const user = buildUserPrompt(s, intent);
-    const raw = await callLLM(s, system, user);
+    const raw = await planWithLLM(llm, s, system, user);
 
     if (raw) {
       try {
