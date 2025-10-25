@@ -12,8 +12,11 @@ import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 async function bootstrap() {
   // Load env from monorepo root if present (so API can run under turbo)
   const rootEnv = path.resolve(__dirname, '../../../.env');
-  if (existsSync(rootEnv)) dotenvConfig({ path: rootEnv });
-  else dotenvConfig();
+  // In dev, prefer values from .env over pre-set shell vars to avoid stale keys.
+  // In production, keep default dotenv behavior (do not override process.env).
+  const override = process.env.NODE_ENV !== 'production';
+  if (existsSync(rootEnv)) dotenvConfig({ path: rootEnv, override });
+  else dotenvConfig({ override });
 
   // Log masked OPENAI_API_KEY to help diagnose auth errors (do not print full key)
   try {

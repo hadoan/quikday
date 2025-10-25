@@ -153,11 +153,15 @@ export class ApiDataSource implements DataSource {
       existingSocket.close();
     }
 
+    // Resolve auth token for WS
+    // Note: Backend WS currently accepts only no token or 'dev'; do not send OIDC tokens.
+    const wsToken = this.config.authToken === 'dev' ? 'dev' : undefined;
+
     // Create new socket
     const socket = createRunSocket({
       wsBaseUrl: this.config.wsBaseUrl,
       runId,
-      authToken: this.config.authToken,
+      authToken: wsToken,
       onEvent,
       onError: (error) => {
         this.logger.error('WebSocket error', error);
@@ -236,6 +240,31 @@ export class ApiDataSource implements DataSource {
   }
 
   // -------------------------------------------------------------------------
+  // Answers + Confirm (awaiting_input flow)
+  // -------------------------------------------------------------------------
+  async applyAnswers(runId: string, answers: Record<string, unknown>): Promise<{ ok: true }> {
+    // Backend expects answers via /confirm endpoint payload
+    const url = `${this.config.apiBaseUrl}/runs/${runId}/confirm`;
+
+    await this.fetch(url, {
+      method: 'POST',
+      body: JSON.stringify({ answers }),
+    });
+
+    return { ok: true };
+  }
+
+  async confirm(runId: string): Promise<{ ok: true }> {
+    const url = `${this.config.apiBaseUrl}/runs/${runId}/confirm`;
+
+    await this.fetch(url, {
+      method: 'POST',
+    });
+
+    return { ok: true };
+  }
+
+  // -------------------------------------------------------------------------
   // Credentials
   // -------------------------------------------------------------------------
   async listCredentials(appId: string, owner: 'user' | 'team'): Promise<UiCredential[]> {
@@ -294,23 +323,44 @@ export class ApiDataSource implements DataSource {
   // -------------------------------------------------------------------------
 
   private async fetch(url: string, options: RequestInit = {}): Promise<Response> {
-    const headers = new Headers(options.headers || {});
-    headers.set('Content-Type', 'application/json');
-    // Try to attach current OIDC access token if available
-    try {
-      const provider = getAccessTokenProvider();
-      const tokenOrPromise = provider?.();
-      const token = tokenOrPromise instanceof Promise ? await tokenOrPromise : tokenOrPromise;
-      if (token) headers.set('Authorization', `Bearer ${token}`);
-    } catch {
-      // ignore and fall back to default token if set
-      if (this.config.authToken) headers.set('Authorization', `Bearer ${this.config.authToken}`);
-    }
+    const makeHeaders = async () => {
+      const headers = new Headers(options.headers || {});
+      headers.set('Content-Type', 'application/json');
+      // Try to attach current OIDC access token if available; fall back to static token if set
+      try {
+        const provider = getAccessTokenProvider();
+        const tokenOrPromise = provider?.();
+        const token = tokenOrPromise instanceof Promise ? await tokenOrPromise : tokenOrPromise;
+        if (token) headers.set('Authorization', `Bearer ${token}`);
+        else if (this.config.authToken) headers.set('Authorization', `Bearer ${this.config.authToken}`);
+      } catch {
+        if (this.config.authToken) headers.set('Authorization', `Bearer ${this.config.authToken}`);
+      }
+      return headers;
+    };
 
-    const response = await fetch(url, {
-      ...options,
-      headers,
-    });
+    const doFetch = async (): Promise<Response> => {
+      const headers = await makeHeaders();
+      return fetch(url, { ...options, headers });
+    };
+
+    let response = await doFetch();
+
+    // If unauthorized due to expired token, attempt a single refresh + retry
+    if (response.status === 401 || response.status === 403) {
+      try {
+        // Read and check error message (best-effort; may not be JSON)
+        let errText = '';
+        try { errText = await response.clone().text(); } catch {}
+        const looksExpired = /jwt\s*expired|token\s*expired|invalid_token/i.test(errText);
+        if (looksExpired) {
+          // Retry once with a fresh token
+          response = await doFetch();
+        }
+      } catch {
+        // fallthrough to error handling below
+      }
+    }
 
     if (!response.ok) {
       const error = await this.parseError(response);

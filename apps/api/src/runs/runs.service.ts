@@ -20,13 +20,13 @@ export class RunsService {
   private readonly logger =
     this.isNoLog === true
       ? ({
-          log: (_: any, __?: any) => {},
-          debug: (_: any, __?: any) => {
-            console.log('----');
-          },
-          warn: (_: any, __?: any) => {},
-          error: (_: any, __?: any) => {},
-        } as unknown as Logger)
+        log: (_: any, __?: any) => { },
+        debug: (_: any, __?: any) => {
+          console.log('----');
+        },
+        warn: (_: any, __?: any) => { },
+        error: (_: any, __?: any) => { },
+      } as unknown as Logger)
       : new Logger(RunsService.name);
 
   constructor(
@@ -34,7 +34,7 @@ export class RunsService {
     private telemetry: TelemetryService,
     private tokens: RunTokenService,
     @InjectQueue('runs') private runsQueue: Queue
-  ) {}
+  ) { }
 
   async createFromPrompt(dto: CreateRunDto, claims: any = {}) {
     const {
@@ -166,7 +166,12 @@ export class RunsService {
     return run;
   }
 
-  async enqueue(runId: string, opts: { delayMs?: number } = {}) {
+  async enqueue(runId: string, opts: { delayMs?: number; scratch?: Record<string, unknown> } = {}) {
+    // opts may include a `scratch` object containing answers/values to seed
+    // the resumed graph's runtime.scratch. Keep the signature backwards
+    // compatible by accepting an extra `scratch` property.
+    const optsWithScratch = opts as { delayMs?: number; scratch?: Record<string, unknown> };
+
     this.logger.log('📮 Adding job to BullMQ queue', {
       timestamp: new Date().toISOString(),
       runId,
@@ -214,6 +219,8 @@ export class RunsService {
       token,
       policy,
       meta,
+      // Pass-through scratch (if any) so the worker can seed runtime.scratch
+      ...(optsWithScratch.scratch ? { scratch: optsWithScratch.scratch } : {}),
     };
 
     const job = await this.runsQueue.add('execute', jobPayload, {
@@ -458,4 +465,111 @@ export class RunsService {
       data: { output: result.output ?? null, error: result.error ?? null },
     });
   }
+
+  /**
+  * Persist user-provided answers into run.output.scratch and clear any pause flag.
+  * - Merges into output.scratch.answers (preserves prior answers).
+  * - Clears output.scratch.awaiting so the run can resume on re-enqueue.
+  */
+  async applyUserAnswers(runId: string, answers: Record<string, unknown>) {
+    const run = await this.prisma.run.findUnique({ where: { id: runId } });
+    if (!run) throw new NotFoundException('Run not found');
+
+    // Normalize existing output/scratch structure
+    const existingOutput =
+      run.output && typeof run.output === 'object' ? (run.output as Record<string, any>) : {};
+    const existingScratch =
+      existingOutput.scratch && typeof existingOutput.scratch === 'object'
+        ? (existingOutput.scratch as Record<string, any>)
+        : {};
+
+    const existingAnswers =
+      existingScratch.answers && typeof existingScratch.answers === 'object'
+        ? (existingScratch.answers as Record<string, unknown>)
+        : {};
+
+    // Merge answers + clear awaiting, and apply normalized fields by dot-path
+    const nextScratch: Record<string, any> = {
+      ...existingScratch,
+      answers: { ...existingAnswers, ...(answers ?? {}) },
+      awaiting: null, // <- important: clear pause marker
+    };
+
+    const setByPath = (obj: Record<string, any>, path: string, value: unknown) => {
+      if (!path || typeof path !== 'string') return;
+      const parts = path.split('.');
+      let cur = obj;
+      for (let i = 0; i < parts.length - 1; i++) {
+        const k = parts[i];
+        if (!cur[k] || typeof cur[k] !== 'object') cur[k] = {};
+        cur = cur[k];
+      }
+      cur[parts[parts.length - 1]] = value;
+    };
+
+    for (const [k, v] of Object.entries(answers ?? {})) {
+      if (k.includes('.')) {
+        setByPath(nextScratch, k, v);
+      } else {
+        nextScratch[k] = v;
+      }
+    }
+
+    // Also clear any top-level awaiting used by UI hints and append audit trail entries
+    const { awaiting: _dropAwait, audit: existingAudit, ...restExistingOutput } = existingOutput as any;
+    const ts = new Date().toISOString();
+    const auditQna: any[] = [
+      ...(((existingAudit ?? {}).qna ?? []) as any[]),
+      { ts, runId, phase: 'answered', answers },
+      { ts, runId, phase: 'validated' },
+    ];
+
+    const nextOutput = {
+      ...restExistingOutput,
+      scratch: nextScratch,
+      audit: { ...(existingAudit ?? {}), qna: auditQna },
+    };
+
+    await this.prisma.run.update({
+      where: { id: runId },
+      data: { output: nextOutput as any },
+    });
+
+    await this.telemetry.track('run_confirmed', {
+      runId,
+      answersCount: Object.keys(answers || {}).length,
+    });
+  }
+
+  async persistValidationErrors(
+    runId: string,
+    answers: Record<string, unknown>,
+    errors: Record<string, string>,
+  ) {
+    const run = await this.prisma.run.findUnique({ where: { id: runId } });
+    if (!run) throw new NotFoundException('Run not found');
+
+    const existingOutput =
+      run.output && typeof run.output === 'object' ? (run.output as Record<string, any>) : {};
+
+    const nextAwaiting = {
+      ...((existingOutput.awaiting as Record<string, any>) ?? {}),
+      errors,
+    };
+    const ts = new Date().toISOString();
+    const existingAudit = (existingOutput.audit as any) ?? {};
+    const auditQna: any[] = [
+      ...(((existingAudit ?? {}).qna ?? []) as any[]),
+      { ts, runId, phase: 'rejected', answers, errors },
+    ];
+
+    const nextOutput = {
+      ...existingOutput,
+      awaiting: nextAwaiting,
+      audit: { ...(existingAudit ?? {}), qna: auditQna },
+    } as any;
+
+    await this.prisma.run.update({ where: { id: runId }, data: { output: nextOutput } });
+  }
+
 }

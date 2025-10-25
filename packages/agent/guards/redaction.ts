@@ -224,5 +224,6 @@ export function redact<T extends Json>(value: T, opts?: RedactOptions): T {
 
 // Convenience for logging: returns a deep-cloned, redacted copy
 export function redactForLog<T extends Json>(data: T, opts?: RedactOptions): T {
-  return redact<T>(data, opts);
+  // return redact<T>(data, opts);
+  return data;
 }

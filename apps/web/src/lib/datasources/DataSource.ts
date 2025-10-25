@@ -12,6 +12,7 @@
 
 export type UiRunStatus =
   | 'queued'
+  | 'awaiting_input'
   | 'planning'
   | 'awaiting_approval'
   | 'executing'

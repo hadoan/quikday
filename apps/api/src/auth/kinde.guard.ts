@@ -51,18 +51,28 @@ export class KindeGuard implements CanActivate {
 
     if (!token) throw new UnauthorizedException('Missing token');
 
-    const payload = await new Promise((resolve, reject) => {
-      jwt.verify(
-        token,
-        this.getKey,
-        {
-          audience: this.config.env.KINDE_AUDIENCE,
-          issuer: this.config.normalizedIssuer,
-          algorithms: ['RS256'],
-        },
-        (err: any, decoded: any) => (err ? reject(err) : resolve(decoded))
-      );
-    });
+    let payload: any;
+    try {
+      payload = await new Promise((resolve, reject) => {
+        jwt.verify(
+          token,
+          this.getKey,
+          {
+            audience: this.config.env.KINDE_AUDIENCE,
+            issuer: this.config.normalizedIssuer,
+            algorithms: ['RS256'],
+            clockTolerance: 5, // seconds of leeway to reduce edge expiries
+          },
+          (err: any, decoded: any) => (err ? reject(err) : resolve(decoded))
+        );
+      });
+    } catch (err: any) {
+      if (err?.name === 'TokenExpiredError') {
+        // Normalize to 401 with a stable message that frontend can detect and refresh
+        throw new UnauthorizedException('jwt expired');
+      }
+      throw err;
+    }
     req.user = payload;
     return true;
   }

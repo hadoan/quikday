@@ -3,6 +3,7 @@ import OpenAI from 'openai';
 import { prisma } from '@quikday/prisma';
 import type { LLM, LlmCallMetadata } from './types';
 import { getLlmContext } from './context';
+import { logLlmGeneration } from '../observability/langfuse';
 
 const DEFAULT_MODEL = process.env.OPENAI_MODEL ?? 'gpt-4o-mini';
 
@@ -46,6 +47,7 @@ export function makeOpenAiLLM(client = new OpenAI({ apiKey: process.env.OPENAI_A
       const contextMetadata = getLlmContext();
       const effectiveMetadata = { ...(contextMetadata ?? {}), ...(metadata ?? {}) };
 
+      // Persist to DB when configured
       if (shouldLog(effectiveMetadata)) {
         const userId = parseMaybeNumber(effectiveMetadata.userId)!;
         const teamId = parseMaybeNumber(effectiveMetadata.teamId);
@@ -75,6 +77,35 @@ export function makeOpenAiLLM(client = new OpenAI({ apiKey: process.env.OPENAI_A
               console.error('Failed to persist LLM log', err);
             }
           });
+      }
+
+      // Always attempt to emit to Langfuse when keys are provided (no-op otherwise)
+      try {
+        const usage = res.usage ?? {};
+        const model = res.model ?? DEFAULT_MODEL;
+        const requestType = effectiveMetadata.requestType ?? 'chat_completion';
+        const apiEndpoint = effectiveMetadata.apiEndpoint ?? 'chat.completions.create';
+        const userIdForLf = parseMaybeNumber(effectiveMetadata.userId) ?? undefined;
+        const teamIdForLf = parseMaybeNumber(effectiveMetadata.teamId) ?? undefined;
+
+        void logLlmGeneration({
+          runId: effectiveMetadata.runId,
+          userId: userIdForLf,
+          teamId: teamIdForLf,
+          requestType,
+          apiEndpoint,
+          model,
+          system,
+          user,
+          completion: result,
+          usage,
+        }).catch((err) => {
+          if (process.env.NODE_ENV !== 'production') {
+            console.error('Langfuse log failed', err);
+          }
+        });
+      } catch {
+        // ignore Langfuse logging errors
       }
 
       return result;

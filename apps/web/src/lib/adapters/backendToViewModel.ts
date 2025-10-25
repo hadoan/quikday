@@ -19,6 +19,7 @@ import type {
   UiCredential,
   UiRunStatus,
   UiStepStatus,
+  UiRunData,
 } from '../datasources/DataSource';
 
 // ============================================================================
@@ -38,6 +39,9 @@ const RUN_STATUS_MAP: Record<string, UiRunStatus> = {
   partial: 'partial',
   cancelled: 'failed',
   fallback: 'partial',
+
+  // Awaiting user-provided input
+  awaiting_input: 'awaiting_input',
 
   // Legacy support
   running: 'executing',
@@ -341,16 +345,26 @@ export function buildRunMessage(data: {
   started_at?: string;
   completed_at?: string;
   progress?: number;
+  // optional awaiting questions (passed through from backend WS payload)
+  questions?: unknown[];
 }): UiMessage {
+  // Include any awaiting-input questions directly on the run data so
+  // UI components can render an inline form when needed.
+  const runData: Record<string, unknown> = {
+    status: mapRunStatus(data.status),
+    started_at: data.started_at,
+    completed_at: data.completed_at,
+    progress: data.progress,
+  };
+
+  if (Array.isArray(data.questions) && data.questions.length > 0) {
+    runData.awaitingQuestions = data.questions;
+  }
+
   return {
     role: 'assistant',
     type: 'run',
-    data: {
-      status: mapRunStatus(data.status),
-      started_at: data.started_at,
-      completed_at: data.completed_at,
-      progress: data.progress,
-    },
+    data: runData as unknown as UiRunData & { awaitingQuestions?: unknown[] },
   };
 }
 

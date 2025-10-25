@@ -55,6 +55,13 @@ export const PolicySchema = z
 
 export type TeamPolicy = z.infer<typeof PolicySchema>;
 
+/** Feature flag: temporarily disable all policy checks. */
+function isPolicyEnabled(s?: RunState): boolean {
+  const metaFlag = (s as any)?.ctx?.meta?.policyEnabled;
+  const envFlag = (process.env.AGENT_POLICY_ENABLED ?? 'false').toString().toLowerCase();
+  return typeof metaFlag === 'boolean' ? metaFlag : envFlag === 'true';
+}
+
 /** Plug in your own lookup (cache/DB). */
 export async function getTeamPolicy(teamId?: string): Promise<TeamPolicy> {
   // TODO: replace with Prisma/Redis call
@@ -142,6 +149,10 @@ export function isToolAllowedByPolicy(
 
 /** Is a set of tools allowed by policy allowlist? (kept for router’s pre-check) */
 export function areToolsAllowed(tools: string[], policy: TeamPolicy): boolean {
+  // Temporarily disable policy checks via env flag
+  if ((process.env.AGENT_POLICY_ENABLED ?? 'false').toString().toLowerCase() !== 'true') {
+    return true;
+  }
   // If all tools in the set are SAFE_ALWAYS, allow quickly
   const onlySafe = tools.every((t) => SAFE_ALWAYS.has(t as ToolId));
   if (onlySafe) return true;
@@ -152,6 +163,7 @@ export function areToolsAllowed(tools: string[], policy: TeamPolicy): boolean {
 
 /** Residency hard block example: adjust to your connectors’ regions. */
 export function residencyBlocked(s: RunState, policy: TeamPolicy): boolean {
+  if (!isPolicyEnabled(s)) return false;
   const requiredRegion: 'eu' | 'us' | 'other' | undefined = (s.ctx as any).meta?.requiredRegion;
   if (!requiredRegion) return false;
   if (!policy.residency.restrictCrossRegion) return false;
@@ -160,6 +172,7 @@ export function residencyBlocked(s: RunState, policy: TeamPolicy): boolean {
 
 /** Budget check (use your real ledger). */
 export function exceedsBudget(s: RunState, policy: TeamPolicy): boolean {
+  if (!isPolicyEnabled(s)) return false;
   if (!policy.budgets.enabled) return false;
   const est = (s.scratch?.plan ?? []).reduce((c, st) => c + (st.costEstimateCents ?? 0), 0);
   const used = (s.ctx as any).meta?.budgetUsedCents ?? 0;
@@ -168,6 +181,7 @@ export function exceedsBudget(s: RunState, policy: TeamPolicy): boolean {
 
 /** Quiet hours check against local team timezone (ctx.tz). */
 export function inQuietHours(s: RunState, policy: TeamPolicy): boolean {
+  if (!isPolicyEnabled(s)) return false;
   if (!policy.quietHours.enabled) return false;
   const tz = s.ctx.tz || 'Europe/Berlin';
   // Convert now to local DOW and HH:mm
@@ -251,6 +265,10 @@ export function requireScopes(have: string[], need: string[]) {
  * Returns a node id string ("planner", "fallback_*") or "END".
  * ──────────────────────────────────────────────────────────────────────────── */
 export const routeByMode: Router<RunState> = (s) => {
+  // Globally bypass policy routing if disabled
+  if (!isPolicyEnabled(s)) {
+    return 'planner';
+  }
   // Fast path: malformed state
   if (!s || !s.ctx) return 'fallback_policy';
 
@@ -318,6 +336,7 @@ export const routeByMode: Router<RunState> = (s) => {
 
 /** Approval decision used by confirm node. */
 export function needsApproval(s: RunState, policy?: TeamPolicy): boolean {
+  if (!isPolicyEnabled(s)) return false;
   const p = policy ?? (s.ctx as any).meta?.policy;
   const steps = s.scratch?.plan ?? [];
 

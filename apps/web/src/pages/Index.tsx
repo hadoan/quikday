@@ -24,6 +24,8 @@ import {
   buildOutputMessage,
   buildUndoMessage,
 } from '@/lib/adapters/backendToViewModel';
+import ChatStream from '@/components/chat/ChatStream';
+import QuestionsPanel, { type Question } from '@/components/QuestionsPanel';
 import { createLogger } from '@/lib/utils/logger';
 import { useToast } from '@/hooks/use-toast';
 import type { UiRunSummary, UiEvent } from '@/lib/datasources/DataSource';
@@ -38,6 +40,7 @@ const Index = () => {
   const [activeRunId, setActiveRunId] = useState(mockRuns[0].id);
   const [isToolsPanelOpen, setIsToolsPanelOpen] = useState(true);
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
+  const [questions, setQuestions] = useState<Question[]>([]);
   const activeRun = runs.find((run) => run.id === activeRunId);
   const bottomRef = useRef<HTMLDivElement | null>(null);
   const navigate = useNavigate();
@@ -53,6 +56,52 @@ const Index = () => {
     // Connect to stream for both live and mock; MockDataSource simulates events
     const stream = dataSource.connectRunStream(activeRunId, (event: UiEvent) => {
       console.log('[Index] Received event:', event);
+
+      // If we receive an event for a run that the UI doesn't yet know about,
+      // create a minimal run entry and activate it so incoming events are visible.
+      // This covers cases where runs are created outside the UI (CLI, API clients)
+      // and the frontend wasn't aware of the new run id.
+      try {
+        const incomingRunId = event.runId;
+        if (incomingRunId) {
+          setRuns((prev) => {
+            const exists = prev.find((r) => r.id === incomingRunId);
+            if (exists) return prev;
+            const minimal = {
+              id: incomingRunId,
+              prompt: '',
+              timestamp: new Date().toISOString(),
+              status: 'running' as const,
+              messages: [],
+            } as any;
+            return [minimal, ...prev];
+          });
+
+          setActiveRunId((cur) => cur || (event.runId as string));
+        }
+      } catch (e) {
+        // don't let debugging code break the stream handler
+        console.warn('[Index] Failed to auto-add incoming run', e);
+      }
+
+      // Extract planner questions if present (plan_generated or planner node exit)
+      try {
+        // Questions may be in payload.diff.questions (plan_generated)
+        const planQs = (event.payload as any)?.diff?.questions as any[] | undefined;
+        if (event.runId && event.runId === activeRunId && Array.isArray(planQs) && planQs.length > 0) {
+          setQuestions(planQs as any);
+        }
+
+        // Or nested in node.exit delta -> output.diff.questions
+        const raw = (event.payload as any)?._raw as any;
+        const node = raw?.payload?.node as string | undefined;
+        const nestedQs = raw?.payload?.delta?.output?.diff?.questions as any[] | undefined;
+        if (event.runId && event.runId === activeRunId && node === 'planner' && Array.isArray(nestedQs) && nestedQs.length > 0) {
+          setQuestions(nestedQs as any);
+        }
+      } catch (qErr) {
+        // ignore
+      }
 
       setRuns((prev) =>
         prev.map((run) => {
@@ -177,6 +226,24 @@ const Index = () => {
               }
 
               // If backend provides structured output or summary, show it alongside plain text
+              // Handle awaiting_input specially: persist questions to the active run and
+              // surface the QuestionsPanel (which posts answers + confirm). We also set
+              // the run status to 'awaiting_input' so UI components can react.
+              try {
+                const payload = event.payload as Record<string, unknown>;
+                if ((payload?.status as string) === 'awaiting_input' && Array.isArray(payload?.questions) && event.runId === activeRunId) {
+                  const qs = (payload.questions as any[]) || [];
+                  // Save questions to the active run object so UI can render them inline
+                  setRuns((prevRuns) =>
+                    prevRuns.map((r) => (r.id === activeRunId ? { ...r, status: 'awaiting_input', awaitingQuestions: qs } : r)),
+                  );
+
+                  // Also set the local questions state (used by QuestionsPanel currently)
+                  setQuestions(qs as any);
+                }
+              } catch (e) {
+                // ignore
+              }
               try {
                 const payload = event.payload as Record<string, unknown>;
                 const output = (payload?.output as any) || {};
@@ -272,7 +339,7 @@ const Index = () => {
               }
               break;
             }
-            // case 'assistant.final':
+            case 'assistant.final':
             case 'assistant.delta': {
               try {
                 const payloadRec = event.payload as Record<string, unknown>;
@@ -438,6 +505,8 @@ const Index = () => {
     };
     setRuns((prev) => [newRun, ...prev]);
     setActiveRunId(newId);
+    // Clear any outstanding questions when starting a fresh run
+    setQuestions([]);
   };
 
   const handleViewProfile = () => {
@@ -525,58 +594,15 @@ const Index = () => {
             {activeRun && (!activeRun.messages || activeRun.messages.length === 0) && (
               <div className="text-center text-muted-foreground py-8">No messages yet</div>
             )}
-            {activeRun?.messages?.map((message, idx) => {
-              if (message.role === 'user') {
-                return (
-                  <ChatMessage key={idx} role="user">
-                    <p className="text-sm">{message.content}</p>
-                  </ChatMessage>
-                );
-              }
-
-              return (
-                <ChatMessage key={idx} role="assistant">
-                  {/* Fallback: plain assistant text (no tool calls) */}
-                  {message.content && !message.type && (
-                    <div className="inline-block max-w-[85%] bg-muted/60 rounded-xl px-5 py-3">
-                      <p className="text-sm whitespace-pre-wrap">{message.content}</p>
-                    </div>
-                  )}
-                  {message.type === 'plan' && message.data && 'intent' in message.data && (
-                    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                    <PlanCard data={message.data as any} />
-                  )}
-                  {message.type === 'run' && message.data && 'status' in message.data && (
-                    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                    <RunCard data={message.data as any} />
-                  )}
-                  {message.type === 'log' && message.data && (
-                    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                    <LogCard
-                      logs={
-                        (Array.isArray(message.data)
-                          ? message.data
-                          : (message.data as any).entries) as any
-                      }
-                    />
-                  )}
-                  {message.type === 'undo' && message.data && 'available' in message.data && (
-                    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                    <UndoCard data={message.data as any} />
-                  )}
-                  {message.type === 'output' && message.data && 'title' in message.data && (
-                    <OutputCard
-                      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                      title={(message.data as any).title}
-                      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                      content={(message.data as any).content}
-                      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                      type={(message.data as any).type}
-                    />
-                  )}
-                </ChatMessage>
-              );
-            })}
+            <ChatStream runId={activeRunId} messages={activeRun?.messages ?? []} />
+            {/** Questions panel (planner missing-info) */}
+            {questions.length > 0 && (
+              <QuestionsPanel
+                runId={activeRunId}
+                questions={questions}
+                onSubmitted={() => setQuestions([])}
+              />
+            )}
             <div ref={bottomRef} />
           </div>
         </ScrollArea>

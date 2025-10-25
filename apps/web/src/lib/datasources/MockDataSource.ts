@@ -208,6 +208,42 @@ export class MockDataSource implements DataSource {
   }
 
   // -------------------------------------------------------------------------
+  // Answers + Confirm (awaiting_input flow)
+  // -------------------------------------------------------------------------
+  async applyAnswers(runId: string, answers: Record<string, unknown>): Promise<{ ok: true }> {
+    console.log('[MockDataSource] applyAnswers', runId, answers);
+    const mr = this.mockRunsState.find((r) => r.id === runId) as any;
+    if (mr) {
+      mr.awaitingAnswers = answers;
+    }
+    return { ok: true };
+  }
+
+  async confirm(runId: string): Promise<{ ok: true }> {
+    console.log('[MockDataSource] confirm', runId);
+    // Simulate the run resuming and completing
+    setTimeout(() => {
+      this.emitEvent(runId, {
+        type: 'run_status',
+        payload: { status: 'running' },
+        ts: new Date().toISOString(),
+        runId,
+      });
+
+      setTimeout(() => {
+        this.emitEvent(runId, {
+          type: 'run_completed',
+          payload: { status: 'succeeded', summary: 'Completed after user input' },
+          ts: new Date().toISOString(),
+          runId,
+        });
+      }, 800);
+    }, 200);
+
+    return { ok: true };
+  }
+
+  // -------------------------------------------------------------------------
   // Credentials (return mock credentials)
   // -------------------------------------------------------------------------
   async listCredentials(appId: string, owner: 'user' | 'team'): Promise<UiCredential[]> {

@@ -1,7 +1,7 @@
-import { Body, Controller, Get, Param, Post, UseGuards, Req } from '@nestjs/common';
+import { Body, Controller, Get, Param, Post, UseGuards, Req, BadRequestException, NotFoundException } from '@nestjs/common';
 import { RunsService } from './runs.service';
 import { KindeGuard } from '../auth/kinde.guard';
-
+import { validateAnswers } from '@quikday/agent/validation/answers';
 export interface ChatMessageDto {
   role: 'system' | 'user' | 'assistant' | 'tool';
   content: string;
@@ -23,10 +23,15 @@ export interface CreateRunDto {
   meta?: Record<string, unknown>;
 }
 
+export interface ConfirmDto {
+  answers?: Record<string, unknown>;
+  approve?: boolean;
+}
+
 @Controller('runs')
 @UseGuards(KindeGuard)
 export class RunsController {
-  constructor(private runs: RunsService) {}
+  constructor(private runs: RunsService) { }
 
   @Post()
   create(@Body() body: CreateRunDto, @Req() req: any) {
@@ -35,8 +40,24 @@ export class RunsController {
   }
 
   @Post(':id/confirm')
-  async confirm(@Param('id') id: string) {
-    await this.runs.enqueue(id);
+  async confirm(@Param('id') id: string, @Body() body: ConfirmDto) {
+    const run = await this.runs.get(id);
+    if (!run) throw new NotFoundException('Run not found');
+
+    const questions =
+      (run.output as any)?.awaiting?.questions ??
+      (run.output as any)?.diff?.questions ??
+      [];
+    const { ok, errors, normalized } = validateAnswers(questions, body?.answers ?? {});
+
+    if (!ok) {
+      // Persist UI mirror errors + audit and respond with structured errors
+      await this.runs.persistValidationErrors(id, body?.answers ?? {}, errors);
+      throw new BadRequestException({ message: 'Validation failed', validationErrors: errors });
+    }
+
+    await this.runs.applyUserAnswers(id, normalized);
+    await this.runs.enqueue(id); // re-run with answers
     return { ok: true };
   }
 

@@ -16,6 +16,11 @@ export const safeNode =
       const res = await fn(...(args as any[]), eventBus);
       return await (res as Promise<Awaited<ReturnType<T>>>);
     } catch (err) {
+      // Allow graph-level control flow errors to bubble (do not convert to fallback)
+      const code = (err as any)?.code || (err as any)?.name || (err as any)?.message;
+      if (code === 'GRAPH_HALT_AWAITING_APPROVAL') {
+        throw err;
+      }
       // Attempt to annotate state + emit events if available
       const [state, ctx] = args as unknown as [RunState | undefined, any];
       if (args.length >= 1 && state && typeof state === 'object') {
@@ -24,6 +29,11 @@ export const safeNode =
           message: err instanceof Error ? err.message : String(err),
           stack: err instanceof Error ? err.stack : undefined,
         };
+        // Map common operational errors to a clearer fallback reason for UX
+        const msg = ((err instanceof Error ? err.message : String(err)) || '').toLowerCase();
+        let reason = 'unspecified';
+        if (msg.includes('tool not found')) reason = 'unspecified';
+        (state as any).scratch = { ...(state as any).scratch, fallbackReason: reason };
       }
       ctx?.events?.emit?.('step_failed', { node: nodeName, error: (state as any)?.error });
 

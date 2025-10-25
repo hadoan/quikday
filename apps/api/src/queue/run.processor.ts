@@ -1,21 +1,21 @@
+// apps/api/src/queue/run.processor.ts
 import { Processor, WorkerHost } from '@nestjs/bullmq';
 import { Job } from 'bullmq';
 import { Inject, Logger } from '@nestjs/common';
 import { RunsService } from '../runs/runs.service';
 import { TelemetryService } from '../telemetry/telemetry.service';
 import { ErrorCode } from '@quikday/types';
-import { RedisPubSubService } from '@quikday/libs';
 import type { RunState } from '@quikday/agent/state/types';
 import type { Run } from '@prisma/client';
 import {
   subscribeToRunEvents,
-  type RunEvent as GraphRunEvent,
 } from '@quikday/agent/observability/events';
 import { CHANNEL_WORKER, CHANNEL_WEBSOCKET } from '@quikday/libs';
 import type { RunEvent as UiRunEvent } from '@quikday/libs/redis/RunEvent';
 import { AgentService } from '../agent';
-import { InMemoryEventBus } from '@quikday/libs';
 import { RunEventBus } from '@quikday/libs/pubsub/event-bus';
+import { createGraphEventHandler } from './create-graph-event-handler';
+import { RunOutcome } from '@quikday/agent/runtime/graph';
 
 const GRAPH_HALT_AWAITING_APPROVAL = 'GRAPH_HALT_AWAITING_APPROVAL';
 
@@ -27,6 +27,7 @@ type RunJobData = {
   token?: string;
   meta?: Record<string, unknown>;
   policy?: Record<string, unknown> | null;
+  scratch?: Record<string, unknown> | undefined;
 };
 
 type StepLogEntry = {
@@ -49,13 +50,10 @@ export class RunProcessor extends WorkerHost {
   constructor(
     private runs: RunsService,
     private telemetry: TelemetryService,
-    // private redisPubSub: RedisPubSubService,
     private agent: AgentService,
     @Inject('RunEventBus') private eventBus: RunEventBus
   ) {
     super();
-    // Initialize Redis pub/sub for agent events
-    // setRedisPubSub(redisPubSub);
   }
 
   async process(job: Job<RunJobData>) {
@@ -73,10 +71,6 @@ export class RunProcessor extends WorkerHost {
       processedOn: job.processedOn,
     });
 
-    this.logger.log('📖 Fetching run details from database', {
-      timestamp: new Date().toISOString(),
-      runId: jobRunId,
-    });
     const run = await this.runs.get(jobRunId);
 
     // mark running and notify
@@ -99,12 +93,12 @@ export class RunProcessor extends WorkerHost {
     // Build runtime input + ctx
     const { initialState, publishRunEvent, safePublish } = this.buildInputAndCtx(run, job);
 
-    // prepare runtime helpers
+    // prepare runtime graph
     const graph = this.agent.createGraph();
 
     const stepLogs: StepLogEntry[] = [];
 
-    // Bind applyDelta to retain `this` (method uses this.applyDelta for recursion)
+    // helpers
     const applyDelta = this.applyDelta.bind(this);
     const markStep = (
       tool: string,
@@ -113,11 +107,11 @@ export class RunProcessor extends WorkerHost {
     ) => this.markStep(stepLogs, tool, status, updater);
     const formatLogsForPersistence = () => this.formatLogsForPersistence(stepLogs);
 
-    // mutable refs for handlers
+    // mutable state mirror for event handlers
     let liveState: RunState = structuredClone(initialState);
     let graphEmittedRunCompleted = false;
 
-    const handleGraphEvent = this.createGraphEventHandler({
+    const handleGraphEvent = createGraphEventHandler({
       run,
       liveStateRef: { get: () => liveState, set: (s: RunState) => (liveState = s) },
       markStep,
@@ -125,10 +119,12 @@ export class RunProcessor extends WorkerHost {
       safePublish,
       stepLogs,
       setGraphEmitted: (v: boolean) => (graphEmittedRunCompleted = v),
+      logger: this.logger,
+      telemetry: this.telemetry,
     });
 
     try {
-      this.logger.log('🧠 Initialising LangGraph run state', {
+      this.logger.log('🧠 Initialising graph run state', {
         timestamp: new Date().toISOString(),
         runId: run.id,
       });
@@ -140,32 +136,77 @@ export class RunProcessor extends WorkerHost {
         CHANNEL_WORKER,
         'worker'
       );
+
       let final: RunState;
       try {
         final = await graph.run('classify', initialState, this.eventBus);
       } finally {
         unsubscribe();
       }
-
       liveState = final;
 
-      // persist + finalize
+      const awaiting = final?.scratch?.awaiting as any;
+      if (
+        ((awaiting?.type === 'input') as boolean) &&
+        Array.isArray(awaiting?.questions) &&
+        awaiting.questions.length > 0
+      ) {
+        const questions = awaiting.questions ?? (final.output?.diff as any)?.questions ?? [];
+        const askedAt = awaiting?.askedAt || new Date().toISOString();
+
+        // Persist awaiting to output (both UI-friendly and runtime-friendly)
+        await this.runs.persistResult(run.id, {
+          output: {
+            ...(final.output ?? {}),
+            diff: {
+              ...(final.output?.diff ?? {}),
+              questions,
+              summary:
+                final.output?.diff?.summary ??
+                `Missing information needed: ${questions.map((q: any) => q.key).join(', ')}`,
+            },
+            awaiting: { type: 'input', questions },
+            scratch: {
+              ...((final.output as any)?.scratch ?? {}),
+              awaiting: { type: 'input', questions, askedAt },
+            },
+            audit: {
+              ...(final.output as any)?.audit,
+              qna: [
+                ...(((final.output as any)?.audit ?? {}).qna ?? []),
+                { ts: askedAt, runId: run.id, phase: 'asked', questions } as any,
+              ],
+            },
+          } as any,
+          logs: formatLogsForPersistence(),
+        });
+
+        await this.runs.updateStatus(run.id, 'awaiting_input');
+
+        await this.eventBus.publish(
+          run.id,
+          { type: 'run_status', payload: { status: 'awaiting_input', questions } },
+          CHANNEL_WEBSOCKET
+        );
+        return;
+      }
+
+      // Normal finalize
       await this.runs.persistResult(run.id, {
         output: final.output,
         logs: formatLogsForPersistence(),
       });
       await this.runs.updateStatus(run.id, 'done');
 
-      // Emit run_completed and include lastAssistant (if any) for UI convenience.
-      // Derive last assistant message from commits (reverse find).
+      // Emit run_completed with lastAssistant for UI
       const commits = Array.isArray(final?.output?.commits) ? final.output.commits : [];
-      // Prefer assistant message from commits (tool outputs). If none, fall back to
-      // the run-level summary (used by the fallback node) so policy_denied / fallback
-      // messages are surfaced to the UI as an assistant-like message.
       let lastAssistant: string | null = null;
-      const commitWithMessage = ([...commits].reverse().find((c: any) =>
-        c?.stepId && c?.result && typeof (c?.result as any)?.message === 'string'
-      ) as any) || null;
+      const commitWithMessage =
+        ([...commits]
+          .reverse()
+          .find(
+            (c: any) => c?.stepId && c?.result && typeof (c?.result as any)?.message === 'string'
+          ) as any) || null;
       if (commitWithMessage) {
         lastAssistant = (commitWithMessage.result as any).message as string;
       } else if (final?.output && typeof final.output?.summary === 'string') {
@@ -175,7 +216,11 @@ export class RunProcessor extends WorkerHost {
       }
 
       if (!graphEmittedRunCompleted) {
-        await publishRunEvent('run_completed', { status: 'done', output: final.output ?? {}, lastAssistant });
+        await publishRunEvent('run_completed', {
+          status: 'done',
+          output: final.output ?? {},
+          lastAssistant,
+        });
       }
 
       this.logger.log('✅ Job completed successfully', {
@@ -205,6 +250,7 @@ export class RunProcessor extends WorkerHost {
         : {};
     const configInput = (config.input as RunState['input']) ?? undefined;
     const jobInput = (job.data.input ?? {}) as Partial<RunState['input']>;
+
     const input: RunState['input'] = {
       prompt:
         typeof jobInput.prompt === 'string' && jobInput.prompt.trim().length > 0
@@ -277,12 +323,28 @@ export class RunProcessor extends WorkerHost {
       meta,
     };
 
+    // Pull whatever is in DB (might be generic JSON)
+    const rawOut = (run?.output ?? {}) as Record<string, any>;
+
+    // Move any persisted output.scratch into state.scratch
+    const persistedScratch =
+      rawOut.scratch && typeof rawOut.scratch === 'object'
+        ? (rawOut.scratch as Record<string, unknown>)
+        : {};
+
+    // Everything else is the real output
+    const { scratch: _drop, ...restOutput } = rawOut;
+
+    // Build initial state (job scratch wins over persisted)
     const initialState: RunState = {
       input,
       mode: (job.data.mode ?? run.mode)?.toUpperCase() === 'AUTO' ? 'AUTO' : 'PLAN',
       ctx,
-      scratch: {},
-      output: {},
+      scratch: {
+        ...(persistedScratch as any),
+        ...structuredClone((job.data as any)?.scratch ?? {}),
+      },
+      output: restOutput as RunState['output'],
     };
 
     const publishRunEvent = (type: UiRunEvent['type'], payload: UiRunEvent['payload']) =>
@@ -306,13 +368,6 @@ export class RunProcessor extends WorkerHost {
    * - Merges nested objects recursively.
    * - Replaces arrays (array items that are objects are cloned with structuredClone).
    * - Overwrites primitives.
-   *
-   * Example:
-   * const target = { a: 1, b: { x: 2 }, c: [{ id: 1 }] };
-   * applyDelta(target, { b: { y: 3 }, c: [{ id: 2 }], d: 'new' });
-   * // => target becomes { a: 1, b: { x: 2, y: 3 }, c: [{ id: 2 }], d: 'new' }
-   *
-   * Note: this mutates `target`. If you need an immutable merge, clone first.
    */
   private applyDelta(target: any, delta: any) {
     if (!delta || typeof delta !== 'object') return;
@@ -366,151 +421,6 @@ export class RunProcessor extends WorkerHost {
       completedAt: entry.completedAt,
       ms: entry.ms,
     }));
-  }
-
-  private createGraphEventHandler(opts: {
-    run: any;
-    liveStateRef: { get: () => RunState; set: (s: RunState) => void };
-    markStep: (
-      tool: string,
-      status: 'succeeded' | 'failed',
-      updater?: (entry: StepLogEntry) => void
-    ) => void;
-    applyDelta: (target: any, delta: any) => void;
-    safePublish: (type: UiRunEvent['type'], payload: UiRunEvent['payload']) => void;
-    stepLogs: StepLogEntry[];
-    setGraphEmitted: (v: boolean) => void;
-  }) {
-    const { run, liveStateRef, markStep, applyDelta, safePublish, stepLogs, setGraphEmitted } =
-      opts;
-
-    return (evt: GraphRunEvent) => {
-      if (evt.runId !== run.id) return;
-      try {
-        switch (evt.type) {
-          case 'node.enter': {
-            const node = (evt.payload as any)?.node;
-            if (node === 'planner') safePublish('run_status', { status: 'planning' });
-            if (node === 'executor') safePublish('run_status', { status: 'executing' });
-            break;
-          }
-          case 'node.exit': {
-            const delta = (evt.payload as any)?.delta;
-            if (delta) applyDelta(liveStateRef.get(), delta);
-            break;
-          }
-          case 'run_status': {
-            this.logger.log('▶️ LangGraph run started', { runId: run.id });
-            safePublish('run_status', { status: 'running' });
-            break;
-          }
-          case 'plan.ready': {
-            const plan = Array.isArray((evt.payload as any)?.plan)
-              ? ((evt.payload as any).plan as any[])
-              : [];
-            const diff = (evt.payload as any)?.diff;
-            this.logger.log('📋 Plan ready', { runId: run.id, steps: plan.length });
-            safePublish('plan_generated', {
-              intent: liveStateRef.get().scratch?.intent,
-              plan,
-              tools: plan.map((step: any) => step.tool),
-              actions: plan.map((step: any) => `Execute ${step.tool}`),
-              diff,
-            });
-            break;
-          }
-          case 'tool.called': {
-            const name = (evt.payload as any)?.name ?? 'unknown';
-            const args = (evt.payload as any)?.args;
-            const startedAt = new Date().toISOString();
-            this.logger.log('🔧 Tool started', { runId: run.id, tool: name });
-            stepLogs.push({
-              tool: name,
-              action: `Executing ${name}`,
-              request: args,
-              status: 'started',
-              startedAt,
-            });
-            safePublish('step_started', { tool: name, action: `Executing ${name}`, request: args });
-            break;
-          }
-          case 'tool.succeeded': {
-            const name = (evt.payload as any)?.name ?? 'unknown';
-            const result = (evt.payload as any)?.result;
-            const ms = (evt.payload as any)?.ms;
-            this.logger.log('✅ Tool succeeded', { runId: run.id, tool: name, durationMs: ms });
-            markStep(name, 'succeeded', (entry) => {
-              entry.result = result;
-              entry.ms = typeof ms === 'number' ? ms : undefined;
-              entry.action = `Completed ${name}`;
-            });
-            safePublish('step_succeeded', {
-              tool: name,
-              action: `Completed ${name}`,
-              response: result,
-              ms,
-            });
-            void this.telemetry
-              .track('step_succeeded', { runId: run.id, tool: name })
-              .catch(() => undefined);
-            break;
-          }
-          case 'tool.failed': {
-            const name = (evt.payload as any)?.name ?? 'unknown';
-            const error = (evt.payload as any)?.error;
-            this.logger.error('❌ Tool failed', { runId: run.id, tool: name, error });
-            markStep(name, 'failed', (entry) => {
-              entry.errorCode = (error?.code as string) ?? ErrorCode.E_STEP_FAILED;
-              entry.errorMessage = error?.message as string | undefined;
-              entry.action = `Failed ${name}`;
-            });
-            safePublish('step_failed', { tool: name, error });
-            void this.telemetry
-              .track('step_failed', {
-                runId: run.id,
-                tool: name,
-                errorCode: (error?.code as string) ?? ErrorCode.E_STEP_FAILED,
-              })
-              .catch(() => undefined);
-            break;
-          }
-          case 'approval.awaiting': {
-            const approvalId = (evt.payload as any)?.approvalId;
-            this.logger.log('⏸️ Awaiting approval', { runId: run.id, approvalId });
-            safePublish('run_status', { status: 'awaiting_approval', approvalId });
-            break;
-          }
-          case 'fallback': {
-            const reason = (evt.payload as any)?.reason ?? 'unspecified';
-            const details = (evt.payload as any)?.details;
-            this.logger.warn('⚠️ Run fell back', { runId: run.id, reason, details });
-            safePublish('run_status', { status: 'fallback', reason, details });
-            break;
-          }
-          case 'run_completed': {
-            setGraphEmitted(true);
-            const output = evt.payload ?? liveStateRef.get().output ?? {};
-            this.logger.log('🎉 LangGraph run completed event', { runId: run.id });
-            safePublish('run_completed', { status: 'done', output });
-            break;
-          }
-          case 'step_failed': {
-            const error = evt.payload;
-            this.logger.error('🔴 LangGraph run failed event', { runId: run.id, error });
-            safePublish('run_status', { status: 'failed', error });
-            break;
-          }
-          default:
-            break;
-        }
-      } catch (handlerErr) {
-        this.logger.error('❌ Failed to handle LangGraph event', {
-          runId: run.id,
-          eventType: evt.type,
-          error: handlerErr instanceof Error ? handlerErr.message : handlerErr,
-        });
-      }
-    };
   }
 
   private async handleExecutionError(opts: {

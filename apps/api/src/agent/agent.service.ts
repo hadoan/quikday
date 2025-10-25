@@ -12,7 +12,7 @@ export class AgentService {
   constructor(
     @Inject(AGENT_LLM) private readonly llm: LLM,
     @Inject('RunEventBus') private eventBus: RunEventBus
-  ) {}
+  ) { }
 
   createGraph(): Graph<RunState, RunEventBus> {
     return buildMainGraph({ llm: this.llm, eventBus: this.eventBus });
@@ -22,7 +22,7 @@ export class AgentService {
     const graph = this.createGraph();
     const { userId, teamId } = initialState.ctx;
     console.log('Running agent graph test', { entryPoint, initialState });
-    return withLlmContext(
+    const finalState = await withLlmContext(
       {
         userId,
         teamId,
@@ -32,5 +32,7 @@ export class AgentService {
       },
       () => graph.run(entryPoint, initialState, this.eventBus)
     );
+    return finalState;
+
   }
 }
