@@ -12,6 +12,7 @@
       "require": "./dist/index.js",
       "default": "./dist/index.js"
     },
+    "./email/*": "./dist/email/*.js",
     "./*": "./*"
   },
   "scripts": {
@@ -20,15 +21,16 @@
     "lint": "eslint ./*.ts --ext .ts,.tsx"
   },
   "dependencies": {
-    "@quikday/types": "workspace:*",
+    "@nestjs/common": "^10.4.20",
     "@quikday/prisma": "workspace:*",
+    "@quikday/types": "workspace:*",
     "googleapis": "^144.0.0",
     "zod": "^3.22.0"
   },
   "devDependencies": {
     "@prisma/client": "^5.18.0",
+    "@quikday/tsconfig": "workspace:*",
     "tslib": "^2.5.0",
-    "typescript": "^4.9.0",
-    "@quikday/tsconfig": "workspace:*"
+    "typescript": "^4.9.0"
   }
 }

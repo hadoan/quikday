@@ -453,7 +453,7 @@ export class GoogleCalendarService {
           'Attempting to resolve OAuth credentials from app keys',
           this.loggerContext,
         );
-        const appKeys = (await getAppKeysFromSlug(this.getAppSlug())) as Record<string, unknown>;
+        const appKeys = (await getAppKeysFromSlug(this.prisma, this.getAppSlug())) as Record<string, unknown>;
         if (!clientId && typeof appKeys?.client_id === 'string') clientId = appKeys.client_id;
         if (!clientSecret && typeof appKeys?.client_secret === 'string') {
           clientSecret = appKeys.client_secret;

@@ -2,8 +2,9 @@
 import { z } from 'zod';
 import type { Tool } from '../types';
 import type { LLM } from '../../llm/types';
+import { ModuleRef } from '@nestjs/core/injector/module-ref';
 
-export function chatRespondTool(llm: LLM): Tool<
+export function chatRespondTool(llm: LLM, moduleRef: ModuleRef): Tool<
   { prompt?: string; system?: string },
   { message: string }
 > {

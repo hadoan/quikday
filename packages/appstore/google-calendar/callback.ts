@@ -1,6 +1,7 @@
 import { google } from 'googleapis';
 import type { AppMeta } from '@quikday/types';
 import { getAppKeysFromSlug } from '@quikday/appstore';
+import { prisma } from '@quikday/prisma';
 import { GoogleCalendarCallbackConfig } from './types/GoogleCalendarCallbackConfig.js';
 import { GoogleCalendarTokens } from './types/GoogleCalendarTokens.js';
 import { GoogleCalendarCallbackResult } from './types/GoogleCalendarCallbackResult.js';
@@ -223,7 +224,7 @@ export async function callback(params: {
 
   try {
     // Attempting to load credentials from database (verbose log removed)
-    const appKeys = (await getAppKeysFromSlug(meta.slug)) as Record<string, unknown>;
+    const appKeys = (await getAppKeysFromSlug(prisma, meta.slug)) as Record<string, unknown>;
     if (typeof appKeys?.client_id === 'string') {
       clientId = appKeys.client_id;
       credentialSource = 'database';

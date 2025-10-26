@@ -3,10 +3,13 @@
   "compilerOptions": {
     "module": "NodeNext",
     "moduleResolution": "NodeNext",
+    "declaration": true,
     "outDir": "dist",
     "rootDir": ".",
-    "composite": false
+    "composite": false,
+    "experimentalDecorators": true,
+    "emitDecoratorMetadata": true
   },
-  "include": ["*.ts"],
+  "include": ["*.ts", "email/**/*.ts"],
   "exclude": ["dist", "node_modules"]
 }
