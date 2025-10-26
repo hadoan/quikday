@@ -724,6 +724,9 @@ importers:
       '@quikday/appstore':
         specifier: workspace:*
         version: link:..
+      '@quikday/libs':
+        specifier: workspace:*
+        version: link:../../libs
       '@quikday/prisma':
         specifier: workspace:*
         version: link:../../prisma

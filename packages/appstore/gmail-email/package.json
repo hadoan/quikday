@@ -9,6 +9,7 @@
     "@nestjs/common": "^10.0.0",
     "@quikday/appstore": "workspace:*",
     "@quikday/prisma": "workspace:*",
+    "@quikday/libs": "workspace:*",
     "googleapis": "^144.0.0"
   },
   "devDependencies": {

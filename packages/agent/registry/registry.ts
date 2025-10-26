@@ -73,10 +73,11 @@ registry.register({
 registry.register(slackPostMessage);
 registry.register(calendarCheckAvailability);
 registry.register(calendarCreateEvent);
-registry.register(emailSend);
+
 registry.register(emailRead);
 
 export function registerToolsWithLLM(llm: LLM,  moduleRef: ModuleRef) {
   registry.register(chatRespondTool(llm, moduleRef));
+  registry.register(emailSend(moduleRef));
 }
   
