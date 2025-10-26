@@ -164,6 +164,15 @@ function validInputsFromState(s: RunState): Record<string, any> {
   const ans = (s.scratch as any)?.answers ?? {};
   if (typeof ans['email.to'] === 'string' && ans['email.to'].trim()) {
     dict['email.to'] = ans['email.to'].trim();
+  } else if (Array.isArray(ans['email.to'])) {
+    const arr = (ans['email.to'] as unknown[])
+      .filter((x) => typeof x === 'string')
+      .map((x) => (x as string).trim())
+      .filter((x) => x.length > 0);
+    if (arr.length > 0) {
+      // Represent as CSV for consistency with attendees.emails in prompts
+      dict['email.to'] = arr.join(', ');
+    }
   }
   if (typeof ans['email.subject'] === 'string' && ans['email.subject'].trim()) {
     dict['email.subject'] = ans['email.subject'].trim();
@@ -224,6 +233,8 @@ async function planWithLLM(llm: LLM, s: RunState, system: string, user: string):
         runId: s.ctx.runId as any,
         userId: s.ctx.userId as any,
         teamId: (s.ctx.teamId as any) ?? undefined,
+        // Use a stronger model for planning by default; allow env override
+        model: process.env.OPENAI_PLANNER_MODEL || 'gpt-4o',
       },
     });
   } catch {
@@ -258,6 +269,8 @@ function buildSystemPrompt() {
     '',
     'Global rules:',
     '- Output ONLY a single JSON object matching the schema above.',
+    '- Return RAW JSON only. Do NOT wrap output in Markdown code fences or backticks.',
+    '- Do NOT prefix with ```json; no code blocks — just JSON.',
     '- Use ONLY tools from the allowed list the user provides.',
     '- Do NOT invent tools, fields, or values.',
     '- Keep args minimal but sufficient for the executor to run.',
@@ -577,7 +590,8 @@ export const makePlanner = (llm: LLM): Node<RunState, RunEventBus> => async (s, 
 
     if (raw) {
       try {
-        const parsed = PlanInSchema.parse(JSON.parse(raw));
+        const cleaned = extractJsonFromOutput(raw);
+        const parsed = PlanInSchema.parse(JSON.parse(cleaned));
         const hardened = patchAndHardenPlan(s, parsed);
         steps = hardened.steps;
         questions = hardened.questions;
@@ -660,3 +674,14 @@ export const makePlanner = (llm: LLM): Node<RunState, RunEventBus> => async (s, 
     output: { ...s.output, diff },
   };
 };
+
+// Extract a JSON object if the model wrapped it in ```json fences or extra prose
+function extractJsonFromOutput(output: string): string {
+  let s = (output || '').trim();
+  const fence = s.match(/```(?:json)?\s*([\s\S]*?)```/i);
+  if (fence && fence[1]) s = fence[1].trim();
+  const first = s.indexOf('{');
+  const last = s.lastIndexOf('}');
+  if (first >= 0 && last > first) s = s.slice(first, last + 1);
+  return s;
+}

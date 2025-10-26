@@ -3,6 +3,7 @@ import type { Tool } from '../types';
 import type { RunCtx } from '../../state/types';
 import { parseEmailAddresses, validateEmailAddresses, formatEmailBody, textToHtml, generateEmailSummary } from '@quikday/appstore';
 import { ModuleRef } from '@nestjs/core';
+import { GmailEmailService } from '@quikday/appstore-gmail-email';
 import type { EmailService } from '@quikday/appstore/email/email.service';
 // ---------------- email.send ----------------
 // Re-declare schema locally to avoid cross-package Zod instance issues
@@ -49,8 +50,8 @@ export function emailSend(moduleRef: ModuleRef): Tool<z.infer<typeof EmailSendIn
                 throw new Error('No valid recipients');
             }
 
-            // Try injected service first
-            const svc = moduleRef.get('GmailEmailService', { strict: false }) as EmailService;
+            // Try injected Gmail provider service first (registered via GmailEmailModule)
+            const svc = moduleRef.get(GmailEmailService as any, { strict: false }) as EmailService;
             if (svc?.send && typeof svc.send === 'function') {
                 // Map tool input into EmailService DraftInput
                 const toAddrs = to.map((a) => ({ address: a }));

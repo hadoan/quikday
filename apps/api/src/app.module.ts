@@ -15,7 +15,7 @@ import { UsersModule } from './users/users.module';
 import { AgentModule } from './agent';
 import { InMemoryEventBus, PubSubModule, CurrentUserModule, CurrentUserInterceptor } from '@quikday/libs';
 import { EmailModule } from '@quikday/appstore/email/email.module';
-import { GmailEmailService } from '@quikday/appstore-gmail-email';
+import { GmailEmailService, GmailEmailModule } from '@quikday/appstore-gmail-email';
 
 
 const registry = new Map();
@@ -24,6 +24,8 @@ registry.set('gmail', GmailEmailService);
 @Module({
   imports: [
     EmailModule.register({ registry }),
+    // Ensure GmailEmailService is a registered provider so tools can resolve it via ModuleRef
+    GmailEmailModule,
     PubSubModule,
     CurrentUserModule,
     ConfigModule,

@@ -58,6 +58,11 @@ export class RunProcessor extends WorkerHost {
     super();
   }
 
+  // Lightweight indicator that the worker is registered
+  onModuleInit() {
+    this.logger.log('🧵 RunProcessor initialized and awaiting jobs on queue "runs"');
+  }
+
   async process(job: Job<RunJobData>) {
     const jobRunId = job.data?.runId;
     if (!jobRunId) {

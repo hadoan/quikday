@@ -4,7 +4,8 @@ import { resolveGmailAuthUrl } from './add.js';
 import { callback as gmailCallback } from './callback.js';
 import { PrismaService } from '@quikday/prisma';
 
-// Export service for EmailModule compatibility (used by apps/api AppModule)
+// Export Nest module and service for EmailModule compatibility (used by apps/api AppModule)
+export { GmailEmailModule } from './gmail-email.module.js';
 export { GmailEmailService } from './gmail-email.service.js';
 
 /**
@@ -13,23 +14,21 @@ export { GmailEmailService } from './gmail-email.service.js';
  * implementing { add(req,res), callback(req,res), post?(req,res) }.
  */
 export default function createApp(meta: AppMeta, deps: any) {
-  return new (class GmailEmailApp {
-    constructor(public readonly meta: AppMeta, public readonly deps: any) {}
-
+  return {
     /**
      * Initiate Gmail OAuth flow
      * Route: GET /integrations/gmail-email/add
      */
     async add(req: any, res: any) {
-      const prisma: PrismaService | undefined = this.deps?.prisma;
+      const prisma: PrismaService | undefined = deps?.prisma;
       try {
         // Build signed OAuth state when available
         let signedState: string | undefined;
-        if (typeof this.deps?.createSignedState === 'function') {
+        if (typeof deps?.createSignedState === 'function') {
           try {
             const userId = req?.user?.id || req?.user?.sub;
             if (userId) {
-              signedState = this.deps.createSignedState({
+              signedState = deps.createSignedState({
                 userId,
                 timestamp: Date.now(),
                 returnTo: req.query?.returnTo as string | undefined,
@@ -52,7 +51,7 @@ export default function createApp(meta: AppMeta, deps: any) {
         const message = error instanceof Error ? error.message : 'Unknown error';
         return res.status(500).json({ error: 'Failed to initiate OAuth flow', message });
       }
-    }
+    },
 
     /**
      * Handle Gmail OAuth callback
@@ -60,17 +59,17 @@ export default function createApp(meta: AppMeta, deps: any) {
      */
     async callback(req: any, res: any) {
       try {
-        const { redirectTo } = await gmailCallback({ req, meta, prisma: this.deps?.prisma });
+        const { redirectTo } = await gmailCallback({ req, meta, prisma: deps?.prisma });
         return res.redirect(redirectTo);
       } catch (error) {
         const message = error instanceof Error ? error.message : 'Unknown error';
         return res.status(500).json({ error: 'Failed to complete OAuth callback', message });
       }
-    }
+    },
 
     // Optional POST endpoint not used yet
     async post(_req: any, res: any) {
       return res.status(404).json({ message: 'Not implemented' });
-    }
-  })(meta, deps);
+    },
+  };
 }

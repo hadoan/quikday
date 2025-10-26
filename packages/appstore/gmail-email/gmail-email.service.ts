@@ -11,9 +11,11 @@ import type {
     EmailAddress,
 } from '@quikday/appstore/email/email.types';
 import { CurrentUserService } from "@quikday/libs";
+import { Injectable } from '@nestjs/common';
 import { PrismaService } from '@quikday/prisma';
 import { getAppKeysFromSlug } from '@quikday/appstore';
 
+@Injectable()
 export class GmailEmailService implements EmailService {
     readonly provider = 'gmail' as const;
 
@@ -50,7 +52,17 @@ export class GmailEmailService implements EmailService {
     async send(draft: DraftInput, opts?: SendOptions) {
         const currentUserId = this.currentUserService.getCurrentUserId();
         if (!currentUserId) throw new Error('No current user in context');
-        const userId = Number(currentUserId);
+
+        // Resolve numeric userId: if currentUserId is a non-numeric string, treat as external "sub"
+        // and look up the local User first. Otherwise, parse numeric id directly.
+        let userId: number | null = null;
+        if (/^\d+$/.test(currentUserId)) {
+            userId = Number(currentUserId);
+        } else {
+            const user = await this.prismaService.user.findUnique({ where: { sub: currentUserId } });
+            if (!user) throw new Error('User not found for provided subject');
+            userId = user.id;
+        }
         if (!Number.isFinite(userId)) throw new Error('Invalid current user id');
 
         // Resolve latest valid Gmail credential for user
