@@ -4,6 +4,7 @@ import {
   Logger,
   UnauthorizedException,
   BadRequestException,
+  ForbiddenException,
 } from '@nestjs/common';
 import { PrismaService } from '@quikday/prisma';
 import { InjectQueue } from '@nestjs/bullmq';
@@ -13,6 +14,8 @@ import { CreateRunDto } from './runs.controller';
 import { RunTokenService } from './run-token.service';
 import { getTeamPolicy, type TeamPolicy } from '@quikday/agent/guards/policy';
 import type { ChatMessage } from '@quikday/agent/state/types';
+import { CurrentUserService } from '@quikday/libs/auth/current-user.service';
+import { getCurrentUserCtx } from '@quikday/libs/auth/current-user.als';
 
 @Injectable()
 export class RunsService {
@@ -20,21 +23,24 @@ export class RunsService {
   private readonly logger =
     this.isNoLog === true
       ? ({
-        log: (_: any, __?: any) => { },
-        debug: (_: any, __?: any) => {
-          console.log('----');
-        },
-        warn: (_: any, __?: any) => { },
-        error: (_: any, __?: any) => { },
-      } as unknown as Logger)
+          log: (_: any, __?: any) => {},
+          debug: (_: any, __?: any) => { /* no-op */ },
+          warn: (_: any, __?: any) => {},
+          error: (_: any, __?: any) => {},
+        } as unknown as Logger)
       : new Logger(RunsService.name);
 
   constructor(
     private prisma: PrismaService,
     private telemetry: TelemetryService,
     private tokens: RunTokenService,
-    @InjectQueue('runs') private runsQueue: Queue
-  ) { }
+    @InjectQueue('runs') private runsQueue: Queue,
+    private readonly current: CurrentUserService,
+  ) {}
+
+  private jsonClone<T>(v: T): T {
+    return JSON.parse(JSON.stringify(v));
+  }
 
   async createFromPrompt(dto: CreateRunDto, claims: any = {}) {
     const {
@@ -124,7 +130,6 @@ export class RunsService {
         mode,
         status: this.initialStatusForMode(mode),
         scheduledAt: scheduledAt ? new Date(scheduledAt) : null,
-        // Prisma expects Json types; cast to any to satisfy types at build time
         config: configPayload as any,
         toolAllowlist: toolAllowlist ? { tools: toolAllowlist } : undefined,
         policySnapshot,
@@ -155,7 +160,7 @@ export class RunsService {
         scheduledAt,
         delayMs: delay,
       });
-      await this.enqueue(run.id, { delayMs: delay > 0 ? delay : 0 });
+      await this.enqueue(run.id, { delayMs: Math.max(0, delay) });
     }
 
     this.logger.log('✅ Run creation completed', {
@@ -166,10 +171,10 @@ export class RunsService {
     return run;
   }
 
-  async enqueue(runId: string, opts: { delayMs?: number; scratch?: Record<string, unknown> } = {}) {
-    // opts may include a `scratch` object containing answers/values to seed
-    // the resumed graph's runtime.scratch. Keep the signature backwards
-    // compatible by accepting an extra `scratch` property.
+  async enqueue(
+    runId: string,
+    opts: { delayMs?: number; scratch?: Record<string, unknown> } = {},
+  ) {
     const optsWithScratch = opts as { delayMs?: number; scratch?: Record<string, unknown> };
 
     this.logger.log('📮 Adding job to BullMQ queue', {
@@ -185,6 +190,13 @@ export class RunsService {
       throw new NotFoundException('Run not found');
     }
 
+    // // Optional: enforce the caller has rights to enqueue this run
+    // // (if team-bound run exists but ALS context team differs)
+    // const callerTeamId = this.current.getCurrentTeamId();
+    // if (run.teamId && callerTeamId && run.teamId !== callerTeamId) {
+    //   throw new ForbiddenException('Cross-team enqueue is not allowed');
+    // }
+
     const config = this.asRecord(run.config);
     const input = this.extractInputFromConfig(config, run.prompt);
     const policy = (run.policySnapshot as TeamPolicy | null) ?? null;
@@ -196,8 +208,8 @@ export class RunsService {
       typeof meta.tz === 'string' && meta.tz.trim().length > 0
         ? (meta.tz as string)
         : typeof meta.timezone === 'string' && (meta.timezone as string).trim().length > 0
-          ? (meta.timezone as string)
-          : 'Europe/Berlin';
+        ? (meta.timezone as string)
+        : 'Europe/Berlin';
     meta.tz = tzCandidate;
 
     const token = this.tokens.mint({
@@ -211,6 +223,16 @@ export class RunsService {
       expiresInSeconds: tokenTtl,
     });
 
+    // Require ALS-based context for enqueue (works in HTTP/WS; for background callers, construct ctx explicitly)
+    const userId = this.current.getCurrentUserId();
+    const teamId = this.current.getCurrentTeamId();
+    if (!userId) throw new UnauthorizedException('Not authenticated.');
+    // if (!teamId && run.teamId) throw new ForbiddenException('Team context is required.');
+
+    // Clone ALS ctx to ensure serializable payload, and append runId for traceability
+    const __ctx = this.jsonClone(getCurrentUserCtx());
+    __ctx.runId = runId;
+
     const jobPayload = {
       runId,
       mode: run.mode,
@@ -219,14 +241,17 @@ export class RunsService {
       token,
       policy,
       meta,
-      // Pass-through scratch (if any) so the worker can seed runtime.scratch
       ...(optsWithScratch.scratch ? { scratch: optsWithScratch.scratch } : {}),
+      __ctx,
     };
 
     const job = await this.runsQueue.add('execute', jobPayload, {
+      jobId: `run:${runId}:mode:${run.mode}`, // idempotency/dedupe per run+mode
+      delay: opts.delayMs ?? 0,
+      attempts: 3,
+      backoff: { type: 'exponential', delay: 5000 },
       removeOnComplete: 100,
       removeOnFail: 100,
-      delay: opts.delayMs ?? 0,
     });
 
     this.logger.log('✅ Job added to queue', {
@@ -275,7 +300,7 @@ export class RunsService {
 
   private async buildPolicySnapshot(
     teamId: number | null,
-    toolAllowlist?: string[]
+    toolAllowlist?: string[],
   ): Promise<TeamPolicy> {
     const base = await getTeamPolicy(teamId !== null ? String(teamId) : undefined);
     const allowlist = new Set<string>(base.allowlist?.tools ?? []);
@@ -338,7 +363,7 @@ export class RunsService {
   private deriveScopesFromRun(
     run: { toolAllowlist: unknown },
     config: Record<string, unknown>,
-    policy: TeamPolicy | null
+    policy: TeamPolicy | null,
   ): string[] {
     const scopes = new Set<string>(['runs:execute']);
 
@@ -411,7 +436,6 @@ export class RunsService {
   async undoRun(runId: string) {
     const run = await this.get(runId);
 
-    // Get all effects that can be undone
     const effects = await this.prisma.runEffect.findMany({
       where: {
         runId,
@@ -424,7 +448,6 @@ export class RunsService {
       throw new NotFoundException('No undoable effects found for this run');
     }
 
-    // Mark all as undone (actual undo logic will be in processor)
     await this.prisma.runEffect.updateMany({
       where: {
         runId,
@@ -467,15 +490,12 @@ export class RunsService {
   }
 
   /**
-  * Persist user-provided answers into run.output.scratch and clear any pause flag.
-  * - Merges into output.scratch.answers (preserves prior answers).
-  * - Clears output.scratch.awaiting so the run can resume on re-enqueue.
-  */
+   * Persist user-provided answers into run.output.scratch and clear any pause flag.
+   */
   async applyUserAnswers(runId: string, answers: Record<string, unknown>) {
     const run = await this.prisma.run.findUnique({ where: { id: runId } });
     if (!run) throw new NotFoundException('Run not found');
 
-    // Normalize existing output/scratch structure
     const existingOutput =
       run.output && typeof run.output === 'object' ? (run.output as Record<string, any>) : {};
     const existingScratch =
@@ -488,11 +508,10 @@ export class RunsService {
         ? (existingScratch.answers as Record<string, unknown>)
         : {};
 
-    // Merge answers + clear awaiting, and apply normalized fields by dot-path
     const nextScratch: Record<string, any> = {
       ...existingScratch,
       answers: { ...existingAnswers, ...(answers ?? {}) },
-      awaiting: null, // <- important: clear pause marker
+      awaiting: null,
     };
 
     const setByPath = (obj: Record<string, any>, path: string, value: unknown) => {
@@ -515,8 +534,8 @@ export class RunsService {
       }
     }
 
-    // Also clear any top-level awaiting used by UI hints and append audit trail entries
-    const { awaiting: _dropAwait, audit: existingAudit, ...restExistingOutput } = existingOutput as any;
+    const { awaiting: _dropAwait, audit: existingAudit, ...restExistingOutput } =
+      existingOutput as any;
     const ts = new Date().toISOString();
     const auditQna: any[] = [
       ...(((existingAudit ?? {}).qna ?? []) as any[]),
@@ -571,5 +590,4 @@ export class RunsService {
 
     await this.prisma.run.update({ where: { id: runId }, data: { output: nextOutput } });
   }
-
 }

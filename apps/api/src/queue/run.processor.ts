@@ -7,15 +7,16 @@ import { TelemetryService } from '../telemetry/telemetry.service';
 import { ErrorCode } from '@quikday/types';
 import type { RunState } from '@quikday/agent/state/types';
 import type { Run } from '@prisma/client';
-import {
-  subscribeToRunEvents,
-} from '@quikday/agent/observability/events';
+import { subscribeToRunEvents } from '@quikday/agent/observability/events';
 import { CHANNEL_WORKER, CHANNEL_WEBSOCKET } from '@quikday/libs';
 import type { RunEvent as UiRunEvent } from '@quikday/libs/redis/RunEvent';
 import { AgentService } from '../agent';
 import { RunEventBus } from '@quikday/libs/pubsub/event-bus';
 import { createGraphEventHandler } from './create-graph-event-handler';
 import { RunOutcome } from '@quikday/agent/runtime/graph';
+
+import { runWithCurrentUser } from '@quikday/libs/auth/current-user.als';
+import type { CurrentUserContext } from '@quikday/types/auth/current-user.types';
 
 const GRAPH_HALT_AWAITING_APPROVAL = 'GRAPH_HALT_AWAITING_APPROVAL';
 
@@ -28,6 +29,7 @@ type RunJobData = {
   meta?: Record<string, unknown>;
   policy?: Record<string, unknown> | null;
   scratch?: Record<string, unknown> | undefined;
+  __ctx?: CurrentUserContext; // <<< ALS context carrier
 };
 
 type StepLogEntry = {
@@ -73,174 +75,193 @@ export class RunProcessor extends WorkerHost {
 
     const run = await this.runs.get(jobRunId);
 
-    // mark running and notify
-    await this.runs.updateStatus(run.id, 'running');
-    await this.eventBus.publish(
-      run.id,
-      { type: 'run_status', payload: { status: 'running' } },
-      CHANNEL_WEBSOCKET
-    );
+    // Build/restore ALS context for this execution
+    const fallbackCtx: CurrentUserContext = {
+      userId: String(run.userId),
+      teamId: run.teamId ? String(run.teamId) : null,
+      scopes: Array.isArray(job.data.scopes) ? job.data.scopes : [],
+      traceId:
+        typeof job.data?.meta?.['traceId'] === 'string' && (job.data.meta!['traceId'] as string).trim()
+          ? (job.data.meta!['traceId'] as string)
+          : `run:${run.id}`,
+      tz:
+        (typeof job.data?.meta?.['tz'] === 'string' && (job.data.meta!['tz'] as string).trim()
+          ? (job.data.meta!['tz'] as string)
+          : 'Europe/Berlin') ?? 'Europe/Berlin',
+      runId: String(run.id),
+    };
+    const ctx: CurrentUserContext = job.data.__ctx ?? fallbackCtx;
 
-    this.logger.log('▶️ Starting run execution', {
-      timestamp: new Date().toISOString(),
-      runId: run.id,
-      prompt: run.prompt.substring(0, 50) + (run.prompt.length > 50 ? '...' : ''),
-      mode: run.mode,
-      userId: run.userId,
-      teamId: run.teamId,
-    });
-
-    // Build runtime input + ctx
-    const { initialState, publishRunEvent, safePublish } = this.buildInputAndCtx(run, job);
-
-    // prepare runtime graph
-    const graph = this.agent.createGraph();
-
-    const stepLogs: StepLogEntry[] = [];
-
-    // helpers
-    const applyDelta = this.applyDelta.bind(this);
-    const markStep = (
-      tool: string,
-      status: 'succeeded' | 'failed',
-      updater?: (entry: StepLogEntry) => void
-    ) => this.markStep(stepLogs, tool, status, updater);
-    const formatLogsForPersistence = () => this.formatLogsForPersistence(stepLogs);
-
-    // mutable state mirror for event handlers
-    let liveState: RunState = structuredClone(initialState);
-    let graphEmittedRunCompleted = false;
-
-    const handleGraphEvent = createGraphEventHandler({
-      run,
-      liveStateRef: { get: () => liveState, set: (s: RunState) => (liveState = s) },
-      markStep,
-      applyDelta,
-      safePublish,
-      stepLogs,
-      setGraphEmitted: (v: boolean) => (graphEmittedRunCompleted = v),
-      logger: this.logger,
-      telemetry: this.telemetry,
-    });
-
-    try {
-      this.logger.log('🧠 Initialising graph run state', {
-        timestamp: new Date().toISOString(),
-        runId: run.id,
-      });
-
-      const unsubscribe = subscribeToRunEvents(
+    return runWithCurrentUser(ctx, async () => {
+      // mark running and notify
+      await this.runs.updateStatus(run.id, 'running');
+      await this.eventBus.publish(
         run.id,
-        handleGraphEvent,
-        this.eventBus,
-        CHANNEL_WORKER,
-        'worker'
+        { type: 'run_status', payload: { status: 'running' } },
+        CHANNEL_WEBSOCKET
       );
 
-      let final: RunState;
+      this.logger.log('▶️ Starting run execution', {
+        timestamp: new Date().toISOString(),
+        runId: run.id,
+        prompt: run.prompt.substring(0, 50) + (run.prompt.length > 50 ? '...' : ''),
+        mode: run.mode,
+        userId: run.userId,
+        teamId: run.teamId,
+      });
+
+      // Build runtime input + ctx
+      const { initialState, publishRunEvent, safePublish } = this.buildInputAndCtx(run, job);
+
+      // prepare runtime graph
+      const graph = this.agent.createGraph();
+
+      const stepLogs: StepLogEntry[] = [];
+
+      // helpers
+      const applyDelta = this.applyDelta.bind(this);
+      const markStep = (
+        tool: string,
+        status: 'succeeded' | 'failed',
+        updater?: (entry: StepLogEntry) => void
+      ) => this.markStep(stepLogs, tool, status, updater);
+      const formatLogsForPersistence = () => this.formatLogsForPersistence(stepLogs);
+
+      // mutable state mirror for event handlers
+      let liveState: RunState = structuredClone(initialState);
+      let graphEmittedRunCompleted = false;
+
+      const handleGraphEvent = createGraphEventHandler({
+        run,
+        liveStateRef: { get: () => liveState, set: (s: RunState) => (liveState = s) },
+        markStep,
+        applyDelta,
+        safePublish,
+        stepLogs,
+        setGraphEmitted: (v: boolean) => (graphEmittedRunCompleted = v),
+        logger: this.logger,
+        telemetry: this.telemetry,
+      });
+
       try {
-        final = await graph.run('classify', initialState, this.eventBus);
-      } finally {
-        unsubscribe();
-      }
-      liveState = final;
+        this.logger.log('🧠 Initialising graph run state', {
+          timestamp: new Date().toISOString(),
+          runId: run.id,
+        });
 
-      const awaiting = final?.scratch?.awaiting as any;
-      if (
-        ((awaiting?.type === 'input') as boolean) &&
-        Array.isArray(awaiting?.questions) &&
-        awaiting.questions.length > 0
-      ) {
-        const questions = awaiting.questions ?? (final.output?.diff as any)?.questions ?? [];
-        const askedAt = awaiting?.askedAt || new Date().toISOString();
+        const unsubscribe = subscribeToRunEvents(
+          run.id,
+          handleGraphEvent,
+          this.eventBus,
+          CHANNEL_WORKER,
+          'worker'
+        );
 
-        // Persist awaiting to output (both UI-friendly and runtime-friendly)
+        let final: RunState;
+        try {
+          final = await graph.run('classify', initialState, this.eventBus);
+        } finally {
+          unsubscribe();
+        }
+        liveState = final;
+
+        const awaiting = final?.scratch?.awaiting as any;
+        if (
+          ((awaiting?.type === 'input') as boolean) &&
+          Array.isArray(awaiting?.questions) &&
+          awaiting.questions.length > 0
+        ) {
+          const questions = awaiting.questions ?? (final.output?.diff as any)?.questions ?? [];
+          const askedAt = awaiting?.askedAt || new Date().toISOString();
+
+          // Persist awaiting to output (both UI-friendly and runtime-friendly)
+          await this.runs.persistResult(run.id, {
+            output: {
+              ...(final.output ?? {}),
+              diff: {
+                ...(final.output?.diff ?? {}),
+                questions,
+                summary:
+                  final.output?.diff?.summary ??
+                  `Missing information needed: ${questions.map((q: any) => q.key).join(', ')}`,
+              },
+              awaiting: { type: 'input', questions },
+              scratch: {
+                ...((final.output as any)?.scratch ?? {}),
+                awaiting: { type: 'input', questions, askedAt },
+              },
+              audit: {
+                ...(final.output as any)?.audit,
+                qna: [
+                  ...(((final.output as any)?.audit ?? {}).qna ?? []),
+                  { ts: askedAt, runId: run.id, phase: 'asked', questions } as any,
+                ],
+              },
+            } as any,
+            logs: formatLogsForPersistence(),
+          });
+
+          await this.runs.updateStatus(run.id, 'awaiting_input');
+
+          await this.eventBus.publish(
+            run.id,
+            { type: 'run_status', payload: { status: 'awaiting_input', questions } },
+            CHANNEL_WEBSOCKET
+          );
+          return;
+        }
+
+        // Normal finalize
         await this.runs.persistResult(run.id, {
-          output: {
-            ...(final.output ?? {}),
-            diff: {
-              ...(final.output?.diff ?? {}),
-              questions,
-              summary:
-                final.output?.diff?.summary ??
-                `Missing information needed: ${questions.map((q: any) => q.key).join(', ')}`,
-            },
-            awaiting: { type: 'input', questions },
-            scratch: {
-              ...((final.output as any)?.scratch ?? {}),
-              awaiting: { type: 'input', questions, askedAt },
-            },
-            audit: {
-              ...(final.output as any)?.audit,
-              qna: [
-                ...(((final.output as any)?.audit ?? {}).qna ?? []),
-                { ts: askedAt, runId: run.id, phase: 'asked', questions } as any,
-              ],
-            },
-          } as any,
+          output: final.output,
           logs: formatLogsForPersistence(),
         });
+        await this.runs.updateStatus(run.id, 'done');
 
-        await this.runs.updateStatus(run.id, 'awaiting_input');
+        // Emit run_completed with lastAssistant for UI
+        const commits = Array.isArray(final?.output?.commits) ? final.output.commits : [];
+        let lastAssistant: string | null = null;
+        const commitWithMessage =
+          ([...commits]
+            .reverse()
+            .find(
+              (c: any) => c?.stepId && c?.result && typeof (c?.result as any)?.message === 'string'
+            ) as any) || null;
+        if (commitWithMessage) {
+          lastAssistant = (commitWithMessage.result as any).message as string;
+        } else if (final?.output && typeof final.output?.summary === 'string') {
+          lastAssistant = final.output.summary as string;
+        } else {
+          lastAssistant = null;
+        }
 
-        await this.eventBus.publish(
-          run.id,
-          { type: 'run_status', payload: { status: 'awaiting_input', questions } },
-          CHANNEL_WEBSOCKET
-        );
-        return;
-      }
+        if (!graphEmittedRunCompleted) {
+          await publishRunEvent('run_completed', {
+            status: 'done',
+            output: final.output ?? {},
+            lastAssistant,
+          });
+        }
 
-      // Normal finalize
-      await this.runs.persistResult(run.id, {
-        output: final.output,
-        logs: formatLogsForPersistence(),
-      });
-      await this.runs.updateStatus(run.id, 'done');
+        this.logger.log('✅ Job completed successfully', {
+          timestamp: new Date().toISOString(),
+          jobId: job.id,
+          runId: run.id,
+          totalDuration: Date.now() - (job.processedOn || Date.now()),
+        });
 
-      // Emit run_completed with lastAssistant for UI
-      const commits = Array.isArray(final?.output?.commits) ? final.output.commits : [];
-      let lastAssistant: string | null = null;
-      const commitWithMessage =
-        ([...commits]
-          .reverse()
-          .find(
-            (c: any) => c?.stepId && c?.result && typeof (c?.result as any)?.message === 'string'
-          ) as any) || null;
-      if (commitWithMessage) {
-        lastAssistant = (commitWithMessage.result as any).message as string;
-      } else if (final?.output && typeof final.output?.summary === 'string') {
-        lastAssistant = final.output.summary as string;
-      } else {
-        lastAssistant = null;
-      }
-
-      if (!graphEmittedRunCompleted) {
-        await publishRunEvent('run_completed', {
-          status: 'done',
-          output: final.output ?? {},
-          lastAssistant,
+        await this.telemetry.track('run_completed', { runId: run.id, status: 'done' });
+      } catch (err: any) {
+        await this.handleExecutionError({
+          err,
+          run,
+          liveState,
+          formatLogsForPersistence,
+          job,
+          publishRunEvent: publishRunEvent.bind(this),
         });
       }
-
-      this.logger.log('✅ Job completed successfully', {
-        timestamp: new Date().toISOString(),
-        jobId: job.id,
-        runId: run.id,
-        totalDuration: Date.now() - (job.processedOn || Date.now()),
-      });
-
-      await this.telemetry.track('run_completed', { runId: run.id, status: 'done' });
-    } catch (err: any) {
-      await this.handleExecutionError({
-        err,
-        run,
-        liveState,
-        formatLogsForPersistence,
-        job,
-        publishRunEvent: publishRunEvent.bind(this),
-      });
-    }
+    });
   }
 
   private buildInputAndCtx(run: Run & Record<string, any>, job: Job<RunJobData>) {
@@ -288,26 +309,26 @@ export class RunProcessor extends WorkerHost {
     };
 
     if (Array.isArray(config.approvedSteps) && !Array.isArray(meta.approvedSteps)) {
-      meta.approvedSteps = config.approvedSteps;
+      (meta as any).approvedSteps = config.approvedSteps;
     }
-    if (!meta.channelTargets && config.channelTargets) {
-      meta.channelTargets = config.channelTargets;
+    if (!(meta as any).channelTargets && (config as any).channelTargets) {
+      (meta as any).channelTargets = (config as any).channelTargets;
     }
-    if (!meta.policy) {
-      meta.policy = job.data.policy ?? run.policySnapshot ?? undefined;
+    if (!(meta as any).policy) {
+      (meta as any).policy = job.data.policy ?? run.policySnapshot ?? undefined;
     }
     if (job.data.token) {
-      meta.runToken = job.data.token;
+      (meta as any).runToken = job.data.token;
     }
 
     const tz =
-      (typeof meta.tz === 'string' && meta.tz.trim().length > 0
-        ? (meta.tz as string)
-        : typeof meta.timezone === 'string' && meta.timezone.trim().length > 0
-          ? (meta.timezone as string)
+      (typeof (meta as any).tz === 'string' && (meta as any).tz.trim().length > 0
+        ? ((meta as any).tz as string)
+        : typeof (meta as any).timezone === 'string' && (meta as any).timezone.trim().length > 0
+          ? ((meta as any).timezone as string)
           : 'Europe/Berlin') ?? 'Europe/Berlin';
-    meta.tz = tz;
-    meta.jobId = job.id;
+    (meta as any).tz = tz;
+    (meta as any).jobId = job.id;
 
     const ctx: RunState['ctx'] & { meta: Record<string, unknown> } = {
       runId: run.id,
@@ -315,27 +336,21 @@ export class RunProcessor extends WorkerHost {
       teamId: run.teamId ? String(run.teamId) : undefined,
       scopes: Array.from(scopes),
       traceId:
-        typeof meta.traceId === 'string' && meta.traceId.trim().length > 0
-          ? (meta.traceId as string)
+        typeof (meta as any).traceId === 'string' && (meta as any).traceId.trim().length > 0
+          ? ((meta as any).traceId as string)
           : `run:${run.id}`,
       tz,
       now: new Date(),
       meta,
     };
 
-    // Pull whatever is in DB (might be generic JSON)
     const rawOut = (run?.output ?? {}) as Record<string, any>;
-
-    // Move any persisted output.scratch into state.scratch
     const persistedScratch =
       rawOut.scratch && typeof rawOut.scratch === 'object'
         ? (rawOut.scratch as Record<string, unknown>)
         : {};
-
-    // Everything else is the real output
     const { scratch: _drop, ...restOutput } = rawOut;
 
-    // Build initial state (job scratch wins over persisted)
     const initialState: RunState = {
       input,
       mode: (job.data.mode ?? run.mode)?.toUpperCase() === 'AUTO' ? 'AUTO' : 'PLAN',
@@ -362,13 +377,6 @@ export class RunProcessor extends WorkerHost {
     return { initialState, publishRunEvent, safePublish };
   }
 
-  /**
-   * Apply a "delta" object onto `target` in-place.
-   *
-   * - Merges nested objects recursively.
-   * - Replaces arrays (array items that are objects are cloned with structuredClone).
-   * - Overwrites primitives.
-   */
   private applyDelta(target: any, delta: any) {
     if (!delta || typeof delta !== 'object') return;
     for (const [key, value] of Object.entries(delta)) {

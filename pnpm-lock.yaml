@@ -878,6 +878,9 @@ importers:
       '@nestjs/common':
         specifier: ^10.0.0
         version: 10.4.20(class-transformer@0.5.1)(class-validator@0.14.2)(reflect-metadata@0.2.2)(rxjs@7.8.2)
+      express:
+        specifier: ^4.19.2
+        version: 4.21.2
       ioredis:
         specifier: ^5.8.1
         version: 5.8.1
@@ -891,6 +894,9 @@ importers:
       '@quikday/tsconfig':
         specifier: workspace:*
         version: link:../tsconfig
+      '@quikday/types':
+        specifier: workspace:*
+        version: link:../types
       '@types/lru-cache':
         specifier: ^7.10.10
         version: 7.10.10

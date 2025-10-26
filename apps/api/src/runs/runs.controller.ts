@@ -2,6 +2,9 @@ import { Body, Controller, Get, Param, Post, UseGuards, Req, BadRequestException
 import { RunsService } from './runs.service';
 import { KindeGuard } from '../auth/kinde.guard';
 import { validateAnswers } from '@quikday/agent/validation/answers';
+import { getCurrentUserCtx } from '@quikday/libs/auth/current-user.als';
+
+
 export interface ChatMessageDto {
   role: 'system' | 'user' | 'assistant' | 'tool';
   content: string;
@@ -57,6 +60,7 @@ export class RunsController {
     }
 
     await this.runs.applyUserAnswers(id, normalized);
+    
     await this.runs.enqueue(id); // re-run with answers
     return { ok: true };
   }
