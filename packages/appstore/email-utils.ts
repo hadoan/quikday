@@ -67,3 +67,4 @@ export function generateEmailSummary(
 
   return `📧 Email to ${to}\nSubject: ${subject}\n${preview ? `Preview: ${preview}` : ''}`;
 }
+

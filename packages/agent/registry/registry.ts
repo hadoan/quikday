@@ -8,6 +8,8 @@ import { slackPostMessage } from './tools/slack.postMessage';
 import { chatRespondTool } from './tools/chatRespond';
 import { LLM } from '../llm/types';
 import { calendarCheckAvailability, calendarCreateEvent } from './tools/calendar';
+import { emailSend, emailRead } from './tools/email';
+import { ModuleRef } from '@nestjs/core/injector/module-ref';
 
 export class ToolRegistry {
   private tools = new Map<string, Tool<any, any>>();
@@ -71,7 +73,10 @@ registry.register({
 registry.register(slackPostMessage);
 registry.register(calendarCheckAvailability);
 registry.register(calendarCreateEvent);
+registry.register(emailSend);
+registry.register(emailRead);
 
-export function registerToolsWithLLM(llm: LLM) {
-  registry.register(chatRespondTool(llm));
+export function registerToolsWithLLM(llm: LLM,  moduleRef: ModuleRef) {
+  registry.register(chatRespondTool(llm, moduleRef));
 }
+  

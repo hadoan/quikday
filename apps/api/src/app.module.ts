@@ -13,9 +13,16 @@ import { UsersModule } from './users/users.module';
 // import { AgentTestModule } from './agent-test/agent-test.module';
 import { AgentModule } from './agent';
 import { InMemoryEventBus, PubSubModule } from '@quikday/libs';
+import { EmailModule } from '@quikday/appstore/email/email.module';
+import { GmailEmailService } from '@quikday/appstore-gmail-email/gmail-email.service';
+
+
+const registry = new Map();
+registry.set('gmail', GmailEmailService);
 
 @Module({
   imports: [
+    EmailModule.register({ registry }),
     PubSubModule,
     ConfigModule,
     PrismaModule,
@@ -32,4 +39,4 @@ import { InMemoryEventBus, PubSubModule } from '@quikday/libs';
     // AgentTestModule,
   ],
 })
-export class AppModule {}
+export class AppModule { }

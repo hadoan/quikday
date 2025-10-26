@@ -4,6 +4,7 @@ import { Logger, type LoggerService } from '@nestjs/common';
 import type { Prisma, PrismaClient } from '@prisma/client';
 import { prisma as defaultPrisma } from '@quikday/prisma';
 import { getAppKeysFromSlug } from '@quikday/appstore';
+import { prisma } from '@quikday/prisma';
 import type { GmailManagerConfig } from './GmailManagerConfig.js';
 import type { GmailManagerOptions } from './GmailManagerOptions.js';
 import type { GmailIntegrationValue } from './GmailIntegrationValue.js';
@@ -529,7 +530,7 @@ export class GmailManagerService {
 
     if (!clientId || !clientSecret) {
       try {
-        const appKeys = (await getAppKeysFromSlug(this.getAppSlug())) as Record<string, unknown>;
+        const appKeys = (await getAppKeysFromSlug(prisma, this.getAppSlug())) as Record<string, unknown>;
         if (!clientId && typeof appKeys?.client_id === 'string') clientId = appKeys.client_id;
         if (!clientSecret && typeof appKeys?.client_secret === 'string')
           clientSecret = appKeys.client_secret;

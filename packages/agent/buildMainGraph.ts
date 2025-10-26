@@ -13,14 +13,16 @@ import { safeNode } from './runtime/safeNode';
 import { RunEventBus } from '@quikday/libs';
 import { Run } from 'openai/resources/beta/threads/runs/runs';
 import { registerToolsWithLLM } from './registry/registry';
+import { ModuleRef } from '@nestjs/core';
 
 type BuildMainGraphOptions = {
   llm: LLM;
   eventBus: RunEventBus;
+  moduleRef: ModuleRef;
 };
 
-export const buildMainGraph = ({ llm, eventBus }: BuildMainGraphOptions) => {
-  registerToolsWithLLM(llm);
+export const buildMainGraph = ({ llm, eventBus, moduleRef }: BuildMainGraphOptions) => {
+  registerToolsWithLLM(llm, moduleRef);
   return (
     new Graph<RunState, RunEventBus>(hooks(eventBus))
       .addNode('classify', makeClassifyIntent(llm))

@@ -1,6 +1,7 @@
 import { google } from 'googleapis';
 import type { AppMeta } from '@quikday/types';
 import { getAppKeysFromSlug } from '@quikday/appstore';
+import { prisma } from '@quikday/prisma';
 import { GoogleCalendarAuthConfig } from './types/GoogleCalendarAuthConfig.js';
 import { GoogleCalendarAuthUrlResult } from './types/GoogleCalendarAuthUrlResult.js';
 
@@ -58,7 +59,7 @@ export async function resolveGoogleCalendarAuthUrl(params: {
   let clientSecret: string | undefined = undefined;
 
   try {
-    const appKeys = (await getAppKeysFromSlug(meta.slug)) as Record<string, unknown>;
+    const appKeys = (await getAppKeysFromSlug(prisma, meta.slug)) as Record<string, unknown>;
     if (typeof appKeys?.client_id === 'string') clientId = appKeys.client_id;
     if (typeof appKeys?.client_secret === 'string') clientSecret = appKeys.client_secret;
   } catch {

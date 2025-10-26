@@ -24,3 +24,4 @@ export function listLocalApps(): AppWithMeta[] {
 export function getLocalApp(slug: string): AppWithMeta | undefined {
   return LOCAL_APPS[slug];
 }
+
