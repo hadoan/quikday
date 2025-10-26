@@ -2,7 +2,7 @@ import { Body, Controller, Get, Param, Post, UseGuards, Req, BadRequestException
 import { RunsService } from './runs.service';
 import { KindeGuard } from '../auth/kinde.guard';
 import { validateAnswers } from '@quikday/agent/validation/answers';
-import { getCurrentUserCtx } from '@quikday/libs/auth/current-user.als';
+import { getCurrentUserCtx } from '@quikday/libs';
 
 
 export interface ChatMessageDto {

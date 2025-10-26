@@ -1,28 +1,29 @@
-/* NOTE: This file contains structure only. Implement provider logic separately. */
+/* Gmail Email Integration */
 import type { AppMeta } from '@quikday/types';
 import { resolveGmailAuthUrl } from './add.js';
-import { callback } from './callback.js';
+import { callback as gmailCallback } from './callback.js';
+import { PrismaService } from '@quikday/prisma';
 
-// Export Gmail tool for agent use
-export * from './tool.js';
-export * from './gmail-manager.js';
-export * from './GmailManagerConfig.js';
-export * from './GmailManagerOptions.js';
-export * from './GmailIntegrationValue.js';
-export * from './GmailSendEmailOptions.js';
-export * from './GmailSendResponse.js';
+// Export service for EmailModule compatibility (used by apps/api AppModule)
+export { GmailEmailService } from './gmail-email.service.js';
 
+/**
+ * Default factory consumed by the API AppStoreRegistry.
+ * Must export a default function(meta, deps) that returns an object
+ * implementing { add(req,res), callback(req,res), post?(req,res) }.
+ */
 export default function createApp(meta: AppMeta, deps: any) {
-  return new (class GmailApp {
-    constructor(
-      public readonly meta: AppMeta,
-      public readonly deps: any,
-    ) {
-      console.log('✉️  Gmail app initialized', { slug: meta.slug });
-    }
+  return new (class GmailEmailApp {
+    constructor(public readonly meta: AppMeta, public readonly deps: any) {}
 
+    /**
+     * Initiate Gmail OAuth flow
+     * Route: GET /integrations/gmail-email/add
+     */
     async add(req: any, res: any) {
+      const prisma: PrismaService | undefined = this.deps?.prisma;
       try {
+        // Build signed OAuth state when available
         let signedState: string | undefined;
         if (typeof this.deps?.createSignedState === 'function') {
           try {
@@ -31,50 +32,45 @@ export default function createApp(meta: AppMeta, deps: any) {
               signedState = this.deps.createSignedState({
                 userId,
                 timestamp: Date.now(),
-                returnTo: req.query?.returnTo,
+                returnTo: req.query?.returnTo as string | undefined,
               });
             }
-          } catch (stateError) {
-            console.warn('✉️  [Add] Failed to create signed state', {
-              error: stateError instanceof Error ? stateError.message : 'Unknown',
-            });
+          } catch {
+            // Fallback to unsigned state inside helper
           }
         }
 
-        const { url } = await resolveGmailAuthUrl({ req, meta, signedState });
+        const { url } = await resolveGmailAuthUrl({ req, meta, signedState, prisma: prisma as any });
 
         const acceptsJson =
           (req.headers['accept'] || '').includes('application/json') ||
           req.query?.format === 'json';
         if (acceptsJson) return res.status(200).json({ url });
 
-        res.redirect(url);
+        return res.redirect(url);
       } catch (error) {
         const message = error instanceof Error ? error.message : 'Unknown error';
-        console.error('✉️  [Add] Failed to initiate OAuth flow', { error: message });
-        res.status(500).json({ error: 'Failed to initiate OAuth flow', message });
+        return res.status(500).json({ error: 'Failed to initiate OAuth flow', message });
       }
     }
 
+    /**
+     * Handle Gmail OAuth callback
+     * Route: GET /integrations/gmail-email/callback
+     */
     async callback(req: any, res: any) {
       try {
-        const { redirectTo } = await callback({ req, meta, prisma: this.deps.prisma });
+        const { redirectTo } = await gmailCallback({ req, meta, prisma: this.deps?.prisma });
         return res.redirect(redirectTo);
       } catch (error) {
         const message = error instanceof Error ? error.message : 'Unknown error';
-        console.error('✉️  [Callback] OAuth callback failed', { error: message });
         return res.status(500).json({ error: 'Failed to complete OAuth callback', message });
       }
     }
 
-    async post(req: any, res: any) {
-      const body = req?.body;
-      if (!body || typeof body !== 'object')
-        return res.status(400).json({ message: 'Invalid body' });
-      const now = Date.now();
-      return res
-        .status(200)
-        .json({ ok: true, app: meta.slug, variant: meta.variant, received: body, timestamp: now });
+    // Optional POST endpoint not used yet
+    async post(_req: any, res: any) {
+      return res.status(404).json({ message: 'Not implemented' });
     }
   })(meta, deps);
 }

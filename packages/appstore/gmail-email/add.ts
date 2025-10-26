@@ -1,9 +1,9 @@
 import { google } from 'googleapis';
 import type { AppMeta } from '@quikday/types';
 import { getAppKeysFromSlug } from '@quikday/appstore';
-import { prisma } from '@quikday/prisma';
 import { GmailAuthConfig } from './GmailAuthConfig.js';
 import { GmailAuthUrlResult } from './GmailAuthUrlResult.js';
+import { PrismaService } from '@quikday/prisma';
 
 // Scopes needed for sending and reading email
 const GMAIL_SCOPES = [
@@ -33,9 +33,10 @@ export function generateGmailAuthUrl(config: GmailAuthConfig): GmailAuthUrlResul
 export async function resolveGmailAuthUrl(params: {
   req: any;
   meta: AppMeta;
+  prisma: PrismaService;
   signedState?: string;
 }): Promise<GmailAuthUrlResult> {
-  const { req, meta, signedState } = params;
+  const { req, meta, signedState, prisma } = params;
 
   let clientId: string | undefined;
   let clientSecret: string | undefined;

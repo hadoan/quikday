@@ -14,7 +14,7 @@ import { UsersModule } from './users/users.module';
 import { AgentModule } from './agent';
 import { InMemoryEventBus, PubSubModule } from '@quikday/libs';
 import { EmailModule } from '@quikday/appstore/email/email.module';
-import { GmailEmailService } from '@quikday/appstore-gmail-email/gmail-email.service';
+import { GmailEmailService } from '@quikday/appstore-gmail-email';
 
 
 const registry = new Map();
@@ -32,10 +32,10 @@ registry.set('gmail', GmailEmailService);
     TelemetryModule,
     TeamsModule,
     CredentialsModule,
-    WebSocketModule,
-    // IntegrationsModule,
-    UsersModule,
-    AgentModule,
+  WebSocketModule,
+  IntegrationsModule,
+  UsersModule,
+  AgentModule,
     // AgentTestModule,
   ],
 })

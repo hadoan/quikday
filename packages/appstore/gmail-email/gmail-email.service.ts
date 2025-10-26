@@ -10,7 +10,7 @@ import type {
     LabelChange,
     EmailAddress,
 } from '@quikday/appstore/email/email.types';
-import { CurrentUserService } from "@quikday/libs/auth/current-user.service.js";
+import { CurrentUserService } from "@quikday/libs";
 import { PrismaService } from '@quikday/prisma';
 import { getAppKeysFromSlug } from '@quikday/appstore';
 

@@ -14,8 +14,7 @@ import { CreateRunDto } from './runs.controller';
 import { RunTokenService } from './run-token.service';
 import { getTeamPolicy, type TeamPolicy } from '@quikday/agent/guards/policy';
 import type { ChatMessage } from '@quikday/agent/state/types';
-import { CurrentUserService } from '@quikday/libs/auth/current-user.service';
-import { getCurrentUserCtx } from '@quikday/libs/auth/current-user.als';
+import { CurrentUserService, getCurrentUserCtx } from '@quikday/libs';
 
 @Injectable()
 export class RunsService {

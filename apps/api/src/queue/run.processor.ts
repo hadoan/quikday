@@ -15,7 +15,7 @@ import { RunEventBus } from '@quikday/libs/pubsub/event-bus';
 import { createGraphEventHandler } from './create-graph-event-handler';
 import { RunOutcome } from '@quikday/agent/runtime/graph';
 
-import { runWithCurrentUser } from '@quikday/libs/auth/current-user.als';
+import { runWithCurrentUser } from '@quikday/libs';
 import type { CurrentUserContext } from '@quikday/types/auth/current-user.types';
 
 const GRAPH_HALT_AWAITING_APPROVAL = 'GRAPH_HALT_AWAITING_APPROVAL';

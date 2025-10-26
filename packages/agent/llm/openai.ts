@@ -1,6 +1,5 @@
 /// <reference path="./openai.d.ts" />
 import OpenAI from 'openai';
-import { prisma } from '@quikday/prisma';
 import type { LLM, LlmCallMetadata } from './types';
 import { getLlmContext } from './context';
 import { logLlmGeneration } from '../observability/langfuse';
@@ -57,26 +56,26 @@ export function makeOpenAiLLM(client = new OpenAI({ apiKey: process.env.OPENAI_A
         const requestType = effectiveMetadata.requestType ?? 'chat_completion';
         const apiEndpoint = effectiveMetadata.apiEndpoint ?? 'chat.completions.create';
 
-        void prisma.lLMLog
-          .create({
-            data: {
-              userId,
-              teamId,
-              prompt: promptText,
-              result,
-              promptTokens: usage.prompt_tokens ?? 0,
-              completionTokens: usage.completion_tokens ?? 0,
-              totalTokens: usage.total_tokens ?? 0,
-              requestType,
-              apiEndpoint,
-              model,
-            },
-          })
-          .catch((err: unknown) => {
-            if (process.env.NODE_ENV !== 'production') {
-              console.error('Failed to persist LLM log', err);
-            }
-          });
+        // void prisma.lLMLog
+        //   .create({
+        //     data: {
+        //       userId,
+        //       teamId,
+        //       prompt: promptText,
+        //       result,
+        //       promptTokens: usage.prompt_tokens ?? 0,
+        //       completionTokens: usage.completion_tokens ?? 0,
+        //       totalTokens: usage.total_tokens ?? 0,
+        //       requestType,
+        //       apiEndpoint,
+        //       model,
+        //     },
+        //   })
+        //   .catch((err: unknown) => {
+        //     if (process.env.NODE_ENV !== 'production') {
+        //       console.error('Failed to persist LLM log', err);
+        //     }
+        //   });
       }
 
       // Always attempt to emit to Langfuse when keys are provided (no-op otherwise)

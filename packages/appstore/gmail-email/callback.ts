@@ -1,7 +1,6 @@
 import { google } from 'googleapis';
 import type { AppMeta } from '@quikday/types';
 import { getAppKeysFromSlug } from '@quikday/appstore';
-import { prisma } from '@quikday/prisma';
 import { GmailCallbackConfig } from './GmailCallbackConfig.js';
 import { GmailTokens } from './GmailTokens.js';
 import { GmailCallbackResult } from './GmailCallbackResult.js';

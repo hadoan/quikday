@@ -1,7 +1,6 @@
 import { google } from 'googleapis';
 import type { AppMeta } from '@quikday/types';
 import { getAppKeysFromSlug } from '@quikday/appstore';
-import { prisma } from '@quikday/prisma';
 import { GoogleCalendarCallbackConfig } from './types/GoogleCalendarCallbackConfig.js';
 import { GoogleCalendarTokens } from './types/GoogleCalendarTokens.js';
 import { GoogleCalendarCallbackResult } from './types/GoogleCalendarCallbackResult.js';
