@@ -244,8 +244,10 @@ export class RunsService {
       __ctx,
     };
 
+    // BullMQ does not allow ':' in custom jobId. Use hyphens instead for idempotency key.
+    const safeJobId = `run-${runId}-mode-${run.mode}`;
     const job = await this.runsQueue.add('execute', jobPayload, {
-      jobId: `run:${runId}:mode:${run.mode}`, // idempotency/dedupe per run+mode
+      jobId: safeJobId, // idempotency/dedupe per run+mode
       delay: opts.delayMs ?? 0,
       attempts: 3,
       backoff: { type: 'exponential', delay: 5000 },

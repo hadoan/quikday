@@ -17,16 +17,16 @@
  * 4. Add slug to this array
  */
 export const INTEGRATION_SLUGS = [
-  'linkedin-social',
+  // 'linkedin-social',
   'gmail-email',
-  'google-calendar',
-  'slack-messaging',
-  'notion-docs',
-  'github-devtools',
-  'jira-devtools',
-  'hubspot-crm',
-  'close-crm',
-  'googlesheets-data',
+  // 'google-calendar',
+  // 'slack-messaging',
+  // 'notion-docs',
+  // 'github-devtools',
+  // 'jira-devtools',
+  // 'hubspot-crm',
+  // 'close-crm',
+  // 'googlesheets-data',
 ] as const;
 
 export type IntegrationSlug = (typeof INTEGRATION_SLUGS)[number];

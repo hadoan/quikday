@@ -9,3 +9,4 @@ export * from './auth/current-user.als';
 export * from './auth/current-user.service';
 export * from './auth/current-user.module';
 export * from './auth/current-user.decorators';
+export * from './auth/current-user.interceptor';
