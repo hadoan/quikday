@@ -1,5 +1,5 @@
 import { Clock, Zap, Users, ChevronLeft, ChevronRight, Grid } from 'lucide-react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { cn } from '@/lib/utils';
@@ -42,7 +42,7 @@ export const Sidebar = ({
     >
       <div className="p-6 border-b border-sidebar-border flex items-center justify-between">
         {!collapsed && (
-          <div className="flex items-center gap-3">
+          <Link to="/" className="flex items-center gap-3">
             {/* Brand logo swaps for theme */}
             <img src="/logo/logo-light-bg.svg" alt="Quik.day" className="h-6 w-auto dark:hidden" />
             <img
@@ -54,17 +54,17 @@ export const Sidebar = ({
               <h2 className="text-lg font-semibold text-sidebar-foreground">Quik.day</h2>
               <p className="text-sm text-sidebar-foreground/60 mt-1">Execution Console</p>
             </div>
-          </div>
+          </Link>
         )}
         {collapsed && (
-          <div className="mx-auto">
+          <Link to="/" className="mx-auto">
             <img src="/logo/logo-light-bg.svg" alt="Quik.day" className="h-5 w-auto dark:hidden" />
             <img
               src="/logo/logo-dark-bg.svg"
               alt="Quik.day"
               className="h-5 w-auto hidden dark:block"
             />
-          </div>
+          </Link>
         )}
         {onToggleCollapse && (
           <Button

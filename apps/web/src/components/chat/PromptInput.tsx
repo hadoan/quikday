@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Send, Sparkles } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
@@ -11,14 +11,23 @@ interface PromptInputProps {
   onSubmit: (prompt: string) => void;
   disabled?: boolean;
   placeholder?: string;
+  initialValue?: string;
 }
 
 export const PromptInput = ({
   onSubmit,
   disabled = false,
   placeholder = "Type your intent... (e.g., 'Schedule a check-in with Sara tomorrow at 10')",
+  initialValue,
 }: PromptInputProps) => {
-  const [prompt, setPrompt] = useState('');
+  const [prompt, setPrompt] = useState(initialValue || '');
+
+  useEffect(() => {
+    if (typeof initialValue === 'string') {
+      // Only set prefill when no text yet, to avoid clobbering user typing
+      setPrompt((cur) => (cur ? cur : initialValue));
+    }
+  }, [initialValue]);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();

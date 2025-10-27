@@ -15,7 +15,7 @@ import { Button } from '@/components/ui/button';
 import { mockRuns, mockTools, mockStats } from '@/data/mockRuns';
 import { Plug2, Plus } from 'lucide-react';
 import { useKindeAuth } from '@kinde-oss/kinde-auth-react';
-import { useNavigate } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { getDataSource, getFeatureFlags } from '@/lib/flags/featureFlags';
 import {
   buildPlanMessage,
@@ -43,7 +43,11 @@ const Index = () => {
   const [questions, setQuestions] = useState<Question[]>([]);
   const activeRun = runs.find((run) => run.id === activeRunId);
   const bottomRef = useRef<HTMLDivElement | null>(null);
+  const autoSentRef = useRef(false);
   const navigate = useNavigate();
+  const location = useLocation();
+  const [prefill, setPrefill] = useState<string | undefined>(undefined);
+  const [inputResetKey, setInputResetKey] = useState(0);
 
   // Initialize data source
   const dataSource = getDataSource();
@@ -408,6 +412,23 @@ const Index = () => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
   }, [activeRunId, activeRun?.messages?.length]);
 
+  // Read ?prefill= from URL and sanitize (input placeholder only)
+  useEffect(() => {
+    try {
+      const sp = new URLSearchParams(location.search);
+      const raw = sp.get('prefill') || '';
+      if (raw) {
+        const stripped = raw.replace(/[\u0000-\u001F\u007F]/g, '');
+        const trimmed = stripped.slice(0, 2000);
+        setPrefill(trimmed);
+      } else {
+        setPrefill(undefined);
+      }
+    } catch {
+      setPrefill(undefined);
+    }
+  }, [location.search]);
+
   const handleNewPrompt = async (prompt: string) => {
     logger.info('📨 Handling new prompt submission', {
       timestamp: new Date().toISOString(),
@@ -493,6 +514,30 @@ const Index = () => {
       }
     }
   };
+
+  // If navigated with ?prefill=...&autosend=1, auto-send as if user pressed Enter
+  useEffect(() => {
+    try {
+      const sp = new URLSearchParams(location.search);
+      const hasAuto = sp.has('autosend');
+      if (!hasAuto) {
+        autoSentRef.current = false;
+        return;
+      }
+      if (hasAuto && !autoSentRef.current) {
+        const text = (prefill || '').trim();
+        if (text) {
+          autoSentRef.current = true;
+          void handleNewPrompt(text);
+          setPrefill(undefined);
+          navigate('/chat', { replace: true });
+          setInputResetKey((k) => k + 1);
+        }
+      }
+    } catch {
+      // ignore
+    }
+  }, [location.search, prefill]);
 
   const handleNewTask = () => {
     const newId = `R-${Date.now()}`;
@@ -610,7 +655,7 @@ const Index = () => {
         {/* Input Area */}
         <div className="border-t border-border bg-card p-6">
           <div className="max-w-4xl mx-auto">
-            <PromptInput onSubmit={handleNewPrompt} />
+            <PromptInput key={inputResetKey} onSubmit={handleNewPrompt} initialValue={prefill} />
           </div>
         </div>
       </div>
