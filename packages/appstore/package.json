@@ -18,11 +18,18 @@
       "require": "./dist/email/*.js",
       "default": "./dist/email/*.js"
     },
+    "./calendar/*": {
+      "types": "./dist/calendar/*.d.ts",
+      "import": "./dist/calendar/*.js",
+      "require": "./dist/calendar/*.js",
+      "default": "./dist/calendar/*.js"
+    },
     "./*": "./*"
   },
   "typesVersions": {
     "*": {
       "email/*": ["dist/email/*"],
+      "calendar/*": ["dist/calendar/*"],
       "*": ["dist/*"]
     }
   },

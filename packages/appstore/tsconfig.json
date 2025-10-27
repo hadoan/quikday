@@ -12,6 +12,6 @@
     "experimentalDecorators": true,
     "emitDecoratorMetadata": true
   },
-  "include": ["*.ts", "email/**/*.ts"],
+  "include": ["*.ts", "email/**/*.ts", "calendar/**/*.ts"],
   "exclude": ["dist", "node_modules"]
 }
