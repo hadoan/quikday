@@ -2,7 +2,7 @@
   "name": "@quikday/appstore",
   "version": "0.0.1",
   "private": true,
-  "type": "module",
+  
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "exports": {
@@ -12,8 +12,19 @@
       "require": "./dist/index.js",
       "default": "./dist/index.js"
     },
-    "./email/*": "./dist/email/*.js",
+    "./email/*": {
+      "types": "./dist/email/*.d.ts",
+      "import": "./dist/email/*.js",
+      "require": "./dist/email/*.js",
+      "default": "./dist/email/*.js"
+    },
     "./*": "./*"
+  },
+  "typesVersions": {
+    "*": {
+      "email/*": ["dist/email/*"],
+      "*": ["dist/*"]
+    }
   },
   "scripts": {
     "build": "tsc -p tsconfig.json",

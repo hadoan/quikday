@@ -4,7 +4,7 @@ import { randomUUID } from 'crypto';
 import { Server } from 'http';
 import { PrismaService } from '@quikday/prisma';
 import { RedisPubSubService } from '@quikday/libs';
-import { RunEventBus } from '@quikday/libs/pubsub/event-bus';
+import type { RunEventBus } from '@quikday/libs/pubsub/event-bus';
 import { CHANNEL_WEBSOCKET } from '@quikday/libs';
 
 interface ConnectionState {

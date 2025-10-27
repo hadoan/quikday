@@ -1,10 +1,7 @@
 import { z } from 'zod';
 import type { Tool } from '../types';
 import type { RunCtx } from '../../state/types';
-import { parseEmailAddresses, validateEmailAddresses, formatEmailBody, textToHtml, generateEmailSummary } from '@quikday/appstore';
 import { ModuleRef } from '@nestjs/core';
-import { GmailEmailService } from '@quikday/appstore-gmail-email';
-import type { EmailService } from '@quikday/appstore/email/email.service';
 // ---------------- email.send ----------------
 // Re-declare schema locally to avoid cross-package Zod instance issues
 const EmailSendIn = z.object({
@@ -28,6 +25,22 @@ const EmailSendOut = z.object({
     provider: z.string().optional(),
 });
 
+async function getEmailUtils() {
+    const m = await import('@quikday/appstore');
+    return {
+        parseEmailAddresses: m.parseEmailAddresses as (s?: string) => string[],
+        validateEmailAddresses: m.validateEmailAddresses as (arr: string[]) => { valid: string[]; invalid: string[] },
+        formatEmailBody: m.formatEmailBody as (s: string) => string,
+        generateEmailSummary: m.generateEmailSummary as (to: string, subject: string, preview: string) => string,
+    };
+}
+
+async function resolveEmailService(moduleRef: ModuleRef): Promise<any> {
+    const m = await import('@quikday/appstore-gmail-email');
+    const GmailEmailService = (m as any).GmailEmailService;
+    return moduleRef.get(GmailEmailService as any, { strict: false }) as any;
+}
+
 export function emailSend(moduleRef: ModuleRef): Tool<z.infer<typeof EmailSendIn>, z.infer<typeof EmailSendOut>> {
     return {
         name: 'email.send',
@@ -38,6 +51,7 @@ export function emailSend(moduleRef: ModuleRef): Tool<z.infer<typeof EmailSendIn
         risk: 'low',
         async call(args, ctx: RunCtx) {
             const parsed = EmailSendIn.parse(args);
+            const { parseEmailAddresses, validateEmailAddresses, formatEmailBody } = await getEmailUtils();
             const to = parseEmailAddresses(parsed.to);
             const cc = parseEmailAddresses(parsed.cc);
             const bcc = parseEmailAddresses(parsed.bcc);
@@ -51,7 +65,7 @@ export function emailSend(moduleRef: ModuleRef): Tool<z.infer<typeof EmailSendIn
             }
 
             // Try injected Gmail provider service first (registered via GmailEmailModule)
-            const svc = moduleRef.get(GmailEmailService as any, { strict: false }) as EmailService;
+            const svc = await resolveEmailService(moduleRef);
             if (svc?.send && typeof svc.send === 'function') {
                 // Map tool input into EmailService DraftInput
                 const toAddrs = to.map((a) => ({ address: a }));
@@ -119,35 +133,268 @@ const EmailReadOut = z.object({
     ),
 });
 
-export const emailRead: Tool<z.infer<typeof EmailReadIn>, z.infer<typeof EmailReadOut>> = {
-    name: 'email.read',
-    in: EmailReadIn,
-    out: EmailReadOut,
-    scopes: [],
-    rate: '120/m',
-    risk: 'low',
-    async call(args, ctx: RunCtx) {
-        const parsed = EmailReadIn.parse(args);
+export function emailRead(moduleRef: ModuleRef): Tool<z.infer<typeof EmailReadIn>, z.infer<typeof EmailReadOut>> {
+    return {
+        name: 'email.read',
+        in: EmailReadIn,
+        out: EmailReadOut,
+        scopes: [],
+        rate: '120/m',
+        risk: 'low',
+        async call(args, _ctx: RunCtx) {
+            const parsed = EmailReadIn.parse(args);
+            const svc = await resolveEmailService(moduleRef);
+            if (!svc?.search) throw new Error('Email service not available');
 
-        // Try injected service first
-        const svc = (ctx as any)?.services?.email;
-        if (svc?.search && typeof svc.search === 'function') {
-            const res = await svc.search(parsed);
-            // Expect shape: { ok, messages: [] }
-            return EmailReadOut.parse({
-                ok: Boolean(res?.ok ?? true),
-                count: Array.isArray(res?.messages) ? res.messages.length : 0,
-                messages: Array.isArray(res?.messages) ? res.messages : [],
-            });
-        }
+            const newerThan = parsed.newerThanDays ? new Date(Date.now() - parsed.newerThanDays * 24 * 60 * 60 * 1000) : undefined;
+            const res = await svc.search({
+                text: parsed.query,
+                from: parsed.from,
+                to: parsed.to,
+                newerThan,
+                limit: parsed.limit,
+            } as any);
 
-        // Dev-friendly stub: return an empty list
-        return EmailReadOut.parse({ ok: true, count: 0, messages: [] });
-    },
-};
+            const messages = (res?.messages ?? []).map((m: any) => ({
+                id: m.id,
+                from: typeof m?.from?.address === 'string' ? m.from.address : undefined,
+                to: Array.isArray(m?.to) ? m.to.map((t: any) => t.address).filter(Boolean) : undefined,
+                subject: m.subject,
+                snippet: m.snippet,
+                date: m.date ? new Date(m.date).toISOString() : undefined,
+                threadId: m.threadId,
+            }));
+            return EmailReadOut.parse({ ok: true, count: messages.length, messages });
+        },
+    };
+}
+
+// ---------------- email.message.get ----------------
+const EmailMessageGetIn = z.object({ messageId: z.string() });
+const EmailMessageGetOut = z.object({
+    ok: z.boolean(),
+    message: z
+        .object({
+            id: z.string(),
+            threadId: z.string().optional(),
+            subject: z.string().optional(),
+            from: z.string().optional(),
+            to: z.array(z.string()).optional(),
+            date: z.string().optional(),
+            snippet: z.string().optional(),
+            bodyHtml: z.string().optional(),
+            bodyText: z.string().optional(),
+        })
+        .optional(),
+});
+
+export function emailMessageGet(moduleRef: ModuleRef): Tool<z.infer<typeof EmailMessageGetIn>, z.infer<typeof EmailMessageGetOut>> {
+    return {
+        name: 'email.message.get',
+        in: EmailMessageGetIn,
+        out: EmailMessageGetOut,
+        scopes: [],
+        rate: '120/m',
+        risk: 'low',
+        async call(args) {
+            const parsed = EmailMessageGetIn.parse(args);
+            const svc = await resolveEmailService(moduleRef);
+            const m: any = await svc.getMessage(parsed.messageId);
+            const out = m
+                ? {
+                      id: m.id,
+                      threadId: m.threadId,
+                      subject: m.subject,
+                      from: m?.from?.address,
+                      to: Array.isArray(m?.to) ? m.to.map((t: any) => t.address).filter(Boolean) : undefined,
+                      date: m.date ? new Date(m.date).toISOString() : undefined,
+                      snippet: m.snippet,
+                      bodyHtml: m.bodyHtml,
+                      bodyText: m.bodyText,
+                  }
+                : undefined;
+            return EmailMessageGetOut.parse({ ok: true, message: out });
+        },
+    };
+}
+
+// ---------------- email.thread.get ----------------
+const EmailThreadGetIn = z.object({ threadId: z.string() });
+const EmailThreadGetOut = z.object({
+    ok: z.boolean(),
+    messages: z.array(
+        z.object({
+            id: z.string(),
+            subject: z.string().optional(),
+            from: z.string().optional(),
+            to: z.array(z.string()).optional(),
+            date: z.string().optional(),
+            snippet: z.string().optional(),
+        }),
+    ),
+});
+
+export function emailThreadGet(moduleRef: ModuleRef): Tool<z.infer<typeof EmailThreadGetIn>, z.infer<typeof EmailThreadGetOut>> {
+    return {
+        name: 'email.thread.get',
+        in: EmailThreadGetIn,
+        out: EmailThreadGetOut,
+        scopes: [],
+        rate: '120/m',
+        risk: 'low',
+        async call(args) {
+            const parsed = EmailThreadGetIn.parse(args);
+            const svc = await resolveEmailService(moduleRef);
+            const msgs: any[] = await svc.getThread(parsed.threadId);
+            const messages = msgs.map((m) => ({
+                id: m.id,
+                subject: m.subject,
+                from: m?.from?.address,
+                to: Array.isArray(m?.to) ? m.to.map((t: any) => t.address).filter(Boolean) : undefined,
+                date: m.date ? new Date(m.date).toISOString() : undefined,
+                snippet: m.snippet,
+            }));
+            return EmailThreadGetOut.parse({ ok: true, messages });
+        },
+    };
+}
+
+// ---------------- email.draft.create ----------------
+const EmailDraftCreateIn = z.object({
+    to: z.string(),
+    subject: z.string(),
+    body: z.string(),
+    cc: z.string().optional(),
+    bcc: z.string().optional(),
+    isHtml: z.boolean().optional().default(false),
+});
+const EmailDraftCreateOut = z.object({ ok: z.boolean(), draftId: z.string(), threadId: z.string().optional() });
+
+export function emailDraftCreate(moduleRef: ModuleRef): Tool<z.infer<typeof EmailDraftCreateIn>, z.infer<typeof EmailDraftCreateOut>> {
+    return {
+        name: 'email.draft.create',
+        in: EmailDraftCreateIn,
+        out: EmailDraftCreateOut,
+        scopes: [],
+        rate: '60/m',
+        risk: 'low',
+        async call(args) {
+            const parsed = EmailDraftCreateIn.parse(args);
+            const svc = await resolveEmailService(moduleRef);
+            const { parseEmailAddresses, formatEmailBody } = await getEmailUtils();
+            const to = parseEmailAddresses(parsed.to).map((a) => ({ address: a }));
+            const cc = parseEmailAddresses(parsed.cc).map((a) => ({ address: a }));
+            const bcc = parseEmailAddresses(parsed.bcc).map((a) => ({ address: a }));
+            const draft = {
+                subject: parsed.subject,
+                to,
+                cc: cc.length ? cc : undefined,
+                bcc: bcc.length ? bcc : undefined,
+                html: parsed.isHtml ? formatEmailBody(parsed.body) : undefined,
+                text: !parsed.isHtml ? parsed.body : undefined,
+            } as any;
+            const res = await svc.createDraft(draft);
+            return EmailDraftCreateOut.parse({ ok: true, draftId: res.draftId, threadId: res.threadId });
+        },
+    };
+}
+
+// ---------------- email.draft.send ----------------
+const EmailDraftSendIn = z.object({ draftId: z.string() });
+const EmailDraftSendOut = z.object({ ok: z.boolean(), messageId: z.string(), threadId: z.string() });
+
+export function emailDraftSend(moduleRef: ModuleRef): Tool<z.infer<typeof EmailDraftSendIn>, z.infer<typeof EmailDraftSendOut>> {
+    return {
+        name: 'email.draft.send',
+        in: EmailDraftSendIn,
+        out: EmailDraftSendOut,
+        scopes: [],
+        rate: '60/m',
+        risk: 'low',
+        async call(args) {
+            const parsed = EmailDraftSendIn.parse(args);
+            const svc = await resolveEmailService(moduleRef);
+            const res = await svc.sendExistingDraft(parsed.draftId);
+            return EmailDraftSendOut.parse({ ok: true, messageId: res.messageId, threadId: res.threadId });
+        },
+    };
+}
+
+// ---------------- email.labels.change ----------------
+const EmailLabelsChangeIn = z.object({
+    threadId: z.string().optional(),
+    messageId: z.string().optional(),
+    add: z.array(z.string()).optional(),
+    remove: z.array(z.string()).optional(),
+}).refine((x) => !!x.threadId || !!x.messageId, { message: 'Either threadId or messageId is required' });
+const EmailLabelsChangeOut = z.object({ ok: z.boolean() });
+
+export function emailLabelsChange(moduleRef: ModuleRef): Tool<z.infer<typeof EmailLabelsChangeIn>, z.infer<typeof EmailLabelsChangeOut>> {
+    return {
+        name: 'email.labels.change',
+        in: EmailLabelsChangeIn,
+        out: EmailLabelsChangeOut,
+        scopes: [],
+        rate: '120/m',
+        risk: 'low',
+        async call(args) {
+            const parsed = EmailLabelsChangeIn.parse(args);
+            const svc = await resolveEmailService(moduleRef);
+            await svc.changeLabels({ threadId: parsed.threadId, messageId: parsed.messageId }, { add: parsed.add, remove: parsed.remove });
+            return { ok: true } as any;
+        },
+    };
+}
+
+// ---------------- email.archive ----------------
+const EmailArchiveIn = z.object({ threadId: z.string().optional(), messageId: z.string().optional() }).refine((x) => !!x.threadId || !!x.messageId, { message: 'Either threadId or messageId is required' });
+const EmailArchiveOut = z.object({ ok: z.boolean() });
+
+export function emailArchive(moduleRef: ModuleRef): Tool<z.infer<typeof EmailArchiveIn>, z.infer<typeof EmailArchiveOut>> {
+    return {
+        name: 'email.archive',
+        in: EmailArchiveIn,
+        out: EmailArchiveOut,
+        scopes: [],
+        rate: '120/m',
+        risk: 'low',
+        async call(args) {
+            const parsed = EmailArchiveIn.parse(args);
+            const svc = await resolveEmailService(moduleRef);
+            await svc.archive({ threadId: parsed.threadId, messageId: parsed.messageId });
+            return { ok: true } as any;
+        },
+    };
+}
+
+// ---------------- email.snooze ----------------
+const EmailSnoozeIn = z.object({
+    threadId: z.string().optional(),
+    messageId: z.string().optional(),
+    until: z.string().datetime().describe('ISO datetime when the email should unsnooze'),
+}).refine((x) => !!x.threadId || !!x.messageId, { message: 'Either threadId or messageId is required' });
+const EmailSnoozeOut = z.object({ ok: z.boolean() });
+
+export function emailSnooze(moduleRef: ModuleRef): Tool<z.infer<typeof EmailSnoozeIn>, z.infer<typeof EmailSnoozeOut>> {
+    return {
+        name: 'email.snooze',
+        in: EmailSnoozeIn,
+        out: EmailSnoozeOut,
+        scopes: [],
+        rate: '60/m',
+        risk: 'low',
+        async call(args) {
+            const parsed = EmailSnoozeIn.parse(args);
+            const svc = await resolveEmailService(moduleRef);
+            await svc.snooze?.({ threadId: parsed.threadId, messageId: parsed.messageId }, new Date(parsed.until));
+            return { ok: true } as any;
+        },
+    };
+}
 
 // Utility for planner: stable summary generation if needed by downstream
 export function buildEmailSummary(to: string[], subject: string, body: string): string {
-    const preview = formatEmailBody(body).slice(0, 100);
-    return generateEmailSummary(to[0], subject, preview);
+    // keep a lightweight local implementation to avoid ESM/CJS friction here
+    const preview = body.slice(0, 100);
+    return `${to[0]}: ${subject} — ${preview}`;
 }

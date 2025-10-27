@@ -8,7 +8,7 @@ import { slackPostMessage } from './tools/slack.postMessage';
 import { chatRespondTool } from './tools/chatRespond';
 import { LLM } from '../llm/types';
 import { calendarCheckAvailability, calendarCreateEvent } from './tools/calendar';
-import { emailSend, emailRead } from './tools/email';
+import { emailSend, emailRead, emailMessageGet, emailThreadGet, emailDraftCreate, emailDraftSend, emailLabelsChange, emailArchive, emailSnooze } from './tools/email';
 import { ModuleRef } from '@nestjs/core/injector/module-ref';
 
 export class ToolRegistry {
@@ -74,10 +74,18 @@ registry.register(slackPostMessage);
 registry.register(calendarCheckAvailability);
 registry.register(calendarCreateEvent);
 
-registry.register(emailRead);
+// Email tools registered with moduleRef in registerToolsWithLLM
 
 export function registerToolsWithLLM(llm: LLM,  moduleRef: ModuleRef) {
   registry.register(chatRespondTool(llm, moduleRef));
   registry.register(emailSend(moduleRef));
+  registry.register(emailRead(moduleRef));
+  registry.register(emailMessageGet(moduleRef));
+  registry.register(emailThreadGet(moduleRef));
+  registry.register(emailDraftCreate(moduleRef));
+  registry.register(emailDraftSend(moduleRef));
+  registry.register(emailLabelsChange(moduleRef));
+  registry.register(emailArchive(moduleRef));
+  registry.register(emailSnooze(moduleRef));
 }
   

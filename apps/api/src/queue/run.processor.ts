@@ -11,7 +11,7 @@ import { subscribeToRunEvents } from '@quikday/agent/observability/events';
 import { CHANNEL_WORKER, CHANNEL_WEBSOCKET } from '@quikday/libs';
 import type { RunEvent as UiRunEvent } from '@quikday/libs/redis/RunEvent';
 import { AgentService } from '../agent';
-import { RunEventBus } from '@quikday/libs/pubsub/event-bus';
+import type { RunEventBus } from '@quikday/libs/pubsub/event-bus';
 import { createGraphEventHandler } from './create-graph-event-handler';
 import { RunOutcome } from '@quikday/agent/runtime/graph';
 

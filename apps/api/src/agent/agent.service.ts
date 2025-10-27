@@ -6,7 +6,7 @@ import type { Graph } from '@quikday/agent/runtime/graph';
 import type { LLM } from '@quikday/agent/llm/types';
 import { AGENT_LLM } from './agent.tokens';
 import { withLlmContext } from '@quikday/agent/llm/context';
-import { RunEventBus } from '@quikday/libs';
+import type { RunEventBus } from '@quikday/libs';
 
 @Injectable()
 export class AgentService {
