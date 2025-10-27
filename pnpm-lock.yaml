@@ -615,6 +615,9 @@ importers:
       '@quikday/appstore-gmail-email':
         specifier: workspace:*
         version: link:../appstore/gmail-email
+      '@quikday/appstore-google-calendar':
+        specifier: workspace:*
+        version: link:../appstore/google-calendar
       '@quikday/libs':
         specifier: workspace:*
         version: link:../libs
