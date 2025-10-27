@@ -26,13 +26,23 @@ const EmailSendOut = z.object({
 });
 
 async function getEmailUtils() {
-    const m = await import('@quikday/appstore');
-    return {
-        parseEmailAddresses: m.parseEmailAddresses as (s?: string) => string[],
-        validateEmailAddresses: m.validateEmailAddresses as (arr: string[]) => { valid: string[]; invalid: string[] },
-        formatEmailBody: m.formatEmailBody as (s: string) => string,
-        generateEmailSummary: m.generateEmailSummary as (to: string, subject: string, preview: string) => string,
+    const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/u;
+    const parseEmailAddresses = (input?: string): string[] =>
+        typeof input === 'string'
+            ? input
+                  .split(',')
+                  .map((s) => s.trim())
+                  .filter((s) => s.length > 0)
+            : [];
+    const validateEmailAddresses = (addrs: string[]) => {
+        const valid: string[] = [];
+        const invalid: string[] = [];
+        for (const a of addrs) (EMAIL_REGEX.test(a) ? valid : invalid).push(a);
+        return { valid, invalid };
     };
+    const formatEmailBody = (s: string) => s;
+    const generateEmailSummary = (to: string, subject: string, preview: string) => `${to}: ${subject} — ${preview}`;
+    return { parseEmailAddresses, validateEmailAddresses, formatEmailBody, generateEmailSummary };
 }
 
 async function resolveEmailService(moduleRef: ModuleRef): Promise<any> {
