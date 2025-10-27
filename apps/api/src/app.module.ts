@@ -16,6 +16,7 @@ import { AgentModule } from './agent';
 import { InMemoryEventBus, PubSubModule, CurrentUserModule, CurrentUserInterceptor } from '@quikday/libs';
 import { EmailModule } from '@quikday/appstore/email/email.module';
 import { GmailEmailService, GmailEmailModule } from '@quikday/appstore-gmail-email';
+import { TemplatesModule } from './templates/templates.module';
 
 
 const registry = new Map();
@@ -40,6 +41,7 @@ registry.set('gmail', GmailEmailService);
   IntegrationsModule,
   UsersModule,
   AgentModule,
+  TemplatesModule,
     // AgentTestModule,
   ],
   providers: [

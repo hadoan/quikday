@@ -264,3 +264,18 @@ model Waitlist {
     useCase   String?
     createdAt DateTime @default(now())
 }
+
+// Templates for dashboard/chat prefills
+model Template {
+    id           String   @id @default(uuid())
+    kind         String
+    label        String
+    sampleText   String
+    variables    Json?
+    locale       String   @default("en")
+    isDefault    Boolean  @default(false)
+    isUserCustom Boolean  @default(false)
+    createdBy    String?
+    createdAt    DateTime @default(now())
+    updatedAt    DateTime @updatedAt
+}
