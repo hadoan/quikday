@@ -10,6 +10,8 @@ import { callback } from './callback.js';
 
 // Export calendar tool for agent use
 export * from './tool.js';
+export { GoogleCalendarModule } from './google-calendar.module.js';
+export { GoogleCalendarProviderService } from './google-calendar.service.js';
 
 export default function createApp(meta: AppMeta, deps: any) {
   return new (class GoogleCalendarApp {
