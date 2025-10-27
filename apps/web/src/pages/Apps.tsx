@@ -163,7 +163,9 @@ const Apps = () => {
 
   const filteredApps = useMemo(() => {
     return apps.filter((a) => {
-      const matchesCategory = category === 'All' || a.categories.includes(category);
+      // Commented out category filtering so the UI shows all apps regardless of selected category.
+      // const matchesCategory = category === 'All' || a.categories.includes(category);
+      const matchesCategory = true;
       const q = query.trim().toLowerCase();
       const matchesQuery =
         q.length === 0 ||
@@ -172,7 +174,7 @@ const Apps = () => {
         a.installProps.slug.toLowerCase().includes(q);
       return matchesCategory && matchesQuery;
     });
-  }, [category, query]);
+  }, [query]);
 
   return (
     <div className="flex h-screen w-full bg-background">
@@ -229,6 +231,8 @@ const Apps = () => {
           <div className="max-w-4xl mx-auto px-8 py-8 space-y-6">
             {/* Filter bar */}
             <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+              {/* Tabs UI commented out — category selection temporarily disabled */}
+              {/*
               <Tabs value={category} onValueChange={setCategory} className="w-full md:w-auto">
                 <TabsList className="flex flex-wrap justify-start gap-1">
                   {categories.map((c) => (
@@ -245,6 +249,7 @@ const Apps = () => {
                   ))}
                 </TabsList>
               </Tabs>
+              */}
 
               <div className="relative w-full md:w-64">
                 <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />

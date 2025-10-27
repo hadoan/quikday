@@ -34,7 +34,7 @@
 //   categories: Prisma.AppCreateInput['categories'],
 //   /** Used to re-link existing credentials of this type to the new appId (slug) */
 //   type: Prisma.CredentialCreateInput['type'],
-//   keys?: Prisma.AppCreateInput['keys'],
+//   keys?: Prisma.InputJsonValue,
 //   isTemplate?: boolean,
 // ) {
 //   try {
@@ -46,7 +46,7 @@
 //       slug,
 //       dirName,
 //       categories,
-//       keys,
+//       keys: (keys as any) ?? undefined,
 //       enabled: true, // seeded apps enabled for tests
 //     } as Prisma.AppCreateInput;
 
@@ -96,7 +96,7 @@
 //       const categories = asValidCategories(meta.categories);
 
 //       // Optional provider keys by slug
-//       let keys: Record<string, unknown> | undefined;
+//   let keys: Prisma.InputJsonValue | undefined;
 
 //       if (slug === 'google-calendar' || slug === 'gmail-email') {
 //         try {
@@ -104,7 +104,7 @@
 //           const web = parsed?.web ?? {};
 //           const { client_id, client_secret, redirect_uris } = web;
 //           if (client_id && client_secret) {
-//             keys = { client_id, client_secret, redirect_uris };
+//             keys = { client_id, client_secret, redirect_uris } as unknown as Prisma.InputJsonValue;
 //           }
 //         } catch {
 //           // ignore malformed GOOGLE_API_CREDENTIALS
@@ -115,7 +115,9 @@
 //         const client_id = process.env.LINKEDIN_CLIENT_ID;
 //         const client_secret = process.env.LINKEDIN_CLIENT_SECRET;
 //         if (client_id && client_secret) {
-//           keys = { ...(keys ?? {}), app_id: client_id, app_secret: client_secret };
+//           const base: Record<string, unknown> =
+//             keys && typeof keys === 'object' && !Array.isArray(keys) ? (keys as any) : {};
+//           keys = { ...base, app_id: client_id, app_secret: client_secret } as unknown as Prisma.InputJsonValue;
 //         }
 //       }
 

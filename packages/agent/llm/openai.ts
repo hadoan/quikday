@@ -1,6 +1,5 @@
 /// <reference path="./openai.d.ts" />
 import OpenAI from 'openai';
-import { prisma } from '@quikday/prisma';
 import type { LLM, LlmCallMetadata } from './types';
 import { getLlmContext } from './context';
 import { logLlmGeneration } from '../observability/langfuse';
@@ -28,9 +27,14 @@ export function makeOpenAiLLM(client = new OpenAI({ apiKey: process.env.OPENAI_A
       const ctrl = new AbortController();
       const t = setTimeout(() => ctrl.abort(), timeoutMs);
 
+      const modelOverride = (metadata as any)?.model;
+      const chosenModel = typeof modelOverride === 'string' && modelOverride.trim().length > 0
+        ? modelOverride
+        : DEFAULT_MODEL;
+
       const res = await client.chat.completions.create(
         {
-          model: DEFAULT_MODEL,
+          model: chosenModel,
           messages: [
             ...(system ? [{ role: 'system', content: system as string }] : []),
             { role: 'user', content: user },
@@ -53,36 +57,36 @@ export function makeOpenAiLLM(client = new OpenAI({ apiKey: process.env.OPENAI_A
         const teamId = parseMaybeNumber(effectiveMetadata.teamId);
         const promptText = formatPrompt(system, user);
         const usage = res.usage ?? {};
-        const model = res.model ?? DEFAULT_MODEL;
+        const model = res.model ?? chosenModel ?? DEFAULT_MODEL;
         const requestType = effectiveMetadata.requestType ?? 'chat_completion';
         const apiEndpoint = effectiveMetadata.apiEndpoint ?? 'chat.completions.create';
 
-        void prisma.lLMLog
-          .create({
-            data: {
-              userId,
-              teamId,
-              prompt: promptText,
-              result,
-              promptTokens: usage.prompt_tokens ?? 0,
-              completionTokens: usage.completion_tokens ?? 0,
-              totalTokens: usage.total_tokens ?? 0,
-              requestType,
-              apiEndpoint,
-              model,
-            },
-          })
-          .catch((err: unknown) => {
-            if (process.env.NODE_ENV !== 'production') {
-              console.error('Failed to persist LLM log', err);
-            }
-          });
+        // void prisma.lLMLog
+        //   .create({
+        //     data: {
+        //       userId,
+        //       teamId,
+        //       prompt: promptText,
+        //       result,
+        //       promptTokens: usage.prompt_tokens ?? 0,
+        //       completionTokens: usage.completion_tokens ?? 0,
+        //       totalTokens: usage.total_tokens ?? 0,
+        //       requestType,
+        //       apiEndpoint,
+        //       model,
+        //     },
+        //   })
+        //   .catch((err: unknown) => {
+        //     if (process.env.NODE_ENV !== 'production') {
+        //       console.error('Failed to persist LLM log', err);
+        //     }
+        //   });
       }
 
       // Always attempt to emit to Langfuse when keys are provided (no-op otherwise)
       try {
         const usage = res.usage ?? {};
-        const model = res.model ?? DEFAULT_MODEL;
+        const model = res.model ?? chosenModel ?? DEFAULT_MODEL;
         const requestType = effectiveMetadata.requestType ?? 'chat_completion';
         const apiEndpoint = effectiveMetadata.apiEndpoint ?? 'chat.completions.create';
         const userIdForLf = parseMaybeNumber(effectiveMetadata.userId) ?? undefined;

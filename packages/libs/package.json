@@ -13,7 +13,8 @@
     "ioredis": "^5.8.1",
     "lru-cache": "^11.2.2",
     "uuid": "^13.0.0",
-    "express": "^4.19.2"
+    "express": "^4.19.2",
+    "rxjs": "^7.8.1"
   },
   "peerDependencies": {
     "@nestjs/common": "^10.0.0",
@@ -22,6 +23,7 @@
   "devDependencies": {
     "@quikday/tsconfig": "workspace:*",
     "@quikday/types": "workspace:*",
+    "rxjs": "^7.8.1",
     "@types/lru-cache": "^7.10.10",
     "@types/node": "^22.16.5",
     "@types/uuid": "^11.0.0",

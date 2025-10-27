@@ -3,6 +3,7 @@ import { Reflector } from '@nestjs/core';
 import jwksClient from 'jwks-rsa';
 import jwt from 'jsonwebtoken';
 import { ConfigService } from '../config/config.service';
+import { CurrentUserALS } from '@quikday/libs';
 import { IS_PUBLIC_KEY } from './public.decorator';
 
 @Injectable()
@@ -46,6 +47,16 @@ export class KindeGuard implements CanActivate {
     if (this.config.isKindeBypass) {
       // In dev, trust any token and assign a minimal user payload
       req.user = { sub: 'dev-user', email: 'dev@example.com', name: 'Dev User' };
+      // Populate ALS context so downstream services see userId/teamId
+      CurrentUserALS.enterWith({
+        userId: 'dev-user',
+        teamId: req.header('x-team-id') ?? null,
+        scopes: [],
+        impersonatorId: null,
+        traceId: req.header('x-trace-id') ?? undefined,
+        runId: req.header('x-run-id') ?? undefined,
+        tz: req.header('x-tz') ?? 'Europe/Berlin',
+      } as any);
       return true;
     }
 
@@ -74,6 +85,25 @@ export class KindeGuard implements CanActivate {
       throw err;
     }
     req.user = payload;
+    // After successful verification, seed ALS context for the rest of the request lifecycle
+    try {
+      const scopes = Array.isArray((payload as any)?.scopes)
+        ? (payload as any).scopes
+        : typeof (payload as any)?.scope === 'string'
+        ? ((payload as any).scope as string).split(' ')
+        : [];
+      CurrentUserALS.enterWith({
+        userId: (payload as any)?.sub ?? null,
+        teamId: (payload as any)?.teamId ?? (req.header('x-team-id') ?? null),
+        scopes,
+        impersonatorId: (payload as any)?.impersonatorId ?? null,
+        traceId: req.header('x-trace-id') ?? undefined,
+        runId: req.header('x-run-id') ?? undefined,
+        tz: (payload as any)?.tz ?? (req.header('x-tz') ?? 'Europe/Berlin'),
+      } as any);
+    } catch {
+      // best-effort; do not block request on ALS issues
+    }
     return true;
   }
 }

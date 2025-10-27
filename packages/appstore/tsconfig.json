@@ -1,15 +1,17 @@
 {
   "extends": "@quikday/tsconfig/base.json",
   "compilerOptions": {
-    "module": "NodeNext",
-    "moduleResolution": "NodeNext",
+    "module": "Node16",
+    "moduleResolution": "Node16",
+    "allowJs": false,
     "declaration": true,
+    "declarationMap": true,
     "outDir": "dist",
     "rootDir": ".",
     "composite": false,
     "experimentalDecorators": true,
     "emitDecoratorMetadata": true
   },
-  "include": ["*.ts", "email/**/*.ts"],
+  "include": ["*.ts", "email/**/*.ts", "calendar/**/*.ts"],
   "exclude": ["dist", "node_modules"]
 }

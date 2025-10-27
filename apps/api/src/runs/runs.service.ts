@@ -14,21 +14,21 @@ import { CreateRunDto } from './runs.controller';
 import { RunTokenService } from './run-token.service';
 import { getTeamPolicy, type TeamPolicy } from '@quikday/agent/guards/policy';
 import type { ChatMessage } from '@quikday/agent/state/types';
-import { CurrentUserService } from '@quikday/libs/auth/current-user.service';
-import { getCurrentUserCtx } from '@quikday/libs/auth/current-user.als';
+import { CurrentUserService, getCurrentUserCtx } from '@quikday/libs';
 
 @Injectable()
 export class RunsService {
   private isNoLog = true;
-  private readonly logger =
-    this.isNoLog === true
-      ? ({
-          log: (_: any, __?: any) => {},
-          debug: (_: any, __?: any) => { /* no-op */ },
-          warn: (_: any, __?: any) => {},
-          error: (_: any, __?: any) => {},
-        } as unknown as Logger)
-      : new Logger(RunsService.name);
+  // private readonly logger =
+  //   this.isNoLog === true
+  //     ? ({
+  //         log: (_: any, __?: any) => {},
+  //         debug: (_: any, __?: any) => { /* no-op */ },
+  //         warn: (_: any, __?: any) => {},
+  //         error: (_: any, __?: any) => {},
+  //       } as unknown as Logger)
+  //     : new Logger(RunsService.name);
+  private readonly logger = new Logger(RunsService.name);
 
   constructor(
     private prisma: PrismaService,
@@ -245,21 +245,56 @@ export class RunsService {
       __ctx,
     };
 
-    const job = await this.runsQueue.add('execute', jobPayload, {
-      jobId: `run:${runId}:mode:${run.mode}`, // idempotency/dedupe per run+mode
-      delay: opts.delayMs ?? 0,
-      attempts: 3,
-      backoff: { type: 'exponential', delay: 5000 },
-      removeOnComplete: 100,
-      removeOnFail: 100,
-    });
+    // BullMQ does not allow ':' in custom jobId. Use hyphens instead.
+    // IMPORTANT: Previously we used a stable jobId (run+mode) which caused BullMQ to
+    // return an already-completed job instead of enqueuing a new one after confirm.
+    // Make jobId unique per enqueue to ensure re-executions actually run.
+    const safeJobIdBase = `run-${runId}-mode-${run.mode}`;
+    const uniqueSuffix = Date.now().toString(36);
+    const safeJobId = `${safeJobIdBase}-${uniqueSuffix}`;
+    try {
+      const job = await this.runsQueue.add('execute', jobPayload, {
+        jobId: safeJobId, // idempotency/dedupe per run+mode
+        delay: opts.delayMs ?? 0,
+        attempts: 3,
+        backoff: { type: 'exponential', delay: 5000 },
+        removeOnComplete: 100,
+        removeOnFail: 100,
+      });
 
-    this.logger.log('✅ Job added to queue', {
-      timestamp: new Date().toISOString(),
-      runId,
-      jobId: job.id,
-      queue: 'runs',
-    });
+      // Inline health snapshot
+      const [waiting, active, delayed, failed, completed] = await Promise.all([
+        this.runsQueue.getWaitingCount(),
+        this.runsQueue.getActiveCount(),
+        this.runsQueue.getDelayedCount(),
+        this.runsQueue.getFailedCount(),
+        this.runsQueue.getCompletedCount(),
+      ]);
+
+      let state: string | undefined;
+      try {
+        const added = await this.runsQueue.getJob(String(job.id));
+        state = added ? await added.getState() : undefined;
+      } catch {
+        // ignore
+      }
+
+      this.logger.log('✅ Job added to queue', {
+        timestamp: new Date().toISOString(),
+        runId,
+        jobId: job.id,
+        queue: 'runs',
+        state,
+        counts: { waiting, active, delayed, failed, completed },
+      });
+    } catch (err: any) {
+      this.logger.error('❌ Failed to add job to queue', {
+        timestamp: new Date().toISOString(),
+        runId,
+        error: err?.message,
+      });
+      throw err;
+    }
   }
 
   private normalizeMessages(messages: CreateRunDto['messages'], prompt?: string): ChatMessage[] {

@@ -2,12 +2,13 @@
   "name": "@quikday/appstore-google-calendar",
   "version": "0.1.0",
   "private": true,
-  "type": "module",
+  
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "dependencies": {
     "@nestjs/common": "^10.0.0",
     "@quikday/appstore": "workspace:*",
+    "@quikday/libs": "workspace:*",
     "@quikday/prisma": "workspace:*",
     "googleapis": "^144.0.0"
   },

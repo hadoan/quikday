@@ -11,11 +11,11 @@ import { subscribeToRunEvents } from '@quikday/agent/observability/events';
 import { CHANNEL_WORKER, CHANNEL_WEBSOCKET } from '@quikday/libs';
 import type { RunEvent as UiRunEvent } from '@quikday/libs/redis/RunEvent';
 import { AgentService } from '../agent';
-import { RunEventBus } from '@quikday/libs/pubsub/event-bus';
+import type { RunEventBus } from '@quikday/libs/pubsub/event-bus';
 import { createGraphEventHandler } from './create-graph-event-handler';
 import { RunOutcome } from '@quikday/agent/runtime/graph';
 
-import { runWithCurrentUser } from '@quikday/libs/auth/current-user.als';
+import { runWithCurrentUser } from '@quikday/libs';
 import type { CurrentUserContext } from '@quikday/types/auth/current-user.types';
 
 const GRAPH_HALT_AWAITING_APPROVAL = 'GRAPH_HALT_AWAITING_APPROVAL';
@@ -56,6 +56,11 @@ export class RunProcessor extends WorkerHost {
     @Inject('RunEventBus') private eventBus: RunEventBus
   ) {
     super();
+  }
+
+  // Lightweight indicator that the worker is registered
+  onModuleInit() {
+    this.logger.log('🧵 RunProcessor initialized and awaiting jobs on queue "runs"');
   }
 
   async process(job: Job<RunJobData>) {

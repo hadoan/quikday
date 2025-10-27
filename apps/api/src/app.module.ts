@@ -1,4 +1,5 @@
 import { Module } from '@nestjs/common';
+import { APP_INTERCEPTOR } from '@nestjs/core';
 import { ConfigModule } from './config/config.module';
 import { PrismaModule } from '@quikday/prisma';
 import { AuthModule } from './auth/auth.module';
@@ -12,9 +13,9 @@ import { IntegrationsModule } from './integrations/integrations.module';
 import { UsersModule } from './users/users.module';
 // import { AgentTestModule } from './agent-test/agent-test.module';
 import { AgentModule } from './agent';
-import { InMemoryEventBus, PubSubModule } from '@quikday/libs';
+import { InMemoryEventBus, PubSubModule, CurrentUserModule, CurrentUserInterceptor } from '@quikday/libs';
 import { EmailModule } from '@quikday/appstore/email/email.module';
-import { GmailEmailService } from '@quikday/appstore-gmail-email/gmail-email.service';
+import { GmailEmailService, GmailEmailModule } from '@quikday/appstore-gmail-email';
 
 
 const registry = new Map();
@@ -23,7 +24,10 @@ registry.set('gmail', GmailEmailService);
 @Module({
   imports: [
     EmailModule.register({ registry }),
+    // Ensure GmailEmailService is a registered provider so tools can resolve it via ModuleRef
+    GmailEmailModule,
     PubSubModule,
+    CurrentUserModule,
     ConfigModule,
     PrismaModule,
     AuthModule,
@@ -32,11 +36,14 @@ registry.set('gmail', GmailEmailService);
     TelemetryModule,
     TeamsModule,
     CredentialsModule,
-    WebSocketModule,
-    // IntegrationsModule,
-    UsersModule,
-    AgentModule,
+  WebSocketModule,
+  IntegrationsModule,
+  UsersModule,
+  AgentModule,
     // AgentTestModule,
+  ],
+  providers: [
+    { provide: APP_INTERCEPTOR, useClass: CurrentUserInterceptor },
   ],
 })
 export class AppModule { }

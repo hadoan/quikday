@@ -612,6 +612,12 @@ importers:
       '@quikday/appstore':
         specifier: workspace:*
         version: link:../appstore
+      '@quikday/appstore-gmail-email':
+        specifier: workspace:*
+        version: link:../appstore/gmail-email
+      '@quikday/appstore-google-calendar':
+        specifier: workspace:*
+        version: link:../appstore/google-calendar
       '@quikday/libs':
         specifier: workspace:*
         version: link:../libs
@@ -724,6 +730,9 @@ importers:
       '@quikday/appstore':
         specifier: workspace:*
         version: link:..
+      '@quikday/libs':
+        specifier: workspace:*
+        version: link:../../libs
       '@quikday/prisma':
         specifier: workspace:*
         version: link:../../prisma
@@ -746,6 +755,9 @@ importers:
       '@quikday/appstore':
         specifier: workspace:*
         version: link:..
+      '@quikday/libs':
+        specifier: workspace:*
+        version: link:../../libs
       '@quikday/prisma':
         specifier: workspace:*
         version: link:../../prisma
@@ -887,6 +899,9 @@ importers:
       lru-cache:
         specifier: ^11.2.2
         version: 11.2.2
+      rxjs:
+        specifier: ^7.8.1
+        version: 7.8.2
       uuid:
         specifier: ^13.0.0
         version: 13.0.0
