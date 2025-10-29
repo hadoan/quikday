@@ -153,7 +153,20 @@ export default function InstallApp({
         const resp = await api.get('/credentials', { params: { appId: type, owner: 'user' } });
         // API returns { success: true, data: [...] }
         const creds = resp.data?.data ?? [];
-        if (mounted) setExistingCount(Array.isArray(creds) ? creds.length : 0);
+        if (mounted) {
+          const arr = Array.isArray(creds) ? creds : [];
+          setExistingCount(arr.length);
+          // Capture credential ids so the Disconnect button knows what to delete
+          const ids = arr
+            .map((c: unknown) => {
+              if (typeof c === 'object' && c !== null && 'id' in (c as Record<string, unknown>)) {
+                return Number((c as Record<string, unknown>).id);
+              }
+              return NaN;
+            })
+            .filter((n) => Number.isFinite(n)) as number[];
+          setCredentialIds(ids);
+        }
       } catch (e) {
         if (axios.isAxiosError(e)) {
           const status = e.response?.status;
@@ -186,12 +199,11 @@ export default function InstallApp({
       const apiBaseUrl = getApiBaseUrl();
       const redirectPath = oauthPath || `/integrations/${slug}/add`;
 
-      try {
-        // Call JSON variant; axios injects Authorization if configured
-        const resp = await api.get<{ url?: string }>(redirectPath, {
-          params: { format: 'json' },
-        });
+      const fetchAddUrl = async () =>
+        api.get<{ url?: string }>(redirectPath, { params: { format: 'json' } });
 
+      try {
+        const resp = await fetchAddUrl();
         if (resp.status === 200 && resp.data?.url) {
           window.location.href = resp.data.url;
           return;
@@ -200,20 +212,25 @@ export default function InstallApp({
         if (axios.isAxiosError(e)) {
           const status = e.response?.status;
           if (status === 401 || status === 403) {
-            // Not authenticated—kick off login
+            // Not authenticated — login, then retry once
             toast({
               title: 'Please sign in',
               description: 'You need to log in to install this app.',
             });
             await login?.();
-            return;
+            try {
+              const resp2 = await fetchAddUrl();
+              if (resp2.status === 200 && resp2.data?.url) {
+                window.location.href = resp2.data.url;
+                return;
+              }
+            } catch {
+              // ignore; toast below
+            }
           }
         }
-        // fall through to plain redirect below on other errors
+        toast({ title: 'Failed to start install', description: 'Please try again.' });
       }
-
-      // Fallback: plain redirect (works when API allows bypass/dev)
-      window.location.href = `${apiBaseUrl}${redirectPath}`;
       return;
     }
 

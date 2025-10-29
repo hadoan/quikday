@@ -47,6 +47,7 @@
     "@nestjs/common": "^10.4.20",
     "@quikday/prisma": "workspace:*",
     "@quikday/types": "workspace:*",
+    "@quikday/libs": "workspace:*",
     "googleapis": "^144.0.0",
     "zod": "^3.22.0"
   },

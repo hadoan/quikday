@@ -27,7 +27,7 @@ export default function createApp(meta: AppMeta, deps: any) {
             // ignore
           }
         }
-        const { url } = await resolveGoogleCalendarAuthUrl({ req, meta, signedState } as any);
+        const { url } = await resolveGoogleCalendarAuthUrl({ req, meta, signedState, prisma } as any);
         const acceptsJson =
           (req.headers['accept'] || '').includes('application/json') ||
           req.query?.format === 'json';
