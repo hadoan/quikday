@@ -56,7 +56,10 @@ async function postToSlack(
  * Tool definition compatible with your ToolRegistry:
  *  - name/in/out/scopes/rate/risk/call fields
  */
-export const slackPostMessage: Tool<z.infer<typeof SlackPostMessageIn>, z.infer<typeof SlackPostMessageOut>> = {
+export const slackPostMessage: Tool<
+  z.infer<typeof SlackPostMessageIn>,
+  z.infer<typeof SlackPostMessageOut>
+> = {
   name: 'slack.postMessage',
   in: SlackPostMessageIn,
   out: SlackPostMessageOut,

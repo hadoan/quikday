@@ -52,7 +52,7 @@ export type SendOptions = {
 };
 
 export type LabelChange = {
-  add?: string[];    // human labels (we’ll map)
+  add?: string[]; // human labels (we’ll map)
   remove?: string[];
 };
 

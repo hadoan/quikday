@@ -16,4 +16,3 @@ export interface CalendarService {
   updateEvent?(id: string, patch: Partial<CalendarEvent>): Promise<CalendarEvent>;
   deleteEvent?(id: string): Promise<void>;
 }
-

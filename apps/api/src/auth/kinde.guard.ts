@@ -90,16 +90,16 @@ export class KindeGuard implements CanActivate {
       const scopes = Array.isArray((payload as any)?.scopes)
         ? (payload as any).scopes
         : typeof (payload as any)?.scope === 'string'
-        ? ((payload as any).scope as string).split(' ')
-        : [];
+          ? ((payload as any).scope as string).split(' ')
+          : [];
       CurrentUserALS.enterWith({
         userId: (payload as any)?.sub ?? null,
-        teamId: (payload as any)?.teamId ?? (req.header('x-team-id') ?? null),
+        teamId: (payload as any)?.teamId ?? req.header('x-team-id') ?? null,
         scopes,
         impersonatorId: (payload as any)?.impersonatorId ?? null,
         traceId: req.header('x-trace-id') ?? undefined,
         runId: req.header('x-run-id') ?? undefined,
-        tz: (payload as any)?.tz ?? (req.header('x-tz') ?? 'Europe/Berlin'),
+        tz: (payload as any)?.tz ?? req.header('x-tz') ?? 'Europe/Berlin',
       } as any);
     } catch {
       // best-effort; do not block request on ALS issues

@@ -9,14 +9,14 @@ export function buildClassifyUserPrompt(
 ): string {
   const intentsCatalog = JSON.stringify(INTENTS, null, 2);
 
-  const answersBlock =
-    Object.keys(answers).length
-      ? `\nUser-provided answers (dot-path keys):\n${JSON.stringify(answers, null, 2)}\n`
-      : '';
-
-  const metaBlock = meta && (meta.timezone || meta.todayISO)
-    ? `\nMeta:\n- timezone: ${meta.timezone ?? 'UTC'}\n- nowISO: ${meta.todayISO ?? ''}\n`
+  const answersBlock = Object.keys(answers).length
+    ? `\nUser-provided answers (dot-path keys):\n${JSON.stringify(answers, null, 2)}\n`
     : '';
+
+  const metaBlock =
+    meta && (meta.timezone || meta.todayISO)
+      ? `\nMeta:\n- timezone: ${meta.timezone ?? 'UTC'}\n- nowISO: ${meta.todayISO ?? ''}\n`
+      : '';
 
   return `Classify this user request into ONE intent from the catalog (or "unknown" if not confident).
 Then, using the selected intent's inputs, extract input values from the user text.

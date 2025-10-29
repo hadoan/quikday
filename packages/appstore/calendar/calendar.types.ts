@@ -35,4 +35,3 @@ export type AvailabilityResult = {
   end: Date;
   attendees?: string[];
 };
-

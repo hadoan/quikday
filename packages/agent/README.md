@@ -86,5 +86,4 @@
 
 - Add a node: implement `Node<RunState>` and register via `buildMainGraph.ts`.
 - Add tools: register in packages/agent/registry/registry.ts; expose `undo` if applicable.
-- Add an app integration: implement service in packages/appstore/* and provide a tool wrapper in the registry.
-
+- Add an app integration: implement service in packages/appstore/\* and provide a tool wrapper in the registry.

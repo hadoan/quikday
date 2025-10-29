@@ -71,13 +71,16 @@ export class AppStoreRegistry {
         ]);
 
         // Support both ESM and CJS dynamic import shapes
-        const metadata = (metaMod as any)?.metadata ?? (metaMod as any)?.default?.metadata as AppMeta | undefined;
-        const create =
-          (typeof (idxMod as any)?.default === 'function'
+        const metadata =
+          (metaMod as any)?.metadata ??
+          ((metaMod as any)?.default?.metadata as AppMeta | undefined);
+        const create = (
+          typeof (idxMod as any)?.default === 'function'
             ? (idxMod as any).default
             : typeof (idxMod as any)?.default?.default === 'function'
               ? (idxMod as any).default.default
-              : (idxMod as any)?.create) as ((meta: AppMeta, deps: AppDeps) => BaseApp) | undefined;
+              : (idxMod as any)?.create
+        ) as ((meta: AppMeta, deps: AppDeps) => BaseApp) | undefined;
 
         if (!metadata || typeof create !== 'function') {
           throw new Error(`Invalid exports for integration ${slug} at ${basePath}`);

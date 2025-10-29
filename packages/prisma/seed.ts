@@ -138,15 +138,15 @@ async function main() {
     {
       kind: 'out_of_office',
       label: 'Out-of-Office',
-      sampleText: 'Set an out-of-office from {start=date} to {end=date} with this message: {msg=text}.',
+      sampleText:
+        'Set an out-of-office from {start=date} to {end=date} with this message: {msg=text}.',
       locale: 'en',
     },
     // Slot Picker Reply (optional)
     {
       kind: 'slot_picker_reply',
       label: 'Slot Picker Reply',
-      sampleText:
-        'Offer {count=3} morning slots to {contact=email} directly in my reply.',
+      sampleText: 'Offer {count=3} morning slots to {contact=email} directly in my reply.',
       locale: 'en',
     },
     // Weekly Calendar Hygiene (optional)
@@ -154,7 +154,7 @@ async function main() {
       kind: 'weekly_calendar_hygiene',
       label: 'Weekly Calendar Hygiene',
       sampleText:
-        "Clean up next week’s calendar: resolve conflicts, add focus blocks, and email me a summary.",
+        'Clean up next week’s calendar: resolve conflicts, add focus blocks, and email me a summary.',
       locale: 'en',
     },
   ];

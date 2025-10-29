@@ -27,9 +27,7 @@ type AllowedTool = string;
 
 // Step schema the LLM returns
 const StepInSchema = z.object({
-  tool: z
-    .string()
-    .refine((v) => getToolWhitelist().includes(v), { message: 'Tool not allowed' }),
+  tool: z.string().refine((v) => getToolWhitelist().includes(v), { message: 'Tool not allowed' }),
   args: z.record(z.string(), z.any()).default({}),
 });
 
@@ -97,18 +95,21 @@ function finalizeSteps(steps: Omit<PlanStep, 'id' | 'risk' | 'dependsOn'>[]): Pl
     const id = sid(i + 1);
     const dependsOn = i === 0 ? [] : [sid(i)];
     const risk =
-      st.tool === 'calendar.createEvent' || (typeof st.tool === 'string' && st.tool.endsWith('_write'))
+      st.tool === 'calendar.createEvent' ||
+      (typeof st.tool === 'string' && st.tool.endsWith('_write'))
         ? 'high'
         : 'low';
     return { id, dependsOn, risk, ...st };
   });
 }
 
-
-
-
 /* ------------------ LLM glue ------------------ */
-async function planWithLLM(llm: LLM, s: RunState, system: string, user: string): Promise<string | null> {
+async function planWithLLM(
+  llm: LLM,
+  s: RunState,
+  system: string,
+  user: string,
+): Promise<string | null> {
   try {
     return await llm.text({
       system,
@@ -164,9 +165,26 @@ function buildUserPrompt(s: RunState, intent: IntentId) {
 
         expected_output: {
           steps: [
-            { tool: 'calendar.checkAvailability', args: { start: '2025-10-23T20:00:00Z', end: '2025-10-23T20:30:00Z' } },
-            { tool: 'calendar.createEvent', args: { title: 'Online call', start: '2025-10-23T20:00:00Z', end: '2025-10-23T20:30:00Z', notifyAttendees: true } },
-            { tool: 'slack.postMessage', args: { channel: '#general', text: 'Scheduled: *Online call* from 20:00 to 20:30. Invites sent.' } },
+            {
+              tool: 'calendar.checkAvailability',
+              args: { start: '2025-10-23T20:00:00Z', end: '2025-10-23T20:30:00Z' },
+            },
+            {
+              tool: 'calendar.createEvent',
+              args: {
+                title: 'Online call',
+                start: '2025-10-23T20:00:00Z',
+                end: '2025-10-23T20:30:00Z',
+                notifyAttendees: true,
+              },
+            },
+            {
+              tool: 'slack.postMessage',
+              args: {
+                channel: '#general',
+                text: 'Scheduled: *Online call* from 20:00 to 20:30. Invites sent.',
+              },
+            },
           ],
         },
       },
@@ -312,7 +330,6 @@ function patchAndHardenPlan(
   //     }
   //   }
 
-
   // }
 
   return { steps: finalizeSteps(steps as any) };
@@ -320,92 +337,97 @@ function patchAndHardenPlan(
 
 /* ------------------ Planner Node ------------------ */
 
-export const makePlanner = (llm: LLM): Node<RunState, RunEventBus> => async (s, eventBus) => {
-  const intent = s.scratch?.intent as IntentId | undefined;
-  const confidence = (s.scratch as any)?.intentMeta?.confidence ?? 0;
-  const userText =
-    s.input.prompt ??
-    (s.input.messages?.map((m) => (typeof m.content === 'string' ? m.content : '')).join('\n') ?? '');
+export const makePlanner =
+  (llm: LLM): Node<RunState, RunEventBus> =>
+  async (s, eventBus) => {
+    const intent = s.scratch?.intent as IntentId | undefined;
+    const confidence = (s.scratch as any)?.intentMeta?.confidence ?? 0;
+    const userText =
+      s.input.prompt ??
+      s.input.messages?.map((m) => (typeof m.content === 'string' ? m.content : '')).join('\n') ??
+      '';
 
-  let steps: PlanStep[] | null = null;
-  
+    let steps: PlanStep[] | null = null;
 
-  // 1) Explicit chat.respond → chat-only
-  if (intent === 'chat.respond') {
-    steps = finalizeSteps([{
-      tool: 'chat.respond',
-      args: {
-        prompt: userText ?? '',
-        system: DEFAULT_ASSISTANT_SYSTEM,
-      },
-    }]);
-    const diff = safe({
-      summary: 'Answer with assistant (chat.respond).',
-      steps: steps.map(({ id, tool, dependsOn }) => ({ id, tool, dependsOn })),
-      intentDesc: INTENTS.find((x) => x.id === intent)?.desc,
-    });
-    events.planReady(s, eventBus, safe(steps), diff);
-    return { scratch: { ...s.scratch, plan: steps }, output: { ...s.output, diff } };
-  }
+    // 1) Explicit chat.respond → chat-only
+    if (intent === 'chat.respond') {
+      steps = finalizeSteps([
+        {
+          tool: 'chat.respond',
+          args: {
+            prompt: userText ?? '',
+            system: DEFAULT_ASSISTANT_SYSTEM,
+          },
+        },
+      ]);
+      const diff = safe({
+        summary: 'Answer with assistant (chat.respond).',
+        steps: steps.map(({ id, tool, dependsOn }) => ({ id, tool, dependsOn })),
+        intentDesc: INTENTS.find((x) => x.id === intent)?.desc,
+      });
+      events.planReady(s, eventBus, safe(steps), diff);
+      return { scratch: { ...s.scratch, plan: steps }, output: { ...s.output, diff } };
+    }
 
-  // 2) Unknown/low-confidence → answer normally (no tools)
-  if (!intent || confidence < 0.6) {
-    steps = finalizeSteps([{
-      tool: 'chat.respond',
-      args: {
-        prompt: userText ?? '',
-        system: DEFAULT_ASSISTANT_SYSTEM,
-      },
-    }]);
-    const diff = safe({
-      summary: 'Answer normally (no tools).',
-      steps: steps.map(({ id, tool, dependsOn }) => ({ id, tool, dependsOn })),
-      intentDesc: INTENTS.find((x) => x.id === intent)?.desc,
-    });
-    events.planReady(s, eventBus, safe(steps), diff);
-    return { scratch: { ...s.scratch, plan: steps }, output: { ...s.output, diff } };
-  }
+    // 2) Unknown/low-confidence → answer normally (no tools)
+    if (!intent || confidence < 0.6) {
+      steps = finalizeSteps([
+        {
+          tool: 'chat.respond',
+          args: {
+            prompt: userText ?? '',
+            system: DEFAULT_ASSISTANT_SYSTEM,
+          },
+        },
+      ]);
+      const diff = safe({
+        summary: 'Answer normally (no tools).',
+        steps: steps.map(({ id, tool, dependsOn }) => ({ id, tool, dependsOn })),
+        intentDesc: INTENTS.find((x) => x.id === intent)?.desc,
+      });
+      events.planReady(s, eventBus, safe(steps), diff);
+      return { scratch: { ...s.scratch, plan: steps }, output: { ...s.output, diff } };
+    }
 
-  // 3) Try LLM planning
-  if (intent) {
-    const tools = getToolWhitelist();
-    const system = buildSystemPrompt(tools);
-    const user = buildUserPrompt(s, intent);
-    const raw = await planWithLLM(llm, s, system, user);
+    // 3) Try LLM planning
+    if (intent) {
+      const tools = getToolWhitelist();
+      const system = buildSystemPrompt(tools);
+      const user = buildUserPrompt(s, intent);
+      const raw = await planWithLLM(llm, s, system, user);
 
-    if (raw) {
-      try {
-        const cleaned = extractJsonFromOutput(raw);
-        const parsed = PlanInSchema.parse(JSON.parse(cleaned));
-        const hardened = patchAndHardenPlan(s, parsed);
-        steps = hardened.steps;
-      } catch {
-        steps = null; // fall back
+      if (raw) {
+        try {
+          const cleaned = extractJsonFromOutput(raw);
+          const parsed = PlanInSchema.parse(JSON.parse(cleaned));
+          const hardened = patchAndHardenPlan(s, parsed);
+          steps = hardened.steps;
+        } catch {
+          steps = null; // fall back
+        }
       }
     }
-  }
 
+    // 5) Build diff including inputs sections
+    const diff = safe({
+      summary:
+        steps && steps.length > 0
+          ? `Proposed actions: ${steps.map((x) => x.tool.split('.').pop()).join(' → ')}`
+          : 'No actions proposed.',
+      steps: (steps ?? []).map(({ id, tool, dependsOn }) => ({ id, tool, dependsOn })),
+      intentDesc: INTENTS.find((x) => x.id === intent)?.desc,
+    });
 
-  // 5) Build diff including inputs sections
-  const diff = safe({
-    summary:
-      steps && steps.length > 0
-        ? `Proposed actions: ${steps.map((x) => x.tool.split('.').pop()).join(' → ')}`
-        : 'No actions proposed.',
-    steps: (steps ?? []).map(({ id, tool, dependsOn }) => ({ id, tool, dependsOn })),
-    intentDesc: INTENTS.find((x) => x.id === intent)?.desc,
-  });
+    events.planReady(s, eventBus, safe(steps ?? []), diff);
 
-  events.planReady(s, eventBus, safe(steps ?? []), diff);
-
-  return {
-    scratch: {
-      ...s.scratch,
-      plan: steps ?? [],
-    },
-    output: { ...s.output, diff },
+    return {
+      scratch: {
+        ...s.scratch,
+        plan: steps ?? [],
+      },
+      output: { ...s.output, diff },
+    };
   };
-};
 
 // Extract a JSON object if the model wrapped it in ```json fences or extra prose
 function extractJsonFromOutput(output: string): string {

@@ -215,7 +215,7 @@ export const INTENTS = [
       },
     ],
   },
-// Keep literal ids while type-checking fields
+  // Keep literal ids while type-checking fields
 ] as const satisfies readonly Intent[];
 
 export type IntentId = (typeof INTENTS)[number]['id'];

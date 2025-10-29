@@ -3,13 +3,13 @@ import { createParamDecorator, ExecutionContext } from '@nestjs/common';
 import { getCurrentUserCtx } from './current-user.als';
 
 export const CurrentUserId = createParamDecorator(
-    (_data: unknown, _ctx: ExecutionContext) => getCurrentUserCtx().userId,
+  (_data: unknown, _ctx: ExecutionContext) => getCurrentUserCtx().userId,
 );
 
 export const CurrentTeamId = createParamDecorator(
-    (_data: unknown, _ctx: ExecutionContext) => getCurrentUserCtx().teamId,
+  (_data: unknown, _ctx: ExecutionContext) => getCurrentUserCtx().teamId,
 );
 
 export const CurrentScopes = createParamDecorator(
-    (_data: unknown, _ctx: ExecutionContext) => getCurrentUserCtx().scopes,
+  (_data: unknown, _ctx: ExecutionContext) => getCurrentUserCtx().scopes,
 );

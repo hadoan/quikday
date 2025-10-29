@@ -35,7 +35,7 @@ export class RunsService {
     private telemetry: TelemetryService,
     private tokens: RunTokenService,
     @InjectQueue('runs') private runsQueue: Queue,
-    private readonly current: CurrentUserService,
+    private readonly current: CurrentUserService
   ) {}
 
   private jsonClone<T>(v: T): T {
@@ -171,10 +171,7 @@ export class RunsService {
     return run;
   }
 
-  async enqueue(
-    runId: string,
-    opts: { delayMs?: number; scratch?: Record<string, unknown> } = {},
-  ) {
+  async enqueue(runId: string, opts: { delayMs?: number; scratch?: Record<string, unknown> } = {}) {
     const optsWithScratch = opts as { delayMs?: number; scratch?: Record<string, unknown> };
 
     this.logger.log('📮 Adding job to BullMQ queue', {
@@ -208,8 +205,8 @@ export class RunsService {
       typeof meta.tz === 'string' && meta.tz.trim().length > 0
         ? (meta.tz as string)
         : typeof meta.timezone === 'string' && (meta.timezone as string).trim().length > 0
-        ? (meta.timezone as string)
-        : 'Europe/Berlin';
+          ? (meta.timezone as string)
+          : 'Europe/Berlin';
     meta.tz = tzCandidate;
 
     const token = this.tokens.mint({
@@ -335,7 +332,7 @@ export class RunsService {
 
   private async buildPolicySnapshot(
     teamId: number | null,
-    toolAllowlist?: string[],
+    toolAllowlist?: string[]
   ): Promise<TeamPolicy> {
     const base = await getTeamPolicy(teamId !== null ? String(teamId) : undefined);
     const allowlist = new Set<string>(base.allowlist?.tools ?? []);
@@ -398,7 +395,7 @@ export class RunsService {
   private deriveScopesFromRun(
     run: { toolAllowlist: unknown },
     config: Record<string, unknown>,
-    policy: TeamPolicy | null,
+    policy: TeamPolicy | null
   ): string[] {
     const scopes = new Set<string>(['runs:execute']);
 
@@ -569,8 +566,11 @@ export class RunsService {
       }
     }
 
-    const { awaiting: _dropAwait, audit: existingAudit, ...restExistingOutput } =
-      existingOutput as any;
+    const {
+      awaiting: _dropAwait,
+      audit: existingAudit,
+      ...restExistingOutput
+    } = existingOutput as any;
     const ts = new Date().toISOString();
     const auditQna: any[] = [
       ...(((existingAudit ?? {}).qna ?? []) as any[]),
@@ -598,7 +598,7 @@ export class RunsService {
   async persistValidationErrors(
     runId: string,
     answers: Record<string, unknown>,
-    errors: Record<string, string>,
+    errors: Record<string, string>
   ) {
     const run = await this.prisma.run.findUnique({ where: { id: runId } });
     if (!run) throw new NotFoundException('Run not found');

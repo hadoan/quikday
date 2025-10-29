@@ -290,9 +290,7 @@ export const routeByMode: Router<RunState> = (s) => {
   }
 
   // Hard policy deny only for external tools (skip safe chat)
-  const prelimTools = prelimRequiredToolsFromIntent(s).filter(
-    (t) => !SAFE_ALWAYS.has(t as ToolId),
-  );
+  const prelimTools = prelimRequiredToolsFromIntent(s).filter((t) => !SAFE_ALWAYS.has(t as ToolId));
   if (policy && prelimTools.length && !areToolsAllowed(prelimTools, policy)) {
     s.scratch = {
       ...s.scratch,

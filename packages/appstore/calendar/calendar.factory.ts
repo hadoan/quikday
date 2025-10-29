@@ -17,7 +17,9 @@ export interface CalendarConnection {
 @Injectable()
 export class CalendarFactory {
   private logger = new Logger(CalendarFactory.name);
-  constructor(@Inject(CALENDAR_REGISTRY) private readonly registry: Map<CalendarProviderId, CalendarCtor>) {}
+  constructor(
+    @Inject(CALENDAR_REGISTRY) private readonly registry: Map<CalendarProviderId, CalendarCtor>,
+  ) {}
 
   createFromConnection(conn: CalendarConnection): CalendarService {
     const Ctor = this.registry.get(conn.provider);
@@ -28,4 +30,3 @@ export class CalendarFactory {
     return new Ctor(conn);
   }
 }
-

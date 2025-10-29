@@ -24,4 +24,3 @@ export async function createTemplate(
   const res = await api.post<Template>(`/templates`, { ...data, confirm: !!requireConfirm });
   return res.data;
 }
-

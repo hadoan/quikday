@@ -18,7 +18,6 @@ const LlmOut = z.object({
   confidence: z.number().min(0).max(1).optional().default(0.7),
   reason: z.string().optional(),
 
-
   // New: surface intent input schema and extracted values
   inputs: z
     .array(
@@ -88,7 +87,6 @@ export const makeClassifyIntent = (llm: LLM): Node<RunState> => {
         runId: s.ctx?.runId,
         error: e instanceof Error ? e.message : String(e),
       });
-
     }
 
     // Normalize outputs for downstream planner
@@ -102,7 +100,9 @@ export const makeClassifyIntent = (llm: LLM): Node<RunState> => {
 
     // Map intent to INTENTS catalog. Rely on LLM for extraction; only fill schema if missing.
     const pickedIntent = ALLOWED.has(out.intent as IntentId) ? (out.intent as IntentId) : 'unknown';
-    const intentDef = INTENTS.find((i) => i.id === pickedIntent) as (import('./intents').Intent | undefined);
+    const intentDef = INTENTS.find((i) => i.id === pickedIntent) as
+      | import('./intents').Intent
+      | undefined;
     const llmInputs = out.inputs as ReadonlyArray<IntentInput> | undefined;
     const llmInputValues = out.inputValues as Record<string, unknown> | undefined;
     if (!llmInputs && intentDef?.inputs) {
@@ -112,7 +112,10 @@ export const makeClassifyIntent = (llm: LLM): Node<RunState> => {
     // Always recompute missingInputs based on inputs + provided values
     if (out.inputs) {
       const inputs = out.inputs as ReadonlyArray<IntentInput>;
-      const values: Record<string, unknown> = { ...(out.inputValues ?? {}), ...(llmInputValues ?? {}) };
+      const values: Record<string, unknown> = {
+        ...(out.inputValues ?? {}),
+        ...(llmInputValues ?? {}),
+      };
       const missing = inputs
         .filter((i) => i.required)
         .map((i) => i.key)

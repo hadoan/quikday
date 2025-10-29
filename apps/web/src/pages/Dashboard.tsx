@@ -99,9 +99,7 @@ export default function DashboardPage() {
                 />
                 Dashboard
               </h1>
-              <p className="text-sm text-muted-foreground mt-1">
-                Overview and quick actions
-              </p>
+              <p className="text-sm text-muted-foreground mt-1">Overview and quick actions</p>
             </div>
             <div className="w-full md:w-auto flex flex-wrap items-center gap-2 md:gap-3 justify-end">
               <ThemeToggle />
@@ -135,10 +133,7 @@ export default function DashboardPage() {
 
             <section className="space-y-3">
               <h2 className="text-xl font-semibold">Templates</h2>
-              <TemplatesGrid
-                templates={templates}
-                onPrefill={(text) => prefillPush(text)}
-              />
+              <TemplatesGrid templates={templates} onPrefill={(text) => prefillPush(text)} />
             </section>
           </div>
         </ScrollArea>

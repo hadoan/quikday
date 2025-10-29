@@ -32,12 +32,15 @@ export const confirm: Node<RunState, RunEventBus> = async (s, eventBus) => {
   try {
     const meta = asIntentMeta(s.scratch?.intentMeta);
     const missing: string[] = Array.isArray(meta?.missingInputs) ? meta!.missingInputs! : [];
-    const inputs: ReadonlyArray<IntentInput> = Array.isArray(meta?.inputs) ? (meta!.inputs as ReadonlyArray<IntentInput>) : [];
+    const inputs: ReadonlyArray<IntentInput> = Array.isArray(meta?.inputs)
+      ? (meta!.inputs as ReadonlyArray<IntentInput>)
+      : [];
 
     if (missing.length > 0 && inputs.length > 0) {
       // Collect already known answers to avoid re-asking
       const providedAnswers: Record<string, unknown> = { ...(s.scratch?.answers ?? {}) };
-      const inputValues: Record<string, unknown> = (meta?.inputValues as Record<string, unknown> | undefined) ?? {};
+      const inputValues: Record<string, unknown> =
+        (meta?.inputValues as Record<string, unknown> | undefined) ?? {};
 
       const unresolved = missing.filter((k) => {
         const v = (providedAnswers as any)[k] ?? (inputValues as any)[k];

@@ -42,7 +42,7 @@ export const buildMainGraph = ({ llm, eventBus, moduleRef }: BuildMainGraphOptio
 
       .addEdge('START', () => 'classify')
       .addEdge('classify', () => 'planner') // <- skip routeByMode
-      .addEdge('planner', () => 'confirm')     // <-- put confirm back
+      .addEdge('planner', () => 'confirm') // <-- put confirm back
       .addEdge('confirm', (s) => (s.scratch?.awaiting ? 'END' : 'executor'))
       .addEdge('executor', (s) => {
         if (s.error) return 'fallback';

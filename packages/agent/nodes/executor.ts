@@ -162,7 +162,6 @@ export const executor: Node<RunState, RunEventBus> = async (s, eventBus) => {
         undo.push({ stepId: step.id, tool: step.tool, args: uArgs });
       }
     } catch (error: any) {
-
       // Non-chat tools keep failure semantics (graph may route to fallback)
       const payload = {
         code: (error?.code ?? 'E_STEP_FAILED') as string,

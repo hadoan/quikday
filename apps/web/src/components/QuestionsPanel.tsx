@@ -25,7 +25,13 @@ export type Question = {
 // NOTE: This component implements the UI contract for rendering a set of
 // questions (different control types), local validation, and submission.
 
-function EmailListInput({ placeholder, onAdd }: { placeholder?: string; onAdd: (email: string) => void }) {
+function EmailListInput({
+  placeholder,
+  onAdd,
+}: {
+  placeholder?: string;
+  onAdd: (email: string) => void;
+}) {
   const [text, setText] = React.useState('');
   const [localErr, setLocalErr] = React.useState<string | null>(null);
   const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -139,7 +145,8 @@ export function QuestionsPanel({
         return Number.isFinite(n) ? null : 'Invalid number';
       }
       case 'select': {
-        if (q.options && q.options.length > 0) return q.options.includes(String(value)) ? null : 'Invalid option';
+        if (q.options && q.options.length > 0)
+          return q.options.includes(String(value)) ? null : 'Invalid option';
         return null;
       }
       case 'multiselect': {
@@ -219,8 +226,9 @@ export function QuestionsPanel({
           };
 
           if (dsAny.fetch && typeof dsAny.fetch === 'function') {
-            const apiBase = dsAny.config?.apiBaseUrl
-              ?? (typeof window !== 'undefined'
+            const apiBase =
+              dsAny.config?.apiBaseUrl ??
+              (typeof window !== 'undefined'
                 ? `${window.location.protocol}//${window.location.hostname}:3000`
                 : 'http://localhost:3000');
 
@@ -252,7 +260,8 @@ export function QuestionsPanel({
               const txt = await res.text();
               try {
                 const parsed = JSON.parse(txt);
-                if (parsed?.validationErrors) setFieldErrors((fe) => ({ ...fe, ...parsed.validationErrors }));
+                if (parsed?.validationErrors)
+                  setFieldErrors((fe) => ({ ...fe, ...parsed.validationErrors }));
                 throw new Error(parsed?.message || txt || `HTTP ${res.status}`);
               } catch (e) {
                 throw new Error(txt || `HTTP ${res.status}`);
@@ -274,7 +283,9 @@ export function QuestionsPanel({
       }}
     >
       <h4 className="font-medium">Missing details</h4>
-      <p className="text-sm text-muted-foreground">Please provide the requested information to continue the run.</p>
+      <p className="text-sm text-muted-foreground">
+        Please provide the requested information to continue the run.
+      </p>
 
       <div className="grid gap-3 mt-2">
         {questions.map((q) => {
@@ -310,12 +321,24 @@ export function QuestionsPanel({
                 <div>
                   <div className="flex flex-wrap gap-2 mb-1">
                     {(Array.isArray(value) ? value : []).map((e: string, idx: number) => (
-                      <span key={`${q.key}-chip-${idx}`} className="px-2 py-0.5 bg-gray-200 rounded flex items-center gap-2">
+                      <span
+                        key={`${q.key}-chip-${idx}`}
+                        className="px-2 py-0.5 bg-gray-200 rounded flex items-center gap-2"
+                      >
                         <span className="text-sm">{e}</span>
                         <button
                           type="button"
                           aria-label={`Remove ${e}`}
-                          onClick={() => setFieldValue(q.key, (Array.isArray(value) ? value.filter((x: string) => x !== e) : []).slice(), q)}
+                          onClick={() =>
+                            setFieldValue(
+                              q.key,
+                              (Array.isArray(value)
+                                ? value.filter((x: string) => x !== e)
+                                : []
+                              ).slice(),
+                              q,
+                            )
+                          }
                         >
                           ×
                         </button>
@@ -324,7 +347,9 @@ export function QuestionsPanel({
                   </div>
                   <EmailListInput
                     placeholder={q.placeholder}
-                    onAdd={(email) => setFieldValue(q.key, [...(Array.isArray(value) ? value : []), email], q)}
+                    onAdd={(email) =>
+                      setFieldValue(q.key, [...(Array.isArray(value) ? value : []), email], q)
+                    }
                   />
                 </div>
               ) : t === 'datetime' ? (
@@ -355,7 +380,9 @@ export function QuestionsPanel({
                   step={1}
                   className="border rounded px-2 py-1"
                   value={typeof value === 'number' ? value : valueStr}
-                  onChange={(ev) => setFieldValue(q.key, ev.target.value === '' ? '' : Number(ev.target.value), q)}
+                  onChange={(ev) =>
+                    setFieldValue(q.key, ev.target.value === '' ? '' : Number(ev.target.value), q)
+                  }
                 />
               ) : t === 'select' ? (
                 <select

@@ -15,4 +15,3 @@ export const normalizeMetadata = (m: Partial<AppMeta>): AppMeta => ({
   url: m.url,
   installed: m.installed ?? false,
 });
-

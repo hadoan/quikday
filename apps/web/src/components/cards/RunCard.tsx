@@ -31,7 +31,8 @@ function formatTime(value?: string): string {
 export const RunCard = ({ data, runId }: RunCardProps) => {
   const rawStatus = String((data as any).status || '').toLowerCase();
   const status = normalizeStatus(data.status);
-  const awaitingQuestions = (data as any).awaitingQuestions || (data as any).awaiting?.questions || [];
+  const awaitingQuestions =
+    (data as any).awaitingQuestions || (data as any).awaiting?.questions || [];
 
   const dsAny = getDataSource() as unknown as { applyAnswers?: Function; confirm?: Function };
   const [answers, setAnswers] = React.useState<Record<string, string>>({});

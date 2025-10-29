@@ -13,16 +13,16 @@ export const ChatRespondOut = z.object({ message: z.string() });
 export type ChatRespondArgs = z.infer<typeof ChatRespondIn>;
 export type ChatRespondResult = z.infer<typeof ChatRespondOut>;
 
-export function chatRespondTool(llm: LLM, moduleRef: ModuleRef): Tool<
-  z.infer<typeof ChatRespondIn>,
-  z.infer<typeof ChatRespondOut>
-> {
+export function chatRespondTool(
+  llm: LLM,
+  moduleRef: ModuleRef,
+): Tool<z.infer<typeof ChatRespondIn>, z.infer<typeof ChatRespondOut>> {
   return {
     name: 'chat.respond',
     in: ChatRespondIn,
     out: ChatRespondOut,
-    scopes: [],          // no scopes required
-    rate: 'unlimited',   // adjust if you want
+    scopes: [], // no scopes required
+    rate: 'unlimited', // adjust if you want
     risk: 'low',
 
     async call(args) {

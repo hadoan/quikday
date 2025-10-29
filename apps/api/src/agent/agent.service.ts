@@ -13,8 +13,8 @@ export class AgentService {
   constructor(
     @Inject(AGENT_LLM) private readonly llm: LLM,
     @Inject('RunEventBus') private eventBus: RunEventBus,
-    private readonly moduleRef: ModuleRef,
-  ) { }
+    private readonly moduleRef: ModuleRef
+  ) {}
 
   createGraph(): Graph<RunState, RunEventBus> {
     return buildMainGraph({ llm: this.llm, eventBus: this.eventBus, moduleRef: this.moduleRef });
@@ -35,6 +35,5 @@ export class AgentService {
       () => graph.run(entryPoint, initialState, this.eventBus)
     );
     return finalState;
-
   }
 }

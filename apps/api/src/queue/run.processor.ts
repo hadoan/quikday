@@ -86,7 +86,8 @@ export class RunProcessor extends WorkerHost {
       teamId: run.teamId ? String(run.teamId) : null,
       scopes: Array.isArray(job.data.scopes) ? job.data.scopes : [],
       traceId:
-        typeof job.data?.meta?.['traceId'] === 'string' && (job.data.meta!['traceId'] as string).trim()
+        typeof job.data?.meta?.['traceId'] === 'string' &&
+        (job.data.meta!['traceId'] as string).trim()
           ? (job.data.meta!['traceId'] as string)
           : `run:${run.id}`,
       tz:

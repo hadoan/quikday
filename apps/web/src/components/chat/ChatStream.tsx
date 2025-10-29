@@ -15,7 +15,13 @@ import { OutputCard } from '@/components/cards/OutputCard';
 import { UndoCard } from '@/components/cards/UndoCard';
 import { getDataSource, getFeatureFlags } from '@/lib/flags/featureFlags';
 
-export function ChatStream({ runId, messages }: { runId?: string; messages: UiRunSummary['messages'] }) {
+export function ChatStream({
+  runId,
+  messages,
+}: {
+  runId?: string;
+  messages: UiRunSummary['messages'];
+}) {
   const flags = getFeatureFlags();
   const dataSource = getDataSource();
 
@@ -51,12 +57,18 @@ export function ChatStream({ runId, messages }: { runId?: string; messages: UiRu
             mode: 'plan' as const,
           };
 
-          const steps = Array.isArray((pd as any)?.steps) ? ((pd as any).steps as Array<{ id: string }>) : [];
-          const canApprove = flags.liveApprovals && runId && lastStatus === 'awaiting_approval' && steps.length > 0;
+          const steps = Array.isArray((pd as any)?.steps)
+            ? ((pd as any).steps as Array<{ id: string }>)
+            : [];
+          const canApprove =
+            flags.liveApprovals && runId && lastStatus === 'awaiting_approval' && steps.length > 0;
           const onConfirm = canApprove
             ? async () => {
                 try {
-                  await (dataSource as any).approve?.(runId, steps.map((s) => s.id));
+                  await (dataSource as any).approve?.(
+                    runId,
+                    steps.map((s) => s.id),
+                  );
                 } catch (e) {
                   // eslint-disable-next-line no-console
                   console.error('approve failed', e);
@@ -105,10 +117,19 @@ export function ChatStream({ runId, messages }: { runId?: string; messages: UiRu
 
         if (m.type === 'output') {
           const od = m.data as UiOutputData;
-          const type = od?.type === 'summary' ? 'summary' : od?.type === 'json' || od?.type === 'markdown' ? 'code' : 'text';
+          const type =
+            od?.type === 'summary'
+              ? 'summary'
+              : od?.type === 'json' || od?.type === 'markdown'
+                ? 'code'
+                : 'text';
           return (
             <ChatMessage key={i} role="assistant">
-              <OutputCard title={od?.title || 'Output'} content={String(od?.content || '')} type={type} />
+              <OutputCard
+                title={od?.title || 'Output'}
+                content={String(od?.content || '')}
+                type={type}
+              />
             </ChatMessage>
           );
         }

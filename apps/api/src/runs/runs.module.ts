@@ -9,7 +9,13 @@ import { RunTokenService } from './run-token.service';
 import { CurrentUserModule } from '@quikday/libs';
 
 @Module({
-  imports: [PrismaModule, forwardRef(() => QueueModule), TelemetryModule, ConfigModule, CurrentUserModule],
+  imports: [
+    PrismaModule,
+    forwardRef(() => QueueModule),
+    TelemetryModule,
+    ConfigModule,
+    CurrentUserModule,
+  ],
   providers: [RunsService, RunTokenService],
   controllers: [RunsController],
   exports: [RunsService],
