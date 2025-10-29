@@ -89,7 +89,11 @@ export interface RunState {
     fallbackReason?: string;
     fallbackDetails?: unknown;
 
-    answeredQuestions?: Record<string, string>;       // user-provided answers by key
+    // Collected answers keyed by input key. May include values persisted
+    // from previous pauses (merged by the worker on resume).
+    answers?: Record<string, unknown>;
+    // Legacy field used by some callers; merged into `answers` when present.
+    answeredQuestions?: Record<string, string>;
     awaiting?: {                            // when we pause the run
       reason: 'missing_info';
       questions: Question[];
@@ -105,6 +109,12 @@ export interface RunState {
     };
     commits?: Array<{ stepId: string; result: unknown }>;
     undo?: Array<{ stepId: string; tool: string; args: unknown }>;
+    // Mirror awaiting block so API/UI can render prompts without inspecting scratch
+    awaiting?: {
+      reason: 'missing_info';
+      questions: Question[];
+      ts: string;
+    } | null;
   };
   error?: RunError;
 }
