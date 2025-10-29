@@ -132,8 +132,10 @@ export const makeClassifyIntent = (llm: LLM): Node<RunState> => {
     }
 
     let out: LlmOutType | null = null;
-    const answers = (s.scratch?.answeredQuestions ?? {}) as Record<string, unknown>;
-    const prompt = buildClassifyUserPrompt(userPrompt, answers);
+    const answers = (s.scratch?.answers ?? s.scratch?.answeredQuestions ?? {}) as Record<string, unknown>;
+    const todayISO = (s.ctx.now instanceof Date ? s.ctx.now : new Date()).toISOString();
+    const tz = s.ctx.tz || 'UTC';
+    const prompt = buildClassifyUserPrompt(userPrompt, answers, { timezone: tz, todayISO });
 
     try {
       const raw = await llm.text({
