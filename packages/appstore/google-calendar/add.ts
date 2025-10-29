@@ -51,12 +51,12 @@ export async function resolveGoogleCalendarAuthUrl(params: {
   req: any;
   meta: AppMeta;
   signedState?: string; // Optional pre-signed state from API
+  prisma?: any; // Optional Prisma service for app key lookup
 }): Promise<GoogleCalendarAuthUrlResult> {
-  const { req, meta, signedState } = params;
+  const { req, meta, signedState, prisma } = params;
 
   let clientId: string | undefined = undefined;
   let clientSecret: string | undefined = undefined;
-  let prisma: any = undefined;
   try {
     const appKeys = (await getAppKeysFromSlug(prisma, meta.slug)) as Record<string, unknown>;
     if (typeof appKeys?.client_id === 'string') clientId = appKeys.client_id;
