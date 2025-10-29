@@ -24,6 +24,7 @@ function getToolWhitelist(): string[] {
 }
 
 type AllowedTool = string;
+type AllowedToolMeta = { name: string; required: string[] };
 
 // Step schema the LLM returns
 const StepInSchema = z.object({
@@ -133,10 +134,25 @@ async function planWithLLM(llm: LLM, s: RunState, system: string, user: string):
 
 /* ------------------ Prompts (include inputs + today/tz, valid_inputs as dict) ------------------ */
 
-function buildSystemPrompt(tools: string[]) {
-  const list = (tools || []).map((t) => `- ${t}`).join('\n');
-  const header = list.length > 0 ? `\nAllowed tools:\n${list}\n` : '';
+function buildSystemPrompt(allowed: AllowedToolMeta[]) {
+  const payload = { allowedTools: allowed };
+  const json = JSON.stringify(payload, null, 2);
+  const header = allowed.length > 0 ? `\nAllowed tools (JSON):\n${json}\n` : '';
   return `${PLANNER_SYSTEM}${header}`;
+}
+
+function requiredKeysFromZod(schema: z.ZodTypeAny): string[] {
+  const obj = schema as any;
+  const shape = typeof obj.shape === 'function' ? obj.shape() : obj.shape || (obj._def && typeof obj._def.shape === 'function' ? obj._def.shape() : undefined);
+  if (!shape || typeof shape !== 'object') return [];
+  const keys: string[] = [];
+  for (const [k, v] of Object.entries(shape)) {
+    const def: any = v;
+    const typeName = def?._def?.typeName || '';
+    const isOptional = typeName === 'ZodOptional' || typeName === 'ZodDefault';
+    if (!isOptional) keys.push(k);
+  }
+  return keys;
 }
 
 function buildUserPrompt(s: RunState, intent: IntentId) {
@@ -167,6 +183,32 @@ function buildUserPrompt(s: RunState, intent: IntentId) {
             { tool: 'calendar.checkAvailability', args: { start: '2025-10-23T20:00:00Z', end: '2025-10-23T20:30:00Z' } },
             { tool: 'calendar.createEvent', args: { title: 'Online call', start: '2025-10-23T20:00:00Z', end: '2025-10-23T20:30:00Z', notifyAttendees: true } },
             { tool: 'slack.postMessage', args: { channel: '#general', text: 'Scheduled: *Online call* from 20:00 to 20:30. Invites sent.' } },
+          ],
+        },
+      },
+      {
+        description: 'gcal.schedule WITHOUT Slack announcement',
+
+        expected_output: {
+          steps: [
+            {
+              tool: 'calendar.checkAvailability',
+              args: {
+                start: '2025-10-30T10:00:00+02:00',
+                end: '2025-10-30T10:15:00+02:00',
+              },
+            },
+            {
+              tool: 'calendar.createEvent',
+              args: {
+                title: 'Meeting',
+                start: '2025-10-30T10:00:00+02:00',
+                end: '2025-10-30T10:15:00+02:00',
+                attendees: ['ha.doanmanh@gmail.com'],
+                notifyAttendees: true,
+              },
+              dependsOn: 'calendar.checkAvailability',
+            },
           ],
         },
       },
@@ -343,7 +385,16 @@ export const makePlanner = (llm: LLM): Node<RunState, RunEventBus> => async (s, 
   // 3) Try LLM planning
   if (intent) {
     const tools = getToolWhitelist();
-    const system = buildSystemPrompt(tools);
+    const allowed: AllowedToolMeta[] = tools.map((name) => {
+      try {
+        const tool = registry.get(name);
+        const required = requiredKeysFromZod(tool.in as unknown as z.ZodTypeAny);
+        return { name, required };
+      } catch {
+        return { name, required: [] };
+      }
+    });
+    const system = buildSystemPrompt(allowed);
     const user = buildUserPrompt(s, intent);
     const raw = await planWithLLM(llm, s, system, user);
 

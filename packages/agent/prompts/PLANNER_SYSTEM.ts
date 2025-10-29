@@ -16,6 +16,7 @@ export const PLANNER_SYSTEM = [
   '- Use provided ISO timestamps; do NOT fabricate times.',
   '- Treat "today" and relative dates in the provided timezone.',
   '- Do NOT expose PII beyond what is provided; attendees may be redacted.',
+  '- If any required arg is missing for a tool, omit that step entirely.',
   '- If required information is missing, DO NOT guess. Skip the step or leave args minimal.',
   '',
   'Planning guidance:',
