@@ -1,4 +1,4 @@
-import { Clock, Zap, Users, ChevronLeft, ChevronRight, Grid } from 'lucide-react';
+import { Clock, Zap, Users, ChevronLeft, ChevronRight, Grid, MessageSquare } from 'lucide-react';
 import { useNavigate, Link } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -90,6 +90,15 @@ export const Sidebar = ({
               <Grid className="h-4 w-4" />
               Apps
             </Button>
+            <Button
+              variant="ghost"
+              className="w-full justify-start gap-2 mt-1.5"
+              size="sm"
+              onClick={() => navigate('/chat')}
+            >
+              <MessageSquare className="h-4 w-4" />
+              Chat
+            </Button>
           </div>
           <div className="p-4 space-y-2 border-b border-sidebar-border">
             {filters.map((filter) => (
@@ -152,6 +161,15 @@ export const Sidebar = ({
             onClick={() => navigate('/apps')}
           >
             <Grid className="h-4 w-4" />
+          </Button>
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-10 w-10"
+            title="Chat"
+            onClick={() => navigate('/chat')}
+          >
+            <MessageSquare className="h-4 w-4" />
           </Button>
           {filters.map((filter) => (
             <Button
