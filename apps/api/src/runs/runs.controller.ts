@@ -47,6 +47,19 @@ export class RunsController {
 
   constructor(private runs: RunsService) {}
 
+  @Get()
+  async list(@Req() _req: any) {
+    // Parse query params; Nest can bind DTO but keep simple here
+    const req: any = _req;
+    const q = req.query?.q as string | undefined;
+    const page = req.query?.page ? Number(req.query.page) : undefined;
+    const pageSize = req.query?.pageSize ? Number(req.query.pageSize) : undefined;
+    const sortBy = (req.query?.sortBy as string | undefined) as any;
+    const sortDir = (req.query?.sortDir as string | undefined) as any;
+    const status = ([] as string[]).concat(req.query?.status ?? []).filter(Boolean);
+    return this.runs.list({ page, pageSize, q, status, sortBy, sortDir });
+  }
+
   @Post()
   create(@Body() body: CreateRunDto, @Req() req: any) {
     const claims = req.user || {};
@@ -100,6 +113,12 @@ export class RunsController {
   @Post(':id/undo')
   async undo(@Param('id') id: string) {
     await this.runs.undoRun(id);
+    return { ok: true };
+  }
+
+  @Post(':id/cancel')
+  async cancel(@Param('id') id: string) {
+    await this.runs.cancel(id);
     return { ok: true };
   }
 

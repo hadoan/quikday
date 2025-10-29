@@ -171,6 +171,99 @@ export class RunsService {
     return run;
   }
 
+  // ----------------------------------------------------------------------------
+  // List Runs (list projection + filters/sort/pagination)
+  // ----------------------------------------------------------------------------
+  async list(params: {
+    page?: number;
+    pageSize?: number;
+    status?: string[];
+    q?: string;
+    sortBy?: 'createdAt' | 'lastEventAt' | 'status' | 'stepCount';
+    sortDir?: 'asc' | 'desc';
+  }) {
+    const teamId = this.current.getCurrentTeamId();
+    const userId = this.current.getCurrentUserId();
+    if (!userId) throw new UnauthorizedException('Not authenticated');
+
+    const page = Math.max(1, Number(params.page ?? 1));
+    const pageSize = Math.min(100, Math.max(1, Number(params.pageSize ?? 25)));
+    const where: any = {};
+    if (teamId) where.teamId = Number(teamId);
+    if (params.status && params.status.length) where.status = { in: params.status };
+    if (params.q && params.q.trim()) {
+      const q = params.q.trim();
+      where.OR = [
+        { id: { contains: q } },
+        { prompt: { contains: q, mode: 'insensitive' } },
+      ];
+    }
+
+    // Sorting
+    let orderBy: any = { createdAt: 'desc' };
+    const dir = (params.sortDir ?? 'desc').toLowerCase() === 'asc' ? 'asc' : 'desc';
+    switch (params.sortBy) {
+      case 'status':
+        orderBy = { status: dir };
+        break;
+      case 'stepCount':
+        orderBy = { steps: { _count: dir as any } } as any; // Prisma supports relation count ordering in recent versions
+        break;
+      case 'lastEventAt':
+        // No lastEventAt column; use updatedAt as a proxy
+        orderBy = { updatedAt: dir };
+        break;
+      case 'createdAt':
+      default:
+        orderBy = { createdAt: dir };
+        break;
+    }
+
+    const [total, runs] = await this.prisma.$transaction([
+      this.prisma.run.count({ where }),
+      this.prisma.run.findMany({
+        where,
+        orderBy,
+        skip: (page - 1) * pageSize,
+        take: pageSize,
+        include: {
+          User: true,
+          _count: { select: { steps: true } } as any,
+        },
+      } as any),
+    ]);
+
+    const items = runs.map((r: any) => ({
+      id: r.id,
+      title: (r.intent as any)?.title || r.prompt?.slice(0, 80) || 'Run',
+      status: r.status,
+      createdAt: r.createdAt,
+      createdBy: { id: r.userId, name: r.User?.displayName || r.User?.email || 'User', avatar: r.User?.avatar || null },
+      kind: 'action',
+      source: ((r.config as any)?.meta?.source as string) || 'api',
+      stepCount: r._count?.steps ?? 0,
+      approvals: { required: false },
+      undo: { available: false },
+      lastEventAt: r.updatedAt,
+      tags: [],
+    }));
+
+    return { items, page, pageSize, total };
+  }
+
+  // ----------------------------------------------------------------------------
+  // Cancel Run (pre-execution)
+  // ----------------------------------------------------------------------------
+  async cancel(runId: string) {
+    const run = await this.prisma.run.findUnique({ where: { id: runId } });
+    if (!run) throw new NotFoundException('Run not found');
+    const allowed = new Set(['planning', 'queued', 'scheduled', 'awaiting_approval', 'approved']);
+    if (!allowed.has(run.status)) {
+      throw new BadRequestException('Run not cancelable in current status');
+    }
+    await this.prisma.run.update({ where: { id: runId }, data: { status: 'canceled' } });
+  }
+
   async enqueue(runId: string, opts: { delayMs?: number; scratch?: Record<string, unknown> } = {}) {
     const optsWithScratch = opts as { delayMs?: number; scratch?: Record<string, unknown> };
 

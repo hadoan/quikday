@@ -98,6 +98,9 @@ export const Sidebar = ({
                 variant="ghost"
                 className="w-full justify-start gap-2"
                 size="sm"
+                onClick={() => {
+                  if (filter.label === 'All Runs') navigate('/runs');
+                }}
               >
                 <filter.icon className="h-4 w-4" />
                 {filter.label}
@@ -157,6 +160,9 @@ export const Sidebar = ({
               size="icon"
               className="h-10 w-10"
               title={filter.label}
+              onClick={() => {
+                if (filter.label === 'All Runs') navigate('/runs');
+              }}
             >
               <filter.icon className="h-4 w-4" />
             </Button>

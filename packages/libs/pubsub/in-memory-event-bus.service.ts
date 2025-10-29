@@ -15,6 +15,10 @@ export class InMemoryEventBus implements RunEventBus {
   // dedupe window in ms
   private readonly DEDUPE_WINDOW_MS = 250;
 
+  private keyFor(runId: string, channel: PubSubChannel) {
+    return `run:${runId}:${channel}`;
+  }
+
   async publish(
     runId: string,
     event: Omit<RunEvent, 'runId' | 'ts' | 'id' | 'origin'>,
@@ -28,9 +32,12 @@ export class InMemoryEventBus implements RunEventBus {
       runId,
       ts: new Date().toISOString(),
     };
-    const key = `run:${runId}:${channel}`;
+    const key = this.keyFor(runId, channel);
     const set = this.handlers.get(key);
-    if (!set || set.size === 0) {
+    // Global subscribers (wildcard runId) for this channel
+    const globalKey = this.keyFor('*', channel);
+    const globalSet = this.handlers.get(globalKey);
+    if ((!set || set.size === 0) && (!globalSet || globalSet.size === 0)) {
       this.logger.debug({ msg: 'no handlers for run+channel', runId, channel });
       return;
     }
@@ -70,38 +77,40 @@ export class InMemoryEventBus implements RunEventBus {
       });
     }
     // Helpful debug: how many handlers/subscribers will receive this event
-    this.logger.debug({ msg: 'handlers count', runId, channel, count: set.size });
-    // Call handlers asynchronously (microtask) to avoid deep synchronous recursion
-    // if a handler itself publishes events which synchronously invoke other handlers.
-    for (const [subId, h] of Array.from(set.entries())) {
-      try {
-        this.logger.debug({
-          msg: 'delivering event to handler',
-          runId,
-          channel,
-          handlerId: subId,
-          event: full,
-        });
-        // Schedule handler invocation in a microtask and await it so exceptions
-        // can be caught here and the publish method remains async-safe.
-        await Promise.resolve().then(() => h(full));
-        this.logger.verbose({
-          msg: 'handler delivered',
-          runId,
-          channel,
-          handlerId: subId,
-          eventId: full.id,
-        });
-      } catch (e) {
-        const err = e as Error;
-        // Logger.error(message: string, trace?: string, context?: string)
-        this.logger.error(
-          `handler threw error for run ${runId} handler=${subId}: ${err?.message}`,
-          err?.stack,
-          InMemoryEventBus.name,
-        );
+    const count = (set?.size ?? 0) + (globalSet?.size ?? 0);
+    this.logger.debug({ msg: 'handlers count', runId, channel, count });
+    // Deliver to specific and global subscribers
+    const deliver = async (map?: Map<string, (e: RunEvent) => void>) => {
+      if (!map) return;
+      for (const [subId, h] of Array.from(map.entries())) {
+        try {
+          this.logger.debug({
+            msg: 'delivering event to handler',
+            runId,
+            channel,
+            handlerId: subId,
+            event: full,
+          });
+          await Promise.resolve().then(() => h(full));
+          this.logger.verbose({
+            msg: 'handler delivered',
+            runId,
+            channel,
+            handlerId: subId,
+            eventId: full.id,
+          });
+        } catch (e) {
+          const err = e as Error;
+          this.logger.error(
+            `handler threw error for run ${runId} handler=${subId}: ${err?.message}`,
+            err?.stack,
+            InMemoryEventBus.name,
+          );
+        }
       }
-    }
+    };
+    await deliver(set);
+    await deliver(globalSet);
   }
 
   on(
@@ -110,7 +119,7 @@ export class InMemoryEventBus implements RunEventBus {
     channel: PubSubChannel,
     opts?: { label?: string },
   ): () => void {
-    const key = `run:${runId}:${channel}`;
+    const key = this.keyFor(runId, channel);
     let map = this.handlers.get(key);
     if (!map) {
       map = new Map();

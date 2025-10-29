@@ -11,6 +11,7 @@ import { ThemeProvider } from '@/components/theme/ThemeProvider';
 import Index from './pages/Index';
 import Dashboard from './pages/Dashboard';
 import Apps from './pages/Apps';
+import RunsPage from './pages/Runs';
 import NotFound from './pages/NotFound';
 import ProtectedRoute from './components/auth/ProtectedRoute';
 import ApiAuthProvider from './apis/ApiAuthProvider';
@@ -67,6 +68,14 @@ const App = () => (
                 element={
                   <ProtectedRoute>
                     <Apps />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/runs"
+                element={
+                  <ProtectedRoute>
+                    <RunsPage />
                   </ProtectedRoute>
                 }
               />
