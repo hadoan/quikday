@@ -6,7 +6,7 @@ import type {
   CalendarEvent,
   CalendarAttendee,
 } from '@quikday/appstore/calendar/calendar.types';
-import { CurrentUserService } from '@quikday/libs';
+import { CurrentUserService, getCurrentUserCtx } from '@quikday/libs';
 import { PrismaService } from '@quikday/prisma';
 import { getAppKeysFromSlug } from '@quikday/appstore';
 import { google, type calendar_v3 } from 'googleapis';
@@ -161,7 +161,8 @@ export class GoogleCalendarProviderService implements CalendarService {
     expiryDate?: number;
     credentialId: number;
   }> {
-    const current = this.currentUser.getCurrentUserId();
+    // Pull from ALS first to avoid undefined when invoked from background jobs
+    const current = getCurrentUserCtx().userId ?? this.currentUser?.getCurrentUserId?.();
     if (!current) throw new Error('No current user in context');
     let userId: number | null = null;
     if (/^\d+$/.test(current)) {

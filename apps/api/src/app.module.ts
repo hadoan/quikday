@@ -20,16 +20,21 @@ import {
   CurrentUserInterceptor,
 } from '@quikday/libs';
 import { EmailModule } from '@quikday/appstore/email/email.module';
+import { CalendarModule } from '@quikday/appstore/calendar/calendar.module';
 import { GmailEmailService, GmailEmailModule } from '@quikday/appstore-gmail-email';
 import { TemplatesModule } from './templates/templates.module';
-import { GoogleCalendarModule } from '@quikday/appstore-google-calendar';
+import { GoogleCalendarModule, GoogleCalendarProviderService } from '@quikday/appstore-google-calendar';
 
 const registry = new Map();
 registry.set('gmail', GmailEmailService);
 
+const calendarRegistry = new Map();
+calendarRegistry.set('google', GoogleCalendarProviderService);
+
 @Module({
   imports: [
     EmailModule.register({ registry }),
+    CalendarModule.register({ registry: calendarRegistry }),
     // Ensure GmailEmailService is a registered provider so tools can resolve it via ModuleRef
     GmailEmailModule,
     // Ensure GoogleCalendarProviderService is available to ModuleRef for agent tools

@@ -2,6 +2,7 @@
 import type { Node } from '../runtime/graph';
 import type { RunState } from '../state/types';
 import type { RunEventBus } from '@quikday/libs';
+import { runWithCurrentUser } from '@quikday/libs';
 import { CHANNEL_WEBSOCKET } from '@quikday/libs';
 import { registry } from '../registry/registry';
 import { events } from '../observability/events';
@@ -115,11 +116,18 @@ export const executor: Node<RunState, RunEventBus> = async (s, eventBus) => {
     const t0 = globalThis.performance?.now?.() ?? Date.now();
 
     try {
-      const result = await withRetry(() => registry.call(step.tool, args, s.ctx), {
+      const result = await withRetry(
+        () =>
+          runWithCurrentUser(
+            { userId: s.ctx.userId, teamId: s.ctx.teamId ?? null, scopes: s.ctx.scopes },
+            () => registry.call(step.tool, args, s.ctx),
+          ),
+        {
         retries: 3,
         baseMs: 500,
         maxMs: 5_000,
-      });
+      },
+      );
 
       const duration = (globalThis.performance?.now?.() ?? Date.now()) - t0;
 
