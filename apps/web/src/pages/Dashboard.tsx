@@ -49,7 +49,7 @@ export default function DashboardPage() {
 
   const prefillPush = (text: string) => {
     const msg = stripControls(text || '').slice(0, 2000);
-    navigate(`/chat?prefill=${encodeURIComponent(msg)}&autosend=1`);
+    navigate(`/chat?prefill=${encodeURIComponent(msg)}`);
   };
 
   const onCreateTemplate = async () => {

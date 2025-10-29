@@ -73,6 +73,8 @@ export interface RunError {
   message: string;
   stack?: string;
 }
+
+
 export interface RunState {
   input: { prompt: string; messages?: ChatMessage[]; attachments?: unknown };
   mode: RunMode;
@@ -86,8 +88,8 @@ export interface RunState {
     // internal routing/fallback info added by guards/policy
     fallbackReason?: string;
     fallbackDetails?: unknown;
-    missing?: Question[];                   // planner can drop questions here
-    answers?: Record<string, string>;       // user-provided answers by key
+
+    answeredQuestions?: Record<string, string>;       // user-provided answers by key
     awaiting?: {                            // when we pause the run
       reason: 'missing_info';
       questions: Question[];
@@ -97,7 +99,6 @@ export interface RunState {
   output?: {
     summary?: string;
     diff?: {
-      questions?: Question[];
       steps?: any[];
       summary?: string;
       intentDesc?: string;

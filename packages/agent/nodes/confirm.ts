@@ -12,32 +12,7 @@ export const confirm: Node<RunState, RunEventBus> = async (s, eventBus) => {
   const envFlag = (process.env.AGENT_APPROVALS_ENABLED ?? 'false').toString().toLowerCase();
   const approvalsEnabled = typeof metaFlag === 'boolean' ? metaFlag : envFlag === 'true';
 
-  const questions =
-    s.output?.diff?.questions ??
-    s.scratch?.missing ??
-    [];
-
-  // Check if all questions have answers already
-  const answers = s.scratch?.answers ?? {};
-  const unanswered = questions.filter(q => !answers[q.key]);
-
-  if (unanswered.length > 0) {
-    // Mark the run as waiting and emit an event for the UI
-    s.scratch = {
-      ...s.scratch,
-      awaiting: {
-        type: 'input' as const,
-        questions: unanswered,
-        askedAt: new Date().toISOString(),
-      } as any,
-    } as any;
-
-    // Tell clients we’re waiting for input (WS)
-    events.awaitingInput(s, eventBus, unanswered);
-
-    // We *end* the graph here; UI will POST answers to /runs/:id/confirm to resume
-    return { output: { ...s.output } };
-  }
+  // Missing-input prompting moved to classify stage; no questions handling here.
 
   s.scratch = { ...s.scratch, awaiting: null };
   const policy = (s.ctx as any).meta?.policy;

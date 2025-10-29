@@ -5,17 +5,19 @@ import type { RunCtx } from '../../state/types';
 /**
  * Input & Output schemas
  */
-const In = z.object({
+export const SlackPostMessageIn = z.object({
   channel: z.string().regex(/^#?[a-z0-9_-]+$/i),
   text: z.string().min(1),
 });
 
-const Out = z.object({
+export const SlackPostMessageOut = z.object({
   ok: z.boolean(),
   channel: z.string(),
   ts: z.string().optional(),
   url: z.string().optional(),
 });
+export type SlackPostMessageArgs = z.infer<typeof SlackPostMessageIn>;
+export type SlackPostMessageResult = z.infer<typeof SlackPostMessageOut>;
 
 /**
  * Tries, in order:
@@ -54,21 +56,21 @@ async function postToSlack(
  * Tool definition compatible with your ToolRegistry:
  *  - name/in/out/scopes/rate/risk/call fields
  */
-export const slackPostMessage: Tool<z.infer<typeof In>, z.infer<typeof Out>> = {
+export const slackPostMessage: Tool<z.infer<typeof SlackPostMessageIn>, z.infer<typeof SlackPostMessageOut>> = {
   name: 'slack.postMessage',
-  in: In,
-  out: Out,
+  in: SlackPostMessageIn,
+  out: SlackPostMessageOut,
   scopes: ['slack:write'], // least-privilege scope checked by requireScopes()
   rate: '60/m', // works with your checkRate("N/m" | "N/s")
   risk: 'low',
 
   async call(args, ctx: RunCtx) {
-    const { channel, text } = In.parse(args);
+    const { channel, text } = SlackPostMessageIn.parse(args);
     const channelNorm = channel.startsWith('#') ? channel : `#${channel}`;
 
     const res = await postToSlack(channelNorm, text, ctx);
 
-    return Out.parse({
+    return SlackPostMessageOut.parse({
       ok: res.ok ?? true,
       channel: channelNorm,
       ts: res.ts,

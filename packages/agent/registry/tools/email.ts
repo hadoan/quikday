@@ -4,7 +4,7 @@ import type { RunCtx } from '../../state/types';
 import { ModuleRef } from '@nestjs/core';
 // ---------------- email.send ----------------
 // Re-declare schema locally to avoid cross-package Zod instance issues
-const EmailSendIn = z.object({
+export const EmailSendIn = z.object({
     to: z.string().describe('Recipient email address or comma-separated list of addresses'),
     subject: z.string().describe('Email subject line'),
     body: z.string().describe('Email body content (plain text or HTML)'),
@@ -16,7 +16,7 @@ const EmailSendIn = z.object({
     provider: z.string().optional().describe('Optional provider hint, e.g., gmail'),
 });
 
-const EmailSendOut = z.object({
+export const EmailSendOut = z.object({
     ok: z.boolean(),
     to: z.array(z.string()),
     subject: z.string(),
@@ -50,6 +50,9 @@ async function resolveEmailService(moduleRef: ModuleRef): Promise<any> {
     const GmailEmailService = (m as any).GmailEmailService;
     return moduleRef.get(GmailEmailService as any, { strict: false }) as any;
 }
+
+export type EmailSendArgs = z.infer<typeof EmailSendIn>;
+export type EmailSendResult = z.infer<typeof EmailSendOut>;
 
 export function emailSend(moduleRef: ModuleRef): Tool<z.infer<typeof EmailSendIn>, z.infer<typeof EmailSendOut>> {
     return {
@@ -119,7 +122,7 @@ export function emailSend(moduleRef: ModuleRef): Tool<z.infer<typeof EmailSendIn
 }
 // ---------------- email.read ----------------
 
-const EmailReadIn = z.object({
+export const EmailReadIn = z.object({
     query: z.string().optional().describe('Search query (provider-specific syntax)'),
     limit: z.number().int().positive().max(50).default(10),
     from: z.string().optional(),
@@ -127,7 +130,7 @@ const EmailReadIn = z.object({
     newerThanDays: z.number().int().positive().max(365).optional(),
 });
 
-const EmailReadOut = z.object({
+export const EmailReadOut = z.object({
     ok: z.boolean(),
     count: z.number().int().nonnegative(),
     messages: z.array(
@@ -142,6 +145,9 @@ const EmailReadOut = z.object({
         }),
     ),
 });
+
+export type EmailReadArgs = z.infer<typeof EmailReadIn>;
+export type EmailReadResult = z.infer<typeof EmailReadOut>;
 
 export function emailRead(moduleRef: ModuleRef): Tool<z.infer<typeof EmailReadIn>, z.infer<typeof EmailReadOut>> {
     return {
@@ -180,8 +186,8 @@ export function emailRead(moduleRef: ModuleRef): Tool<z.infer<typeof EmailReadIn
 }
 
 // ---------------- email.message.get ----------------
-const EmailMessageGetIn = z.object({ messageId: z.string() });
-const EmailMessageGetOut = z.object({
+export const EmailMessageGetIn = z.object({ messageId: z.string() });
+export const EmailMessageGetOut = z.object({
     ok: z.boolean(),
     message: z
         .object({
@@ -197,6 +203,9 @@ const EmailMessageGetOut = z.object({
         })
         .optional(),
 });
+
+export type EmailMessageGetArgs = z.infer<typeof EmailMessageGetIn>;
+export type EmailMessageGetResult = z.infer<typeof EmailMessageGetOut>;
 
 export function emailMessageGet(moduleRef: ModuleRef): Tool<z.infer<typeof EmailMessageGetIn>, z.infer<typeof EmailMessageGetOut>> {
     return {
@@ -229,8 +238,8 @@ export function emailMessageGet(moduleRef: ModuleRef): Tool<z.infer<typeof Email
 }
 
 // ---------------- email.thread.get ----------------
-const EmailThreadGetIn = z.object({ threadId: z.string() });
-const EmailThreadGetOut = z.object({
+export const EmailThreadGetIn = z.object({ threadId: z.string() });
+export const EmailThreadGetOut = z.object({
     ok: z.boolean(),
     messages: z.array(
         z.object({
@@ -243,6 +252,9 @@ const EmailThreadGetOut = z.object({
         }),
     ),
 });
+
+export type EmailThreadGetArgs = z.infer<typeof EmailThreadGetIn>;
+export type EmailThreadGetResult = z.infer<typeof EmailThreadGetOut>;
 
 export function emailThreadGet(moduleRef: ModuleRef): Tool<z.infer<typeof EmailThreadGetIn>, z.infer<typeof EmailThreadGetOut>> {
     return {
@@ -270,7 +282,7 @@ export function emailThreadGet(moduleRef: ModuleRef): Tool<z.infer<typeof EmailT
 }
 
 // ---------------- email.draft.create ----------------
-const EmailDraftCreateIn = z.object({
+export const EmailDraftCreateIn = z.object({
     to: z.string(),
     subject: z.string(),
     body: z.string(),
@@ -278,7 +290,10 @@ const EmailDraftCreateIn = z.object({
     bcc: z.string().optional(),
     isHtml: z.boolean().optional().default(false),
 });
-const EmailDraftCreateOut = z.object({ ok: z.boolean(), draftId: z.string(), threadId: z.string().optional() });
+export const EmailDraftCreateOut = z.object({ ok: z.boolean(), draftId: z.string(), threadId: z.string().optional() });
+
+export type EmailDraftCreateArgs = z.infer<typeof EmailDraftCreateIn>;
+export type EmailDraftCreateResult = z.infer<typeof EmailDraftCreateOut>;
 
 export function emailDraftCreate(moduleRef: ModuleRef): Tool<z.infer<typeof EmailDraftCreateIn>, z.infer<typeof EmailDraftCreateOut>> {
     return {
@@ -310,8 +325,11 @@ export function emailDraftCreate(moduleRef: ModuleRef): Tool<z.infer<typeof Emai
 }
 
 // ---------------- email.draft.send ----------------
-const EmailDraftSendIn = z.object({ draftId: z.string() });
-const EmailDraftSendOut = z.object({ ok: z.boolean(), messageId: z.string(), threadId: z.string() });
+export const EmailDraftSendIn = z.object({ draftId: z.string() });
+export const EmailDraftSendOut = z.object({ ok: z.boolean(), messageId: z.string(), threadId: z.string() });
+
+export type EmailDraftSendArgs = z.infer<typeof EmailDraftSendIn>;
+export type EmailDraftSendResult = z.infer<typeof EmailDraftSendOut>;
 
 export function emailDraftSend(moduleRef: ModuleRef): Tool<z.infer<typeof EmailDraftSendIn>, z.infer<typeof EmailDraftSendOut>> {
     return {
@@ -331,13 +349,16 @@ export function emailDraftSend(moduleRef: ModuleRef): Tool<z.infer<typeof EmailD
 }
 
 // ---------------- email.labels.change ----------------
-const EmailLabelsChangeIn = z.object({
+export const EmailLabelsChangeIn = z.object({
     threadId: z.string().optional(),
     messageId: z.string().optional(),
     add: z.array(z.string()).optional(),
     remove: z.array(z.string()).optional(),
 }).refine((x) => !!x.threadId || !!x.messageId, { message: 'Either threadId or messageId is required' });
-const EmailLabelsChangeOut = z.object({ ok: z.boolean() });
+export const EmailLabelsChangeOut = z.object({ ok: z.boolean() });
+
+export type EmailLabelsChangeArgs = z.infer<typeof EmailLabelsChangeIn>;
+export type EmailLabelsChangeResult = z.infer<typeof EmailLabelsChangeOut>;
 
 export function emailLabelsChange(moduleRef: ModuleRef): Tool<z.infer<typeof EmailLabelsChangeIn>, z.infer<typeof EmailLabelsChangeOut>> {
     return {
@@ -357,8 +378,11 @@ export function emailLabelsChange(moduleRef: ModuleRef): Tool<z.infer<typeof Ema
 }
 
 // ---------------- email.archive ----------------
-const EmailArchiveIn = z.object({ threadId: z.string().optional(), messageId: z.string().optional() }).refine((x) => !!x.threadId || !!x.messageId, { message: 'Either threadId or messageId is required' });
-const EmailArchiveOut = z.object({ ok: z.boolean() });
+export const EmailArchiveIn = z.object({ threadId: z.string().optional(), messageId: z.string().optional() }).refine((x) => !!x.threadId || !!x.messageId, { message: 'Either threadId or messageId is required' });
+export const EmailArchiveOut = z.object({ ok: z.boolean() });
+
+export type EmailArchiveArgs = z.infer<typeof EmailArchiveIn>;
+export type EmailArchiveResult = z.infer<typeof EmailArchiveOut>;
 
 export function emailArchive(moduleRef: ModuleRef): Tool<z.infer<typeof EmailArchiveIn>, z.infer<typeof EmailArchiveOut>> {
     return {
@@ -378,12 +402,15 @@ export function emailArchive(moduleRef: ModuleRef): Tool<z.infer<typeof EmailArc
 }
 
 // ---------------- email.snooze ----------------
-const EmailSnoozeIn = z.object({
+export const EmailSnoozeIn = z.object({
     threadId: z.string().optional(),
     messageId: z.string().optional(),
     until: z.string().datetime().describe('ISO datetime when the email should unsnooze'),
 }).refine((x) => !!x.threadId || !!x.messageId, { message: 'Either threadId or messageId is required' });
-const EmailSnoozeOut = z.object({ ok: z.boolean() });
+export const EmailSnoozeOut = z.object({ ok: z.boolean() });
+
+export type EmailSnoozeArgs = z.infer<typeof EmailSnoozeIn>;
+export type EmailSnoozeResult = z.infer<typeof EmailSnoozeOut>;
 
 export function emailSnooze(moduleRef: ModuleRef): Tool<z.infer<typeof EmailSnoozeIn>, z.infer<typeof EmailSnoozeOut>> {
     return {

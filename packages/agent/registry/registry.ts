@@ -27,6 +27,11 @@ export class ToolRegistry {
     return t;
   }
 
+  // List all registered tool names
+  names(): string[] {
+    return Array.from(this.tools.keys());
+  }
+
   async call<TIn, TOut>(name: string, args: TIn, ctx: any): Promise<TOut> {
     const tool = this.get(name) as Tool<TIn, TOut>;
     requireScopes(ctx.scopes, tool.scopes);

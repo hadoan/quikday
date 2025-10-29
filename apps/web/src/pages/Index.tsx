@@ -43,11 +43,9 @@ const Index = () => {
   const [questions, setQuestions] = useState<Question[]>([]);
   const activeRun = runs.find((run) => run.id === activeRunId);
   const bottomRef = useRef<HTMLDivElement | null>(null);
-  const autoSentRef = useRef(false);
   const navigate = useNavigate();
   const location = useLocation();
   const [prefill, setPrefill] = useState<string | undefined>(undefined);
-  const [inputResetKey, setInputResetKey] = useState(0);
 
   // Initialize data source
   const dataSource = getDataSource();
@@ -515,29 +513,7 @@ const Index = () => {
     }
   };
 
-  // If navigated with ?prefill=...&autosend=1, auto-send as if user pressed Enter
-  useEffect(() => {
-    try {
-      const sp = new URLSearchParams(location.search);
-      const hasAuto = sp.has('autosend');
-      if (!hasAuto) {
-        autoSentRef.current = false;
-        return;
-      }
-      if (hasAuto && !autoSentRef.current) {
-        const text = (prefill || '').trim();
-        if (text) {
-          autoSentRef.current = true;
-          void handleNewPrompt(text);
-          setPrefill(undefined);
-          navigate('/chat', { replace: true });
-          setInputResetKey((k) => k + 1);
-        }
-      }
-    } catch {
-      // ignore
-    }
-  }, [location.search, prefill]);
+  // No autosend; when navigated with ?prefill, show in chatbox only.
 
   const handleNewTask = () => {
     const newId = `R-${Date.now()}`;
@@ -655,7 +631,7 @@ const Index = () => {
         {/* Input Area */}
         <div className="border-t border-border bg-card p-6">
           <div className="max-w-4xl mx-auto">
-            <PromptInput key={inputResetKey} onSubmit={handleNewPrompt} initialValue={prefill} />
+            <PromptInput onSubmit={handleNewPrompt} initialValue={prefill} />
           </div>
         </div>
       </div>
