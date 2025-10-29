@@ -92,8 +92,6 @@ export interface RunState {
     // Collected answers keyed by input key. May include values persisted
     // from previous pauses (merged by the worker on resume).
     answers?: Record<string, unknown>;
-    // Legacy field used by some callers; merged into `answers` when present.
-    answeredQuestions?: Record<string, string>;
     awaiting?: {                            // when we pause the run
       reason: 'missing_info';
       questions: Question[];

@@ -36,10 +36,7 @@ export const confirm: Node<RunState, RunEventBus> = async (s, eventBus) => {
 
     if (missing.length > 0 && inputs.length > 0) {
       // Collect already known answers to avoid re-asking
-      const providedAnswers: Record<string, unknown> = {
-        ...(s.scratch?.answers ?? {}),
-        ...(s.scratch?.answeredQuestions ?? {}),
-      };
+      const providedAnswers: Record<string, unknown> = { ...(s.scratch?.answers ?? {}) };
       const inputValues: Record<string, unknown> = (meta?.inputValues as Record<string, unknown> | undefined) ?? {};
 
       const unresolved = missing.filter((k) => {
