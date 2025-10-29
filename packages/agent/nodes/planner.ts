@@ -133,8 +133,10 @@ async function planWithLLM(llm: LLM, s: RunState, system: string, user: string):
 
 /* ------------------ Prompts (include inputs + today/tz, valid_inputs as dict) ------------------ */
 
-function buildSystemPrompt() {
-  return PLANNER_SYSTEM;
+function buildSystemPrompt(tools: string[]) {
+  const list = (tools || []).map((t) => `- ${t}`).join('\n');
+  const header = list.length > 0 ? `\nAllowed tools:\n${list}\n` : '';
+  return `${PLANNER_SYSTEM}${header}`;
 }
 
 function buildUserPrompt(s: RunState, intent: IntentId) {
@@ -340,7 +342,8 @@ export const makePlanner = (llm: LLM): Node<RunState, RunEventBus> => async (s, 
 
   // 3) Try LLM planning
   if (intent) {
-    const system = buildSystemPrompt();
+    const tools = getToolWhitelist();
+    const system = buildSystemPrompt(tools);
     const user = buildUserPrompt(s, intent);
     const raw = await planWithLLM(llm, s, system, user);
 
