@@ -2,16 +2,17 @@ import { Inject, Injectable, Logger } from '@nestjs/common';
 import { CALENDAR_REGISTRY } from './calendar.tokens.js';
 import type { CalendarService } from './calendar.service.js';
 import type { CalendarProviderId } from './calendar.types.js';
+import { CurrentUserService } from '@quikday/libs';
+import { PrismaService } from '@quikday/prisma';
 
-export type CalendarCtor = new (...args: any[]) => CalendarService;
+export type CalendarCtor = new (
+  currentUser: CurrentUserService,
+  prisma: PrismaService,
+) => CalendarService;
 
-export interface CalendarConnection {
-  id: string; // connectionId
-  provider: CalendarProviderId; // 'google' | 'outlook'
-  accessToken?: string;
-  refreshToken?: string;
-  tenantId?: string; // for Outlook
-  meta?: Record<string, any>;
+export interface CalendarFactoryDeps {
+  currentUser: CurrentUserService;
+  prisma: PrismaService;
 }
 
 @Injectable()
@@ -21,12 +22,12 @@ export class CalendarFactory {
     @Inject(CALENDAR_REGISTRY) private readonly registry: Map<CalendarProviderId, CalendarCtor>,
   ) {}
 
-  createFromConnection(conn: CalendarConnection): CalendarService {
-    const Ctor = this.registry.get(conn.provider);
+  create(provider: CalendarProviderId, deps: CalendarFactoryDeps): CalendarService {
+    const Ctor = this.registry.get(provider);
     if (!Ctor) {
-      this.logger.error(`No CalendarService registered for provider=${conn.provider}`);
-      throw new Error(`Unsupported calendar provider: ${conn.provider}`);
+      this.logger.error(`No CalendarService registered for provider=${provider}`);
+      throw new Error(`Unsupported calendar provider: ${provider}`);
     }
-    return new Ctor(conn);
+    return new Ctor(deps.currentUser, deps.prisma);
   }
 }

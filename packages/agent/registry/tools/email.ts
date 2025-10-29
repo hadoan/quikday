@@ -2,6 +2,10 @@ import { z } from 'zod';
 import type { Tool } from '../types';
 import type { RunCtx } from '../../state/types';
 import { ModuleRef } from '@nestjs/core';
+import { EMAIL_FACTORY } from '@quikday/appstore/email/email.tokens';
+import type { EmailFactory } from '@quikday/appstore/email/email.factory';
+import { CurrentUserService } from '@quikday/libs';
+import { PrismaService } from '@quikday/prisma';
 // ---------------- email.send ----------------
 // Re-declare schema locally to avoid cross-package Zod instance issues
 export const EmailSendIn = z.object({
@@ -51,6 +55,19 @@ async function getEmailUtils() {
 }
 
 async function resolveEmailService(moduleRef: ModuleRef): Promise<any> {
+  // Prefer factory to construct provider with proper deps
+  const factory = moduleRef.get(EMAIL_FACTORY as any, { strict: false }) as
+    | EmailFactory
+    | undefined;
+  if (factory && typeof (factory as any).create === 'function') {
+    const currentUser = moduleRef.get(CurrentUserService, { strict: false });
+    const prisma = moduleRef.get(PrismaService, { strict: false });
+    if (!currentUser || !prisma) throw new Error('Missing CurrentUserService or PrismaService');
+    // For now default to gmail provider
+    return (factory as any).create('gmail', { currentUser, prisma });
+  }
+
+  // Fallback: resolve concrete service
   const m = await import('@quikday/appstore-gmail-email');
   const GmailEmailService = (m as any).GmailEmailService;
   return moduleRef.get(GmailEmailService as any, { strict: false }) as any;

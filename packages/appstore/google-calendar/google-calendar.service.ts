@@ -17,13 +17,13 @@ export class GoogleCalendarProviderService implements CalendarService {
   private readonly logger = new Logger('GoogleCalendarProviderService');
 
   constructor(
-    private readonly currentUser: CurrentUserService,
-    private readonly prisma: PrismaService,
-  ) {}
+    private currentUser: CurrentUserService,
+    private prisma: PrismaService,
+  ) { }
 
   async checkAvailability(query: AvailabilityQuery): Promise<AvailabilityResult> {
     this.logger.log(this.format({ op: 'checkAvailability', start: query.start, end: query.end }));
-    const { calendar } = await this.getGoogleClient();
+    const { calendar } = await this.getGoogleClient(this.prisma, this.currentUser);
     try {
       const resp = await calendar.freebusy.query({
         requestBody: {
@@ -48,7 +48,7 @@ export class GoogleCalendarProviderService implements CalendarService {
     event: Omit<CalendarEvent, 'id'> & { notifyAttendees?: boolean },
   ): Promise<{ id: string; htmlLink?: string; start: Date; end: Date }> {
     this.logger.log(this.format({ op: 'createEvent', title: event.title }));
-    const { calendar, credentialId, oauth2Client } = await this.getGoogleClient();
+    const { calendar, credentialId, oauth2Client } = await this.getGoogleClient(this.prisma, this.currentUser);
 
     const attendees = this.mapAttendees(event.attendees ?? []);
     const sendUpdates: 'all' | 'none' = event.notifyAttendees === false ? 'none' : 'all';
@@ -87,7 +87,7 @@ export class GoogleCalendarProviderService implements CalendarService {
 
   async getEvent(id: string): Promise<CalendarEvent | null> {
     this.logger.log(this.format({ op: 'getEvent', id }));
-    const { calendar } = await this.getGoogleClient();
+    const { calendar } = await this.getGoogleClient(this.prisma, this.currentUser);
     try {
       const resp = await calendar.events.get({ calendarId: 'primary', eventId: id });
       const data = resp.data;
@@ -96,12 +96,12 @@ export class GoogleCalendarProviderService implements CalendarService {
       const endIso = data.end?.dateTime || data.end?.date;
       const attendees = Array.isArray(data.attendees)
         ? data.attendees
-            .map((a) =>
-              a?.email
-                ? ({ email: a.email!, name: a.displayName ?? undefined } as CalendarAttendee)
-                : null,
-            )
-            .filter((x): x is CalendarAttendee => !!x)
+          .map((a) =>
+            a?.email
+              ? ({ email: a.email!, name: a.displayName ?? undefined } as CalendarAttendee)
+              : null,
+          )
+          .filter((x): x is CalendarAttendee => !!x)
         : undefined;
       return {
         id: data.id || id,
@@ -128,22 +128,25 @@ export class GoogleCalendarProviderService implements CalendarService {
       .map((a) =>
         a?.email
           ? ({
-              email: a.email,
-              displayName: a.name,
-              optional: a.optional,
-            } as calendar_v3.Schema$EventAttendee)
+            email: a.email,
+            displayName: a.name,
+            optional: a.optional,
+          } as calendar_v3.Schema$EventAttendee)
           : null,
       )
       .filter((x): x is calendar_v3.Schema$EventAttendee => !!x);
   }
 
-  private async getGoogleClient(): Promise<{
+  private async getGoogleClient(
+    prisma: PrismaService,
+    currentUser: CurrentUserService,
+  ): Promise<{
     calendar: calendar_v3.Calendar;
     oauth2Client: any;
     credentialId: number;
   }> {
     const { accessToken, refreshToken, expiryDate, credentialId } =
-      await this.resolveAccessContext();
+      await this.resolveAccessContext(prisma, currentUser);
     const { clientId, clientSecret } = await this.getOAuthCredentials();
     const oauth2Client = new google.auth.OAuth2(clientId, clientSecret);
     oauth2Client.setCredentials({
@@ -155,25 +158,25 @@ export class GoogleCalendarProviderService implements CalendarService {
     return { calendar, oauth2Client, credentialId };
   }
 
-  private async resolveAccessContext(): Promise<{
+  private async resolveAccessContext(prisma: PrismaService, currentUser: CurrentUserService): Promise<{
     accessToken: string;
     refreshToken?: string | null;
     expiryDate?: number;
     credentialId: number;
   }> {
     // Pull from ALS first to avoid undefined when invoked from background jobs
-    const current = getCurrentUserCtx().userId ?? this.currentUser?.getCurrentUserId?.();
+    const current = currentUser.getCurrentUserId();
     if (!current) throw new Error('No current user in context');
     let userId: number | null = null;
     if (/^\d+$/.test(current)) {
       userId = Number(current);
     } else {
-      const user = await this.prisma.user.findUnique({ where: { sub: current } });
+      const user = await prisma.user.findUnique({ where: { sub: current } });
       if (!user) throw new Error('User not found for provided subject');
       userId = user.id;
     }
 
-    const credential = await this.prisma.credential.findFirst({
+    const credential = await prisma.credential.findFirst({
       where: { userId, appId: 'google-calendar', invalid: false },
       orderBy: { createdAt: 'desc' },
     });

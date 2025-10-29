@@ -1,6 +1,10 @@
 import { z } from 'zod';
 import type { Tool } from '../types';
 import { ModuleRef } from '@nestjs/core';
+import { CALENDAR_FACTORY } from '@quikday/appstore/calendar/calendar.tokens';
+import type { CalendarFactory } from '@quikday/appstore/calendar/calendar.factory';
+import { CurrentUserService } from '@quikday/libs';
+import { PrismaService } from '@quikday/prisma';
 
 // Shared schemas
 const iso = z.string().min(10);
@@ -123,6 +127,18 @@ export function calendarCreateEvent(
 }
 
 async function resolveGoogleCalendarService(moduleRef: ModuleRef): Promise<any> {
+  // Prefer factory so services get constructed with proper dependencies
+  const factory = moduleRef.get(CALENDAR_FACTORY as any, { strict: false }) as
+    | CalendarFactory
+    | undefined;
+  if (factory && typeof (factory as any).create === 'function') {
+    const currentUser = moduleRef.get(CurrentUserService, { strict: false });
+    const prisma = moduleRef.get(PrismaService, { strict: false });
+    if (!currentUser || !prisma) throw new Error('Missing CurrentUserService or PrismaService');
+    return (factory as any).create('google', { currentUser, prisma });
+  }
+
+  // Fallback: resolve concrete service directly for compatibility
   const m = await import('@quikday/appstore-google-calendar');
   const GoogleCalendarProviderService = (m as any).GoogleCalendarProviderService;
   const svc = moduleRef.get(GoogleCalendarProviderService as any, { strict: false });

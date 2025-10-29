@@ -2,17 +2,17 @@ import { Inject, Injectable, Logger } from '@nestjs/common';
 import { EMAIL_REGISTRY } from './email.tokens.js';
 import type { EmailService } from './email.service.js';
 import type { EmailProviderId } from './email.types.js';
+import { CurrentUserService } from '@quikday/libs';
+import { PrismaService } from '@quikday/prisma';
 
-export type EmailCtor = new (...args: any[]) => EmailService;
+export type EmailCtor = new (
+  currentUser: CurrentUserService,
+  prisma: PrismaService,
+) => EmailService;
 
-export interface EmailConnection {
-  id: string; // connectionId
-  provider: EmailProviderId; // 'gmail' | 'outlook'
-  // token payloads (encrypted at rest):
-  accessToken?: string;
-  refreshToken?: string;
-  tenantId?: string; // for Outlook
-  meta?: Record<string, any>;
+export interface EmailFactoryDeps {
+  currentUser: CurrentUserService;
+  prisma: PrismaService;
 }
 
 @Injectable()
@@ -20,18 +20,12 @@ export class EmailFactory {
   private logger = new Logger(EmailFactory.name);
   constructor(@Inject(EMAIL_REGISTRY) private readonly registry: Map<EmailProviderId, EmailCtor>) {}
 
-  /**
-   * Build a provider-specific EmailService instance from a connection snapshot.
-   * Scope tokens here; do NOT share across requests.
-   */
-  createFromConnection(conn: EmailConnection): EmailService {
-    const Ctor = this.registry.get(conn.provider);
+  create(provider: EmailProviderId, deps: EmailFactoryDeps): EmailService {
+    const Ctor = this.registry.get(provider);
     if (!Ctor) {
-      this.logger.error(`No EmailService registered for provider=${conn.provider}`);
-      throw new Error(`Unsupported provider: ${conn.provider}`);
+      this.logger.error(`No EmailService registered for provider=${provider}`);
+      throw new Error(`Unsupported provider: ${provider}`);
     }
-    // Each provider’s constructor should accept a minimal creds bag
-    // to keep DI clean (no SDKs leaking into domain).
-    return new Ctor(conn);
+    return new Ctor(deps.currentUser, deps.prisma);
   }
 }
