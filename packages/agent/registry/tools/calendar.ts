@@ -33,10 +33,16 @@ export function calendarCheckAvailability(moduleRef: ModuleRef): Tool<
     risk: 'low',
     async call(args) {
       try {
+        console.log("------------------------ calendar.checkAvailability called with args:", args);
         const svc = await resolveGoogleCalendarService(moduleRef);
         const res = await svc.checkAvailability({ start: new Date(args.start), end: new Date(args.end) });
         return { available: !!res.available, start: args.start, end: args.end };
-      } catch {
+      } catch (err) {
+        console.warn('[calendar.checkAvailability] failed, falling back to unavailable', {
+          start: args.start,
+          end: args.end,
+          error: err instanceof Error ? err.message : String(err),
+        });
         return { available: false, start: args.start, end: args.end };
       }
     },
@@ -84,7 +90,14 @@ export function calendarCreateEvent(moduleRef: ModuleRef): Tool<
           notifyAttendees: args.notifyAttendees,
         } as any);
         return { ok: true, eventId: res.id, htmlLink: res.htmlLink, start: args.start, end: args.end };
-      } catch {
+      } catch (err) {
+        console.warn('[calendar.createEvent] failed, returning stub event', {
+          title: args.title,
+          start: args.start,
+          end: args.end,
+          attendeesCount: Array.isArray(attendees) ? attendees.length : 0,
+          error: err instanceof Error ? err.message : String(err),
+        });
         // Fallback stub on error
         const eventId = `evt_${Math.random().toString(36).slice(2, 10)}`;
         return { ok: true, eventId, start: args.start, end: args.end };
@@ -139,7 +152,12 @@ export function calendarListEvents(moduleRef: ModuleRef): Tool<z.infer<typeof Ca
             ? res.items.map((e: any) => ({ id: String(e.id), title: e.title ?? e.summary, start: new Date(e.start).toISOString(), end: new Date(e.end).toISOString(), attendeesCount: Array.isArray(e.attendees) ? e.attendees.length : undefined }))
             : [];
           return CalendarListOut.parse({ ok: true, nextPageToken: res?.nextPageToken, items });
-        } catch {
+        } catch (err) {
+          console.warn('[calendar.listEvents] failed, returning empty list', {
+            start: args.start,
+            end: args.end,
+            error: err instanceof Error ? err.message : String(err),
+          });
           // fallthrough to stub
         }
       }
@@ -320,7 +338,12 @@ export function calendarSuggestSlots(moduleRef: ModuleRef): Tool<z.infer<typeof 
           if (ok?.available) {
             slots.push({ start: c.start.toISOString(), end: c.end.toISOString() });
           }
-        } catch {
+        } catch (err) {
+          console.warn('[calendar.suggestSlots] availability check failed for candidate', {
+            start: c.start.toISOString(),
+            end: c.end.toISOString(),
+            error: err instanceof Error ? err.message : String(err),
+          });
           // ignore errors and continue
         }
       }
