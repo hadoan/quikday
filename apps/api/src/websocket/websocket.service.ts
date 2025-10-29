@@ -8,7 +8,7 @@ import type { RunEventBus } from '@quikday/libs/pubsub/event-bus';
 import { CHANNEL_WEBSOCKET } from '@quikday/libs';
 
 interface ConnectionState {
-  runId: string;
+  runId: string; // "*" for list-level stream
   unsubscribe?: () => void; // Redis unsubscribe function
   lastStatus?: string;
   lastStepCount: number;
@@ -64,19 +64,50 @@ export class WebSocketService implements OnModuleDestroy {
     // connection-specific label so the event bus can generate meaningful
     // handler IDs (e.g., ws-3a6b27e6-XXXX).
     const connId = randomUUID().slice(0, 8);
-    const handler = (event: any) => {
+    const handler = async (event: any) => {
+      // For list-level connections (runId === '*'), translate into runs.upsert payloads
+      if (runId === '*') {
+        try {
+          const rid = event.runId as string;
+          const run = await this.prisma.run.findUnique({
+            where: { id: rid },
+            include: { User: true, _count: { select: { steps: true } } as any },
+          } as any);
+          if (!run) return;
+          const runAny: any = run;
+          const projection = {
+            id: run.id,
+            title: (run.intent as any)?.title || run.prompt?.slice(0, 80) || 'Run',
+            status: run.status,
+            createdAt: run.createdAt,
+            createdBy: { id: run.userId, name: runAny.User?.displayName || runAny.User?.email || 'User', avatar: runAny.User?.avatar || null },
+            kind: 'action',
+            source: ((run.config as any)?.meta?.source as string) || 'api',
+            stepCount: runAny._count?.steps ?? 0,
+            approvals: { required: false },
+            undo: { available: false },
+            lastEventAt: new Date(event.ts || Date.now()).toISOString(),
+            tags: [],
+          };
+          this.sendMessage(ws, { type: 'runs.upsert', payload: { runId: rid, projection } });
+          return;
+        } catch (e) {
+          this.logger.debug('Failed to build list projection', { error: (e as any)?.message });
+          return;
+        }
+      }
+
       this.logger.log(`📨 Received Pubsub event for ${runId}: ${event.type}`);
       this.sendMessage(ws, event);
 
-      // Clean up on terminal state
       const payloadAny = event.payload as any;
       if (payloadAny && ['succeeded', 'failed', 'completed', 'done'].includes(payloadAny.status)) {
         this.logger.log(`✅ Run ${runId} reached terminal state: ${payloadAny.status}`);
-        // Keep connection open for client to close
       }
     };
 
-    const unsubscribe = this.eventBus.on(runId, handler, CHANNEL_WEBSOCKET, {
+    const subscribeRunId = runId === '*' ? '*' : runId;
+    const unsubscribe = this.eventBus.on(subscribeRunId, handler, CHANNEL_WEBSOCKET, {
       label: `ws-${connId}`,
     });
 
@@ -104,7 +135,7 @@ export class WebSocketService implements OnModuleDestroy {
     // Send initial connection acknowledgment
     this.sendMessage(ws, {
       type: 'connection_established',
-      payload: { message: 'Connected to run stream' },
+      payload: { message: runId === '*' ? 'Connected to runs stream' : 'Connected to run stream' },
       ts: new Date().toISOString(),
       runId,
     });
@@ -112,37 +143,39 @@ export class WebSocketService implements OnModuleDestroy {
     this.logger.log('📨 Sent initial connection status', { runId });
 
     // Send a run snapshot to populate UI immediately (lastAssistant helps replay)
-    (async () => {
-      try {
-        const run = await this.prisma.run.findUnique({ where: { id: runId } });
-        let lastAssistant: string | null = null;
-        if (run && run.output) {
-          const commits = Array.isArray((run.output as any)?.commits)
-            ? (run.output as any).commits
-            : [];
-          const match = [...commits]
-            .reverse()
-            .find(
-              (c: any) => c?.stepId && c?.result && typeof (c.result as any)?.message === 'string'
-            );
-          lastAssistant = match ? (match.result as any).message : null;
-        }
+    if (runId !== '*') {
+      (async () => {
+        try {
+          const run = await this.prisma.run.findUnique({ where: { id: runId } });
+          let lastAssistant: string | null = null;
+          if (run && run.output) {
+            const commits = Array.isArray((run.output as any)?.commits)
+              ? (run.output as any).commits
+              : [];
+            const match = [...commits]
+              .reverse()
+              .find(
+                (c: any) => c?.stepId && c?.result && typeof (c.result as any)?.message === 'string'
+              );
+            lastAssistant = match ? (match.result as any).message : null;
+          }
 
-        this.sendMessage(ws, {
-          type: 'run_snapshot',
-          payload: {
-            status: run?.status ?? 'unknown',
-            activeNode: null,
-            planPreview: null,
-            lastAssistant,
-          },
-          ts: new Date().toISOString(),
-          runId,
-        });
-      } catch (err) {
-        this.logger.debug('Could not build run_snapshot', { runId, error: (err as any)?.message });
-      }
-    })();
+          this.sendMessage(ws, {
+            type: 'run_snapshot',
+            payload: {
+              status: run?.status ?? 'unknown',
+              activeNode: null,
+              planPreview: null,
+              lastAssistant,
+            },
+            ts: new Date().toISOString(),
+            runId,
+          });
+        } catch (err) {
+          this.logger.debug('Could not build run_snapshot', { runId, error: (err as any)?.message });
+        }
+      })();
+    }
   }
 
   /**
@@ -257,8 +290,12 @@ export class WebSocketService implements OnModuleDestroy {
       const url = new URL(req.url, `http://localhost:3000`);
       const { pathname, searchParams } = url;
 
-      // Expect pattern: /ws/runs/:runId
-      if (!pathname.startsWith('/ws/runs/')) {
+      // Supported patterns:
+      // - /ws/runs/:runId
+      // - /ws/runs-stream (list-level stream)
+      const isStreamAll = pathname === '/ws/runs-stream';
+      const isRunPath = pathname.startsWith('/ws/runs/');
+      if (!isStreamAll && !isRunPath) {
         this.logger.warn('⚠️ Invalid WebSocket path', {
           pathname,
           timestamp: new Date().toISOString(),
@@ -267,7 +304,7 @@ export class WebSocketService implements OnModuleDestroy {
         return;
       }
 
-      const runId = pathname.replace('/ws/runs/', '').trim();
+      const runId = isStreamAll ? '*' : pathname.replace('/ws/runs/', '').trim();
 
       if (!runId) {
         this.logger.warn('⚠️ Missing runId in WebSocket path', {

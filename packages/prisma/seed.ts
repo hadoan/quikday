@@ -179,6 +179,54 @@ async function main() {
   console.log(`🧩 Inserted ${createRes.count} default template(s).`);
 
   console.log('✅ Seed completed successfully');
+
+  // ---------------------------------------------------------------------------
+  // Seed sample runs for preview (if none exist)
+  // ---------------------------------------------------------------------------
+  const existingRuns = await prisma.run.count();
+  if (existingRuns === 0) {
+    console.log('🧪 Seeding sample runs...');
+    const statuses = [
+      'queued',
+      'planning',
+      'awaiting_approval',
+      'approved',
+      'running',
+      'succeeded',
+      'failed',
+      'canceled',
+      'undo_pending',
+      'undone',
+      'undo_failed',
+    ];
+    const toCreate = Array.from({ length: 12 }).map((_, i) => ({
+      prompt: `Sample run #${i + 1}`,
+      mode: i % 3 === 0 ? 'plan' : 'auto',
+      status: statuses[i % statuses.length],
+      teamId: team.id,
+      userId: user.id,
+      intent: { title: `Demo ${i + 1}` } as any,
+      config: { meta: { source: i % 2 === 0 ? 'chat' : 'api' } } as any,
+      createdAt: new Date(Date.now() - i * 3600_000),
+      updatedAt: new Date(Date.now() - i * 3300_000),
+    }));
+    for (const data of toCreate) {
+      const r = await prisma.run.create({ data });
+      const steps = Math.floor(Math.random() * 3);
+      for (let s = 0; s < steps; s++) {
+        await prisma.step.create({
+          data: {
+            runId: r.id,
+            tool: 'demo.tool',
+            action: 'noop',
+            request: {},
+            response: {},
+          },
+        });
+      }
+    }
+    console.log('✅ Sample runs created');
+  }
 }
 
 main()
