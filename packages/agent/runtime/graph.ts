@@ -3,7 +3,7 @@
 // ---- Public types ----
 export type Node<S extends object, E = any> = (
   s: S,
-  eventBus: E
+  eventBus: E,
 ) => Promise<Partial<S> | NodeResult<S> | void>;
 
 export type Router<S extends object> =
@@ -56,7 +56,12 @@ export class Graph<S extends object, E> {
       const delta = await node(s, eventBus);
 
       // Handle PAUSE contract early; merge non-control fields before returning
-      if (delta && typeof delta === 'object' && 'control' in delta && (delta as any).control === 'PAUSE') {
+      if (
+        delta &&
+        typeof delta === 'object' &&
+        'control' in delta &&
+        (delta as any).control === 'PAUSE'
+      ) {
         const { control: _c, ...rest } = delta as NodeResult<S>;
         if (Object.keys(rest).length > 0) {
           s = shallowMerge(s, rest as Partial<S>);

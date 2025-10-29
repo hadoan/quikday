@@ -4,7 +4,7 @@ import { PrismaService } from '@quikday/prisma';
 import { CurrentUserService } from '@quikday/libs';
 
 @Module({
-    providers: [GmailEmailService,  PrismaService, CurrentUserService],
-    exports: [GmailEmailService],
+  providers: [GmailEmailService, PrismaService, CurrentUserService],
+  exports: [GmailEmailService],
 })
-export class GmailEmailModule { }
+export class GmailEmailModule {}

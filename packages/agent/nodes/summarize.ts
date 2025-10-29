@@ -1,6 +1,7 @@
 import type { Node } from '../runtime/graph';
 import type { RunState } from '../state/types';
 import type { LLM } from '../llm/types';
+import { SUMMARIZE_SYSTEM } from '../prompts/SUMMARIZE_SYSTEM';
 import { redactForLog } from '../guards/redaction';
 
 // Bring in the Json type your redactor uses
@@ -35,8 +36,7 @@ export const summarize = (llm: LLM): Node<RunState> => {
     const safe = redactForLog(projection);
 
     const text = await llm.text({
-      system:
-        'Summarize succinctly in under 2 sentences. Do not reveal emails or secrets. If channels exist, mention them (e.g., #general).',
+      system: SUMMARIZE_SYSTEM,
       user: JSON.stringify(safe),
       maxTokens: 180,
       temperature: 0.2,

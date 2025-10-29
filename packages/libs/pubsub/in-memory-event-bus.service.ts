@@ -49,7 +49,12 @@ export class InMemoryEventBus implements RunEventBus {
       }
       const last = map.get(fp);
       if (last && now - last < this.DEDUPE_WINDOW_MS) {
-        this.logger.debug({ msg: 'skipping duplicate event (deduped)', runId, channel, type: full.type });
+        this.logger.debug({
+          msg: 'skipping duplicate event (deduped)',
+          runId,
+          channel,
+          type: full.type,
+        });
         return;
       }
       map.set(fp, now);
@@ -59,7 +64,10 @@ export class InMemoryEventBus implements RunEventBus {
       }
     } catch (e) {
       // if fingerprinting fails for any reason, continue without dedupe
-      this.logger.debug({ msg: 'event fingerprinting failed, skipping dedupe', err: (e as Error).message });
+      this.logger.debug({
+        msg: 'event fingerprinting failed, skipping dedupe',
+        err: (e as Error).message,
+      });
     }
     // Helpful debug: how many handlers/subscribers will receive this event
     this.logger.debug({ msg: 'handlers count', runId, channel, count: set.size });

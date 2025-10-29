@@ -7,8 +7,27 @@ import { z } from 'zod';
 import { slackPostMessage } from './tools/slack.postMessage';
 import { chatRespondTool } from './tools/chatRespond';
 import { LLM } from '../llm/types';
-import { calendarCheckAvailability, calendarCreateEvent, calendarListEvents, calendarGetEvent, calendarFreeBusy, calendarUpdateEvent, calendarCancelEvent, calendarSuggestSlots } from './tools/calendar';
-import { emailSend, emailRead, emailMessageGet, emailThreadGet, emailDraftCreate, emailDraftSend, emailLabelsChange, emailArchive, emailSnooze } from './tools/email';
+import {
+  calendarCheckAvailability,
+  calendarCreateEvent,
+  calendarListEvents,
+  calendarGetEvent,
+  calendarFreeBusy,
+  calendarUpdateEvent,
+  calendarCancelEvent,
+  calendarSuggestSlots,
+} from './tools/calendar';
+import {
+  emailSend,
+  emailRead,
+  emailMessageGet,
+  emailThreadGet,
+  emailDraftCreate,
+  emailDraftSend,
+  emailLabelsChange,
+  emailArchive,
+  emailSnooze,
+} from './tools/email';
 import { ModuleRef } from '@nestjs/core/injector/module-ref';
 
 export class ToolRegistry {
@@ -25,6 +44,11 @@ export class ToolRegistry {
     const t = this.tools.get(name);
     if (!t) throw new Error(`Tool not found: ${name}`);
     return t;
+  }
+
+  // List all registered tool names
+  names(): string[] {
+    return Array.from(this.tools.keys());
   }
 
   async call<TIn, TOut>(name: string, args: TIn, ctx: any): Promise<TOut> {
@@ -69,13 +93,12 @@ registry.register({
   }),
 });
 
-
 registry.register(slackPostMessage);
 // Calendar tools are registered with moduleRef in registerToolsWithLLM
 
 // Email tools registered with moduleRef in registerToolsWithLLM
 
-export function registerToolsWithLLM(llm: LLM,  moduleRef: ModuleRef) {
+export function registerToolsWithLLM(llm: LLM, moduleRef: ModuleRef) {
   registry.register(chatRespondTool(llm, moduleRef));
 
   //Email tools
@@ -89,7 +112,6 @@ export function registerToolsWithLLM(llm: LLM,  moduleRef: ModuleRef) {
   registry.register(emailArchive(moduleRef));
   registry.register(emailSnooze(moduleRef));
 
-
   //Calendar tools
   registry.register(calendarCheckAvailability(moduleRef));
   registry.register(calendarCreateEvent(moduleRef));
@@ -100,4 +122,3 @@ export function registerToolsWithLLM(llm: LLM,  moduleRef: ModuleRef) {
   registry.register(calendarCancelEvent(moduleRef));
   registry.register(calendarSuggestSlots(moduleRef));
 }
-  

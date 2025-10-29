@@ -4,11 +4,11 @@ import { CurrentUserService } from './current-user.service';
 import { CurrentUserMiddleware } from './current-user.middleware';
 
 @Module({
-    providers: [CurrentUserService],
-    exports: [CurrentUserService],
+  providers: [CurrentUserService],
+  exports: [CurrentUserService],
 })
 export class CurrentUserModule {
-    configure(consumer: MiddlewareConsumer) {
-        consumer.apply(CurrentUserMiddleware).forRoutes('*');
-    }
+  configure(consumer: MiddlewareConsumer) {
+    consumer.apply(CurrentUserMiddleware).forRoutes('*');
+  }
 }

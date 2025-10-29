@@ -16,4 +16,3 @@ export const metadata: AppMeta = {
   email: 'support@example.com',
   dirName: 'notion-docs',
 };
-

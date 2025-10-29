@@ -1,9 +1,4 @@
-import {
-  Injectable,
-  NestInterceptor,
-  ExecutionContext,
-  CallHandler,
-} from '@nestjs/common';
+import { Injectable, NestInterceptor, ExecutionContext, CallHandler } from '@nestjs/common';
 import type { Observable } from 'rxjs';
 import { runWithCurrentUser } from './current-user.als';
 
@@ -17,20 +12,19 @@ export class CurrentUserInterceptor implements NestInterceptor {
     const scopes = Array.isArray(claims.scopes)
       ? claims.scopes
       : typeof claims.scope === 'string'
-      ? (claims.scope as string).split(' ')
-      : [];
+        ? (claims.scope as string).split(' ')
+        : [];
 
     const ctx = {
-      userId: claims.sub ?? (hdr('x-user-id') ?? null),
-      teamId: claims.teamId ?? (hdr('x-team-id') ?? null),
+      userId: claims.sub ?? hdr('x-user-id') ?? null,
+      teamId: claims.teamId ?? hdr('x-team-id') ?? null,
       scopes,
-      impersonatorId: claims.impersonatorId ?? (hdr('x-impersonator-id') ?? null),
+      impersonatorId: claims.impersonatorId ?? hdr('x-impersonator-id') ?? null,
       traceId: hdr('x-trace-id'),
       runId: hdr('x-run-id'),
-      tz: claims.tz ?? (hdr('x-tz') ?? 'Europe/Berlin'),
+      tz: claims.tz ?? hdr('x-tz') ?? 'Europe/Berlin',
     } as any;
 
     return runWithCurrentUser(ctx, () => next.handle());
   }
 }
-

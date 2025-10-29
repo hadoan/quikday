@@ -9,4 +9,3 @@ import { TemplatesService } from './templates.service';
   providers: [TemplatesService],
 })
 export class TemplatesModule {}
-

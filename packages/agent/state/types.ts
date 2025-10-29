@@ -1,4 +1,4 @@
-import z from "zod";
+import z from 'zod';
 
 export type RunMode = 'PLAN' | 'AUTO';
 export type Risk = 'low' | 'high';
@@ -41,10 +41,10 @@ export interface ChatMessage {
 }
 
 export type QuestionType =
-  | 'text'        // 1-line text (names, subjects, channels)
-  | 'textarea'    // multi-line (email body, long messages)
-  | 'email'       // single email
-  | 'email_list'  // multiple emails
+  | 'text' // 1-line text (names, subjects, channels)
+  | 'textarea' // multi-line (email body, long messages)
+  | 'email' // single email
+  | 'email_list' // multiple emails
   | 'datetime'
   | 'date'
   | 'time'
@@ -52,27 +52,25 @@ export type QuestionType =
   | 'select'
   | 'multiselect';
 
-
 export type Question = {
-  key: string;                  // e.g. "email.subject", "email.to", "slack.channel"
-  question: string;             // prompt shown to the user
-  type: QuestionType;           // drives the UI control
+  key: string; // e.g. "email.subject", "email.to", "slack.channel"
+  question: string; // prompt shown to the user
+  type: QuestionType; // drives the UI control
   placeholder?: string;
-  example?: string | string[];  // match type (array for lists)
-  options?: string[];           // for select/multiselect
-  min?: number;                 // optional numeric/string length bounds
+  example?: string | string[]; // match type (array for lists)
+  options?: string[]; // for select/multiselect
+  min?: number; // optional numeric/string length bounds
   max?: number;
-  required?: boolean;           // default true
-  format?: string;               // optional regex like '/^#?[a-z0-9-_]+$/i'
+  required?: boolean; // default true
+  format?: string; // optional regex like '/^#?[a-z0-9-_]+$/i'
 };
-
-
 
 export interface RunError {
   node: string;
   message: string;
   stack?: string;
 }
+
 export interface RunState {
   input: { prompt: string; messages?: ChatMessage[]; attachments?: unknown };
   mode: RunMode;
@@ -86,9 +84,12 @@ export interface RunState {
     // internal routing/fallback info added by guards/policy
     fallbackReason?: string;
     fallbackDetails?: unknown;
-    missing?: Question[];                   // planner can drop questions here
-    answers?: Record<string, string>;       // user-provided answers by key
-    awaiting?: {                            // when we pause the run
+
+    // Collected answers keyed by input key. May include values persisted
+    // from previous pauses (merged by the worker on resume).
+    answers?: Record<string, unknown>;
+    awaiting?: {
+      // when we pause the run
       reason: 'missing_info';
       questions: Question[];
       ts: string;
@@ -97,13 +98,18 @@ export interface RunState {
   output?: {
     summary?: string;
     diff?: {
-      questions?: Question[];
       steps?: any[];
       summary?: string;
       intentDesc?: string;
     };
     commits?: Array<{ stepId: string; result: unknown }>;
     undo?: Array<{ stepId: string; tool: string; args: unknown }>;
+    // Mirror awaiting block so API/UI can render prompts without inspecting scratch
+    awaiting?: {
+      reason: 'missing_info';
+      questions: Question[];
+      ts: string;
+    } | null;
   };
   error?: RunError;
 }

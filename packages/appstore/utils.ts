@@ -13,4 +13,3 @@ export const hideKeysForFrontend = (keys?: Record<string, unknown>) => {
   }
   return safe;
 };
-

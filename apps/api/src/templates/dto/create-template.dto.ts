@@ -25,4 +25,3 @@ export class CreateTemplateDto {
   @IsBoolean()
   confirm?: boolean;
 }
-

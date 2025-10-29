@@ -25,10 +25,7 @@ classify ──→ planner ──→ confirm ──→ executor ──→ summar
 
 ```ts
 // Minimal runtime primitives
-export type Node<S extends object, E = any> = (
-  s: S,
-  eventBus: E,
-) => Promise<Partial<S> | void>;
+export type Node<S extends object, E = any> = (s: S, eventBus: E) => Promise<Partial<S> | void>;
 
 export type Router<S extends object> = (s: S) => string | 'END';
 
@@ -36,14 +33,22 @@ export class Graph<S extends object, E> {
   private nodes = new Map<string, Node<S, E>>();
   private edges = new Map<string, Router<S>>();
 
-  constructor(private hooks: {
-    onEnter?: (id: string, s: S) => void;
-    onExit?: (id: string, s: S, delta?: Partial<S> | void) => void;
-    onEdge?: (from: string, to: string, s: S) => void;
-  } = {}) {}
+  constructor(
+    private hooks: {
+      onEnter?: (id: string, s: S) => void;
+      onExit?: (id: string, s: S, delta?: Partial<S> | void) => void;
+      onEdge?: (from: string, to: string, s: S) => void;
+    } = {},
+  ) {}
 
-  addNode(id: string, fn: Node<S, E>) { this.nodes.set(id, fn); return this; }
-  addEdge(from: string, router: Router<S>) { this.edges.set(from, router); return this; }
+  addNode(id: string, fn: Node<S, E>) {
+    this.nodes.set(id, fn);
+    return this;
+  }
+  addEdge(from: string, router: Router<S>) {
+    this.edges.set(from, router);
+    return this;
+  }
 
   async run(start: string, state: S, eventBus: E, maxSteps = 64): Promise<S> {
     let current = start;
@@ -79,15 +84,29 @@ export interface PlanStep {
 }
 
 export type ChatRole = 'system' | 'user' | 'assistant' | 'tool';
-export interface ChatMessage { role: ChatRole; content: string; [k: string]: any }
+export interface ChatMessage {
+  role: ChatRole;
+  content: string;
+  [k: string]: any;
+}
 
 export type Question = {
-  key: string; question: string; type: 'text' | 'textarea' | 'email' | 'email_list' | 'datetime';
-  required?: boolean; placeholder?: string; example?: string | string[];
+  key: string;
+  question: string;
+  type: 'text' | 'textarea' | 'email' | 'email_list' | 'datetime';
+  required?: boolean;
+  placeholder?: string;
+  example?: string | string[];
 };
 
 export interface RunCtx {
-  runId: string; userId: string; teamId?: string; scopes: string[]; traceId: string; tz: string; now: Date;
+  runId: string;
+  userId: string;
+  teamId?: string;
+  scopes: string[];
+  traceId: string;
+  tz: string;
+  now: Date;
 }
 
 export interface RunState {
@@ -103,7 +122,11 @@ export interface RunState {
     fallbackReason?: string;
   };
   output?: {
-    diff?: { steps?: Array<Pick<PlanStep, 'id' | 'tool' | 'dependsOn'>>; questions?: Question[]; summary?: string };
+    diff?: {
+      steps?: Array<Pick<PlanStep, 'id' | 'tool' | 'dependsOn'>>;
+      questions?: Question[];
+      summary?: string;
+    };
     commits?: Array<{ stepId: string; result: unknown }>;
     summary?: string;
   };
@@ -137,7 +160,8 @@ const graph = new Graph<RunState, RunEventBus>(hooks(eventBus))
 // 1) classify: simple intent picker
 const classify: Node<RunState, RunEventBus> = async (s) => {
   const t = (s.input.prompt || '').toLowerCase();
-  const intent = t.includes('meeting') || t.includes('schedule') ? 'calendar.schedule' : 'chat.respond';
+  const intent =
+    t.includes('meeting') || t.includes('schedule') ? 'calendar.schedule' : 'chat.respond';
   return { scratch: { ...s.scratch, intent } };
 };
 
@@ -145,17 +169,43 @@ const classify: Node<RunState, RunEventBus> = async (s) => {
 const planner: Node<RunState, RunEventBus> = async (s, eventBus) => {
   const intent = s.scratch?.intent;
   if (intent === 'chat.respond' || !intent) {
-    const steps: PlanStep[] = [{ id: crypto.randomUUID(), tool: 'chat.respond', args: { prompt: s.input.prompt }, risk: 'low' }];
-    return { scratch: { ...s.scratch, plan: steps, missing: [] }, output: { ...s.output, diff: { steps, summary: 'Answer normally.' } } };
+    const steps: PlanStep[] = [
+      {
+        id: crypto.randomUUID(),
+        tool: 'chat.respond',
+        args: { prompt: s.input.prompt },
+        risk: 'low',
+      },
+    ];
+    return {
+      scratch: { ...s.scratch, plan: steps, missing: [] },
+      output: { ...s.output, diff: { steps, summary: 'Answer normally.' } },
+    };
   }
   if (intent === 'calendar.schedule') {
     const missing: Question[] = [];
     // In a real planner, derive from user text and existing answers
-    missing.push({ key: 'when.startISO', question: 'Start time (ISO 8601)?', type: 'datetime', required: true });
-    missing.push({ key: 'when.endISO', question: 'End time (ISO 8601)?', type: 'datetime', required: true });
-    return { scratch: { ...s.scratch, plan: [], missing }, output: { ...s.output, diff: { questions: missing, summary: 'Need time range.' } } };
+    missing.push({
+      key: 'when.startISO',
+      question: 'Start time (ISO 8601)?',
+      type: 'datetime',
+      required: true,
+    });
+    missing.push({
+      key: 'when.endISO',
+      question: 'End time (ISO 8601)?',
+      type: 'datetime',
+      required: true,
+    });
+    return {
+      scratch: { ...s.scratch, plan: [], missing },
+      output: { ...s.output, diff: { questions: missing, summary: 'Need time range.' } },
+    };
   }
-  return { scratch: { ...s.scratch, plan: [] }, output: { ...s.output, diff: { summary: 'No actions proposed.' } } };
+  return {
+    scratch: { ...s.scratch, plan: [] },
+    output: { ...s.output, diff: { summary: 'No actions proposed.' } },
+  };
 };
 
 // 3) confirm: halt for missing inputs or approvals
@@ -164,7 +214,11 @@ const confirm: Node<RunState, RunEventBus> = async (s, eventBus) => {
   const answers = s.scratch?.answers || {};
   const unanswered = questions.filter((q) => !answers[q.key]);
   if (unanswered.length > 0) {
-    const awaiting = { reason: 'missing_info' as const, questions: unanswered, ts: new Date().toISOString() };
+    const awaiting = {
+      reason: 'missing_info' as const,
+      questions: unanswered,
+      ts: new Date().toISOString(),
+    };
     // Notify UI via event bus in your implementation
     return { scratch: { ...s.scratch, awaiting } };
   }
@@ -194,12 +248,13 @@ const summarize: Node<RunState, RunEventBus> = async (s) => {
 // 6) fallback: user-friendly reason
 const fallback: Node<RunState, RunEventBus> = async (s) => {
   const reason = s.scratch?.fallbackReason || 'unspecified';
-  const msg = {
-    policy_denied: 'This action is blocked by your team policy.',
-    quiet_hours: 'This request falls inside quiet hours.',
-    budget_exceeded: 'Estimated cost exceeds the allotted budget.',
-    unspecified: 'I could not safely continue with this run.',
-  }[reason] || 'I could not safely continue with this run.';
+  const msg =
+    {
+      policy_denied: 'This action is blocked by your team policy.',
+      quiet_hours: 'This request falls inside quiet hours.',
+      budget_exceeded: 'Estimated cost exceeds the allotted budget.',
+      unspecified: 'I could not safely continue with this run.',
+    }[reason] || 'I could not safely continue with this run.';
   return { output: { ...s.output, summary: msg } };
 };
 ```
@@ -211,18 +266,33 @@ const fallback: Node<RunState, RunEventBus> = async (s) => {
 import { z, ZodType } from 'zod';
 
 export interface Tool<I, O> {
-  name: string; in: ZodType<I>; out: ZodType<O>; scopes: string[]; rate: string; risk: 'low' | 'high';
+  name: string;
+  in: ZodType<I>;
+  out: ZodType<O>;
+  scopes: string[];
+  rate: string;
+  risk: 'low' | 'high';
   call: (args: I, ctx: RunCtx) => Promise<O>;
 }
 
-class Circuit { /* open/half/close breaker – omitted for brevity */ }
+class Circuit {
+  /* open/half/close breaker – omitted for brevity */
+}
 const Idempotency = { key: (runId: string, name: string, args: any) => `${runId}:${name}` };
 
 class ToolRegistry {
   private tools = new Map<string, Tool<any, any>>();
   private circuits = new Map<string, Circuit>();
-  register<TIn, TOut>(tool: Tool<TIn, TOut>) { this.tools.set(tool.name, tool); this.circuits.set(tool.name, new Circuit()); return this; }
-  get(name: string) { const t = this.tools.get(name); if (!t) throw new Error(`Tool not found: ${name}`); return t; }
+  register<TIn, TOut>(tool: Tool<TIn, TOut>) {
+    this.tools.set(tool.name, tool);
+    this.circuits.set(tool.name, new Circuit());
+    return this;
+  }
+  get(name: string) {
+    const t = this.tools.get(name);
+    if (!t) throw new Error(`Tool not found: ${name}`);
+    return t;
+  }
   async call<TIn, TOut>(name: string, args: TIn, ctx: RunCtx): Promise<TOut> {
     const t = this.get(name) as Tool<TIn, TOut>;
     // check scopes/rate/circuit/idempotency as needed...
@@ -234,14 +304,21 @@ class ToolRegistry {
 export const registry = new ToolRegistry();
 
 // Example: local LLM reply (chat.respond)
-export function chatRespondTool(llm: { text: (p: { system?: string; user: string }) => Promise<string> }) {
+export function chatRespondTool(llm: {
+  text: (p: { system?: string; user: string }) => Promise<string>;
+}) {
   return {
     name: 'chat.respond',
     in: z.object({ prompt: z.string().optional(), system: z.string().optional() }),
     out: z.object({ message: z.string() }),
-    scopes: [], rate: 'unlimited', risk: 'low',
+    scopes: [],
+    rate: 'unlimited',
+    risk: 'low',
     async call(args: { prompt?: string; system?: string }) {
-      const msg = await llm.text({ system: args.system ?? 'Helpful assistant.', user: args.prompt ?? '' });
+      const msg = await llm.text({
+        system: args.system ?? 'Helpful assistant.',
+        user: args.prompt ?? '',
+      });
       return { message: (msg ?? '').trim() || 'Okay.' };
     },
   } as Tool<{ prompt?: string; system?: string }, { message: string }>;
@@ -251,8 +328,16 @@ export function chatRespondTool(llm: { text: (p: { system?: string; user: string
 const SlackIn = z.object({ channel: z.string(), text: z.string().min(1) });
 const SlackOut = z.object({ ok: z.boolean(), ts: z.string().optional() });
 export const slackPostMessage: Tool<z.infer<typeof SlackIn>, z.infer<typeof SlackOut>> = {
-  name: 'slack.postMessage', in: SlackIn, out: SlackOut, scopes: ['slack:write'], rate: '60/m', risk: 'low',
-  async call(args) { const { channel, text } = SlackIn.parse(args); /* call provider here */ return { ok: true, ts: Date.now().toString() }; },
+  name: 'slack.postMessage',
+  in: SlackIn,
+  out: SlackOut,
+  scopes: ['slack:write'],
+  rate: '60/m',
+  risk: 'low',
+  async call(args) {
+    const { channel, text } = SlackIn.parse(args);
+    /* call provider here */ return { ok: true, ts: Date.now().toString() };
+  },
 };
 
 // Register examples
@@ -268,9 +353,12 @@ type RunEventBus = { publish: (runId: string, evt: RunEvent) => void };
 
 function hooks(eventBus: RunEventBus) {
   return {
-    onEnter: (id: string, s: RunState) => eventBus.publish(s.ctx.runId, { type: 'node.enter', payload: { id } }),
-    onExit: (id: string, s: RunState) => eventBus.publish(s.ctx.runId, { type: 'node.exit', payload: { id } }),
-    onEdge: (from: string, to: string, s: RunState) => eventBus.publish(s.ctx.runId, { type: 'edge.taken', payload: { from, to } }),
+    onEnter: (id: string, s: RunState) =>
+      eventBus.publish(s.ctx.runId, { type: 'node.enter', payload: { id } }),
+    onExit: (id: string, s: RunState) =>
+      eventBus.publish(s.ctx.runId, { type: 'node.exit', payload: { id } }),
+    onEdge: (from: string, to: string, s: RunState) =>
+      eventBus.publish(s.ctx.runId, { type: 'edge.taken', payload: { from, to } }),
   };
 }
 ```
@@ -298,7 +386,15 @@ const graph = new Graph<RunState, RunEventBus>(hooks(eventBus))
 const state: RunState = {
   input: { prompt: 'Schedule a meeting tomorrow at 4pm with sara@example.com' },
   mode: 'PLAN',
-  ctx: { runId: 'run_123', userId: 'u_1', teamId: 't_1', scopes: [], traceId: 'trace_1', tz: 'UTC', now: new Date() },
+  ctx: {
+    runId: 'run_123',
+    userId: 'u_1',
+    teamId: 't_1',
+    scopes: [],
+    traceId: 'trace_1',
+    tz: 'UTC',
+    now: new Date(),
+  },
 };
 
 // 3) Run
@@ -308,10 +404,10 @@ console.log(final.output?.summary);
 
 ## Adding a New Tool (Recipe)
 
-1) Define a tool with name/in/out/scopes/rate/risk/call
-2) Register it in the registry
-3) Teach the planner to propose it for the right intent(s)
-4) Optionally add policy rules (allowlist/scopes)
+1. Define a tool with name/in/out/scopes/rate/risk/call
+2. Register it in the registry
+3. Teach the planner to propose it for the right intent(s)
+4. Optionally add policy rules (allowlist/scopes)
 
 Example:
 
@@ -319,8 +415,16 @@ Example:
 const EchoIn = z.object({ text: z.string() });
 const EchoOut = z.object({ echoed: z.string() });
 const echoTool: Tool<z.infer<typeof EchoIn>, z.infer<typeof EchoOut>> = {
-  name: 'echo', in: EchoIn, out: EchoOut, scopes: [], rate: 'unlimited', risk: 'low',
-  async call(args) { const { text } = EchoIn.parse(args); return { echoed: text }; },
+  name: 'echo',
+  in: EchoIn,
+  out: EchoOut,
+  scopes: [],
+  rate: 'unlimited',
+  risk: 'low',
+  async call(args) {
+    const { text } = EchoIn.parse(args);
+    return { echoed: text };
+  },
 };
 registry.register(echoTool);
 ```

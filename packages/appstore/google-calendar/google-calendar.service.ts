@@ -1,7 +1,12 @@
 import { Injectable, Logger } from '@nestjs/common';
 import type { CalendarService } from '@quikday/appstore/calendar/calendar.service';
-import type { AvailabilityQuery, AvailabilityResult, CalendarEvent, CalendarAttendee } from '@quikday/appstore/calendar/calendar.types';
-import { CurrentUserService } from '@quikday/libs';
+import type {
+  AvailabilityQuery,
+  AvailabilityResult,
+  CalendarEvent,
+  CalendarAttendee,
+} from '@quikday/appstore/calendar/calendar.types';
+import { CurrentUserService, getCurrentUserCtx } from '@quikday/libs';
 import { PrismaService } from '@quikday/prisma';
 import { getAppKeysFromSlug } from '@quikday/appstore';
 import { google, type calendar_v3 } from 'googleapis';
@@ -31,14 +36,17 @@ export class GoogleCalendarProviderService implements CalendarService {
       const available = !Array.isArray(busy) || busy.length === 0;
       return { available, start: query.start, end: query.end, attendees: query.attendees };
     } catch (error) {
-      this.logger.warn(this.format({ op: 'checkAvailability.error', error: this.renderError(error) }));
+      this.logger.warn(
+        this.format({ op: 'checkAvailability.error', error: this.renderError(error) }),
+      );
       // On errors, default to available=false to be safe
       return { available: false, start: query.start, end: query.end, attendees: query.attendees };
     }
   }
 
-  async createEvent(event: Omit<CalendarEvent, 'id'> & { notifyAttendees?: boolean }): Promise<{ id: string; htmlLink?: string; start: Date; end: Date; }>
-  {
+  async createEvent(
+    event: Omit<CalendarEvent, 'id'> & { notifyAttendees?: boolean },
+  ): Promise<{ id: string; htmlLink?: string; start: Date; end: Date }> {
     this.logger.log(this.format({ op: 'createEvent', title: event.title }));
     const { calendar, credentialId, oauth2Client } = await this.getGoogleClient();
 
@@ -88,7 +96,11 @@ export class GoogleCalendarProviderService implements CalendarService {
       const endIso = data.end?.dateTime || data.end?.date;
       const attendees = Array.isArray(data.attendees)
         ? data.attendees
-            .map((a) => (a?.email ? { email: a.email!, name: a.displayName ?? undefined } as CalendarAttendee : null))
+            .map((a) =>
+              a?.email
+                ? ({ email: a.email!, name: a.displayName ?? undefined } as CalendarAttendee)
+                : null,
+            )
             .filter((x): x is CalendarAttendee => !!x)
         : undefined;
       return {
@@ -113,23 +125,44 @@ export class GoogleCalendarProviderService implements CalendarService {
   // ===== Helpers =====
   private mapAttendees(list: CalendarAttendee[]): calendar_v3.Schema$EventAttendee[] {
     return (list ?? [])
-      .map((a) => (a?.email ? { email: a.email, displayName: a.name, optional: a.optional } as calendar_v3.Schema$EventAttendee : null))
+      .map((a) =>
+        a?.email
+          ? ({
+              email: a.email,
+              displayName: a.name,
+              optional: a.optional,
+            } as calendar_v3.Schema$EventAttendee)
+          : null,
+      )
       .filter((x): x is calendar_v3.Schema$EventAttendee => !!x);
   }
 
-  private async getGoogleClient(): Promise<{ calendar: calendar_v3.Calendar; oauth2Client: any; credentialId: number }>
-  {
-    const { accessToken, refreshToken, expiryDate, credentialId } = await this.resolveAccessContext();
+  private async getGoogleClient(): Promise<{
+    calendar: calendar_v3.Calendar;
+    oauth2Client: any;
+    credentialId: number;
+  }> {
+    const { accessToken, refreshToken, expiryDate, credentialId } =
+      await this.resolveAccessContext();
     const { clientId, clientSecret } = await this.getOAuthCredentials();
     const oauth2Client = new google.auth.OAuth2(clientId, clientSecret);
-    oauth2Client.setCredentials({ access_token: accessToken, refresh_token: refreshToken ?? undefined, expiry_date: expiryDate });
+    oauth2Client.setCredentials({
+      access_token: accessToken,
+      refresh_token: refreshToken ?? undefined,
+      expiry_date: expiryDate,
+    });
     const calendar = google.calendar({ version: 'v3', auth: oauth2Client });
     return { calendar, oauth2Client, credentialId };
   }
 
-  private async resolveAccessContext(): Promise<{ accessToken: string; refreshToken?: string | null; expiryDate?: number; credentialId: number }>
-  {
-    const current = this.currentUser.getCurrentUserId();
+  private async resolveAccessContext(): Promise<{
+    accessToken: string;
+    refreshToken?: string | null;
+    expiryDate?: number;
+    credentialId: number;
+  }> {
+    // Pull from ALS first to avoid undefined when invoked from background jobs
+    const current = getCurrentUserCtx().userId ?? this.currentUser?.getCurrentUserId?.();
     if (!current) throw new Error('No current user in context');
     let userId: number | null = null;
     if (/^\d+$/.test(current)) {
@@ -144,52 +177,86 @@ export class GoogleCalendarProviderService implements CalendarService {
       where: { userId, appId: 'google-calendar', invalid: false },
       orderBy: { createdAt: 'desc' },
     });
-    if (!credential) throw new Error('No Google Calendar integration found. Connect your calendar first.');
+    if (!credential)
+      throw new Error('No Google Calendar integration found. Connect your calendar first.');
 
     const key = this.safeCredentialKey(credential.key as any);
-    const accessToken = this.getStringField(key, 'access_token') ?? this.getStringField(key, 'accessToken') ?? '';
-    const refreshToken = this.getStringField(key, 'refresh_token') ?? this.getStringField(key, 'refreshToken');
-    const expiryDate = this.getNumberField(key, 'expiry_date') ?? credential.tokenExpiresAt?.getTime();
-    if (!accessToken && !refreshToken) throw new Error('Google Calendar tokens missing. Reconnect your calendar.');
+    const accessToken =
+      this.getStringField(key, 'access_token') ?? this.getStringField(key, 'accessToken') ?? '';
+    const refreshToken =
+      this.getStringField(key, 'refresh_token') ?? this.getStringField(key, 'refreshToken');
+    const expiryDate =
+      this.getNumberField(key, 'expiry_date') ?? credential.tokenExpiresAt?.getTime();
+    if (!accessToken && !refreshToken)
+      throw new Error('Google Calendar tokens missing. Reconnect your calendar.');
     return { accessToken, refreshToken, expiryDate, credentialId: credential.id };
   }
 
-  private async getOAuthCredentials(): Promise<{ clientId: string; clientSecret: string }>
-  {
-    let clientId = process.env.GOOGLE_CALENDAR_CLIENT_ID || process.env.GOOGLE_CLIENT_ID || process.env.GCAL_CLIENT_ID;
-    let clientSecret = process.env.GOOGLE_CALENDAR_CLIENT_SECRET || process.env.GOOGLE_CLIENT_SECRET || process.env.GCAL_CLIENT_SECRET;
+  private async getOAuthCredentials(): Promise<{ clientId: string; clientSecret: string }> {
+    let clientId =
+      process.env.GOOGLE_CALENDAR_CLIENT_ID ||
+      process.env.GOOGLE_CLIENT_ID ||
+      process.env.GCAL_CLIENT_ID;
+    let clientSecret =
+      process.env.GOOGLE_CALENDAR_CLIENT_SECRET ||
+      process.env.GOOGLE_CLIENT_SECRET ||
+      process.env.GCAL_CLIENT_SECRET;
     if (!clientId || !clientSecret) {
       try {
-        const appKeys = (await getAppKeysFromSlug(this.prisma as any, 'google-calendar')) as Record<string, unknown>;
-        if (!clientId && typeof appKeys?.client_id === 'string') clientId = appKeys.client_id as string;
-        if (!clientSecret && typeof appKeys?.client_secret === 'string') clientSecret = appKeys.client_secret as string;
+        const appKeys = (await getAppKeysFromSlug(this.prisma as any, 'google-calendar')) as Record<
+          string,
+          unknown
+        >;
+        if (!clientId && typeof appKeys?.client_id === 'string')
+          clientId = appKeys.client_id as string;
+        if (!clientSecret && typeof appKeys?.client_secret === 'string')
+          clientSecret = appKeys.client_secret as string;
       } catch {
         // ignore
       }
     }
-    if (!clientId || !clientSecret) throw new Error('Google Calendar OAuth configuration not found.');
+    if (!clientId || !clientSecret)
+      throw new Error('Google Calendar OAuth configuration not found.');
     return { clientId, clientSecret };
   }
 
   private async persistTokensIfChanged(credentialId: number, oauth2Client: any): Promise<void> {
-    const creds = oauth2Client?.credentials as { access_token?: string; refresh_token?: string; expiry_date?: number } | undefined;
+    const creds = oauth2Client?.credentials as
+      | { access_token?: string; refresh_token?: string; expiry_date?: number }
+      | undefined;
     if (!creds) return;
     const record = await this.prisma.credential.findUnique({ where: { id: credentialId } });
     if (!record) return;
     const key = this.safeCredentialKey(record.key as any);
     const updated: Record<string, any> = { ...key };
     let changed = false;
-    if (creds.access_token && updated.access_token !== creds.access_token) { updated.access_token = creds.access_token; changed = true; }
-    if (creds.refresh_token && updated.refresh_token !== creds.refresh_token) { updated.refresh_token = creds.refresh_token; changed = true; }
-    if (typeof creds.expiry_date === 'number' && updated.expiry_date !== creds.expiry_date) { updated.expiry_date = creds.expiry_date; changed = true; }
-    const tokenExpiresAt = typeof creds.expiry_date === 'number' ? new Date(creds.expiry_date) : record.tokenExpiresAt;
+    if (creds.access_token && updated.access_token !== creds.access_token) {
+      updated.access_token = creds.access_token;
+      changed = true;
+    }
+    if (creds.refresh_token && updated.refresh_token !== creds.refresh_token) {
+      updated.refresh_token = creds.refresh_token;
+      changed = true;
+    }
+    if (typeof creds.expiry_date === 'number' && updated.expiry_date !== creds.expiry_date) {
+      updated.expiry_date = creds.expiry_date;
+      changed = true;
+    }
+    const tokenExpiresAt =
+      typeof creds.expiry_date === 'number' ? new Date(creds.expiry_date) : record.tokenExpiresAt;
     if (changed) {
-      await this.prisma.credential.update({ where: { id: credentialId }, data: { key: updated as any, tokenExpiresAt } });
+      await this.prisma.credential.update({
+        where: { id: credentialId },
+        data: { key: updated as any, tokenExpiresAt },
+      });
     }
   }
 
-  private safeCredentialKey(key: Record<string, unknown> | null | undefined): Record<string, unknown> {
-    if (key && typeof key === 'object' && !Array.isArray(key)) return key as Record<string, unknown>;
+  private safeCredentialKey(
+    key: Record<string, unknown> | null | undefined,
+  ): Record<string, unknown> {
+    if (key && typeof key === 'object' && !Array.isArray(key))
+      return key as Record<string, unknown>;
     return {} as Record<string, unknown>;
   }
   private getStringField(source: Record<string, unknown>, field: string): string | undefined {
@@ -211,6 +278,10 @@ export class GoogleCalendarProviderService implements CalendarService {
     return 'Unknown error';
   }
   private format(meta: Record<string, unknown>): string {
-    try { return JSON.stringify(meta); } catch { return '[unserializable-meta]'; }
+    try {
+      return JSON.stringify(meta);
+    } catch {
+      return '[unserializable-meta]';
+    }
   }
 }

@@ -14,14 +14,10 @@ export function ChatBox({ onContinue }: { onContinue: (text: string) => void }) 
         placeholder="Write your request…"
       />
       <div>
-        <Button
-          variant="outline"
-          onClick={() => onContinue(draft)}
-        >
+        <Button variant="outline" onClick={() => onContinue(draft)}>
           Continue in Chat
         </Button>
       </div>
     </section>
   );
 }
-

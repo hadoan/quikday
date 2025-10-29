@@ -163,13 +163,8 @@ export const events = {
     _emit('fallback', s, eventBus, { reason, details }),
   // Include optional stepId so downstream subscribers (UI/websocket) can map
   // assistant messages and tool events to the originating step.
-  toolCalled: (
-    s: RunState,
-    eventBus: RunEventBus,
-    name: string,
-    args?: any,
-    stepId?: string,
-  ) => _emit('tool.called', s, eventBus, { name, args, stepId }),
+  toolCalled: (s: RunState, eventBus: RunEventBus, name: string, args?: any, stepId?: string) =>
+    _emit('tool.called', s, eventBus, { name, args, stepId }),
   toolSucceeded: (
     s: RunState,
     eventBus: RunEventBus,
@@ -178,13 +173,8 @@ export const events = {
     ms?: number,
     stepId?: string,
   ) => _emit('tool.succeeded', s, eventBus, { name, result, ms, stepId }),
-  toolFailed: (
-    s: RunState,
-    eventBus: RunEventBus,
-    name: string,
-    error: any,
-    stepId?: string,
-  ) => _emit('tool.failed', s, eventBus, { name, error, stepId }),
+  toolFailed: (s: RunState, eventBus: RunEventBus, name: string, error: any, stepId?: string) =>
+    _emit('tool.failed', s, eventBus, { name, error, stepId }),
   approvalAwaiting: (s: RunState, eventBus: RunEventBus, steps: any[]) =>
     _emit('approval.awaiting', s, eventBus, { steps }),
   undoEnqueued: (s: RunState, eventBus: RunEventBus, actions: any[]) =>
@@ -206,7 +196,7 @@ function _emit(type: RunEventType, s: RunState, eventBus: RunEventBus, payload?:
     runId: s.ctx.runId,
     type,
     ts: new Date().toISOString(),
-    payload: payload ? ( type !== 'awaiting.input' ? redactForLog(payload) : payload ) : undefined,
+    payload: payload ? (type !== 'awaiting.input' ? redactForLog(payload) : payload) : undefined,
     traceId: s.ctx.traceId,
     userId: s.ctx.userId,
     teamId: s.ctx.teamId,

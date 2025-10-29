@@ -117,10 +117,14 @@ export class WebSocketService implements OnModuleDestroy {
         const run = await this.prisma.run.findUnique({ where: { id: runId } });
         let lastAssistant: string | null = null;
         if (run && run.output) {
-          const commits = Array.isArray((run.output as any)?.commits) ? (run.output as any).commits : [];
-          const match = [...commits].reverse().find((c: any) =>
-            c?.stepId && c?.result && typeof (c.result as any)?.message === 'string'
-          );
+          const commits = Array.isArray((run.output as any)?.commits)
+            ? (run.output as any).commits
+            : [];
+          const match = [...commits]
+            .reverse()
+            .find(
+              (c: any) => c?.stepId && c?.result && typeof (c.result as any)?.message === 'string'
+            );
           lastAssistant = match ? (match.result as any).message : null;
         }
 

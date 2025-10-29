@@ -58,7 +58,7 @@ export const mockRuns = [
     messages: [
       {
         role: 'user' as const,
-        content: 'Schedule a 15-min sync with Sara at 10am tomorrow and DM her the link',
+        content: 'Schedule a 15-min sync with ha.doanmanh@gmail.com at 10am tomorrow',
       },
       {
         role: 'assistant' as const,

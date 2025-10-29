@@ -19,7 +19,7 @@
 export const INTEGRATION_SLUGS = [
   // 'linkedin-social',
   'gmail-email',
-  // 'google-calendar',
+  'google-calendar',
   // 'slack-messaging',
   // 'notion-docs',
   // 'github-devtools',
@@ -37,4 +37,3 @@ export type IntegrationSlug = (typeof INTEGRATION_SLUGS)[number];
 export function getIntegrationSlugs(): readonly string[] {
   return INTEGRATION_SLUGS;
 }
-

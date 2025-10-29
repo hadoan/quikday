@@ -17,4 +17,3 @@ export default function createApp(meta: AppMeta, _deps: any) {
     }
   })(meta);
 }
-

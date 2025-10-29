@@ -22,4 +22,3 @@ export class TemplatesController {
     return this.svc.create(dto, userId);
   }
 }
-

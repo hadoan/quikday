@@ -2,7 +2,6 @@
   "name": "@quikday/appstore",
   "version": "0.0.1",
   "private": true,
-  
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "exports": {
@@ -28,9 +27,15 @@
   },
   "typesVersions": {
     "*": {
-      "email/*": ["dist/email/*"],
-      "calendar/*": ["dist/calendar/*"],
-      "*": ["dist/*"]
+      "email/*": [
+        "dist/email/*"
+      ],
+      "calendar/*": [
+        "dist/calendar/*"
+      ],
+      "*": [
+        "dist/*"
+      ]
     }
   },
   "scripts": {

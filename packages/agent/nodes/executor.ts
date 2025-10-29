@@ -2,6 +2,7 @@
 import type { Node } from '../runtime/graph';
 import type { RunState } from '../state/types';
 import type { RunEventBus } from '@quikday/libs';
+import { runWithCurrentUser } from '@quikday/libs';
 import { CHANNEL_WEBSOCKET } from '@quikday/libs';
 import { registry } from '../registry/registry';
 import { events } from '../observability/events';
@@ -106,24 +107,35 @@ export const executor: Node<RunState, RunEventBus> = async (s, eventBus) => {
       args = parsed.data;
     }
 
-    // Emit "called"
-    const safeArgs = redactForLog(args);
-    events.toolCalled(s, eventBus, step.tool, safeArgs, step.id);
+    // Emit "called" (suppress for chat.respond to avoid Execution Log)
+    if (!isChat) {
+      const safeArgs = redactForLog(args);
+      events.toolCalled(s, eventBus, step.tool, safeArgs, step.id);
+    }
 
     const t0 = globalThis.performance?.now?.() ?? Date.now();
 
     try {
-      const result = await withRetry(() => registry.call(step.tool, args, s.ctx), {
+      const result = await withRetry(
+        () =>
+          runWithCurrentUser(
+            { userId: s.ctx.userId, teamId: s.ctx.teamId ?? null, scopes: s.ctx.scopes },
+            () => registry.call(step.tool, args, s.ctx),
+          ),
+        {
         retries: 3,
         baseMs: 500,
         maxMs: 5_000,
-      });
+      },
+      );
 
       const duration = (globalThis.performance?.now?.() ?? Date.now()) - t0;
 
-      // Emit success
-      const safeResult = redactForLog(result as any);
-      events.toolSucceeded(s, eventBus, step.tool, safeResult, duration, step.id);
+      // Emit success (suppress for chat.respond to avoid Execution Log)
+      if (!isChat) {
+        const safeResult = redactForLog(result as any);
+        events.toolSucceeded(s, eventBus, step.tool, safeResult, duration, step.id);
+      }
 
       // Persist commit
       commits.push({ stepId: step.id, result });
@@ -158,7 +170,6 @@ export const executor: Node<RunState, RunEventBus> = async (s, eventBus) => {
         undo.push({ stepId: step.id, tool: step.tool, args: uArgs });
       }
     } catch (error: any) {
-
       // Non-chat tools keep failure semantics (graph may route to fallback)
       const payload = {
         code: (error?.code ?? 'E_STEP_FAILED') as string,

@@ -332,7 +332,8 @@ export class ApiDataSource implements DataSource {
         const tokenOrPromise = provider?.();
         const token = tokenOrPromise instanceof Promise ? await tokenOrPromise : tokenOrPromise;
         if (token) headers.set('Authorization', `Bearer ${token}`);
-        else if (this.config.authToken) headers.set('Authorization', `Bearer ${this.config.authToken}`);
+        else if (this.config.authToken)
+          headers.set('Authorization', `Bearer ${this.config.authToken}`);
       } catch {
         if (this.config.authToken) headers.set('Authorization', `Bearer ${this.config.authToken}`);
       }
@@ -351,7 +352,9 @@ export class ApiDataSource implements DataSource {
       try {
         // Read and check error message (best-effort; may not be JSON)
         let errText = '';
-        try { errText = await response.clone().text(); } catch {}
+        try {
+          errText = await response.clone().text();
+        } catch {}
         const looksExpired = /jwt\s*expired|token\s*expired|invalid_token/i.test(errText);
         if (looksExpired) {
           // Retry once with a fresh token

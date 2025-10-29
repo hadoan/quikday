@@ -1,8 +1,18 @@
-import { Body, Controller, Get, Param, Post, UseGuards, Req, BadRequestException, NotFoundException, Logger } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Get,
+  Param,
+  Post,
+  UseGuards,
+  Req,
+  BadRequestException,
+  NotFoundException,
+  Logger,
+} from '@nestjs/common';
 import { RunsService } from './runs.service';
 import { KindeGuard } from '../auth/kinde.guard';
 import { validateAnswers } from '@quikday/agent/validation/answers';
-
 
 export interface ChatMessageDto {
   role: 'system' | 'user' | 'assistant' | 'tool';
@@ -35,7 +45,7 @@ export interface ConfirmDto {
 export class RunsController {
   private readonly logger = new Logger(RunsController.name);
 
-  constructor(private runs: RunsService) { }
+  constructor(private runs: RunsService) {}
 
   @Post()
   create(@Body() body: CreateRunDto, @Req() req: any) {
@@ -45,9 +55,11 @@ export class RunsController {
 
   @Post(':id/confirm')
   async confirm(@Param('id') id: string, @Body() body: ConfirmDto, @Req() req: any) {
-    const who = req?.user ? (req.user.email || req.user.sub || 'unknown-user') : 'unauthenticated';
+    const who = req?.user ? req.user.email || req.user.sub || 'unknown-user' : 'unauthenticated';
     this.logger.log(`POST /runs/${id}/confirm requested by ${who}`);
-    this.logger.debug(`Incoming confirm payload: ${JSON.stringify({ answersKeys: Object.keys(body?.answers ?? {}), approve: body?.approve ?? undefined })}`);
+    this.logger.debug(
+      `Incoming confirm payload: ${JSON.stringify({ answersKeys: Object.keys(body?.answers ?? {}), approve: body?.approve ?? undefined })}`
+    );
 
     const run = await this.runs.get(id);
     if (!run) {
@@ -56,9 +68,7 @@ export class RunsController {
     }
 
     const questions =
-      (run.output as any)?.awaiting?.questions ??
-      (run.output as any)?.diff?.questions ??
-      [];
+      (run.output as any)?.awaiting?.questions ?? (run.output as any)?.diff?.questions ?? [];
 
     this.logger.debug(`Validating answers for run=${id}. expectedQuestions=${questions.length}`);
     const { ok, errors, normalized } = validateAnswers(questions, body?.answers ?? {});
@@ -70,7 +80,9 @@ export class RunsController {
       throw new BadRequestException({ message: 'Validation failed', validationErrors: errors });
     }
 
-    this.logger.debug(`Applying validated answers for run=${id}. normalizedKeys=${Object.keys(normalized || {})}`);
+    this.logger.debug(
+      `Applying validated answers for run=${id}. normalizedKeys=${Object.keys(normalized || {})}`
+    );
     await this.runs.applyUserAnswers(id, normalized);
 
     this.logger.log(`Enqueuing run re-execution for id=${id}`);

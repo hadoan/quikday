@@ -29,7 +29,9 @@ export async function logLlmGeneration(args: {
   system?: string;
   user?: string;
   completion: string;
-  usage?: { prompt_tokens?: number; completion_tokens?: number; total_tokens?: number } | Record<string, any>;
+  usage?:
+    | { prompt_tokens?: number; completion_tokens?: number; total_tokens?: number }
+    | Record<string, any>;
 }): Promise<void> {
   const lf = init();
   if (!lf) return; // not configured
@@ -38,9 +40,7 @@ export async function logLlmGeneration(args: {
   const endpoint = args.apiEndpoint ?? 'chat.completions.create';
   const usage = args.usage ?? {};
 
-  const trace = args.runId
-    ? lf.trace({ id: args.runId, name })
-    : lf.trace({ name });
+  const trace = args.runId ? lf.trace({ id: args.runId, name }) : lf.trace({ name });
 
   trace.generation({
     name: endpoint,

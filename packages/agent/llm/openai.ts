@@ -28,9 +28,10 @@ export function makeOpenAiLLM(client = new OpenAI({ apiKey: process.env.OPENAI_A
       const t = setTimeout(() => ctrl.abort(), timeoutMs);
 
       const modelOverride = (metadata as any)?.model;
-      const chosenModel = typeof modelOverride === 'string' && modelOverride.trim().length > 0
-        ? modelOverride
-        : DEFAULT_MODEL;
+      const chosenModel =
+        typeof modelOverride === 'string' && modelOverride.trim().length > 0
+          ? modelOverride
+          : DEFAULT_MODEL;
 
       const res = await client.chat.completions.create(
         {

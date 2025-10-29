@@ -39,7 +39,12 @@ export default function createApp(meta: AppMeta, deps: any) {
           }
         }
 
-        const { url } = await resolveGmailAuthUrl({ req, meta, signedState, prisma: prisma as any });
+        const { url } = await resolveGmailAuthUrl({
+          req,
+          meta,
+          signedState,
+          prisma: prisma as any,
+        });
 
         const acceptsJson =
           (req.headers['accept'] || '').includes('application/json') ||
