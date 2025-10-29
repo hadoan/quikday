@@ -106,9 +106,11 @@ export const executor: Node<RunState, RunEventBus> = async (s, eventBus) => {
       args = parsed.data;
     }
 
-    // Emit "called"
-    const safeArgs = redactForLog(args);
-    events.toolCalled(s, eventBus, step.tool, safeArgs, step.id);
+    // Emit "called" (suppress for chat.respond to avoid Execution Log)
+    if (!isChat) {
+      const safeArgs = redactForLog(args);
+      events.toolCalled(s, eventBus, step.tool, safeArgs, step.id);
+    }
 
     const t0 = globalThis.performance?.now?.() ?? Date.now();
 
@@ -121,9 +123,11 @@ export const executor: Node<RunState, RunEventBus> = async (s, eventBus) => {
 
       const duration = (globalThis.performance?.now?.() ?? Date.now()) - t0;
 
-      // Emit success
-      const safeResult = redactForLog(result as any);
-      events.toolSucceeded(s, eventBus, step.tool, safeResult, duration, step.id);
+      // Emit success (suppress for chat.respond to avoid Execution Log)
+      if (!isChat) {
+        const safeResult = redactForLog(result as any);
+        events.toolSucceeded(s, eventBus, step.tool, safeResult, duration, step.id);
+      }
 
       // Persist commit
       commits.push({ stepId: step.id, result });

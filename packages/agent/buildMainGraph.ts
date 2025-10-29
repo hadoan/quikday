@@ -44,7 +44,12 @@ export const buildMainGraph = ({ llm, eventBus, moduleRef }: BuildMainGraphOptio
       .addEdge('classify', () => 'planner') // <- skip routeByMode
       .addEdge('planner', () => 'confirm')     // <-- put confirm back
       .addEdge('confirm', (s) => (s.scratch?.awaiting ? 'END' : 'executor'))
-      .addEdge('executor', (s) => (s.error ? 'fallback' : 'summarize'))
+      .addEdge('executor', (s) => {
+        if (s.error) return 'fallback';
+        const plan = s.scratch?.plan ?? [];
+        const onlyChat = plan.length > 0 && plan.every((st) => st.tool === 'chat.respond');
+        return onlyChat ? 'END' : 'summarize';
+      })
       .addEdge('summarize', () => 'END')
       .addEdge('fallback', () => 'END')
   );
