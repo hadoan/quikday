@@ -109,7 +109,13 @@ export function calendarCreateEvent(moduleRef: ModuleRef): Tool<
 async function resolveGoogleCalendarService(moduleRef: ModuleRef): Promise<any> {
   const m = await import('@quikday/appstore-google-calendar');
   const GoogleCalendarProviderService = (m as any).GoogleCalendarProviderService;
-  return moduleRef.get(GoogleCalendarProviderService as any, { strict: false }) as any;
+  const svc = moduleRef.get(GoogleCalendarProviderService as any, { strict: false });
+  if (!svc) {
+    throw new Error(
+      'GoogleCalendarProviderService not found in Nest container. Ensure GoogleCalendarModule is imported into the worker module so DI can provide it.',
+    );
+  }
+  return svc as any;
 }
 
 // ---------------- calendar.listEvents ----------------
