@@ -38,17 +38,6 @@ Output ONLY compact JSON with this exact shape:
   "intent": "<one of the intents above or 'unknown'>",
   "confidence": 0..1,
   "reason": "<short>",
-  "targets"?: {
-    "time"?: { "text"?: string, "iso"?: string, "durationMin"?: number },
-    "attendees"?: string[],
-    "email"?: { "to"?: string[], "subject"?: string, "threadId"?: string },
-    "slack"?: { "channel"?: "#general", "user"?: "@alice" },
-    "notion"?: { "db"?: string, "pageTitle"?: string },
-    "sheets"?: { "sheet"?: string, "tab"?: string },
-    "social"?: { "platform"?: "linkedin"|"twitter", "firstComment"?: string },
-    "crm"?: { "system"?: "hubspot"|"close", "contact"?: string },
-    "dev"?: { "system"?: "github"|"jira", "repo"?: string, "projectKey"?: string, "assignees"?: string[], "labels"?: string[] }
-  },
   "inputs"?: [ { "key": string, "type": string, "required"?: boolean, "prompt"?: string } ],
   "inputValues"?: { [key: string]: unknown },
   "missingInputs"?: string[]
@@ -56,14 +45,10 @@ Output ONLY compact JSON with this exact shape:
 
 Rules:
 - Select the best intent id. If unclear, use "unknown" and omit inputs.
-- Set "inputs" to the inputs array of the selected intent (copied from the catalog).
-- Derive "inputValues" from the user text and provided answers. Do not guess.
+- Derive "inputValues" from the user text and provided answers. Do not guess. Do not include unrelated fields.
 - Set "missingInputs" to required input keys that lack values.
 - Normalize:
-  - Slack channels must start with "#".
-  - "email.to" and "attendees" should be arrays of strings.
-  - If you have start+end, you may set targets.time.iso to an ISO range string
-    (e.g., "2025-11-02T09:00:00Z/2025-11-02T09:30:00Z").
+  - For calendar scheduling, invitee_email must be an email address. If you do not have a valid email, leave it missing.
 - When resolving relative phrases like "tomorrow 10pm", interpret them in the provided timezone and relative to nowISO.
 - Do NOT include extra commentary; strictly output JSON.
 `;
