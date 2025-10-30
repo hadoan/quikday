@@ -3,7 +3,7 @@ import type { RunState } from '../state/types';
 import type { LLM } from '../llm/types';
 import { z } from 'zod';
 import { INTENTS, type IntentId, type IntentInput } from './intents';
-import { CLASSIFY_SYSTEM } from '../prompts/CLASSIFY_SYSTEM';
+import { buildClassifySystemPrompt } from '../prompts/CLASSIFY_SYSTEM';
 import { buildClassifyUserPrompt } from '../prompts/CLASSIFY_USER_PROMPT';
 
 type QaItem = { key: string; question: string; type?: string };
@@ -59,10 +59,12 @@ export const makeClassifyIntent = (llm: LLM): Node<RunState> => {
     const todayISO = (s.ctx.now instanceof Date ? s.ctx.now : new Date()).toISOString();
     const tz = s.ctx.tz || 'UTC';
     const prompt = buildClassifyUserPrompt(userPrompt, answers, { timezone: tz, todayISO });
+    const intentsCatalog = JSON.stringify(INTENTS, null, 2);
+    const system = buildClassifySystemPrompt(intentsCatalog);
 
     try {
       const raw = await llm.text({
-        system: CLASSIFY_SYSTEM,
+        system,
         user: prompt,
         temperature: 0,
         maxTokens: 500,

@@ -30,3 +30,33 @@ export const PLANNER_SYSTEM = [
   '  - Use ISO 8601 for datetime strings.',
   '  - For emails, prefer arrays where applicable (e.g., email.to).',
 ].join('\n');
+
+export function buildPlannerSystemPrompt(tools: string[]): string {
+  const allowed = (tools || []).map((t) => `- ${t}`).join('\n');
+  const allowedBlock = allowed ? `\nAllowed tools:\n${allowed}\n` : '';
+  const examples = [
+    'Examples (patterns to follow):',
+    '',
+    // Calendar + Slack
+    '{',
+    '  "steps": [',
+    '    { "tool": "calendar.checkAvailability", "args": { "start": "2025-10-23T20:00:00Z", "end": "2025-10-23T20:30:00Z" } },',
+    '    { "tool": "calendar.createEvent", "args": { "title": "Online call", "start": "2025-10-23T20:00:00Z", "end": "2025-10-23T20:30:00Z", "notifyAttendees": true } },',
+    '    { "tool": "slack.postMessage", "args": { "channel": "#general", "text": "Scheduled: *Online call* from 20:00 to 20:30. Invites sent." } }',
+    '  ]',
+    '}',
+    '',
+    // Calendar only
+    '{',
+    '  "steps": [',
+    '    { "tool": "calendar.checkAvailability", "args": { "start": "2025-10-30T10:00:00+02:00", "end": "2025-10-30T10:15:00+02:00" } },',
+    '    { "tool": "calendar.createEvent", "args": { "title": "Meeting", "start": "2025-10-30T10:00:00+02:00", "end": "2025-10-30T10:15:00+02:00", "attendees": ["ha.doanmanh@gmail.com"], "notifyAttendees": true }, "dependsOn": "calendar.checkAvailability" }',
+    '  ]',
+    '}',
+    '',
+    // Missing information → empty plan (let runtime ask questions)
+    '{ "steps": [] }',
+  ].join('\n');
+
+  return [PLANNER_SYSTEM, allowedBlock, examples].filter(Boolean).join('\n');
+}

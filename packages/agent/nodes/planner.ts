@@ -7,7 +7,7 @@ import { z } from 'zod';
 import type { RunEventBus } from '@quikday/libs';
 import { registry } from '../registry/registry';
 import type { LLM } from '../llm/types';
-import { PLANNER_SYSTEM } from '../prompts/PLANNER_SYSTEM';
+import { buildPlannerSystemPrompt } from '../prompts/PLANNER_SYSTEM';
 import { DEFAULT_ASSISTANT_SYSTEM } from '../prompts/DEFAULT_ASSISTANT_SYSTEM';
 
 /* ------------------ Whitelist & Schemas ------------------ */
@@ -135,9 +135,7 @@ async function planWithLLM(
 /* ------------------ Prompts (include inputs + today/tz, valid_inputs as dict) ------------------ */
 
 function buildSystemPrompt(tools: string[]) {
-  const list = (tools || []).map((t) => `- ${t}`).join('\n');
-  const header = list.length > 0 ? `\nAllowed tools:\n${list}\n` : '';
-  return `${PLANNER_SYSTEM}${header}`;
+  return buildPlannerSystemPrompt(tools);
 }
 
 function buildUserPrompt(s: RunState, intent: IntentId) {
@@ -149,88 +147,11 @@ function buildUserPrompt(s: RunState, intent: IntentId) {
   const todayISO = (s.ctx.now instanceof Date ? s.ctx.now : new Date()).toISOString();
   const timezone = s.ctx.tz || 'UTC';
 
+  // Compact, LLM-friendly user payload (no examples here)
   const payload = {
     intent,
     meta: { todayISO, timezone },
-    // context: {
-    //   title,
-    //   when: { start, end }, // may be nulls
-    //   attendeesPreview,
-    //   targets: slackChannel ? { slack: { channel: slackChannel } } : {},
-    // },
-    // Examples the model can pattern-match against
-    samples: [
-      {
-        description: 'gcal.schedule WITH Slack announcement',
-
-        expected_output: {
-          steps: [
-            {
-              tool: 'calendar.checkAvailability',
-              args: { start: '2025-10-23T20:00:00Z', end: '2025-10-23T20:30:00Z' },
-            },
-            {
-              tool: 'calendar.createEvent',
-              args: {
-                title: 'Online call',
-                start: '2025-10-23T20:00:00Z',
-                end: '2025-10-23T20:30:00Z',
-                notifyAttendees: true,
-              },
-            },
-            {
-              tool: 'slack.postMessage',
-              args: {
-                channel: '#general',
-                text: 'Scheduled: *Online call* from 20:00 to 20:30. Invites sent.',
-              },
-            },
-          ],
-        },
-      },
-      {
-        description: 'gcal.schedule WITHOUT Slack announcement',
-
-        expected_output: {
-          steps: [
-            {
-              tool: 'calendar.checkAvailability',
-              args: {
-                start: '2025-10-30T10:00:00+02:00',
-                end: '2025-10-30T10:15:00+02:00',
-              },
-            },
-            {
-              tool: 'calendar.createEvent',
-              args: {
-                title: 'Meeting',
-                start: '2025-10-30T10:00:00+02:00',
-                end: '2025-10-30T10:15:00+02:00',
-                attendees: ['ha.doanmanh@gmail.com'],
-                notifyAttendees: true,
-              },
-              dependsOn: 'calendar.checkAvailability',
-            },
-          ],
-        },
-      },
-      {
-        description: 'gcal.schedule MISSING → ask typed questions (no guessing)',
-
-        expected_output: {
-          steps: [],
-        },
-      },
-      {
-        description: 'email.send MISSING → typed questions',
-
-        expected_output: {
-          steps: [],
-        },
-      },
-    ],
   };
-
   return JSON.stringify(payload);
 }
 

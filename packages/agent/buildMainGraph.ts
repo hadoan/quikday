@@ -41,8 +41,15 @@ export const buildMainGraph = ({ llm, eventBus, moduleRef }: BuildMainGraphOptio
       // .addEdge('fallback', () => 'END');
 
       .addEdge('START', () => 'classify')
-      .addEdge('classify', () => 'planner') // <- skip routeByMode
-      .addEdge('planner', () => 'confirm') // <-- put confirm back
+      // First gate on missing inputs immediately after classify. If any required
+      // inputs are missing, the confirm node will surface questions and halt.
+      .addEdge('classify', () => 'confirm')
+      // If confirm set awaiting (questions), end; otherwise continue to plan steps.
+      .addEdge('confirm', (s) => (s.scratch?.awaiting ? 'END' : 'planner'))
+      // After planning, run confirm again for approvals or to ask any newly
+      // discovered questions before execution.
+      .addEdge('planner', () => 'confirm')
+      // If still awaiting after planning, stop; else proceed to executor.
       .addEdge('confirm', (s) => (s.scratch?.awaiting ? 'END' : 'executor'))
       .addEdge('executor', (s) => {
         if (s.error) return 'fallback';
