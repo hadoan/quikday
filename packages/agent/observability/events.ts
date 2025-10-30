@@ -180,8 +180,7 @@ export const events = {
   undoEnqueued: (s: RunState, eventBus: RunEventBus, actions: any[]) =>
     _emit('undo.enqueued', s, eventBus, { actions }),
   undoCompleted: (s: RunState, eventBus: RunEventBus) => _emit('undo.completed', s, eventBus),
-  awaitingInput: (s, bus, questions: Array<{ key: string; question: string }>) =>
-    _emit('awaiting.input', s, bus, { questions }),
+  awaitingInput: (s, bus, questions: any[]) => _emit('awaiting.input', s, bus, { questions }),
 };
 
 let globalSinks: Sinks = defaultSinks;

@@ -51,5 +51,10 @@ Rules:
   - For calendar scheduling, invitee_email must be an email address. If you do not have a valid email, leave it missing.
 - When resolving relative phrases like "tomorrow 10pm", interpret them in the provided timezone and relative to nowISO.
 - Do NOT include extra commentary; strictly output JSON.
+- When resolving relative phrases, interpret in the provided timezone (Europe/Berlin) and relative to nowISO.
+- Define "next week" as next Monday 00:00:00 to next Sunday 23:59:59  in the provided timezone (Europe/Berlin).
+- Prefer local-time ISO (with offset) or include "window_tz":"Europe/Berlin" if using naive local datetimes.
+- For scheduling, if the user specifies a number of slots (e.g., "{count=3}" or "3 slots"), set "count" to that number.
+
 `;
 }

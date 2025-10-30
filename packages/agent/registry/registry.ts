@@ -7,8 +7,8 @@ import { z } from 'zod';
 import { slackPostMessage } from './tools/slack.postMessage';
 import { chatRespondTool } from './tools/chatRespond';
 import { LLM } from '../llm/types';
+import { calendarCheckAvailability } from './tools/calendar.checkAvailability';
 import {
-  calendarCheckAvailability,
   calendarCreateEvent,
   calendarListEvents,
   calendarGetEvent,

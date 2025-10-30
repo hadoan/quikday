@@ -93,8 +93,9 @@ export function QuestionsPanel({
     const initial: Record<string, unknown> = {};
     const initialFieldErrors: Record<string, string | null> = {};
     questions?.forEach((q) => {
+      const t = normalizeType(q.type);
       if (q.defaultValue !== undefined) initial[q.key] = q.defaultValue;
-      else if (q.type === 'multiselect' || q.type === 'email_list') initial[q.key] = [];
+      else if (t === 'multiselect' || t === 'email_list') initial[q.key] = [];
       else initial[q.key] = '';
       initialFieldErrors[q.key] = null;
     });
@@ -102,10 +103,18 @@ export function QuestionsPanel({
     setFieldErrors(initialFieldErrors);
   }, [questions]);
 
+  const normalizeType = (t?: Question['type'] | string): string => {
+    const raw = (t ?? 'text').toString().toLowerCase().trim();
+    const norm = raw.replace(/[-\s]/g, '_');
+    if (norm === 'date_time') return 'datetime';
+    if (norm === 'datetime_local') return 'datetime';
+    return norm;
+  };
+
   const validateField = React.useCallback((q: Question, value: unknown): string | null => {
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     const required = q.required !== false;
-    const t = (q.type ?? 'text') as string;
+    const t = normalizeType(q.type);
     if (required) {
       if (t === 'multiselect' || t === 'email_list') {
         if (!Array.isArray(value) || value.length === 0) return 'Required';
@@ -194,7 +203,7 @@ export function QuestionsPanel({
           // normalize answers according to type
           const payloadAnswers: Record<string, unknown> = {};
           for (const q of questions) {
-            const t = (q.type ?? 'text') as string;
+            const t = normalizeType(q.type);
             const raw = answers[q.key];
             if (raw === '' || raw === undefined) {
               payloadAnswers[q.key] = raw;
@@ -289,7 +298,7 @@ export function QuestionsPanel({
 
       <div className="grid gap-3 mt-2">
         {questions.map((q) => {
-          const t = (q.type ?? 'text') as string;
+          const t = normalizeType(q.type);
           const value = answers[q.key];
           const err = fieldErrors[q.key];
           const required = q.required !== false;

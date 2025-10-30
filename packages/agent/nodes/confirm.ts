@@ -91,11 +91,7 @@ export const confirm: Node<RunState, RunEventBus> = async (s, eventBus) => {
         };
 
         // Notify subscribers
-        events.awaitingInput(
-          s,
-          eventBus,
-          questions.map((q) => ({ key: q.key, question: q.question })),
-        );
+        events.awaitingInput(s, eventBus, questions);
 
         return { scratch: nextScratch, output: nextOutput };
       }

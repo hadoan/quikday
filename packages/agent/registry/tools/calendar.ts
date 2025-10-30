@@ -5,55 +5,12 @@ import { CALENDAR_FACTORY } from '@quikday/appstore/calendar/calendar.tokens';
 import type { CalendarFactory } from '@quikday/appstore/calendar/calendar.factory';
 import { CurrentUserService } from '@quikday/libs';
 import { PrismaService } from '@quikday/prisma';
+export { calendarCheckAvailability, CalendarCheckAvailabilityIn, CalendarCheckAvailabilityOut } from './calendar.checkAvailability';
 
 // Shared schemas
 const iso = z.string().min(10);
 
-// ---------------- calendar.checkAvailability ----------------
-export const CalendarCheckAvailabilityIn = z.object({
-  start: iso,
-  end: iso,
-});
-
-export const CalendarCheckAvailabilityOut = z.object({
-  available: z.boolean(),
-  start: z.string(),
-  end: z.string(),
-});
-
-export type CalendarCheckAvailabilityArgs = z.infer<typeof CalendarCheckAvailabilityIn>;
-export type CalendarCheckAvailabilityResult = z.infer<typeof CalendarCheckAvailabilityOut>;
-
-export function calendarCheckAvailability(
-  moduleRef: ModuleRef,
-): Tool<z.infer<typeof CalendarCheckAvailabilityIn>, z.infer<typeof CalendarCheckAvailabilityOut>> {
-  return {
-    name: 'calendar.checkAvailability',
-    in: CalendarCheckAvailabilityIn,
-    out: CalendarCheckAvailabilityOut,
-    scopes: [],
-    rate: 'unlimited',
-    risk: 'low',
-    async call(args) {
-      try {
-        console.log('------------------------ calendar.checkAvailability called with args:', args);
-        const svc = await resolveGoogleCalendarService(moduleRef);
-        const res = await svc.checkAvailability({
-          start: new Date(args.start),
-          end: new Date(args.end),
-        });
-        return { available: !!res.available, start: args.start, end: args.end };
-      } catch (err) {
-        console.warn('[calendar.checkAvailability] failed, falling back to unavailable', {
-          start: args.start,
-          end: args.end,
-          error: err instanceof Error ? err.message : String(err),
-        });
-        return { available: false, start: args.start, end: args.end };
-      }
-    },
-  };
-}
+// calendar.checkAvailability moved to separate file for clarity
 
 // ---------------- calendar.createEvent ----------------
 export const CalendarCreateIn = z.object({

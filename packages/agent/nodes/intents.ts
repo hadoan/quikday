@@ -38,6 +38,7 @@ export const INTENTS = [
     desc: 'Find/create events, propose slots, invite/hold.',
 
     inputs: [
+      { "key": "count", "type": "number", "required": false, "prompt": "How many slots should I propose? (default 3)" },
       {
         key: 'invitee_email',
         type: 'email',
@@ -46,7 +47,7 @@ export const INTENTS = [
       },
       {
         key: 'duration_min',
-        type: 'duration',
+        type: 'number',
         required: true,
         prompt: 'How long should the meeting be (minutes)?',
       },
