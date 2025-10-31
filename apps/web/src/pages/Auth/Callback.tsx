@@ -5,6 +5,7 @@ import { Card, CardContent, CardHeader } from '@/components/ui/card';
 // Replaced SubioLogo with inline Quikday logo images
 import { Loader2 } from 'lucide-react';
 import { fetchMe } from '@/apis/session';
+import { syncUserAfterRegister } from '@/apis/syncUser';
 
 /**
  * Callback page to handle authentication redirect from Kinde
@@ -12,15 +13,26 @@ import { fetchMe } from '@/apis/session';
  */
 export default function CallbackPage() {
   const navigate = useNavigate();
-  const { isAuthenticated, isLoading } = useKindeAuth();
+  const { isAuthenticated, isLoading, getAccessToken, getUserProfile } = useKindeAuth();
 
   useEffect(() => {
     if (isLoading) return;
     if (isAuthenticated) {
-      // Bootstrap session state by creating/fetching user + workspace
-      void fetchMe().finally(() => {
+      // Provision user with robust sync (waits for correct audience + sends profile)
+      void (async () => {
+        try {
+          await syncUserAfterRegister({
+            getAccessToken,
+            getUserProfile,
+            expectedAudience: import.meta.env.VITE_KINDE_AUDIENCE as string | undefined,
+          });
+        } catch {}
+        // Then fetch consolidated session info
+        try {
+          await fetchMe();
+        } catch {}
         navigate('/', { replace: true });
-      });
+      })();
     } else {
       navigate('/auth/login', { replace: true });
     }

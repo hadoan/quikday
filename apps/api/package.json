@@ -2,7 +2,7 @@
   "name": "@quikday/api",
   "version": "0.0.1",
   "scripts": {
-    "dev": "nest build && NODE_OPTIONS='--inspect=9229 --enable-source-maps' node dist/main.js",
+    "dev": "nest build && node --inspect=9229 --enable-source-maps dist/main.js",
     "build": "nest build",
     "start": "node dist/main.js",
     "prisma": "prisma",

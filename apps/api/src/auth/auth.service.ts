@@ -44,16 +44,20 @@ export class AuthService {
 
   async getOrProvisionUserAndWorkspace(claims: JwtClaims) {
     const sub = claims.sub;
-    if (!sub) throw new Error('Missing sub in token');
+    const rawEmail = claims.email?.trim();
+    const emailNorm = rawEmail ? rawEmail.toLowerCase() : undefined;
+    if (!sub && !emailNorm) throw new Error('Missing sub or email in token');
 
     const name = this.computeNameFromClaims(claims);
-    const email = claims.email || this.fallbackEmailFromSub(sub);
+    const email = emailNorm || (sub ? this.fallbackEmailFromSub(sub) : undefined);
 
-    // Try to find existing user with workspace
-    const existing = await this.prisma.user.findUnique({
-      where: { sub },
-      include: { workspace: true },
-    });
+    // Try to find existing user prioritized by email (primary key), fallback to sub
+    let existing = emailNorm
+      ? await this.prisma.user.findUnique({ where: { email: emailNorm }, include: { workspace: true } })
+      : null;
+    if (!existing && sub) {
+      existing = await this.prisma.user.findUnique({ where: { sub }, include: { workspace: true } });
+    }
 
     if (!existing) {
       // Create user + workspace concurrently in a transaction
@@ -61,8 +65,9 @@ export class AuthService {
         const created = await this.prisma.$transaction(async (tx) => {
           const user = await tx.user.create({
             data: {
-              sub,
-              email,
+              // If email is present, store normalized email and key off that
+              email: email ?? undefined,
+              sub: sub ?? `no-sub-${Date.now()}`,
               displayName: name,
               avatar: claims.picture,
               plan: 'PRO',
@@ -70,7 +75,7 @@ export class AuthService {
           });
 
           const wsName = `${name}'s Workspace`;
-          const slug = this.uniqueSlugFromSub(sub);
+          const slug = this.uniqueSlugFromSub(sub || String(user.id));
           const workspace = await tx.workspace.create({
             data: {
               name: wsName,
@@ -98,14 +103,16 @@ export class AuthService {
           plan: created.user.plan,
         };
       } catch (err: any) {
-        // Handle unique constraint races and re-fetch
+        // Handle unique constraint races and re-fetch via email, else sub
         const code = err?.code as string | undefined;
         if (code === 'P2002') {
           this.logger.warn('Unique constraint hit during provisioning; retrying find');
-          const retry = await this.prisma.user.findUnique({
-            where: { sub },
-            include: { workspace: true },
-          });
+          let retry = emailNorm
+            ? await this.prisma.user.findUnique({ where: { email: emailNorm }, include: { workspace: true } })
+            : null;
+          if (!retry && sub) {
+            retry = await this.prisma.user.findUnique({ where: { sub }, include: { workspace: true } });
+          }
           if (retry) {
             void this.prisma.user
               .update({ where: { id: retry.id }, data: { lastLoginAt: new Date() } })
@@ -114,7 +121,7 @@ export class AuthService {
               id: retry.id,
               email: retry.email,
               name: retry.displayName || name,
-              authSub: sub,
+              authSub: retry.sub,
               workspaceId: retry.workspace?.id,
               workspaceSlug: retry.workspace?.slug,
               plan: retry.plan,
@@ -126,23 +133,28 @@ export class AuthService {
     }
 
     // Existing user - update their profile info and lastLoginAt
-    void this.prisma.user
-      .update({
-        where: { id: existing.id },
-        data: {
-          email: email !== this.fallbackEmailFromSub(sub) ? email : existing.email,
-          displayName: name,
-          avatar: claims.picture || existing.avatar,
-          lastLoginAt: new Date(),
-        },
-      })
+    const updateData: Prisma.UserUpdateInput = {
+      displayName: name,
+      avatar: claims.picture || existing.avatar || undefined,
+      lastLoginAt: new Date(),
+    };
+    // If we have a normalized email and it's different, attempt to set it
+    if (emailNorm && emailNorm !== existing.email) {
+      (updateData as any).email = emailNorm;
+    }
+    // If we have a sub and it's different, set/overwrite it (email is primary key here)
+    if (sub && sub !== existing.sub) {
+      (updateData as any).sub = sub;
+    }
+    await this.prisma.user
+      .update({ where: { id: existing.id }, data: updateData })
       .catch(() => undefined);
 
     return {
       id: existing.id,
       email: existing.email,
       name: existing.displayName || name,
-      authSub: sub,
+      authSub: existing.sub,
       workspaceId: existing.workspace?.id,
       workspaceSlug: existing.workspace?.slug,
       plan: existing.plan,

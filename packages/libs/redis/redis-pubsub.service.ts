@@ -1,7 +1,7 @@
 import { Injectable, Logger, OnModuleDestroy } from '@nestjs/common';
 import Redis from 'ioredis';
 import { RunEvent, RunEventType } from './RunEvent';
-import { v7 as uuidv7 } from 'uuid';
+import { randomUUID } from 'node:crypto';
 import { LRUCache } from 'lru-cache';
 
 @Injectable()
@@ -127,7 +127,7 @@ export class RedisPubSubService implements OnModuleDestroy {
     const channel = `run:${runId}`;
     const fullEvent: RunEvent = {
       ...event,
-      id: uuidv7(), // NEW
+      id: randomUUID(), // NEW
       origin: this.SERVICE, // NEW
       runId,
       ts: new Date().toISOString(),

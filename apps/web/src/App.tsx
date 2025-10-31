@@ -34,7 +34,8 @@ const App = () => (
           scope="openid profile email offline"
           callbacks={{
             onEvent: (event, _state, ctx) => {
-              if (event !== 'register') return;
+              // Ensure DB user is provisioned on both signup and login
+              if (event !== 'register' && event !== 'login') return;
               void syncUserAfterRegister({
                 getAccessToken: ctx.getAccessToken,
                 getUserProfile: ctx.getUserProfile,

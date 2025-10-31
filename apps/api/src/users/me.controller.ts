@@ -11,10 +11,14 @@ export class UsersMeController {
   @UseGuards(KindeGuard)
   async getMe(@Req() req: Request, @Res() res: Response) {
     const claims: any = (req as any).user || {};
-    const sub = claims?.sub as string | undefined;
-    if (!sub) return res.status(401).json({ message: 'Missing sub in token' });
+    const sub = (claims?.sub as string | undefined) || undefined;
+    const email = (claims?.email as string | undefined)?.trim()?.toLowerCase();
 
-    const user = await this.prisma.user.findUnique({ where: { sub } });
+    if (!sub && !email)
+      return res.status(401).json({ message: 'Missing sub or email in token' });
+
+    let user = email ? await this.prisma.user.findUnique({ where: { email } }) : null;
+    if (!user && sub) user = await this.prisma.user.findUnique({ where: { sub } });
     if (!user) return res.status(404).json({ message: 'User not found' });
 
     return res.json({
@@ -36,10 +40,14 @@ export class UsersMeController {
     @Body() body: { name?: string; avatar?: string }
   ) {
     const claims: any = (req as any).user || {};
-    const sub = claims?.sub as string | undefined;
-    if (!sub) return res.status(401).json({ message: 'Missing sub in token' });
+    const sub = (claims?.sub as string | undefined) || undefined;
+    const email = (claims?.email as string | undefined)?.trim()?.toLowerCase();
 
-    const user = await this.prisma.user.findUnique({ where: { sub } });
+    if (!sub && !email)
+      return res.status(401).json({ message: 'Missing sub or email in token' });
+
+    let user = email ? await this.prisma.user.findUnique({ where: { email } }) : null;
+    if (!user && sub) user = await this.prisma.user.findUnique({ where: { sub } });
     if (!user) return res.status(404).json({ message: 'User not found' });
 
     const data: { displayName?: string | null; avatar?: string | null } = {};
