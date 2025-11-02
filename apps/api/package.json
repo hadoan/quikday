@@ -2,7 +2,8 @@
   "name": "@quikday/api",
   "version": "0.0.1",
   "scripts": {
-    "dev": "nest start --watch --debug 9229 --preserveWatchOutput",
+    "dev": "nodemon --watch src --watch ../../packages/*/dist --ext js,ts,json --exec \"nest build && node --inspect=9229 --enable-source-maps dist/main.js\"",
+    "dev:nest": "nest start --watch --debug 9229 --preserveWatchOutput",
     "build": "nest build",
     "start": "node dist/main.js",
     "prisma": "prisma",
@@ -51,6 +52,7 @@
     "@types/jsonwebtoken": "^9.0.6",
     "@types/node": "^22.16.5",
     "@types/ws": "^8.5.12",
+    "nodemon": "^3.1.10",
     "prisma": "^5.18.0",
     "ts-node": "^10.9.2",
     "typescript": "^5.6.3"

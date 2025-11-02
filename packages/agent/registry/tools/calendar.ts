@@ -36,6 +36,7 @@ export function calendarCreateEvent(
 ): Tool<z.infer<typeof CalendarCreateIn>, z.infer<typeof CalendarCreateOut>> {
   return {
     name: 'calendar.createEvent',
+    description: 'Create a new calendar event. Required: title (default: "Event"), start (ISO), end (ISO). Optional: attendees (string or array), notifyAttendees (bool), location.',
     in: CalendarCreateIn,
     out: CalendarCreateOut,
     scopes: [],
@@ -135,6 +136,7 @@ export function calendarListEvents(
 ): Tool<z.infer<typeof CalendarListIn>, z.infer<typeof CalendarListOut>> {
   return {
     name: 'calendar.listEvents',
+    description: 'List calendar events in a date/time range. Required: start (ISO), end (ISO). Optional: pageToken, pageSize (max 250).',
     in: CalendarListIn,
     out: CalendarListOut,
     scopes: [],
@@ -197,6 +199,7 @@ export function calendarGetEvent(
 ): Tool<z.infer<typeof CalendarGetIn>, z.infer<typeof CalendarGetOut>> {
   return {
     name: 'calendar.getEvent',
+    description: 'Get details of a specific calendar event by ID. Required: eventId.',
     in: CalendarGetIn,
     out: CalendarGetOut,
     scopes: [],
@@ -249,6 +252,7 @@ export function calendarFreeBusy(
 ): Tool<z.infer<typeof CalendarFreeBusyIn>, z.infer<typeof CalendarFreeBusyOut>> {
   return {
     name: 'calendar.freeBusy',
+    description: 'Check free/busy status for calendars in a time range. Required: start (ISO), end (ISO). Optional: calendars (string or array).',
     in: CalendarFreeBusyIn,
     out: CalendarFreeBusyOut,
     scopes: [],
@@ -293,6 +297,7 @@ export function calendarUpdateEvent(
 ): Tool<z.infer<typeof CalendarUpdateIn>, z.infer<typeof CalendarUpdateOut>> {
   return {
     name: 'calendar.updateEvent',
+    description: 'Update an existing calendar event. Required: eventId. Optional: title, start (ISO), end (ISO), attendees, location.',
     in: CalendarUpdateIn,
     out: CalendarUpdateOut,
     scopes: [],
@@ -333,6 +338,7 @@ export function calendarCancelEvent(
 ): Tool<z.infer<typeof CalendarCancelIn>, z.infer<typeof CalendarCancelOut>> {
   return {
     name: 'calendar.cancelEvent',
+    description: 'Cancel (delete) a calendar event. Required: eventId.',
     in: CalendarCancelIn,
     out: CalendarCancelOut,
     scopes: [],
@@ -375,6 +381,7 @@ export function calendarSuggestSlots(
 ): Tool<z.infer<typeof CalendarSuggestIn>, z.infer<typeof CalendarSuggestOut>> {
   return {
     name: 'calendar.suggestSlots',
+    description: 'Suggest available meeting time slots. Required: windowStart (ISO), windowEnd (ISO), durationMinutes. Optional: bufferBeforeMinutes, bufferAfterMinutes, count (default 5, max 20), timezone, attendees.',
     in: CalendarSuggestIn,
     out: CalendarSuggestOut,
     scopes: [],

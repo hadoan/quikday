@@ -19,6 +19,7 @@ export function chatRespondTool(
 ): Tool<z.infer<typeof ChatRespondIn>, z.infer<typeof ChatRespondOut>> {
   return {
     name: 'chat.respond',
+    description: 'Generate a conversational response using the LLM. Optional: prompt (user message), system (system prompt override).',
     in: ChatRespondIn,
     out: ChatRespondOut,
     scopes: [], // no scopes required

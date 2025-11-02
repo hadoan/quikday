@@ -76,6 +76,7 @@ export function calendarCheckAvailability(
 ): Tool<CalendarCheckAvailabilityArgs, CalendarCheckAvailabilityResult> {
   return {
     name: 'calendar.checkAvailability',
+    description: 'Find available time slots within a date/time window. Searches for free slots during working hours and returns up to N available slots. Required: startWindow (ISO), endWindow (ISO), durationMin (meeting length in minutes).',
     in: CalendarCheckAvailabilityIn,
     out: CalendarCheckAvailabilityOut,
     scopes: [],

@@ -81,6 +81,7 @@ export function emailSend(
 ): Tool<z.infer<typeof EmailSendIn>, z.infer<typeof EmailSendOut>> {
   return {
     name: 'email.send',
+    description: 'Send an email message. Required: to (comma-separated), subject, body. Optional: cc, bcc, html (boolean).',
     in: EmailSendIn,
     out: EmailSendOut,
     scopes: [],
@@ -179,6 +180,7 @@ export function emailRead(
 ): Tool<z.infer<typeof EmailReadIn>, z.infer<typeof EmailReadOut>> {
   return {
     name: 'email.read',
+    description: 'Search and read emails. Optional: query (search string), maxResults (default 10), newerThanDays, labels.',
     in: EmailReadIn,
     out: EmailReadOut,
     scopes: [],
@@ -241,6 +243,7 @@ export function emailMessageGet(
 ): Tool<z.infer<typeof EmailMessageGetIn>, z.infer<typeof EmailMessageGetOut>> {
   return {
     name: 'email.message.get',
+    description: 'Get details of a specific email message by ID. Required: messageId.',
     in: EmailMessageGetIn,
     out: EmailMessageGetOut,
     scopes: [],
@@ -292,6 +295,7 @@ export function emailThreadGet(
 ): Tool<z.infer<typeof EmailThreadGetIn>, z.infer<typeof EmailThreadGetOut>> {
   return {
     name: 'email.thread.get',
+    description: 'Get all messages in an email thread. Required: threadId.',
     in: EmailThreadGetIn,
     out: EmailThreadGetOut,
     scopes: [],
@@ -337,6 +341,7 @@ export function emailDraftCreate(
 ): Tool<z.infer<typeof EmailDraftCreateIn>, z.infer<typeof EmailDraftCreateOut>> {
   return {
     name: 'email.draft.create',
+    description: 'Create an email draft (not sent). Required: to, subject, body. Optional: cc, bcc, html.',
     in: EmailDraftCreateIn,
     out: EmailDraftCreateOut,
     scopes: [],
@@ -379,6 +384,7 @@ export function emailDraftSend(
 ): Tool<z.infer<typeof EmailDraftSendIn>, z.infer<typeof EmailDraftSendOut>> {
   return {
     name: 'email.draft.send',
+    description: 'Send an existing email draft. Required: draftId.',
     in: EmailDraftSendIn,
     out: EmailDraftSendOut,
     scopes: [],
@@ -418,6 +424,7 @@ export function emailLabelsChange(
 ): Tool<z.infer<typeof EmailLabelsChangeIn>, z.infer<typeof EmailLabelsChangeOut>> {
   return {
     name: 'email.labels.change',
+    description: 'Add or remove labels from an email message. Required: messageId. Optional: addLabelIds, removeLabelIds (arrays).',
     in: EmailLabelsChangeIn,
     out: EmailLabelsChangeOut,
     scopes: [],
@@ -451,6 +458,7 @@ export function emailArchive(
 ): Tool<z.infer<typeof EmailArchiveIn>, z.infer<typeof EmailArchiveOut>> {
   return {
     name: 'email.archive',
+    description: 'Archive an email thread or message (removes from inbox). Required: threadId or messageId.',
     in: EmailArchiveIn,
     out: EmailArchiveOut,
     scopes: [],
@@ -485,6 +493,7 @@ export function emailSnooze(
 ): Tool<z.infer<typeof EmailSnoozeIn>, z.infer<typeof EmailSnoozeOut>> {
   return {
     name: 'email.snooze',
+    description: 'Snooze an email until a specific time. Required: (threadId or messageId) AND snoozeUntil (ISO timestamp).',
     in: EmailSnoozeIn,
     out: EmailSnoozeOut,
     scopes: [],

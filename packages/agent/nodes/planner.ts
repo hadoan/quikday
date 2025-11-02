@@ -23,6 +23,14 @@ function getToolWhitelist(): string[] {
   }
 }
 
+function getToolSchemas(): Array<{ name: string; description: string; args: any }> {
+  try {
+    return registry.getSchemas();
+  } catch {
+    return [{ name: 'chat.respond', description: 'Generate a response', args: {} }];
+  }
+}
+
 type AllowedTool = string;
 
 // Step schema the LLM returns
@@ -40,6 +48,52 @@ const PlanInSchema = z.object({
 
 const safe = <T>(v: T): T => JSON.parse(JSON.stringify(v));
 const sid = (n: number) => `step-${String(n).padStart(2, '0')}`;
+
+/**
+ * Validate and fix tool arguments using the actual tool schema.
+ * If validation fails, attempt to parse the error and provide helpful feedback.
+ */
+function validateAndFixToolArgs(toolName: string, args: any): { valid: boolean; args: any; error?: string } {
+  try {
+    const tool = registry.get(toolName);
+    if (!tool?.in) {
+      // No schema validation available, accept as-is
+      return { valid: true, args };
+    }
+
+    // Try to parse with the tool's schema
+    const result = tool.in.safeParse(args);
+    
+    if (result.success) {
+      // Valid! Return the parsed/coerced args
+      return { valid: true, args: result.data };
+    }
+
+    // Validation failed - extract error details
+    const zodError = result.error;
+    const formatted = zodError.format();
+    
+    // Build a helpful error message
+    const fieldErrors: string[] = [];
+    for (const [field, err] of Object.entries(formatted)) {
+      if (field !== '_errors' && err && typeof err === 'object' && '_errors' in err) {
+        const messages = (err as any)._errors;
+        if (Array.isArray(messages) && messages.length > 0) {
+          fieldErrors.push(`  - ${field}: ${messages.join(', ')}`);
+        }
+      }
+    }
+    
+    const errorMsg = fieldErrors.length > 0 
+      ? `Invalid arguments for ${toolName}:\n${fieldErrors.join('\n')}`
+      : `Invalid arguments for ${toolName}`;
+
+    return { valid: false, args, error: errorMsg };
+  } catch (err) {
+    // Registry error or unexpected issue
+    return { valid: false, args, error: `Could not validate ${toolName}: ${err}` };
+  }
+}
 
 const isEmail = (v?: string) =>
   typeof v === 'string' && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v.trim());
@@ -115,7 +169,7 @@ async function planWithLLM(
       system,
       user,
       temperature: 0,
-      maxTokens: 700,
+      maxTokens: 1000, // Increased to allow for detailed schemas
       timeoutMs: 15_000,
       metadata: {
         requestType: 'planner',
@@ -134,7 +188,7 @@ async function planWithLLM(
 
 /* ------------------ Prompts (include inputs + today/tz, valid_inputs as dict) ------------------ */
 
-function buildSystemPrompt(tools: string[]) {
+function buildSystemPrompt(tools: Array<{ name: string; description: string; args: any }>) {
   return buildPlannerSystemPrompt(tools);
 }
 
@@ -147,10 +201,15 @@ function buildUserPrompt(s: RunState, intent: IntentId) {
   const todayISO = (s.ctx.now instanceof Date ? s.ctx.now : new Date()).toISOString();
   const timezone = s.ctx.tz || 'UTC';
 
+  // Include intentMeta with inputValues so LLM knows what parameters are available
+  const intentMeta = s.scratch?.intentMeta || {};
+  const inputValues = (intentMeta as any).inputValues || {};
+
   // Compact, LLM-friendly user payload (no examples here)
   const payload = {
     intent,
     meta: { todayISO, timezone },
+    inputs: inputValues, // Include the extracted input values
   };
   return JSON.stringify(payload);
 }
@@ -170,6 +229,40 @@ function patchAndHardenPlan(
   // 1) Filter to allowed tools (defensive)
   const whitelist = new Set(getToolWhitelist());
   let steps = (drafted.steps ?? []).filter((st) => whitelist.has(st.tool as AllowedTool));
+
+  // 2) Validate and fix arguments for each step using Zod schemas
+  const validatedSteps: typeof steps = [];
+  const invalidSteps: Array<{ tool: string; error: string }> = [];
+
+  for (const step of steps) {
+    const validation = validateAndFixToolArgs(step.tool, step.args);
+    
+    if (validation.valid) {
+      // Use the validated/coerced arguments from Zod
+      validatedSteps.push({
+        ...step,
+        args: validation.args,
+      });
+    } else {
+      // Log invalid step for debugging
+      console.warn(`[Planner] Invalid arguments for ${step.tool}:`, validation.error);
+      invalidSteps.push({
+        tool: step.tool,
+        error: validation.error || 'Unknown validation error',
+      });
+    }
+  }
+
+  // Log validation summary if any steps were invalid
+  if (invalidSteps.length > 0) {
+    console.warn(
+      `[Planner] Filtered out ${invalidSteps.length} invalid step(s):`,
+      invalidSteps.map(s => `${s.tool}: ${s.error}`).join('; ')
+    );
+  }
+
+  // Use validated steps
+  steps = validatedSteps;
 
   // 2) If schedule intent & times missing → enforce canonical sequence (optional)
   // const isSchedule = intent === INTENT.CALENDAR_SCHEDULE;
@@ -312,7 +405,7 @@ export const makePlanner =
 
     // 3) Try LLM planning
     if (intent) {
-      const tools = getToolWhitelist();
+      const tools = getToolSchemas();
       const system = buildSystemPrompt(tools);
       const user = buildUserPrompt(s, intent);
       const raw = await planWithLLM(llm, s, system, user);

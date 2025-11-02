@@ -51,6 +51,39 @@ export class ToolRegistry {
     return Array.from(this.tools.keys());
   }
 
+  // Get tool schemas for planning
+  getSchemas(): Array<{ name: string; description: string; args: any }> {
+    return Array.from(this.tools.values()).map((tool) => ({
+      name: tool.name,
+      description: tool.description || `Tool: ${tool.name}`,
+      args: tool.in ? this.zodToSimpleSchema(tool.in) : {},
+    }));
+  }
+
+  private zodToSimpleSchema(schema: z.ZodTypeAny): any {
+    if (schema instanceof z.ZodObject) {
+      const shape = schema.shape;
+      const result: Record<string, string> = {};
+      for (const [key, value] of Object.entries(shape)) {
+        result[key] = this.getZodType(value as z.ZodTypeAny);
+      }
+      return result;
+    }
+    return {};
+  }
+
+  private getZodType(schema: z.ZodTypeAny): string {
+    if (schema instanceof z.ZodString) return 'string';
+    if (schema instanceof z.ZodNumber) return 'number';
+    if (schema instanceof z.ZodBoolean) return 'boolean';
+    if (schema instanceof z.ZodArray) return 'array';
+    if (schema instanceof z.ZodObject) return 'object';
+    if (schema instanceof z.ZodOptional) return this.getZodType(schema.unwrap() as z.ZodTypeAny) + '?';
+    if (schema instanceof z.ZodDefault) return this.getZodType(schema._def.innerType as z.ZodTypeAny);
+    if (schema instanceof z.ZodUnion) return 'string|array';
+    return 'any';
+  }
+
   async call<TIn, TOut>(name: string, args: TIn, ctx: any): Promise<TOut> {
     const tool = this.get(name) as Tool<TIn, TOut>;
     requireScopes(ctx.scopes, tool.scopes);
@@ -72,6 +105,7 @@ export const registry = new ToolRegistry();
 
 registry.register({
   name: 'noop',
+  description: 'No-operation tool for testing. Echoes back the prompt or returns "noop".',
   in: z
     .object({
       prompt: z.string().optional(),
