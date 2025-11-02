@@ -2,6 +2,7 @@
   "name": "@quikday/appstore",
   "version": "0.0.1",
   "private": true,
+  "type": "module",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "exports": {
@@ -42,7 +43,8 @@
     "build": "tsc -p tsconfig.json",
     "dev": "tsc -w -p tsconfig.json",
     "watch": "tsc -w -p tsconfig.json",
-    "lint": "eslint ./*.ts --ext .ts,.tsx"
+    "lint": "eslint ./*.ts --ext .ts,.tsx",
+    "seed-app-store": "tsx ./seed-app-store.ts"
   },
   "dependencies": {
     "@nestjs/common": "^10.4.20",
@@ -56,6 +58,8 @@
     "@prisma/client": "^5.18.0",
     "@quikday/tsconfig": "workspace:*",
     "tslib": "^2.5.0",
-    "typescript": "^4.9.0"
+    "typescript": "^4.9.0",
+    "ts-node": "^10.9.2",
+    "tsx": "^4.7.0"
   }
 }

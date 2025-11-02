@@ -16,7 +16,7 @@
     "db:migrate": "dotenv -e .env -- pnpm --filter @quikday/prisma exec prisma migrate dev",
     "db:migrate:create": "dotenv -e .env -- pnpm --filter @quikday/prisma exec prisma migrate dev --create-only",
     "seed": "dotenv -e .env -- pnpm --filter @quikday/prisma run seed",
-    "seed:appstore": "dotenv -e .env -- pnpm --filter @quikday/prisma run seed-app-store",
+  "seed:appstore": "dotenv -e .env -- pnpm --filter @quikday/appstore run seed-app-store",
     "db:reset": "bash ./scripts/db-reset.sh",
     "db:studio": "dotenv -e .env -- pnpm --filter @quikday/prisma exec prisma studio",
     "clean": "rm -rf node_modules packages/*/node_modules apps/*/node_modules packages/appstore/*/node_modules .pnpm-store dist build",

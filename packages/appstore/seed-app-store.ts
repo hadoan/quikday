@@ -1,5 +1,5 @@
 import { Prisma, PrismaClient } from '@prisma/client';
-import { getIntegrationSlugs } from '@quikday/appstore';
+import { getIntegrationSlugs } from './registry.js';
 
 const prisma = new PrismaClient();
 
@@ -78,15 +78,8 @@ async function seedFromRegistry() {
   const slugs = getIntegrationSlugs();
   for (const slug of slugs) {
     try {
-      // Attempt to load metadata via two resolution strategies:
-      // 1) Scoped subpath (used by API registry code)
-      // 2) Separate workspace package name (appstore-{slug})
-      let metaMod: any;
-      try {
-        metaMod = await import(`@quikday/appstore/${slug}/dist/metadata`);
-      } catch {
-        metaMod = await import(`@quikday/appstore-${slug}/dist/metadata`);
-      }
+      // Load metadata from local source (works with ts-node during development).
+      const metaMod = await import(`./${slug}/metadata`);
       const meta = metaMod.metadata as {
         slug: string;
         dirName: string;
@@ -96,7 +89,7 @@ async function seedFromRegistry() {
       const categories = asValidCategories(meta.categories);
 
       // Optional provider keys by slug
-  let keys: Prisma.InputJsonValue | undefined;
+      let keys: Prisma.InputJsonValue | undefined;
 
       if (slug === 'google-calendar' || slug === 'gmail-email') {
         try {
