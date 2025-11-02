@@ -5,6 +5,7 @@
     "outDir": "dist",
     "ignoreDeprecations": "5.0",
     "types": ["node"],
+    "declaration": true,
     "module": "Node16",
     "target": "ES2022",
     "moduleResolution": "Node16"
