@@ -48,8 +48,32 @@ export const buildMainGraph = ({ llm, eventBus, moduleRef }: BuildMainGraphOptio
         // Otherwise go straight to planner
         return 'planner';
       })
-      // After planning, confirm for approvals or newly discovered questions
-      .addEdge('planner', () => 'confirm')
+      // After planning: check mode to determine flow
+      .addEdge('planner', (s) => {
+        const plan = s.scratch?.plan ?? [];
+        const hasExecutableSteps = plan.length > 0 && 
+          !plan.every((st) => st.tool === 'chat.respond');
+        
+        // PREVIEW mode: Just show the plan, don't execute
+        if (s.mode === 'PREVIEW') {
+          return 'END'; // Show plan only, no execution
+        }
+        
+        // APPROVAL mode: Show plan and halt for user approval
+        if (s.mode === 'APPROVAL' && hasExecutableSteps) {
+          // Mark as awaiting approval - will be handled by processor
+          (s.scratch as any).requiresApproval = true;
+          return 'END'; // Halt graph here, wait for approval
+        }
+        
+        // AUTO mode: Continue to execution immediately (no approval needed)
+        if (s.mode === 'AUTO') {
+          return 'confirm'; // Proceed to execution flow
+        }
+        
+        // Default: go to confirm
+        return 'confirm';
+      })
       // After confirm, check if awaiting or ready to execute
       .addEdge('confirm', (s) => {
         if (s.scratch?.awaiting) return 'END';

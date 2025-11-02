@@ -5,7 +5,7 @@ export const PlanCard = z.object({
   intent: z.string(),
   tools: z.array(z.string()),
   actions: z.array(z.string()),
-  mode: z.enum(['plan', 'auto']),
+  mode: z.enum(['preview', 'approval', 'auto']),
 });
 
 export const ConfigCard = z.object({

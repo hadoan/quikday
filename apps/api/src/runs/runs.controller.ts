@@ -24,7 +24,7 @@ export interface ChatMessageDto {
 export interface CreateRunDto {
   prompt?: string;
   messages?: ChatMessageDto[];
-  mode: 'plan' | 'auto' | 'scheduled';
+  mode: 'preview' | 'approval' | 'auto' | 'scheduled';
   teamId: number;
   scheduledAt?: string;
   channelTargets?: Array<{

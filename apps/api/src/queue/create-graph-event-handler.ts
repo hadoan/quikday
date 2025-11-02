@@ -67,7 +67,7 @@ export function createGraphEventHandler(opts: {
           safePublish('run_status', { status: 'running' });
           break;
         }
-        case 'plan.ready': {
+        case 'plan_generated': {
           const plan = Array.isArray((evt.payload as any)?.plan)
             ? ((evt.payload as any).plan as any[])
             : [];
@@ -78,6 +78,7 @@ export function createGraphEventHandler(opts: {
             plan,
             tools: plan.map((step: any) => step.tool),
             actions: plan.map((step: any) => `Execute ${step.tool}`),
+            steps: plan,
             diff,
           });
           if (persistPlanSteps) {

@@ -34,7 +34,7 @@ export interface FeatureFlags {
 
 const DEFAULT_FLAGS: FeatureFlags = {
   dataSource: 'mock',
-  liveApprovals: false,
+  liveApprovals: true, // Enable by default for approval feature development
   liveUndo: false,
   liveCredentials: false,
   showDebugInfo: false,

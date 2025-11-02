@@ -5,7 +5,7 @@ import { Inject, Logger } from '@nestjs/common';
 import { RunsService } from '../runs/runs.service';
 import { TelemetryService } from '../telemetry/telemetry.service';
 import { ErrorCode } from '@quikday/types';
-import type { RunState } from '@quikday/agent/state/types';
+import type { RunState, RunMode } from '@quikday/agent/state/types';
 import type { Run } from '@prisma/client';
 import { subscribeToRunEvents } from '@quikday/agent/observability/events';
 import { CHANNEL_WORKER, CHANNEL_WEBSOCKET } from '@quikday/libs';
@@ -48,6 +48,24 @@ type StepLogEntry = {
 @Processor('runs')
 export class RunProcessor extends WorkerHost {
   private readonly logger = new Logger(RunProcessor.name);
+
+  /**
+   * Map frontend mode strings to backend RunMode format
+   */
+  private mapRunMode(mode?: string): RunMode {
+    const normalized = mode?.toLowerCase();
+    switch (normalized) {
+      case 'preview':
+      case 'plan':
+        return 'PREVIEW';
+      case 'approval':
+        return 'APPROVAL';
+      case 'auto':
+        return 'AUTO';
+      default:
+        return 'APPROVAL'; // Default to approval mode for safety
+    }
+  }
 
   constructor(
     private runs: RunsService,
@@ -175,7 +193,23 @@ export class RunProcessor extends WorkerHost {
 
         let final: RunState;
         try {
-          final = await graph.run('classify', initialState, this.eventBus);
+          // Check if we're resuming from a specific node (e.g., after approval)
+          const config = run.config as any;
+          const resumeFrom = config?.resumeFrom as string | undefined;
+          
+          if (resumeFrom === 'executor' && run.status === 'approved') {
+            // Resume execution from executor node after approval
+            this.logger.log('▶️ Resuming from executor after approval', {
+              runId: run.id,
+              approvedSteps: config?.approvedSteps?.length || 0,
+            });
+            
+            // Run from executor directly, bypassing planner
+            final = await graph.run('executor', initialState, this.eventBus);
+          } else {
+            // Normal flow: start from classify
+            final = await graph.run('classify', initialState, this.eventBus);
+          }
         } finally {
           unsubscribe();
         }
@@ -224,6 +258,81 @@ export class RunProcessor extends WorkerHost {
             { type: 'run_status', payload: { status: 'awaiting_input', questions } },
             CHANNEL_WEBSOCKET
           );
+          return;
+        }
+
+        // Check if approval is required (AUTO mode halted after planning)
+        const requiresApproval = (final?.scratch as any)?.requiresApproval === true;
+        const plan = (final?.scratch?.plan ?? []) as Array<{ id: string; tool: string }>;
+        const hasExecutableSteps = plan.length > 0 && 
+          !plan.every((st) => st.tool === 'chat.respond');
+
+        if (requiresApproval && hasExecutableSteps) {
+          // Persist plan and diff for UI display
+          await this.runs.persistResult(run.id, {
+            output: final.output,
+            logs: formatLogsForPersistence(),
+          });
+
+          // Set status to awaiting_approval
+          await this.runs.updateStatus(run.id, 'awaiting_approval');
+
+          // Notify UI of awaiting_approval status
+          // Note: plan_generated event was already emitted by graph during execution
+          await this.eventBus.publish(
+            run.id,
+            { 
+              type: 'run_status', 
+              payload: { 
+                status: 'awaiting_approval',
+                plan: plan.map(s => ({ id: s.id, tool: s.tool }))
+              } 
+            },
+            CHANNEL_WEBSOCKET
+          );
+
+          this.logger.log('⏸️ Run awaiting approval', {
+            runId: run.id,
+            stepsCount: plan.length,
+          });
+
+          return;
+        }
+
+        // Check if PREVIEW mode (just showing plan, not executing)
+        if ((run.mode === 'preview' || run.mode === 'plan') && hasExecutableSteps) {
+          // Persist plan and diff for UI display
+          await this.runs.persistResult(run.id, {
+            output: final.output,
+            logs: formatLogsForPersistence(),
+          });
+
+          // Set status to done (plan shown, no execution)
+          await this.runs.updateStatus(run.id, 'done');
+
+          // Notify UI that preview mode is completed
+          // Note: plan_generated event was already emitted by graph during execution
+          await this.eventBus.publish(
+            run.id,
+            { 
+              type: 'run_completed', 
+              payload: { 
+                status: 'done',
+                output: final.output ?? {},
+                plan: plan.map(s => ({ id: s.id, tool: s.tool }))
+              } 
+            },
+            CHANNEL_WEBSOCKET
+          );
+
+          this.logger.log('✅ Preview mode completed (plan shown)', {
+            runId: run.id,
+            stepsCount: plan.length,
+            mode: run.mode,
+          });
+
+          await this.telemetry.track('run_completed', { runId: run.id, status: 'done', mode: run.mode });
+
           return;
         }
 
@@ -369,7 +478,7 @@ export class RunProcessor extends WorkerHost {
 
     const initialState: RunState = {
       input,
-      mode: (job.data.mode ?? run.mode)?.toUpperCase() === 'AUTO' ? 'AUTO' : 'PLAN',
+      mode: this.mapRunMode(job.data.mode ?? run.mode),
       ctx,
       scratch: {
         ...(persistedScratch as any),

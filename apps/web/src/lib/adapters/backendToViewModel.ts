@@ -31,6 +31,7 @@ const RUN_STATUS_MAP: Record<string, UiRunStatus> = {
   queued: 'queued',
   planning: 'planning',
   planned: 'awaiting_approval',
+  awaiting_approval: 'awaiting_approval', // Approval required
   executing: 'executing',
   scheduled: 'scheduled',
   succeeded: 'succeeded',

@@ -29,8 +29,12 @@ export function ChatStream({
   const lastStatus = React.useMemo(() => {
     for (let i = messages.length - 1; i >= 0; i--) {
       const m = messages[i] as any;
-      if (m?.type === 'run' && m?.data?.status) return String(m.data.status);
+      if (m?.type === 'run' && m?.data?.status) {
+        console.log('🔎 Found run message at index', i, 'with status:', m.data.status);
+        return String(m.data.status);
+      }
     }
+    console.log('🔎 No run message found in', messages.length, 'messages');
     return undefined as string | undefined;
   }, [messages]);
 
@@ -79,7 +83,7 @@ export function ChatStream({
             intent: pd?.intent || 'Plan',
             tools: pd?.tools || [],
             actions: pd?.actions || [],
-            mode: 'plan' as const,
+            mode: 'preview' as const,
           };
 
           const steps = Array.isArray((pd as any)?.steps)
@@ -87,23 +91,38 @@ export function ChatStream({
             : [];
           const canApprove =
             flags.liveApprovals && runId && lastStatus === 'awaiting_approval' && steps.length > 0;
+          
+          console.log('🔍 Approval button check:', {
+            liveApprovals: flags.liveApprovals,
+            hasRunId: !!runId,
+            lastStatus,
+            stepsCount: steps.length,
+            canApprove,
+          });
+          
           const onConfirm = canApprove
             ? async () => {
                 try {
-                  await (dataSource as any).approve?.(
-                    runId,
-                    steps.map((s) => s.id),
-                  );
+                  await dataSource.approve(runId, steps.map((s) => s.id));
                 } catch (e) {
-                  // eslint-disable-next-line no-console
                   console.error('approve failed', e);
+                }
+              }
+            : undefined;
+
+          const onReject = canApprove
+            ? async () => {
+                try {
+                  await dataSource.cancel(runId);
+                } catch (e) {
+                  console.error('reject failed', e);
                 }
               }
             : undefined;
 
           return (
             <ChatMessage key={i} role="assistant">
-              <PlanCard data={plan} onConfirm={onConfirm} />
+              <PlanCard data={plan} onConfirm={onConfirm} onReject={onReject} />
             </ChatMessage>
           );
         }

@@ -150,9 +150,19 @@ export class RunsService {
         runId: run.id,
       });
       await this.enqueue(run.id);
-    }
-
-    if (mode === 'scheduled' && scheduledAt) {
+    } else if (mode === 'preview') {
+      this.logger.log('�️ Enqueueing run for preview (mode=preview)', {
+        timestamp: new Date().toISOString(),
+        runId: run.id,
+      });
+      await this.enqueue(run.id);
+    } else if (mode === 'approval') {
+      this.logger.log('✋ Enqueueing run for approval (mode=approval)', {
+        timestamp: new Date().toISOString(),
+        runId: run.id,
+      });
+      await this.enqueue(run.id);
+    } else if (mode === 'scheduled' && scheduledAt) {
       const delay = new Date(scheduledAt).getTime() - Date.now();
       this.logger.log('⏰ Scheduling run for delayed execution', {
         timestamp: new Date().toISOString(),
@@ -492,10 +502,13 @@ export class RunsService {
 
   private initialStatusForMode(mode: string): string {
     switch (mode) {
-      case 'plan':
+      case 'preview':
         return 'planning';
+      case 'approval':
+        return 'awaiting_approval';
       case 'scheduled':
         return 'scheduled';
+      case 'auto':
       default:
         return 'queued';
     }
@@ -589,18 +602,39 @@ export class RunsService {
       throw new NotFoundException('Run not found');
     }
 
-    const config = this.asRecord(run.config);
-    const nextConfig = { ...config, approvedSteps };
+    // Verify run is in awaiting_approval state
+    if (run.status !== 'awaiting_approval') {
+      throw new BadRequestException(
+        `Cannot approve run with status '${run.status}'. Expected 'awaiting_approval'.`
+      );
+    }
 
+    const config = this.asRecord(run.config);
+    
+    // Store approved steps and mark for execution continuation
+    const nextConfig = { 
+      ...config, 
+      approvedSteps,
+      // Signal to resume from executor node
+      resumeFrom: 'executor' 
+    };
+
+    // Update run status to approved and persist config
     await this.prisma.run.update({
       where: { id: runId },
       data: {
         config: nextConfig,
-        status: 'queued',
+        status: 'approved',
       },
     });
 
-    await this.enqueue(runId);
+    // Re-enqueue with scratch data to continue execution
+    await this.enqueue(runId, { 
+      scratch: { 
+        approvalGranted: true,
+        approvedAt: new Date().toISOString()
+      } 
+    });
 
     await this.telemetry.track('run_approved', { runId, stepsCount: approvedSteps.length });
   }
