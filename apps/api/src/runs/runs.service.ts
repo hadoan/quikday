@@ -387,6 +387,53 @@ export class RunsService {
     }
   }
 
+  /**
+   * Persist planner output: planned steps into Step table and diff into run.output.
+   * - Creates Step rows with action "Planned <tool>" and request set to args.
+   * - Avoids duplicating if steps already exist for this run.
+   */
+  async persistPlan(runId: string, plan: Array<{ tool: string; args?: any }>, diff: any) {
+    const run = await this.prisma.run.findUnique({ where: { id: runId } });
+    if (!run) throw new NotFoundException('Run not found');
+
+    const stepCount = await this.prisma.step.count({ where: { runId } });
+
+    const now = new Date();
+    const stepData = (Array.isArray(plan) ? plan : []).map((p) => ({
+      runId,
+      tool: String(p?.tool || 'unknown'),
+      action: `Planned ${String(p?.tool || 'unknown')}`,
+      appId: null as any,
+      credentialId: null as any,
+      request: (p && typeof p === 'object' ? (p as any).args ?? null : null) as any,
+      response: null as any,
+      errorCode: null as any,
+      startedAt: now,
+    }));
+
+    // Merge diff and plan into run.output (scratch.plan is a good place)
+    const currentOutput = (run.output && typeof run.output === 'object' ? (run.output as any) : {}) as Record<string, any>;
+    const nextScratch = {
+      ...((currentOutput.scratch && typeof currentOutput.scratch === 'object'
+        ? (currentOutput.scratch as Record<string, any>)
+        : {}) as Record<string, any>),
+      plan: plan ?? [],
+    };
+    const nextOutput = {
+      ...currentOutput,
+      diff: diff ?? currentOutput.diff,
+      scratch: nextScratch,
+    } as any;
+
+    await this.prisma.$transaction([
+      // Only create planned steps if no steps exist yet to avoid duplicates
+      ...(stepCount === 0 && stepData.length > 0
+        ? [this.prisma.step.createMany({ data: stepData as any })]
+        : []),
+      this.prisma.run.update({ where: { id: runId }, data: { output: nextOutput } }),
+    ]);
+  }
+
   private normalizeMessages(messages: CreateRunDto['messages'], prompt?: string): ChatMessage[] {
     const allowedRoles = new Set(['system', 'user', 'assistant', 'tool']);
     const normalized: ChatMessage[] = [];

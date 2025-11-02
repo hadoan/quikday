@@ -147,6 +147,16 @@ export class RunProcessor extends WorkerHost {
         setGraphEmitted: (v: boolean) => (graphEmittedRunCompleted = v),
         logger: this.logger,
         telemetry: this.telemetry,
+        persistPlanSteps: async (plan: any[], diff: any) => {
+          try {
+            await this.runs.persistPlan(run.id, plan, diff);
+          } catch (e) {
+            this.logger.error('? Failed to persist plan', {
+              runId: run.id,
+              error: (e as any)?.message ?? String(e),
+            });
+          }
+        },
       });
 
       try {

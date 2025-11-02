@@ -32,6 +32,7 @@ export function createGraphEventHandler(opts: {
   setGraphEmitted: (v: boolean) => void;
   logger: Logger;
   telemetry: TelemetryService;
+  persistPlanSteps?: (plan: any[], diff: any) => Promise<void>;
 }) {
   const {
     run,
@@ -43,6 +44,7 @@ export function createGraphEventHandler(opts: {
     setGraphEmitted,
     logger,
     telemetry,
+    persistPlanSteps,
   } = opts;
 
   return (evt: GraphRunEvent) => {
@@ -78,6 +80,14 @@ export function createGraphEventHandler(opts: {
             actions: plan.map((step: any) => `Execute ${step.tool}`),
             diff,
           });
+          if (persistPlanSteps) {
+            void persistPlanSteps(plan, diff).catch((err) =>
+              logger.error('? Failed to persist planned steps', {
+                runId: run.id,
+                error: err?.message || String(err),
+              })
+            );
+          }
           break;
         }
         case 'tool.called': {
