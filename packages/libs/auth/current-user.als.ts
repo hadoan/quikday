@@ -1,6 +1,6 @@
 // src/auth/current-user.als.ts
 import { AsyncLocalStorage } from 'node:async_hooks';
-import type { CurrentUserContext } from '@quikday/types/auth/current-user.types';
+import type { CurrentUserContext } from '@quikday/types';
 
 export const CurrentUserALS = new AsyncLocalStorage<CurrentUserContext>();
 

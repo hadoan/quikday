@@ -1,13 +1,13 @@
-import type { Tool } from './types';
-import { Circuit } from './support/circuit';
-import { Idempotency } from './idempotency';
-import { checkRate } from './support/rate';
-import { requireScopes } from '../guards/policy';
+import type { Tool } from './types.js';
+import { Circuit } from './support/circuit.js';
+import { Idempotency } from './idempotency.js';
+import { checkRate } from './support/rate.js';
+import { requireScopes } from '../guards/policy.js';
 import { z } from 'zod';
-import { slackPostMessage } from './tools/slack.postMessage';
-import { chatRespondTool } from './tools/chatRespond';
-import { LLM } from '../llm/types';
-import { calendarCheckAvailability } from './tools/calendar.checkAvailability';
+import { slackPostMessage } from './tools/slack.postMessage.js';
+import { chatRespondTool } from './tools/chatRespond.js';
+import { LLM } from '../llm/types.js';
+import { calendarCheckAvailability } from './tools/calendar.checkAvailability.js';
 import {
   calendarCreateEvent,
   calendarListEvents,
@@ -16,7 +16,7 @@ import {
   calendarUpdateEvent,
   calendarCancelEvent,
   calendarSuggestSlots,
-} from './tools/calendar';
+} from './tools/calendar.js';
 import {
   emailSend,
   emailRead,
@@ -27,8 +27,8 @@ import {
   emailLabelsChange,
   emailArchive,
   emailSnooze,
-} from './tools/email';
-import { ModuleRef } from '@nestjs/core/injector/module-ref';
+} from './tools/email.js';
+import { ModuleRef } from '@nestjs/core';
 
 export class ToolRegistry {
   private tools = new Map<string, Tool<any, any>>();
@@ -116,6 +116,7 @@ registry.register({
       message: z.string().optional(),
     })
     .passthrough(),
+  apps: [],
   scopes: [],
   rate: 'unlimited',
   risk: 'low',

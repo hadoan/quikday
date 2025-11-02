@@ -1,6 +1,6 @@
 // packages/graph/guards/policy.ts
-import type { Router } from '../runtime/graph';
-import type { RunState, PlanStep } from '../state/types';
+import type { Router } from '../runtime/graph.js';
+import type { RunState, PlanStep } from '../state/types.js';
 import { z } from 'zod';
 
 /** ─────────────────────────────────────────────────────────────────────────────

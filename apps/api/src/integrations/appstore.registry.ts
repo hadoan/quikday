@@ -1,9 +1,9 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { AppMeta } from '@quikday/types';
 import { getIntegrationSlugs } from '@quikday/appstore';
-import { BaseApp } from './app.base';
-import { AppDeps } from './app.types';
-import { createSignedState, validateSignedState } from '../auth/oauth-state.util';
+import { BaseApp } from './app.base.js';
+import { AppDeps } from './app.types.js';
+import { createSignedState, validateSignedState } from '../auth/oauth-state.util.js';
 
 @Injectable()
 export class AppStoreRegistry {

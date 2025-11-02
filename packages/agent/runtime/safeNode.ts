@@ -1,6 +1,6 @@
 // runtime/safeNode.ts
 import { RunEventBus } from '@quikday/libs';
-import type { RunState } from '../state/types';
+import type { RunState } from '../state/types.js';
 
 /**
  * Signature-preserving error guard for graph nodes.

@@ -1,14 +1,14 @@
 // packages/agent/nodes/planner.ts
-import type { Node } from '../runtime/graph';
-import type { RunState, PlanStep } from '../state/types';
-import { events } from '../observability/events';
-import { INTENTS, type IntentId } from './intents';
+import type { Node } from '../runtime/graph.js';
+import type { RunState, PlanStep } from '../state/types.js';
+import { events } from '../observability/events.js';
+import { INTENTS, type IntentId } from './intents.js';
 import { z } from 'zod';
 import type { RunEventBus } from '@quikday/libs';
-import { registry } from '../registry/registry';
-import type { LLM } from '../llm/types';
-import { buildPlannerSystemPrompt } from '../prompts/PLANNER_SYSTEM';
-import { DEFAULT_ASSISTANT_SYSTEM } from '../prompts/DEFAULT_ASSISTANT_SYSTEM';
+import { registry } from '../registry/registry.js';
+import type { LLM } from '../llm/types.js';
+import { buildPlannerSystemPrompt } from '../prompts/PLANNER_SYSTEM.js';
+import { DEFAULT_ASSISTANT_SYSTEM } from '../prompts/DEFAULT_ASSISTANT_SYSTEM.js';
 
 /* ------------------ Whitelist & Schemas ------------------ */
 

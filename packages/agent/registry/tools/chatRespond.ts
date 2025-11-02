@@ -1,9 +1,9 @@
 // packages/agent/registry/tools/chat.respond.ts
 import { z } from 'zod';
-import type { Tool } from '../types';
-import type { LLM } from '../../llm/types';
-import { ModuleRef } from '@nestjs/core/injector/module-ref';
-import { DEFAULT_ASSISTANT_SYSTEM } from '../../prompts/DEFAULT_ASSISTANT_SYSTEM';
+import type { Tool } from '../types.js';
+import type { LLM } from '../../llm/types.js';
+import { ModuleRef } from '@nestjs/core';
+import { DEFAULT_ASSISTANT_SYSTEM } from '../../prompts/DEFAULT_ASSISTANT_SYSTEM.js';
 
 export const ChatRespondIn = z.object({
   prompt: z.string().optional(),

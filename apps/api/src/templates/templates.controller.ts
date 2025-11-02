@@ -1,6 +1,6 @@
 import { BadRequestException, Body, Controller, Get, Post, Query, Req } from '@nestjs/common';
-import { TemplatesService } from './templates.service';
-import { CreateTemplateDto } from './dto/create-template.dto';
+import { TemplatesService } from './templates.service.js';
+import { CreateTemplateDto } from './dto/create-template.dto.js';
 
 @Controller('templates')
 export class TemplatesController {

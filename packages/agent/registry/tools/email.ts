@@ -1,6 +1,6 @@
 import { z } from 'zod';
-import type { Tool } from '../types';
-import type { RunCtx } from '../../state/types';
+import type { Tool } from '../types.js';
+import type { RunCtx } from '../../state/types.js';
 import { ModuleRef } from '@nestjs/core';
 import { EMAIL_FACTORY } from '@quikday/appstore/email/email.tokens';
 import type { EmailFactory } from '@quikday/appstore/email/email.factory';

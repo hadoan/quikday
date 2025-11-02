@@ -1,8 +1,8 @@
 import { Controller, Get, Param, Post, Req, Res, UseGuards } from '@nestjs/common';
 import type { Response, Request } from 'express';
-import { KindeGuard } from '../auth/kinde.guard';
-import { Public } from '../auth/public.decorator';
-import { AppStoreRegistry } from './appstore.registry';
+import { KindeGuard } from '../auth/kinde.guard.js';
+import { Public } from '../auth/public.decorator.js';
+import { AppStoreRegistry } from './appstore.registry.js';
 
 @Controller('integrations')
 export class IntegrationsController {

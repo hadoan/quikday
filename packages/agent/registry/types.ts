@@ -1,5 +1,5 @@
 import { ZodType } from 'zod';
-import type { RunCtx } from '../state/types';
+import type { RunCtx } from '../state/types.js';
 
 export interface Tool<I, O> {
   name: string;

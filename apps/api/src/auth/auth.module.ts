@@ -1,9 +1,9 @@
 import { Module } from '@nestjs/common';
-import { KindeGuard } from './kinde.guard';
-import { ConfigModule } from '../config/config.module';
+import { KindeGuard } from './kinde.guard.js';
+import { ConfigModule } from '../config/config.module.js';
 import { PrismaModule } from '@quikday/prisma';
-import { AuthService } from './auth.service';
-import { AuthController } from './auth.controller';
+import { AuthService } from './auth.service.js';
+import { AuthController } from './auth.controller.js';
 
 @Module({
   imports: [ConfigModule, PrismaModule],

@@ -1,12 +1,12 @@
 // packages/agent/nodes/executor.ts
-import type { Node } from '../runtime/graph';
-import type { RunState } from '../state/types';
+import type { Node } from '../runtime/graph.js';
+import type { RunState } from '../state/types.js';
 import type { RunEventBus } from '@quikday/libs';
 import { runWithCurrentUser } from '@quikday/libs';
 import { CHANNEL_WEBSOCKET } from '@quikday/libs';
-import { registry } from '../registry/registry';
-import { events } from '../observability/events';
-import { redactForLog } from '../guards/redaction';
+import { registry } from '../registry/registry.js';
+import { events } from '../observability/events.js';
+import { redactForLog } from '../guards/redaction.js';
 
 type Json = string | number | boolean | null | Json[] | { [k: string]: Json };
 

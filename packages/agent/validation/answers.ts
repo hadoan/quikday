@@ -1,7 +1,7 @@
 // packages/agent/validation/answers.ts
 
 import { z } from 'zod';
-import { Question } from '../state/types';
+import { Question } from '../state/types.js';
 
 const isoDateTime = z.string().datetime(); // ISO 8601
 const dateYYYYMMDD = z.string().regex(/^\d{4}-\d{2}-\d{2}$/);

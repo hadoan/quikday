@@ -2,17 +2,17 @@
 import { Processor, WorkerHost } from '@nestjs/bullmq';
 import { Job } from 'bullmq';
 import { Inject, Logger } from '@nestjs/common';
-import { RunsService } from '../runs/runs.service';
-import { TelemetryService } from '../telemetry/telemetry.service';
+import { RunsService } from '../runs/runs.service.js';
+import { TelemetryService } from '../telemetry/telemetry.service.js';
 import { ErrorCode } from '@quikday/types';
 import type { RunState, RunMode } from '@quikday/agent/state/types';
 import type { Run } from '@prisma/client';
 import { subscribeToRunEvents } from '@quikday/agent/observability/events';
 import { CHANNEL_WORKER, CHANNEL_WEBSOCKET } from '@quikday/libs';
 import type { RunEvent as UiRunEvent } from '@quikday/libs/redis/RunEvent';
-import { AgentService } from '../agent';
+import { AgentService } from '../agent/index.js';
 import type { RunEventBus } from '@quikday/libs/pubsub/event-bus';
-import { createGraphEventHandler } from './create-graph-event-handler';
+import { createGraphEventHandler } from './create-graph-event-handler.js';
 import { RunOutcome } from '@quikday/agent/runtime/graph';
 
 import { runWithCurrentUser } from '@quikday/libs';

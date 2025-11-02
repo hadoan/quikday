@@ -10,10 +10,10 @@ import {
   Req,
   Delete,
 } from '@nestjs/common';
-import { CredentialService } from './credential.service';
-import { KindeGuard } from '../auth/kinde.guard';
-import { SessionGuard } from '../common/session.guard';
-import { AuthService } from '../auth/auth.service';
+import { CredentialService } from './credential.service.js';
+import { KindeGuard } from '../auth/kinde.guard.js';
+import { SessionGuard } from '../common/session.guard.js';
+import { AuthService } from '../auth/auth.service.js';
 import type { Request } from 'express';
 import { Logger } from '@nestjs/common';
 

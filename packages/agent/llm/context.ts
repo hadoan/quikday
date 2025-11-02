@@ -1,5 +1,5 @@
 import { AsyncLocalStorage } from 'node:async_hooks';
-import type { LlmCallMetadata } from './types';
+import type { LlmCallMetadata } from './types.js';
 
 type LlmContextValue = Partial<LlmCallMetadata> & { runId?: string };
 

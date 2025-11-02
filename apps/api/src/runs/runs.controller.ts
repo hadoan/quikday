@@ -10,8 +10,8 @@ import {
   NotFoundException,
   Logger,
 } from '@nestjs/common';
-import { RunsService } from './runs.service';
-import { KindeGuard } from '../auth/kinde.guard';
+import { RunsService } from './runs.service.js';
+import { KindeGuard } from '../auth/kinde.guard.js';
 import { validateAnswers } from '@quikday/agent/validation/answers';
 
 export interface ChatMessageDto {

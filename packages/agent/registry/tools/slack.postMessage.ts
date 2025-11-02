@@ -1,6 +1,6 @@
 import { z } from 'zod';
-import type { Tool } from '../types';
-import type { RunCtx } from '../../state/types';
+import type { Tool } from '../types.js';
+import type { RunCtx } from '../../state/types.js';
 
 /**
  * Input & Output schemas

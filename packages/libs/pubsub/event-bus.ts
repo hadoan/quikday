@@ -1,5 +1,5 @@
 // event-bus.ts
-import type { PubSubChannel } from './channels';
+import type { PubSubChannel } from './channels.js';
 
 export type RunEventType = string;
 

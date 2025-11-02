@@ -3,7 +3,7 @@ import { ErrorCode } from '@quikday/types';
 import type { RunState } from '@quikday/agent/state/types';
 import type { RunEvent as GraphRunEvent } from '@quikday/agent/observability/events';
 import type { RunEvent as UiRunEvent } from '@quikday/libs/redis/RunEvent';
-import type { TelemetryService } from '../telemetry/telemetry.service';
+import type { TelemetryService } from '../telemetry/telemetry.service.js';
 
 type StepLogEntry = {
   tool: string;

@@ -9,13 +9,13 @@ import {
 import { PrismaService } from '@quikday/prisma';
 import { InjectQueue } from '@nestjs/bullmq';
 import { Queue } from 'bullmq';
-import { TelemetryService } from '../telemetry/telemetry.service';
-import { CreateRunDto } from './runs.controller';
-import { RunTokenService } from './run-token.service';
+import { TelemetryService } from '../telemetry/telemetry.service.js';
+import { CreateRunDto } from './runs.controller.js';
+import { RunTokenService } from './run-token.service.js';
 import { getTeamPolicy, type TeamPolicy } from '@quikday/agent/guards/policy';
 import type { ChatMessage } from '@quikday/agent/state/types';
 import { CurrentUserService, getCurrentUserCtx } from '@quikday/libs';
-import { StepsService } from './steps.service';
+import { StepsService } from './steps.service.js';
 
 @Injectable()
 export class RunsService {

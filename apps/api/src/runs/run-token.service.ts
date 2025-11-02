@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import jwt from 'jsonwebtoken';
-import { ConfigService } from '../config/config.service';
+import { ConfigService } from '../config/config.service.js';
 
 export interface MintRunTokenParams {
   runId: string;

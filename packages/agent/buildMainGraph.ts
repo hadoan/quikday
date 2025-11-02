@@ -1,18 +1,18 @@
-import { Graph } from './runtime/graph';
-import type { RunState } from './state/types';
-import type { LLM } from './llm/types';
-import { makeClassifyIntent } from './nodes/classifyIntent';
-import { makePlanner } from './nodes/planner';
-import { confirm } from './nodes/confirm';
-import { executor } from './nodes/executor';
-import { summarize } from './nodes/summarize';
-import { fallback } from './nodes/fallback';
-import { routeByMode } from './guards/policy';
-import { hooks } from './observability/events';
-import { safeNode } from './runtime/safeNode';
+import { Graph } from './runtime/graph.js';
+import type { RunState } from './state/types.js';
+import type { LLM } from './llm/types.js';
+import { makeClassifyIntent } from './nodes/classifyIntent.js';
+import { makePlanner } from './nodes/planner.js';
+import { confirm } from './nodes/confirm.js';
+import { executor } from './nodes/executor.js';
+import { summarize } from './nodes/summarize.js';
+import { fallback } from './nodes/fallback.js';
+import { routeByMode } from './guards/policy.js';
+import { hooks } from './observability/events.js';
+import { safeNode } from './runtime/safeNode.js';
 import { RunEventBus } from '@quikday/libs';
 import { Run } from 'openai/resources/beta/threads/runs/runs';
-import { registerToolsWithLLM } from './registry/registry';
+import { registerToolsWithLLM } from './registry/registry.js';
 import { ModuleRef } from '@nestjs/core';
 
 type BuildMainGraphOptions = {

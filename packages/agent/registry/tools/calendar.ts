@@ -1,11 +1,11 @@
 import { z } from 'zod';
-import type { Tool } from '../types';
+import type { Tool } from '../types.js';
 import { ModuleRef } from '@nestjs/core';
 import { CALENDAR_FACTORY } from '@quikday/appstore/calendar/calendar.tokens';
 import type { CalendarFactory } from '@quikday/appstore/calendar/calendar.factory';
 import { CurrentUserService } from '@quikday/libs';
 import { PrismaService } from '@quikday/prisma';
-export { calendarCheckAvailability, CalendarCheckAvailabilityIn, CalendarCheckAvailabilityOut } from './calendar.checkAvailability';
+export { calendarCheckAvailability, CalendarCheckAvailabilityIn, CalendarCheckAvailabilityOut } from './calendar.checkAvailability.js';
 
 // Shared schemas
 const iso = z.string().min(10);

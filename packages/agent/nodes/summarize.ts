@@ -1,8 +1,8 @@
-import type { Node } from '../runtime/graph';
-import type { RunState } from '../state/types';
-import type { LLM } from '../llm/types';
-import { SUMMARIZE_SYSTEM } from '../prompts/SUMMARIZE_SYSTEM';
-import { redactForLog } from '../guards/redaction';
+import type { Node } from '../runtime/graph.js';
+import type { RunState } from '../state/types.js';
+import type { LLM } from '../llm/types.js';
+import { SUMMARIZE_SYSTEM } from '../prompts/SUMMARIZE_SYSTEM.js';
+import { redactForLog } from '../guards/redaction.js';
 
 // Bring in the Json type your redactor uses
 type Json = string | number | boolean | null | Json[] | { [k: string]: Json };

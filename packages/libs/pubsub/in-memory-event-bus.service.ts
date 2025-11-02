@@ -1,7 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { randomUUID } from 'crypto';
-import { RunEvent, RunEventBus } from './event-bus';
-import type { PubSubChannel } from './channels';
+import { RunEvent, RunEventBus } from './event-bus.js';
+import type { PubSubChannel } from './channels.js';
 
 @Injectable()
 export class InMemoryEventBus implements RunEventBus {

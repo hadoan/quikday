@@ -1,10 +1,10 @@
-import type { Node } from '../runtime/graph';
-import type { RunState } from '../state/types';
-import type { LLM } from '../llm/types';
+import type { Node } from '../runtime/graph.js';
+import type { RunState } from '../state/types.js';
+import type { LLM } from '../llm/types.js';
 import { z } from 'zod';
-import { INTENTS, type IntentId, type IntentInput } from './intents';
-import { buildClassifySystemPrompt } from '../prompts/CLASSIFY_SYSTEM';
-import { buildClassifyUserPrompt } from '../prompts/CLASSIFY_USER_PROMPT';
+import { INTENTS, type IntentId, type IntentInput } from './intents.js';
+import { buildClassifySystemPrompt } from '../prompts/CLASSIFY_SYSTEM.js';
+import { buildClassifyUserPrompt } from '../prompts/CLASSIFY_USER_PROMPT.js';
 
 type QaItem = { key: string; question: string; type?: string };
 type Answers = Record<string, unknown>;
@@ -103,7 +103,7 @@ export const makeClassifyIntent = (llm: LLM): Node<RunState> => {
     // Map intent to INTENTS catalog. Rely on LLM for extraction; only fill schema if missing.
     const pickedIntent = ALLOWED.has(out.intent as IntentId) ? (out.intent as IntentId) : 'unknown';
     const intentDef = INTENTS.find((i) => i.id === pickedIntent) as
-      | import('./intents').Intent
+      | import('./intents.js').Intent
       | undefined;
     const llmInputs = out.inputs as ReadonlyArray<IntentInput> | undefined;
     const llmInputValues = out.inputValues as Record<string, unknown> | undefined;

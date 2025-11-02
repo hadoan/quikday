@@ -1,6 +1,6 @@
-// import type { Node } from "../runtime/graph";
-// import type { RunState } from "../state/types";
-// import { redact } from "../guards/redaction";
+// import type { Node } from "../runtime/graph.js";
+// import type { RunState } from "../state/types.js";
+// import { redact } from "../guards/redaction.js";
 
 // export type FallbackReason =
 //     | "policy_denied"
@@ -75,10 +75,10 @@
 //     }
 // }
 
-import type { Node } from '../runtime/graph';
-import type { RunState } from '../state/types';
+import type { Node } from '../runtime/graph.js';
+import type { RunState } from '../state/types.js';
 import type { RunEventBus } from '@quikday/libs';
-import { events } from '../observability/events';
+import { events } from '../observability/events.js';
 
 const reasonToMessage: Record<string, string> = {
   policy_denied: 'This action is blocked by your team policy.',

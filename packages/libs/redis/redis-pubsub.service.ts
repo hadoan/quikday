@@ -1,6 +1,6 @@
 import { Injectable, Logger, OnModuleDestroy } from '@nestjs/common';
-import Redis from 'ioredis';
-import { RunEvent, RunEventType } from './RunEvent';
+import { Redis } from 'ioredis';
+import { RunEvent, RunEventType } from './RunEvent.js';
 import { randomUUID } from 'node:crypto';
 import { LRUCache } from 'lru-cache';
 

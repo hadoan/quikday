@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import type { Tool } from '../types';
+import type { Tool } from '../types.js';
 import { ModuleRef } from '@nestjs/core';
 import { CALENDAR_FACTORY } from '@quikday/appstore/calendar/calendar.tokens';
 import type { CalendarFactory } from '@quikday/appstore/calendar/calendar.factory';
