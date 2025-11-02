@@ -22,6 +22,7 @@ export function chatRespondTool(
     description: 'Generate a conversational response using the LLM. Optional: prompt (user message), system (system prompt override).',
     in: ChatRespondIn,
     out: ChatRespondOut,
+    apps: [], // no external app integration - internal LLM tool
     scopes: [], // no scopes required
     rate: 'unlimited', // adjust if you want
     risk: 'low',

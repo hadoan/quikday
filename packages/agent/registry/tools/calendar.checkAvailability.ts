@@ -79,6 +79,7 @@ export function calendarCheckAvailability(
     description: 'Find available time slots within a date/time window. Searches for free slots during working hours and returns up to N available slots. Required: startWindow (ISO), endWindow (ISO), durationMin (meeting length in minutes).',
     in: CalendarCheckAvailabilityIn,
     out: CalendarCheckAvailabilityOut,
+    apps: ['google-calendar'],
     scopes: [],
     rate: 'unlimited',
     risk: 'low',

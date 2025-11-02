@@ -146,31 +146,38 @@ const Index = () => {
                 (Array.isArray(event.payload.plan) && (event.payload.plan as any[])) ||
                 [];
 
-              // Show Proposed Changes card first, then Plan card
-              const diff = event.payload.diff as Record<string, unknown> | undefined;
-              if (diff && Object.keys(diff).length > 0) {
-                try {
-                  newMessages.push(
-                    buildOutputMessage({
-                      title: 'Proposed Changes',
-                      content: JSON.stringify(diff, null, 2),
-                      type: 'json',
-                      data: diff,
-                    }),
-                  );
-                } catch (e) {
-                  console.warn('[Index] Failed to render diff preview', e);
-                }
-              }
+              // Skip plan and proposed changes cards if only chat.respond
+              const onlyChatRespond = 
+                stepsPayload.length > 0 && 
+                stepsPayload.every((step: any) => step?.tool === 'chat.respond');
 
-              newMessages.push(
-                buildPlanMessage({
-                  intent,
-                  tools,
-                  actions,
-                  steps: stepsPayload as any,
-                }),
-              );
+              if (!onlyChatRespond) {
+                // Show Proposed Changes card first, then Plan card
+                const diff = event.payload.diff as Record<string, unknown> | undefined;
+                if (diff && Object.keys(diff).length > 0) {
+                  try {
+                    newMessages.push(
+                      buildOutputMessage({
+                        title: 'Proposed Changes',
+                        content: JSON.stringify(diff, null, 2),
+                        type: 'json',
+                        data: diff,
+                      }),
+                    );
+                  } catch (e) {
+                    console.warn('[Index] Failed to render diff preview', e);
+                  }
+                }
+
+                newMessages.push(
+                  buildPlanMessage({
+                    intent,
+                    tools,
+                    actions,
+                    steps: stepsPayload as any,
+                  }),
+                );
+              }
               break;
             }
             case 'run_snapshot': {

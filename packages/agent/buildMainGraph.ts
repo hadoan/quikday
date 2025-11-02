@@ -51,8 +51,14 @@ export const buildMainGraph = ({ llm, eventBus, moduleRef }: BuildMainGraphOptio
       // After planning: check mode to determine flow
       .addEdge('planner', (s) => {
         const plan = s.scratch?.plan ?? [];
-        const hasExecutableSteps = plan.length > 0 && 
-          !plan.every((st) => st.tool === 'chat.respond');
+        const onlyChatRespond = plan.length > 0 && 
+          plan.every((st) => st.tool === 'chat.respond');
+        const hasExecutableSteps = plan.length > 0 && !onlyChatRespond;
+        
+        // If only chat.respond, always execute immediately regardless of mode
+        if (onlyChatRespond) {
+          return 'confirm'; // Execute chat response immediately
+        }
         
         // PREVIEW mode: Just show the plan, don't execute
         if (s.mode === 'PREVIEW') {
