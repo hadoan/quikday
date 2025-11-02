@@ -470,6 +470,10 @@ export class ApiDataSource implements DataSource {
 
   private buildMessagesFromRun(run: BackendRun, steps: UiPlanStep[]) {
     const messages: UiRunSummary['messages'] = [];
+    // Track assistant text we've already included to avoid duplicates
+    const seenAssistantTexts = new Set<string>();
+    const norm = (s: unknown) =>
+      typeof s === 'string' ? s.trim().replace(/\s+/g, ' ') : '';
 
     // User message
     if (run.prompt) {
@@ -513,13 +517,16 @@ export class ApiDataSource implements DataSource {
 
     // Output message (if there's a summary or effects)
     if (run.config?.summary) {
+      const content = run.config.summary;
+      const contentNorm = norm(content);
       messages.push(
         buildOutputMessage({
           title: 'Summary',
-          content: run.config.summary,
+          content,
           type: 'text',
         }),
       );
+      if (contentNorm) seenAssistantTexts.add(contentNorm);
     }
 
     // Plain assistant text (no tool calls) fallback if backend includes it
@@ -531,7 +538,11 @@ export class ApiDataSource implements DataSource {
         (anyRun.finalMessage as string) ||
         (anyRun.message as string);
       if (typeof textOut === 'string' && textOut.trim().length > 0) {
-        messages.push({ role: 'assistant', content: textOut });
+        const textNorm = norm(textOut);
+        if (!seenAssistantTexts.has(textNorm)) {
+          messages.push({ role: 'assistant', content: textOut });
+          seenAssistantTexts.add(textNorm);
+        }
       }
     } catch {
       // ignore
