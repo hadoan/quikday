@@ -7,6 +7,7 @@ import { TelemetryModule } from '../telemetry/telemetry.module';
 import { ConfigModule } from '../config/config.module';
 import { RunTokenService } from './run-token.service';
 import { CurrentUserModule } from '@quikday/libs';
+import { StepsService } from './steps.service';
 
 @Module({
   imports: [
@@ -16,8 +17,8 @@ import { CurrentUserModule } from '@quikday/libs';
     ConfigModule,
     CurrentUserModule,
   ],
-  providers: [RunsService, RunTokenService],
+  providers: [RunsService, RunTokenService, StepsService],
   controllers: [RunsController],
-  exports: [RunsService],
+  exports: [RunsService, StepsService],
 })
 export class RunsModule {}

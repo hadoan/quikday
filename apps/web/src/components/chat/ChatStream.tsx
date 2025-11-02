@@ -78,17 +78,17 @@ export function ChatStream({
 
         // Assistant messages: render structured types with corresponding cards
         if (m.type === 'plan') {
-          const pd = m.data as UiPlanData & { steps?: Array<{ id: string }> };
+          const pd = m.data as UiPlanData;
+          const steps = pd?.steps || [];
+          
           const plan = {
             intent: pd?.intent || 'Plan',
             tools: pd?.tools || [],
             actions: pd?.actions || [],
             mode: 'preview' as const,
+            steps: steps,
           };
 
-          const steps = Array.isArray((pd as any)?.steps)
-            ? ((pd as any).steps as Array<{ id: string }>)
-            : [];
           const canApprove =
             flags.liveApprovals && runId && lastStatus === 'awaiting_approval' && steps.length > 0;
           

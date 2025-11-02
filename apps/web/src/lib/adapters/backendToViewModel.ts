@@ -120,6 +120,7 @@ export interface BackendStep {
   id?: string;
   tool?: string;
   appId?: string;
+  credentialId?: number | null;
   action?: string;
   status?: string;
   request?: unknown;
@@ -141,6 +142,7 @@ export function adaptStepBackendToUi(backend: BackendStep, index = 0): UiPlanSte
     id: backend.id || `step-${index}`,
     tool: backend.tool || 'unknown',
     appId: backend.appId,
+    credentialId: backend.credentialId,
     action: backend.action,
     status: mapStepStatus(backend.status),
     inputsPreview: stringifyPreview(backend.request),

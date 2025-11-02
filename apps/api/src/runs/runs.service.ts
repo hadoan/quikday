@@ -15,6 +15,7 @@ import { RunTokenService } from './run-token.service';
 import { getTeamPolicy, type TeamPolicy } from '@quikday/agent/guards/policy';
 import type { ChatMessage } from '@quikday/agent/state/types';
 import { CurrentUserService, getCurrentUserCtx } from '@quikday/libs';
+import { StepsService } from './steps.service';
 
 @Injectable()
 export class RunsService {
@@ -35,7 +36,8 @@ export class RunsService {
     private telemetry: TelemetryService,
     private tokens: RunTokenService,
     @InjectQueue('runs') private runsQueue: Queue,
-    private readonly current: CurrentUserService
+    private readonly current: CurrentUserService,
+    private readonly stepsService: StepsService,
   ) {}
 
   private jsonClone<T>(v: T): T {
@@ -406,20 +408,7 @@ export class RunsService {
     const run = await this.prisma.run.findUnique({ where: { id: runId } });
     if (!run) throw new NotFoundException('Run not found');
 
-    const stepCount = await this.prisma.step.count({ where: { runId } });
-
-    const now = new Date();
-    const stepData = (Array.isArray(plan) ? plan : []).map((p) => ({
-      runId,
-      tool: String(p?.tool || 'unknown'),
-      action: `Planned ${String(p?.tool || 'unknown')}`,
-      appId: null as any,
-      credentialId: null as any,
-      request: (p && typeof p === 'object' ? (p as any).args ?? null : null) as any,
-      response: null as any,
-      errorCode: null as any,
-      startedAt: now,
-    }));
+    const stepCount = await this.stepsService.countStepsByRunId(runId);
 
     // Merge diff and plan into run.output (scratch.plan is a good place)
     const currentOutput = (run.output && typeof run.output === 'object' ? (run.output as any) : {}) as Record<string, any>;
@@ -435,13 +424,12 @@ export class RunsService {
       scratch: nextScratch,
     } as any;
 
-    await this.prisma.$transaction([
-      // Only create planned steps if no steps exist yet to avoid duplicates
-      ...(stepCount === 0 && stepData.length > 0
-        ? [this.prisma.step.createMany({ data: stepData as any })]
-        : []),
-      this.prisma.run.update({ where: { id: runId }, data: { output: nextOutput } }),
-    ]);
+    // Only create planned steps if no steps exist yet to avoid duplicates
+    if (stepCount === 0) {
+      await this.stepsService.createPlannedSteps(runId, plan, run.userId);
+    }
+
+    await this.prisma.run.update({ where: { id: runId }, data: { output: nextOutput } });
   }
 
   private normalizeMessages(messages: CreateRunDto['messages'], prompt?: string): ChatMessage[] {
@@ -671,24 +659,13 @@ export class RunsService {
   }
 
   async persistResult(id: string, result: { logs?: any[]; output?: any; error?: any }) {
+    const run = await this.prisma.run.findUnique({ where: { id } });
+    if (!run) throw new NotFoundException('Run not found');
+
     if (result.logs?.length) {
-      for (const entry of result.logs) {
-        await this.prisma.step.create({
-          data: {
-            runId: id,
-            tool: entry.tool || 'unknown',
-            action: entry.action || '',
-            appId: entry.appId || null,
-            credentialId: entry.credentialId || null,
-            request: entry.request ?? null,
-            response: entry.result ?? null,
-            errorCode: entry.errorCode || null,
-            startedAt: new Date(entry.ts || Date.now()),
-            endedAt: entry.completedAt ? new Date(entry.completedAt) : undefined,
-          },
-        });
-      }
+      await this.stepsService.createExecutedSteps(id, result.logs, run.userId);
     }
+
     await this.prisma.run.update({
       where: { id },
       data: { output: result.output ?? null, error: result.error ?? null },

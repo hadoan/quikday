@@ -1,14 +1,18 @@
-import { CheckCircle2, Sparkles, ThumbsUp, X } from 'lucide-react';
+import { CheckCircle2, Sparkles, ThumbsUp, X, AlertCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { ToolBadge } from './ToolBadge';
+import InstallApp from '@/components/apps/InstallApp';
+import { getAppInstallProps } from '@/lib/utils/appConfig';
 import { useState } from 'react';
+import type { UiPlanStep } from '@/lib/datasources/DataSource';
 
 export interface PlanData {
   intent: string;
   tools: string[];
   actions: string[];
   mode: 'preview' | 'approval' | 'auto';
+  steps?: UiPlanStep[];
 }
 
 interface PlanCardProps {
@@ -20,6 +24,12 @@ interface PlanCardProps {
 export const PlanCard = ({ data, onConfirm, onReject }: PlanCardProps) => {
   const [isApproving, setIsApproving] = useState(false);
   const [isRejecting, setIsRejecting] = useState(false);
+
+  // Check if any steps are missing credentials
+  const stepsNeedingInstall = (data.steps || []).filter(
+    (step) => step.appId && (step.credentialId === null || step.credentialId === undefined)
+  );
+  const hasMissingCredentials = stepsNeedingInstall.length > 0;
 
   const handleApprove = async () => {
     if (!onConfirm) return;
@@ -81,11 +91,51 @@ export const PlanCard = ({ data, onConfirm, onReject }: PlanCardProps) => {
               ))}
             </ul>
           </div>
+
+          {/* Show steps that need credentials installed */}
+          {hasMissingCredentials && (
+            <div className="space-y-2 pt-2 border-t">
+              <div className="flex items-center gap-2">
+                <AlertCircle className="h-4 w-4 text-amber-500" />
+                <p className="text-xs font-medium text-amber-600 dark:text-amber-400 uppercase tracking-wide">
+                  Apps Need Installation
+                </p>
+              </div>
+              <div className="space-y-2">
+                {stepsNeedingInstall.map((step) => (
+                  <div
+                    key={step.id}
+                    className="flex items-center justify-between gap-3 p-2 bg-amber-50 dark:bg-amber-900/10 border border-amber-200 dark:border-amber-800 rounded"
+                  >
+                    <div className="flex-1 min-w-0">
+                      <div className="text-sm font-medium text-foreground truncate">
+                        {step.tool}
+                      </div>
+                      <div className="text-xs text-muted-foreground">
+                        Connect {step.appId} to continue
+                      </div>
+                    </div>
+                    <div className="shrink-0">
+                      <InstallApp {...getAppInstallProps(step.appId!)} />
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
       </div>
 
       {onConfirm && (
         <div className="border-t pt-4 mt-4 space-y-2">
+          {hasMissingCredentials && (
+            <div className="mb-2 p-3 bg-amber-50 dark:bg-amber-900/10 border border-amber-200 dark:border-amber-800 rounded-lg">
+              <p className="text-sm text-amber-800 dark:text-amber-200">
+                ⚠️ Some apps need to be installed before this plan can be executed.
+                Please install the required apps above.
+              </p>
+            </div>
+          )}
           <div className="flex items-center justify-between gap-2">
             <p className="text-sm font-medium text-foreground">
               Review this plan before execution
@@ -109,9 +159,10 @@ export const PlanCard = ({ data, onConfirm, onReject }: PlanCardProps) => {
             )}
             <Button
               onClick={handleApprove}
-              disabled={isApproving || isRejecting}
+              disabled={isApproving || isRejecting || hasMissingCredentials}
               size="sm"
               className="gap-2"
+              title={hasMissingCredentials ? 'Install required apps first' : undefined}
             >
               <ThumbsUp className="h-4 w-4" />
               {isApproving ? 'Approving...' : 'Approve & Execute'}

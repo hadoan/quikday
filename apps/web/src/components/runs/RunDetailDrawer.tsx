@@ -3,6 +3,8 @@ import { X } from 'lucide-react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Button } from '@/components/ui/button';
+import InstallApp from '@/components/apps/InstallApp';
+import { getAppInstallProps } from '@/lib/utils/appConfig';
 import type { UiEvent, UiPlanStep, UiRunSummary } from '@/lib/datasources/DataSource';
 import { getDataSource } from '@/lib/flags/featureFlags';
 import { getAccessTokenProvider } from '@/apis/client';
@@ -156,11 +158,27 @@ export default function RunDetailDrawer({ runId, open, onClose }: Props) {
               <div className="p-4 space-y-2">
                 {steps.length === 0 && <div className="text-sm text-muted-foreground">No steps yet.</div>}
                 {steps.map((s, i) => (
-                  <div key={s.id || i} className="border rounded p-2">
+                  <div key={s.id || i} className="border rounded p-3 space-y-2">
                     <div className="flex items-center justify-between text-sm">
                       <div className="font-medium">{s.tool}{s.action ? `.${s.action}` : ''}</div>
                       <div className="text-xs text-muted-foreground">{s.status}</div>
                     </div>
+                    {s.appId && (
+                      <div className="text-xs text-muted-foreground">
+                        App: {s.appId}
+                        {s.credentialId ? ` (Credential ID: ${s.credentialId})` : ''}
+                      </div>
+                    )}
+                    {s.appId && (s.credentialId === null || s.credentialId === undefined) && (
+                      <div className="flex items-center gap-2 p-2 bg-amber-50 dark:bg-amber-900/10 border border-amber-200 dark:border-amber-800 rounded">
+                        <div className="flex-1 text-xs text-amber-700 dark:text-amber-300">
+                          ⚠️ Connect {s.appId} to continue
+                        </div>
+                        <div className="shrink-0">
+                          <InstallApp {...getAppInstallProps(s.appId)} />
+                        </div>
+                      </div>
+                    )}
                     {(s.errorMessage || s.errorCode) && (
                       <div className="text-xs text-destructive mt-1">{s.errorCode}: {s.errorMessage}</div>
                     )}

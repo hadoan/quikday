@@ -56,6 +56,7 @@ export interface UiPlanStep {
   id: string;
   tool: string;
   appId?: string;
+  credentialId?: number | null;
   action?: string;
   status: UiStepStatus;
   time?: string;
