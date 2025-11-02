@@ -15,13 +15,18 @@ export type IntentInputType =
   | 'number'
   | 'select'
   | 'multiselect'
-  | 'duration';
+  | 'duration'
+  | 'boolean';
 
 export type IntentInput = {
   key: string;
   type: IntentInputType;
   required?: boolean;
   prompt: string;
+
+  // ✅ optional helpers
+  values?: readonly string[]; // for select/multiselect enumerations
+  when?: Record<string, string | number | boolean>; // simple equality guard, e.g. { mode: 'propose' }
 };
 
 export type Intent = {
@@ -36,34 +41,23 @@ export const INTENTS = [
   {
     id: 'gcal.schedule',
     desc: 'Find/create events, propose slots, invite/hold.',
-
     inputs: [
-      { "key": "count", "type": "number", "required": false, "prompt": "How many slots should I propose? (default 3)" },
-      {
-        key: 'invitee_email',
-        type: 'email',
-        required: true,
-        prompt: 'What’s the attendee’s email?',
-      },
-      {
-        key: 'duration_min',
-        type: 'number',
-        required: true,
-        prompt: 'How long should the meeting be (minutes)?',
-      },
-      {
-        key: 'window_start',
-        type: 'datetime',
-        required: true,
-        prompt: 'From when should I search?',
-      },
-      {
-        key: 'window_end',
-        type: 'datetime',
-        required: true,
-        prompt: 'Until when should I search?',
-      },
+      { key: 'mode', type: 'select', values: ['direct', 'propose'], required: true, prompt: 'Book a specific time or propose slots? (direct/propose)' },
+
+      { key: 'invitee_email', type: 'email', required: true, prompt: 'What’s the attendee’s email?' },
+      { key: 'duration_min', type: 'number', required: true, prompt: 'How long should the meeting be (minutes)?' },
       { key: 'title', type: 'string', required: false, prompt: 'Optional title?' },
+      { key: 'location', type: 'string', required: false, prompt: 'Location/VC link (optional)?' },
+      { key: 'hold', type: 'boolean', required: false, prompt: 'Place a tentative hold? (default true)' },
+      { key: 'auto_approve', type: 'boolean', required: false, prompt: 'Auto-approve if within policy? (optional)' },
+
+      // direct
+      { key: 'start', type: 'datetime', required: true, prompt: 'Exact start time?', when: { mode: 'direct' } },
+
+      // propose
+      { key: 'window_start', type: 'datetime', required: true, prompt: 'From when should I search?', when: { mode: 'propose' } },
+      { key: 'window_end', type: 'datetime', required: true, prompt: 'Until when should I search?', when: { mode: 'propose' } },
+      { key: 'count', type: 'number', required: false, prompt: 'How many slots? (default 3)', when: { mode: 'propose' } },
     ],
   },
   {

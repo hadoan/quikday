@@ -50,7 +50,8 @@ export type QuestionType =
   | 'time'
   | 'number'
   | 'select'
-  | 'multiselect';
+  | 'multiselect'
+  | 'boolean'; // yes/no
 
 export type Question = {
   key: string; // e.g. "email.subject", "email.to", "slack.channel"

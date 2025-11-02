@@ -65,6 +65,7 @@ export const confirm: Node<RunState, RunEventBus> = async (s, eventBus) => {
           select: 'select',
           multiselect: 'multiselect',
           duration: 'number',
+          boolean: 'boolean',
         };
 
         const byKey = new Map(inputs.map((i) => [i.key, i] as const));

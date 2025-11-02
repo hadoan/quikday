@@ -41,16 +41,22 @@ export const buildMainGraph = ({ llm, eventBus, moduleRef }: BuildMainGraphOptio
       // .addEdge('fallback', () => 'END');
 
       .addEdge('START', () => 'classify')
-      // First gate on missing inputs immediately after classify. If any required
-      // inputs are missing, the confirm node will surface questions and halt.
-      .addEdge('classify', () => 'confirm')
-      // If confirm set awaiting (questions), end; otherwise continue to plan steps.
-      .addEdge('confirm', (s) => (s.scratch?.awaiting ? 'END' : 'planner'))
-      // After planning, run confirm again for approvals or to ask any newly
-      // discovered questions before execution.
+      // First gate on missing inputs immediately after classify
+      .addEdge('classify', (s) => {
+        // If missing inputs, go to confirm which will ask questions
+        if (s.scratch?.awaiting) return 'confirm';
+        // Otherwise go straight to planner
+        return 'planner';
+      })
+      // After planning, confirm for approvals or newly discovered questions
       .addEdge('planner', () => 'confirm')
-      // If still awaiting after planning, stop; else proceed to executor.
-      .addEdge('confirm', (s) => (s.scratch?.awaiting ? 'END' : 'executor'))
+      // After confirm, check if awaiting or ready to execute
+      .addEdge('confirm', (s) => {
+        if (s.scratch?.awaiting) return 'END';
+        // If we have a plan, execute it
+        const hasPlan = (s.scratch?.plan ?? []).length > 0;
+        return hasPlan ? 'executor' : 'END';
+      })
       .addEdge('executor', (s) => {
         if (s.error) return 'fallback';
         const plan = s.scratch?.plan ?? [];
