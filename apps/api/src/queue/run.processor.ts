@@ -3,6 +3,7 @@ import { Processor, WorkerHost } from '@nestjs/bullmq';
 import { Job } from 'bullmq';
 import { Inject, Logger } from '@nestjs/common';
 import { RunsService } from '../runs/runs.service.js';
+import { StepsService } from '../runs/steps.service.js';
 import { TelemetryService } from '../telemetry/telemetry.service.js';
 import { ErrorCode } from '@quikday/types';
 import type { RunState, RunMode } from '@quikday/agent/state/types';
@@ -69,6 +70,7 @@ export class RunProcessor extends WorkerHost {
 
   constructor(
     private runs: RunsService,
+    private stepsService: StepsService,
     private telemetry: TelemetryService,
     private agent: AgentService,
     @Inject('RunEventBus') private eventBus: RunEventBus
@@ -173,6 +175,17 @@ export class RunProcessor extends WorkerHost {
               runId: run.id,
               error: (e as any)?.message ?? String(e),
             });
+          }
+        },
+        enrichPlanWithCredentials: async (plan: any[]) => {
+          try {
+            return await this.stepsService.enrichPlanWithCredentials(plan, run.userId);
+          } catch (e) {
+            this.logger.error('? Failed to enrich plan with credentials', {
+              runId: run.id,
+              error: (e as any)?.message ?? String(e),
+            });
+            return plan; // Return original plan as fallback
           }
         },
       });

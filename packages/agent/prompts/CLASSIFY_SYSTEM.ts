@@ -29,5 +29,8 @@ export function buildClassifySystemPrompt(intentsCatalogJson: string): string {
     '- Define "next week" as next Monday 00:00:00 to next Sunday 23:59:59 in the provided timezone.',
     '- Prefer local-time ISO (with offset) or include "window_tz":"Europe/Berlin" if naive local datetimes are used.',
     '- If the user specifies a number of slots (e.g., "{count=3}" or "3 slots"), set count accordingly.',
+    '- For email workflows:',
+    '  - "no-reply sweep", "follow up on unanswered emails", "find emails without replies" → use email.followup',
+    '  - "remind me to check", "nudge me about", "set reminder for thread" → use email.nudge.reminders',
   ].join('\n');
 }

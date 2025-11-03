@@ -4,7 +4,7 @@ import type { LLM, LlmCallMetadata } from './types.js';
 import { getLlmContext } from './context.js';
 import { logLlmGeneration } from '../observability/langfuse.js';
 
-const DEFAULT_MODEL = process.env.OPENAI_MODEL ?? 'gpt-4o-mini';
+const DEFAULT_MODEL = process.env.OPENAI_MODEL ?? 'gpt-4.1';
 
 const formatPrompt = (system?: string, user?: string) => {
   if (system && user) return `System:\n${system}\n\nUser:\n${user}`;

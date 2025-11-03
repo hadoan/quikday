@@ -33,6 +33,7 @@ export function createGraphEventHandler(opts: {
   logger: Logger;
   telemetry: TelemetryService;
   persistPlanSteps?: (plan: any[], diff: any) => Promise<void>;
+  enrichPlanWithCredentials?: (plan: any[]) => Promise<any[]>;
 }) {
   const {
     run,
@@ -45,6 +46,7 @@ export function createGraphEventHandler(opts: {
     logger,
     telemetry,
     persistPlanSteps,
+    enrichPlanWithCredentials,
   } = opts;
 
   return (evt: GraphRunEvent) => {
@@ -73,14 +75,50 @@ export function createGraphEventHandler(opts: {
             : [];
           const diff = (evt.payload as any)?.diff;
           logger.log('📋 Plan ready', { runId: run.id, steps: plan.length });
-          safePublish('plan_generated', {
-            intent: liveStateRef.get().scratch?.intent,
-            plan,
-            tools: plan.map((step: any) => step.tool),
-            actions: plan.map((step: any) => `Execute ${step.tool}`),
-            steps: plan,
-            diff,
-          });
+          
+          // Enrich plan with credential information before publishing
+          if (enrichPlanWithCredentials) {
+            void enrichPlanWithCredentials(plan).then((enrichedPlan) => {
+              logger.debug('📋 Plan enriched with credentials', { 
+                runId: run.id, 
+                steps: enrichedPlan.length,
+                missingCredentials: enrichedPlan.filter(s => s.credentialId === null).length
+              });
+              safePublish('plan_generated', {
+                intent: liveStateRef.get().scratch?.intent,
+                plan: enrichedPlan,
+                tools: enrichedPlan.map((step: any) => step.tool),
+                actions: enrichedPlan.map((step: any) => `Execute ${step.tool}`),
+                steps: enrichedPlan,
+                diff,
+              });
+            }).catch((err) => {
+              logger.error('❌ Failed to enrich plan with credentials', {
+                runId: run.id,
+                error: err?.message || String(err),
+              });
+              // Fallback: publish without enrichment
+              safePublish('plan_generated', {
+                intent: liveStateRef.get().scratch?.intent,
+                plan,
+                tools: plan.map((step: any) => step.tool),
+                actions: plan.map((step: any) => `Execute ${step.tool}`),
+                steps: plan,
+                diff,
+              });
+            });
+          } else {
+            // No enrichment available, publish as-is
+            safePublish('plan_generated', {
+              intent: liveStateRef.get().scratch?.intent,
+              plan,
+              tools: plan.map((step: any) => step.tool),
+              actions: plan.map((step: any) => `Execute ${step.tool}`),
+              steps: plan,
+              diff,
+            });
+          }
+          
           if (persistPlanSteps) {
             void persistPlanSteps(plan, diff).catch((err) =>
               logger.error('? Failed to persist planned steps', {

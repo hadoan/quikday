@@ -98,6 +98,35 @@ export class StepsService {
   }
 
   /**
+   * Enrich plan steps with appId and credentialId information.
+   * This is used to add credential information to plan steps before sending to frontend.
+   * @param plan - Array of planned steps with tool and args
+   * @param userId - User ID to lookup credentials for
+   * @returns Enriched plan steps with appId and credentialId
+   */
+  async enrichPlanWithCredentials(
+    plan: Array<{ id?: string; tool: string; args?: any; dependsOn?: string[] }>,
+    userId: number,
+  ): Promise<Array<{ id?: string; tool: string; args?: any; dependsOn?: string[]; appId: string | null; credentialId: number | null }>> {
+    if (!Array.isArray(plan) || plan.length === 0) {
+      return [];
+    }
+
+    const enriched = await Promise.all(
+      plan.map(async (step) => {
+        const { appId, credentialId } = await this.resolveAppAndCredential(step.tool, userId);
+        return {
+          ...step,
+          appId,
+          credentialId,
+        };
+      }),
+    );
+
+    return enriched;
+  }
+
+  /**
    * Resolve appId and credentialId based on tool's apps attribute in registry.
    * @param toolName - Name of the tool
    * @param userId - User ID to lookup credentials for

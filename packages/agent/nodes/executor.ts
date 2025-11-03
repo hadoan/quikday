@@ -66,27 +66,181 @@ async function deriveUndoArgs(tool: any, result: any, args: any) {
   return args;
 }
 
+/**
+ * Resolve placeholders in arguments referencing previous step outputs.
+ * Supports:
+ * - "$step-01.fieldName" → single value from step-01's result
+ * - "$step-01.fieldName[*]" → iteration marker (executor will handle expansion)
+ */
+function resolvePlaceholders(
+  args: any,
+  stepResults: Map<string, any>,
+): { resolved: any; needsExpansion: boolean; expansionKey?: string } {
+  if (typeof args !== 'object' || args === null) {
+    return { resolved: args, needsExpansion: false };
+  }
+
+  if (Array.isArray(args)) {
+    return {
+      resolved: args.map((item) => resolvePlaceholders(item, stepResults).resolved),
+      needsExpansion: false,
+    };
+  }
+
+  const resolved: any = {};
+  let needsExpansion = false;
+  let expansionKey: string | undefined;
+
+  for (const [key, value] of Object.entries(args)) {
+    if (typeof value === 'string' && value.startsWith('$step-')) {
+      // Check for array expansion marker: $step-01.threads[*].threadId
+      const arrayMatch = value.match(/^\$step-(\d+)\.([^[]+)\[\*\](?:\.(.+))?$/);
+      if (arrayMatch) {
+        const [, stepNum, arrayField, subField] = arrayMatch;
+        const stepId = `step-${stepNum}`;
+        needsExpansion = true;
+        expansionKey = `${stepId}.${arrayField}`;
+        // Mark this for expansion later
+        resolved[key] = { $expand: stepId, arrayField, subField };
+        continue;
+      }
+
+      // Simple placeholder: $step-01.fieldName
+      const simpleMatch = value.match(/^\$step-(\d+)\.(.+)$/);
+      if (simpleMatch) {
+        const [, stepNum, fieldPath] = simpleMatch;
+        const stepId = `step-${stepNum}`;
+        const stepResult = stepResults.get(stepId);
+        
+        if (stepResult) {
+          // Navigate the field path (e.g., "threads.0.threadId")
+          const fields = fieldPath.split('.');
+          let val = stepResult;
+          for (const field of fields) {
+            val = val?.[field];
+            if (val === undefined) break;
+          }
+          resolved[key] = val;
+        } else {
+          resolved[key] = value; // Keep placeholder if step not executed yet
+        }
+        continue;
+      }
+    }
+
+    // Recurse for nested objects
+    if (typeof value === 'object' && value !== null) {
+      const nested = resolvePlaceholders(value, stepResults);
+      resolved[key] = nested.resolved;
+      if (nested.needsExpansion) {
+        needsExpansion = true;
+        expansionKey = nested.expansionKey;
+      }
+    } else {
+      resolved[key] = value;
+    }
+  }
+
+  return { resolved, needsExpansion, expansionKey };
+}
+
+/**
+ * Expand a step that has array iteration placeholders into multiple concrete steps.
+ * Example: If step-01 returned { threads: [{id: 'a'}, {id: 'b'}] },
+ * then a step with args { threadId: "$step-01.threads[*].id" }
+ * expands to multiple steps with threadId: 'a' and threadId: 'b'.
+ */
+function expandStepForArray(
+  step: any,
+  stepResults: Map<string, any>,
+): any[] {
+  const { resolved, needsExpansion, expansionKey } = resolvePlaceholders(step.args, stepResults);
+
+  if (!needsExpansion || !expansionKey) {
+    return [{ ...step, args: resolved }];
+  }
+
+  // Extract the array to iterate over
+  const [stepId, arrayField] = expansionKey.split('.');
+  const stepResult = stepResults.get(stepId);
+  const array = stepResult?.[arrayField];
+
+  if (!Array.isArray(array) || array.length === 0) {
+    console.warn(`[executor] Expected array at ${expansionKey} but got:`, array);
+    return []; // Skip this step if array is empty/missing
+  }
+
+  // Create one step per array item
+  const expandedSteps = array.map((item, idx) => {
+    const expandedArgs: any = {};
+    
+    for (const [key, value] of Object.entries(resolved)) {
+      if (value && typeof value === 'object' && '$expand' in value) {
+        const { subField } = value as any;
+        expandedArgs[key] = subField ? item[subField] : item;
+      } else {
+        expandedArgs[key] = value;
+      }
+    }
+
+    return {
+      ...step,
+      id: `${step.id}-${idx}`,
+      args: expandedArgs,
+    };
+  });
+
+  return expandedSteps;
+}
+
 /** ────────────────────────────────────────────────────────────────────────────
  * Executor node
  * - Runs each planned step.
  * - For chat.respond: always produce an assistant message (never route to fallback).
  * - Other tools: original behavior (retry, error → set s.error so graph can route).
+ * - NOW: Resolves placeholders and expands array iterations.
  * ─────────────────────────────────────────────────────────────────────────── */
 export const executor: Node<RunState, RunEventBus> = async (s, eventBus) => {
   const commits: Array<{ stepId: string; result: unknown }> = [];
   const undo: Array<{ stepId: string; tool: string; args: unknown }> = [];
+  const stepResults = new Map<string, any>(); // Store results by step ID
 
-  for (const step of s.scratch?.plan ?? []) {
+  // Process steps dynamically - expand array iterations as we go
+  const planQueue = [...(s.scratch?.plan ?? [])];
+  const processedStepIds = new Set<string>();
+
+  while (planQueue.length > 0) {
+    const step = planQueue.shift()!;
+    
+    // Skip if already processed (from expansion)
+    if (processedStepIds.has(step.id)) continue;
+
     const isChat = step.tool === 'chat.respond';
     const tool = registry.get(step.tool);
 
+    // Check if this step needs array expansion
+    const expanded = expandStepForArray(step, stepResults);
+    
+    if (expanded.length > 1) {
+      // Array expansion happened - add all expanded steps to front of queue
+      planQueue.unshift(...expanded);
+      processedStepIds.add(step.id); // Mark original as processed
+      continue; // Process expanded steps next
+    }
+
+    // Take the first (and only) expanded step
+    const currentStep = expanded[0] || step;
+
+    // Resolve placeholders in args
+    const { resolved: resolvedArgs } = resolvePlaceholders(currentStep.args, stepResults);
+    
     // Parse args
-    let args: any = step.args ?? {};
+    let args: any = resolvedArgs ?? {};
     if (isChat) {
       // Try tool schema if available; otherwise accept as-is for resilience
       try {
         if (tool?.in) {
-          const parsed = tool.in.safeParse(step.args);
+          const parsed = tool.in.safeParse(resolvedArgs);
           if (parsed.success) args = parsed.data;
         }
       } catch {
@@ -94,13 +248,13 @@ export const executor: Node<RunState, RunEventBus> = async (s, eventBus) => {
       }
     } else {
       // Strict for non-chat tools
-      const parsed = tool.in.safeParse(step.args);
+      const parsed = tool.in.safeParse(resolvedArgs);
       if (!parsed.success) {
         const zerr = parsed.error?.flatten?.() ?? parsed.error;
-        const err: any = new Error(`Invalid args for ${step.tool}`);
+        const err: any = new Error(`Invalid args for ${currentStep.tool}`);
         err.code = 'E_ARGS_INVALID';
         err.details = zerr;
-        events.toolFailed(s, eventBus, step.tool, { code: err.code, details: zerr }, step.id);
+        events.toolFailed(s, eventBus, currentStep.tool, { code: err.code, details: zerr }, currentStep.id);
         (s as any).error = { node: 'executor', message: err.message, code: err.code };
         throw err;
       }
@@ -110,7 +264,7 @@ export const executor: Node<RunState, RunEventBus> = async (s, eventBus) => {
     // Emit "called" (suppress for chat.respond to avoid Execution Log)
     if (!isChat) {
       const safeArgs = redactForLog(args);
-      events.toolCalled(s, eventBus, step.tool, safeArgs, step.id);
+      events.toolCalled(s, eventBus, currentStep.tool, safeArgs, currentStep.id);
     }
 
     const t0 = globalThis.performance?.now?.() ?? Date.now();
@@ -120,7 +274,7 @@ export const executor: Node<RunState, RunEventBus> = async (s, eventBus) => {
         () =>
           runWithCurrentUser(
             { userId: s.ctx.userId, teamId: s.ctx.teamId ?? null, scopes: s.ctx.scopes },
-            () => registry.call(step.tool, args, s.ctx),
+            () => registry.call(currentStep.tool, args, s.ctx),
           ),
         {
         retries: 3,
@@ -134,11 +288,14 @@ export const executor: Node<RunState, RunEventBus> = async (s, eventBus) => {
       // Emit success (suppress for chat.respond to avoid Execution Log)
       if (!isChat) {
         const safeResult = redactForLog(result as any);
-        events.toolSucceeded(s, eventBus, step.tool, safeResult, duration, step.id);
+        events.toolSucceeded(s, eventBus, currentStep.tool, safeResult, duration, currentStep.id);
       }
 
       // Persist commit
-      commits.push({ stepId: step.id, result });
+      commits.push({ stepId: currentStep.id, result });
+
+      // Store result for subsequent placeholder resolution
+      stepResults.set(currentStep.id, result);
 
       // For chat.respond, send assistant message to UI
       if (
@@ -155,7 +312,7 @@ export const executor: Node<RunState, RunEventBus> = async (s, eventBus) => {
             s.ctx.runId,
             {
               type: 'assistant.final',
-              payload: { stepId: step.id, text, ts: new Date().toISOString() },
+              payload: { stepId: currentStep.id, text, ts: new Date().toISOString() },
             },
             CHANNEL_WEBSOCKET,
           );
@@ -167,7 +324,7 @@ export const executor: Node<RunState, RunEventBus> = async (s, eventBus) => {
       // Queue undo if supported (not relevant for chat.respond)
       if (!isChat && tool?.undo) {
         const uArgs = await deriveUndoArgs(tool, result, args);
-        undo.push({ stepId: step.id, tool: step.tool, args: uArgs });
+        undo.push({ stepId: currentStep.id, tool: currentStep.tool, args: uArgs });
       }
     } catch (error: any) {
       // Non-chat tools keep failure semantics (graph may route to fallback)
@@ -176,10 +333,13 @@ export const executor: Node<RunState, RunEventBus> = async (s, eventBus) => {
         message: error?.message ?? String(error),
         status: error?.status ?? error?.response?.status,
       };
-      events.toolFailed(s, eventBus, step.tool, payload, step.id);
+      events.toolFailed(s, eventBus, currentStep.tool, payload, currentStep.id);
       (s as any).error = { node: 'executor', ...payload };
       throw error;
     }
+
+    // Mark this step as processed
+    processedStepIds.add(currentStep.id);
   }
 
   // Optional: broadcast undo queue if any

@@ -211,6 +211,15 @@ export const INTENTS = [
     ],
   },
   {
+    id: 'email.followup',
+    desc: 'Find sent emails with no replies and generate follow-up drafts (no-reply sweep).',
+    inputs: [
+      { key: 'days_ago', type: 'number', required: true, prompt: 'Search emails from how many days ago?' },
+      { key: 'max_results', type: 'number', required: false, prompt: 'Max number of threads to find? (default 20)' },
+      { key: 'tone', type: 'select', values: ['polite', 'friendly', 'professional'], required: false, prompt: 'Tone for follow-ups? (default polite)' },
+    ],
+  },
+  {
     id: 'email.nudge.reminders',
     desc: 'Create gentle nudges for important threads + calendar reminders to check back.',
     inputs: [
