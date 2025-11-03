@@ -146,6 +146,34 @@ export class RunsService {
 
     await this.telemetry.track('run_created', { runId: run.id, teamId: team?.id ?? null, mode });
 
+    // Initialize Chat for this run and persist initial user messages
+    try {
+      const title = prompt.slice(0, 120);
+      const chat = await this.prisma.chat.create({
+        data: {
+          runId: run.id,
+          userId: user.id,
+          teamId: team?.id ?? null,
+          title,
+        },
+      });
+
+      if (normalizedMessages.length > 0) {
+        const items = normalizedMessages.map((m) => ({
+          chatId: chat.id,
+          type: m.role === 'user' ? 'user_message' : 'assistant',
+          role: m.role,
+          content: { text: m.content } as any,
+          runId: run.id,
+          userId: user.id,
+          teamId: team?.id ?? null,
+        }));
+        await this.prisma.chatItem.createMany({ data: items });
+      }
+    } catch (e) {
+      this.logger.warn('Failed to initialize chat for run', e as any);
+    }
+
     if (mode === 'auto') {
       this.logger.log('🚀 Auto-enqueueing run (mode=auto)', {
         timestamp: new Date().toISOString(),
@@ -430,6 +458,38 @@ export class RunsService {
     }
 
     await this.prisma.run.update({ where: { id: runId }, data: { output: nextOutput } });
+
+    // Persist plan as a chat item
+    try {
+      const run2 = await this.prisma.run.findUnique({ where: { id: runId } });
+      if (run2) {
+        // Find or create chat for this run
+        let chat = await this.prisma.chat.findUnique({ where: { runId: runId } });
+        if (!chat) {
+          chat = await this.prisma.chat.create({
+            data: {
+              runId,
+              userId: run2.userId,
+              teamId: run2.teamId ?? null,
+              title: String(run2.prompt || '').slice(0, 120),
+            },
+          });
+        }
+        await this.prisma.chatItem.create({
+          data: {
+            chatId: chat.id,
+            type: 'plan',
+            role: 'assistant',
+            content: { plan, diff } as any,
+            runId,
+            userId: run2.userId,
+            teamId: run2.teamId ?? null,
+          },
+        });
+      }
+    } catch (e) {
+      this.logger.warn('Failed to persist plan to chat', e as any);
+    }
   }
 
   private normalizeMessages(messages: CreateRunDto['messages'], prompt?: string): ChatMessage[] {
@@ -670,6 +730,91 @@ export class RunsService {
       where: { id },
       data: { output: result.output ?? null, error: result.error ?? null },
     });
+
+    // Persist execution logs and output as chat items
+    try {
+      const run2 = await this.prisma.run.findUnique({ where: { id } });
+      if (run2) {
+        const chat = await this.prisma.chat.findUnique({ where: { runId: id } });
+        if (chat) {
+          if (Array.isArray(result.logs) && result.logs.length > 0) {
+            await this.prisma.chatItem.create({
+              data: {
+                chatId: chat.id,
+                type: 'log',
+                role: 'assistant',
+                content: { entries: result.logs } as any,
+                runId: id,
+                userId: run2.userId,
+                teamId: run2.teamId ?? null,
+              },
+            });
+          }
+          if (result.output) {
+            await this.prisma.chatItem.create({
+              data: {
+                chatId: chat.id,
+                type: 'output',
+                role: 'assistant',
+                content: result.output as any,
+                runId: id,
+                userId: run2.userId,
+                teamId: run2.teamId ?? null,
+              },
+            });
+          }
+          if (result.error) {
+            await this.prisma.chatItem.create({
+              data: {
+                chatId: chat.id,
+                type: 'error',
+                role: 'assistant',
+                content: result.error as any,
+                runId: id,
+                userId: run2.userId,
+                teamId: run2.teamId ?? null,
+              },
+            });
+          }
+        }
+      }
+    } catch (e) {
+      this.logger.warn('Failed to persist result to chat', e as any);
+    }
+  }
+
+  /**
+   * Refresh credentials for planned steps on a run.
+   * Re-resolves app credentials for any steps that have a known appId but null credentialId.
+   */
+  async refreshRunCredentials(runId: string): Promise<{ updated: number }> {
+    const run = await this.prisma.run.findUnique({ where: { id: runId } });
+    if (!run) throw new NotFoundException('Run not found');
+
+    const userId = this.current.getCurrentUserId();
+    if (!userId) throw new UnauthorizedException('Not authenticated');
+
+    const steps = await this.prisma.step.findMany({ where: { runId } });
+    let updated = 0;
+
+    for (const s of steps) {
+      try {
+        if (s.appId && (s.credentialId === null || s.credentialId === undefined)) {
+          const { credentialId } = await this.stepsService.reResolveAppAndCredential(
+            s.tool,
+            userId,
+          );
+          if (credentialId) {
+            await this.prisma.step.update({ where: { id: s.id }, data: { credentialId } });
+            updated += 1;
+          }
+        }
+      } catch {
+        // continue others
+      }
+    }
+
+    return { updated };
   }
 
   /**

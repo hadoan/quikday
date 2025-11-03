@@ -6,6 +6,7 @@ import InstallApp from '@/components/apps/InstallApp';
 import { getAppInstallProps } from '@/lib/utils/appConfig';
 import { useState } from 'react';
 import type { UiPlanStep } from '@/lib/datasources/DataSource';
+import api from '@/apis/client';
 
 export interface PlanData {
   intent: string;
@@ -19,9 +20,10 @@ interface PlanCardProps {
   data: PlanData;
   onConfirm?: () => void;
   onReject?: () => void;
+  runId?: string;
 }
 
-export const PlanCard = ({ data, onConfirm, onReject }: PlanCardProps) => {
+export const PlanCard = ({ data, onConfirm, onReject, runId }: PlanCardProps) => {
   const [isApproving, setIsApproving] = useState(false);
   const [isRejecting, setIsRejecting] = useState(false);
 
@@ -116,7 +118,29 @@ export const PlanCard = ({ data, onConfirm, onReject }: PlanCardProps) => {
                       </div>
                     </div>
                     <div className="shrink-0">
-                      <InstallApp {...getAppInstallProps(step.appId!)} />
+                      <InstallApp
+                        {...getAppInstallProps(step.appId!)}
+                        onBeforeInstall={() => {
+                          try {
+                            if (runId) {
+                              const payload = { runId, appId: step.appId, ts: Date.now() };
+                              localStorage.setItem('qd.pendingInstall', JSON.stringify(payload));
+                            }
+                          } catch {
+                            // ignore
+                          }
+                        }}
+                        onInstalled={async () => {
+                          try {
+                            if (runId) {
+                              await api.post(`/runs/${runId}/refresh-credentials`);
+                              // no redirect needed for direct/input installs
+                            }
+                          } catch (e) {
+                            console.warn('Failed to refresh credentials after install', e);
+                          }
+                        }}
+                      />
                     </div>
                   </div>
                 ))}

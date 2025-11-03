@@ -30,6 +30,7 @@ import { createLogger } from '@/lib/utils/logger';
 import { useToast } from '@/hooks/use-toast';
 import type { UiRunSummary, UiEvent } from '@/lib/datasources/DataSource';
 import { trackDataSourceActive, trackChatSent, trackRunQueued } from '@/lib/telemetry/telemetry';
+import api from '@/apis/client';
 
 const logger = createLogger('Index');
 
@@ -51,6 +52,32 @@ const Index = () => {
   // Initialize data source
   const dataSource = getDataSource();
   const { toast } = useToast();
+
+  // Handle pending install return-to-run if present
+  useEffect(() => {
+    const key = 'qd.pendingInstall';
+    let payload: any;
+    try {
+      const raw = localStorage.getItem(key);
+      if (raw) payload = JSON.parse(raw);
+    } catch {
+      payload = undefined;
+    }
+    if (payload && payload.runId) {
+      const runId = String(payload.runId);
+      (async () => {
+        try {
+          await api.post(`/runs/${runId}/refresh-credentials`);
+        } catch (e) {
+          // ignore
+        } finally {
+          try {
+            localStorage.removeItem(key);
+          } catch {}
+        }
+      })();
+    }
+  }, []);
 
   // Connect to WebSocket for real-time updates (if live mode)
   useEffect(() => {

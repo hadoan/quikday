@@ -122,7 +122,7 @@ export function ChatStream({
 
           return (
             <ChatMessage key={i} role="assistant">
-              <PlanCard data={plan} onConfirm={onConfirm} onReject={onReject} />
+              <PlanCard data={plan} onConfirm={onConfirm} onReject={onReject} runId={runId} />
             </ChatMessage>
           );
         }

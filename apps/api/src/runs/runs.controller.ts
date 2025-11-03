@@ -13,6 +13,7 @@ import {
 import { RunsService } from './runs.service.js';
 import { KindeGuard } from '../auth/kinde.guard.js';
 import { validateAnswers } from '@quikday/agent/validation/answers';
+import { UseGuards } from '@nestjs/common';
 
 export interface ChatMessageDto {
   role: 'system' | 'user' | 'assistant' | 'tool';
@@ -125,5 +126,11 @@ export class RunsController {
   @Get(':id')
   get(@Param('id') id: string) {
     return this.runs.get(id);
+  }
+
+  @Post(':id/refresh-credentials')
+  async refreshCredentials(@Param('id') id: string) {
+    const result = await this.runs.refreshRunCredentials(id);
+    return { ok: true, ...result };
   }
 }

@@ -127,6 +127,16 @@ export class StepsService {
   }
 
   /**
+   * Public wrapper to re-resolve app and credential for a given tool + user.
+   */
+  async reResolveAppAndCredential(
+    toolName: string,
+    userId: number,
+  ): Promise<{ appId: string | null; credentialId: number | null }> {
+    return this.resolveAppAndCredential(toolName, userId);
+  }
+
+  /**
    * Resolve appId and credentialId based on tool's apps attribute in registry.
    * @param toolName - Name of the tool
    * @param userId - User ID to lookup credentials for

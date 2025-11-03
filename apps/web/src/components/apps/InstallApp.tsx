@@ -11,7 +11,7 @@ import {
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import { useToast } from '@/hooks/use-toast';
-import api from '@/apis/client';
+import api, { getApiBaseUrl } from '@/apis/client';
 import axios from 'axios';
 
 /**
@@ -39,6 +39,10 @@ export type InstallAppProps = {
   isInputDialog?: boolean;
   inputKeys?: { code: string; name: string }[];
   inputDialogTitle?: string;
+  /** Called right before starting OAuth install (useful to record return context) */
+  onBeforeInstall?: (appId: string) => void;
+  /** Called after a successful non-OAuth (direct/input) install */
+  onInstalled?: (appId: string) => void;
 };
 
 // Simplified InstallApp based on provided sample, mocked locally
@@ -53,6 +57,8 @@ export default function InstallApp({
   isInputDialog = false,
   inputKeys,
   inputDialogTitle,
+  onBeforeInstall,
+  onInstalled,
 }: InstallAppProps) {
   const { toast } = useToast();
   const { login } = useKindeAuth();
@@ -70,6 +76,11 @@ export default function InstallApp({
     setExistingCount((c) => c + 1);
     setInstalling(false);
     toast({ title: `Installed ${slug}`, description: `${type} (${variant}) installed.` });
+    try {
+      onInstalled?.(type);
+    } catch {
+      // ignore
+    }
   };
 
   const doDisconnect = async () => {
@@ -197,6 +208,11 @@ export default function InstallApp({
     // Convention: /integrations/{slug}/add
     if (installMethod === 'oauth') {
       const apiBaseUrl = getApiBaseUrl();
+      try {
+        onBeforeInstall?.(type);
+      } catch {
+        // ignore
+      }
       const redirectPath = oauthPath || `/integrations/${slug}/add`;
 
       const fetchAddUrl = async () =>

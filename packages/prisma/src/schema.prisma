@@ -28,6 +28,8 @@ model User {
     Credential   Credential[]
     ApiKey       ApiKey[]
     LLMLogs      LLMLog[]
+    chats        Chat[]       @relation("UserChats")
+    chatItems    ChatItem[]   @relation("UserChatItems")
 }
 
 model Workspace {
@@ -51,6 +53,8 @@ model Team {
     createdAt    DateTime      @default(now())
     Credential   Credential[]
     LLMLogs      LLMLog[]
+    chats        Chat[]       @relation("TeamChats")
+    chatItems    ChatItem[]   @relation("TeamChatItems")
 }
 
 model TeamMember {
@@ -104,6 +108,46 @@ model Run {
     RunScopedKeys RunScopedKey[]
     Team          Team?          @relation(fields: [teamId], references: [id])
     User          User           @relation(fields: [userId], references: [id])
+    chat          Chat?          @relation("RunChat")
+    chatItems     ChatItem[]     @relation("RunChatItems")
+}
+
+model Chat {
+    id        String   @id @default(cuid())
+    runId     String   @unique
+    userId    Int
+    teamId    Int?
+    title     String?
+    createdAt DateTime @default(now())
+    updatedAt DateTime @updatedAt
+
+    Run   Run   @relation("RunChat", fields: [runId], references: [id], onDelete: Cascade)
+    User  User  @relation("UserChats", fields: [userId], references: [id])
+    Team  Team? @relation("TeamChats", fields: [teamId], references: [id])
+    items ChatItem[]
+
+    @@index([userId, createdAt])
+    @@index([teamId, createdAt])
+}
+
+model ChatItem {
+    id        String   @id @default(cuid())
+    chatId    String
+    type      String
+    role      String?
+    content   Json?
+    runId     String?
+    userId    Int?
+    teamId    Int?
+    createdAt DateTime @default(now())
+
+    Chat Chat @relation(fields: [chatId], references: [id], onDelete: Cascade)
+    Run  Run? @relation("RunChatItems", fields: [runId], references: [id])
+    User User? @relation("UserChatItems", fields: [userId], references: [id])
+    Team Team? @relation("TeamChatItems", fields: [teamId], references: [id])
+
+    @@index([chatId, createdAt])
+    @@index([runId, createdAt])
 }
 
 model Step {
