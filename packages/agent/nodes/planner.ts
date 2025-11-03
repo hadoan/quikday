@@ -98,50 +98,6 @@ function validateAndFixToolArgs(toolName: string, args: any): { valid: boolean; 
 const isEmail = (v?: string) =>
   typeof v === 'string' && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v.trim());
 
-// function getEmailsFromAnswers(s: RunState): string[] {
-//   const ans = (s.scratch as any)?.answers ?? {};
-//   const out = new Set<string>();
-//   const add = (v?: unknown) => {
-//     if (!v) return;
-//     if (Array.isArray(v)) v.forEach((x) => add(x));
-//     else if (typeof v === 'string') v.split(',').forEach((x) => {
-//       const t = x.trim();
-//       if (isEmail(t)) out.add(t);
-//     });
-//   };
-//   add(ans['attendees.emails']);
-//   add(ans['email.to']);
-//   return Array.from(out);
-// }
-
-// function getEmailsFromEntities(s: RunState): string[] {
-//   const ents = (s.scratch as any)?.entities;
-//   const emails = Array.isArray(ents?.emails) ? (ents.emails as string[]) : [];
-//   return emails.filter((e) => isEmail(e));
-// }
-
-// function getEmailsFromTargets(s: RunState): string[] {
-//   const targets = (s.scratch as any)?.intentMeta?.targets ?? {};
-//   const attendees = Array.isArray(targets?.attendees) ? (targets.attendees as string[]) : [];
-//   return attendees.filter((e) => isEmail(e));
-// }
-
-// function deriveAttendeesCsv(s: RunState): string | undefined {
-//   const emails = new Set<string>();
-//   getEmailsFromAnswers(s).forEach((e) => emails.add(e));
-//   getEmailsFromEntities(s).forEach((e) => emails.add(e));
-//   getEmailsFromTargets(s).forEach((e) => emails.add(e));
-//   if (emails.size === 0) return undefined;
-//   return Array.from(emails).join(', ');
-// }
-
-// const resolveWhen = (s: RunState) => {
-//   const start = (s.scratch as any)?.when?.startISO ?? (s.scratch as any)?.schedule?.start ?? null;
-//   const end = (s.scratch as any)?.when?.endISO ?? (s.scratch as any)?.schedule?.end ?? null;
-//   return { start, end };
-// };
-
-// const getTitle = (s: RunState) => (s.scratch as any)?.title ?? 'Online call';
 
 /** Wire ids & naïve linear dependsOn; assign simple risk */
 function finalizeSteps(steps: Omit<PlanStep, 'id' | 'risk' | 'dependsOn'>[]): PlanStep[] {

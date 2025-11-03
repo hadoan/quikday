@@ -210,6 +210,14 @@ export const INTENTS = [
       },
     ],
   },
+  {
+    id: 'email.nudge.reminders',
+    desc: 'Create gentle nudges for important threads + calendar reminders to check back.',
+    inputs: [
+      { key: 'query', type: 'string', required: false, prompt: 'Gmail search (optional)?'},
+      { key: 'remind_in_days', type: 'number', required: true, prompt: 'Remind me in N days?' }
+    ],
+  }
   // Keep literal ids while type-checking fields
 ] as const satisfies readonly Intent[];
 

@@ -7,7 +7,6 @@ import { z } from 'zod';
 import { slackPostMessage } from './tools/slack.postMessage.js';
 import { chatRespondTool } from './tools/chatRespond.js';
 import { LLM } from '../llm/types.js';
-import { calendarCheckAvailability } from './tools/calendar.checkAvailability.js';
 import {
   calendarCreateEvent,
   calendarListEvents,
@@ -16,6 +15,7 @@ import {
   calendarUpdateEvent,
   calendarCancelEvent,
   calendarSuggestSlots,
+  calendarCheckAvailability,
 } from './tools/calendar.js';
 import {
   emailSend,
