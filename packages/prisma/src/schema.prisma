@@ -160,6 +160,10 @@ model Step {
     request      Json?
     response     Json?
     errorCode    String?
+    // The planner/executor step id (e.g., "step-02-0") to correlate with plan
+    planStepId   String?
+    // Whether this step was waiting for explicit confirmation before execution
+    waitingConfirm Boolean @default(false)
     startedAt    DateTime  @default(now())
     endedAt      DateTime?
     Run          Run       @relation(fields: [runId], references: [id])

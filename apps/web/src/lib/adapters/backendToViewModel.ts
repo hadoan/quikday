@@ -329,6 +329,8 @@ export function buildPlanMessage(data: {
   tools?: string[];
   actions?: string[];
   steps?: BackendStep[];
+  awaitingApproval?: boolean;
+  mode?: 'plan' | 'approval';
 }): UiMessage {
   return {
     role: 'assistant',
@@ -337,7 +339,8 @@ export function buildPlanMessage(data: {
       intent: data.intent || 'Processing request',
       tools: data.tools || [],
       actions: data.actions || [],
-      mode: 'plan',
+      mode: data.mode || 'plan',
+      awaitingApproval: data.awaitingApproval === true,
       steps: data.steps ? adaptStepsBackendToUi(data.steps) : undefined,
     },
   };

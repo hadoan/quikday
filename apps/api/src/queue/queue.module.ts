@@ -3,6 +3,7 @@ import { BullModule } from '@nestjs/bullmq';
 import { ConfigModule } from '../config/config.module.js';
 import { ConfigService } from '../config/config.service.js';
 import { RunProcessor } from './run.processor.js';
+import { StepRunProcessor } from './step-run.processor.js';
 import { RunsModule } from '../runs/runs.module.js';
 import { TelemetryModule } from '../telemetry/telemetry.module.js';
 import { CredentialsModule } from '../credentials/credentials.module.js';
@@ -26,9 +27,10 @@ import { AgentModule } from '../agent/index.js';
       inject: [ConfigService],
     }),
     BullModule.registerQueue({ name: 'runs' }),
+    BullModule.registerQueue({ name: 'steps' }),
     TelemetryModule,
   ],
-  providers: [RunProcessor],
+  providers: [RunProcessor, StepRunProcessor],
   exports: [BullModule],
 })
 export class QueueModule {}

@@ -16,6 +16,8 @@ type StepLogEntry = {
   startedAt: string;
   completedAt?: string;
   ms?: number;
+  // Correlate to plan/executor step id (e.g., step-02-0)
+  planStepId?: string;
 };
 
 export function createGraphEventHandler(opts: {
@@ -132,6 +134,7 @@ export function createGraphEventHandler(opts: {
         case 'tool.called': {
           const name = (evt.payload as any)?.name ?? 'unknown';
           const args = (evt.payload as any)?.args;
+          const planStepId = (evt.payload as any)?.stepId as string | undefined;
           const startedAt = new Date().toISOString();
           logger.log('🔧 Tool started', { runId: run.id, tool: name });
           stepLogs.push({
@@ -140,6 +143,7 @@ export function createGraphEventHandler(opts: {
             request: args,
             status: 'started',
             startedAt,
+            planStepId,
           });
           safePublish('step_started', { tool: name, action: `Executing ${name}`, request: args });
           break;

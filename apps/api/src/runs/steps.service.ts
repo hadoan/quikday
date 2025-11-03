@@ -26,12 +26,22 @@ export class StepsService {
       request?: any;
       response?: any;
       errorCode?: string;
+      planStepId?: string;
+      waitingConfirm?: boolean;
       startedAt?: Date;
       endedAt?: Date;
     },
     userId: number,
   ) {
     const { appId, credentialId } = await this.resolveAppAndCredential(data.tool, userId);
+    // default waitingConfirm based on tool risk when not provided
+    let waitingConfirm: boolean = false;
+    try {
+      const tool = registry.get(data.tool);
+      waitingConfirm = typeof data.waitingConfirm === 'boolean' ? data.waitingConfirm : tool?.risk === 'high';
+    } catch {
+      waitingConfirm = !!data.waitingConfirm;
+    }
 
     return this.prisma.step.create({
       data: {
@@ -43,6 +53,8 @@ export class StepsService {
         request: data.request ?? null,
         response: data.response ?? null,
         errorCode: data.errorCode || null,
+        planStepId: data.planStepId ?? null,
+        waitingConfirm,
         startedAt: data.startedAt || new Date(),
         endedAt: data.endedAt,
       },
@@ -63,6 +75,8 @@ export class StepsService {
       request?: any;
       response?: any;
       errorCode?: string;
+      planStepId?: string;
+      waitingConfirm?: boolean;
       startedAt?: Date;
       endedAt?: Date;
     }>,
@@ -76,6 +90,14 @@ export class StepsService {
     const enrichedSteps = await Promise.all(
       steps.map(async (step) => {
         const { appId, credentialId } = await this.resolveAppAndCredential(step.tool, userId);
+        // default waitingConfirm based on tool risk when not provided
+        let waitingConfirm: boolean = false;
+        try {
+          const tool = registry.get(step.tool);
+          waitingConfirm = typeof step.waitingConfirm === 'boolean' ? step.waitingConfirm : tool?.risk === 'high';
+        } catch {
+          waitingConfirm = !!step.waitingConfirm;
+        }
 
         return {
           runId: step.runId,
@@ -86,6 +108,8 @@ export class StepsService {
           request: step.request ?? null,
           response: step.response ?? null,
           errorCode: step.errorCode || null,
+          planStepId: step.planStepId ?? null,
+          waitingConfirm,
           startedAt: step.startedAt || new Date(),
           endedAt: step.endedAt,
         };
@@ -216,11 +240,21 @@ export class StepsService {
     }
 
     const now = new Date();
-    const steps = plan.map((p) => ({
+    const steps = plan.map((p: any) => ({
       runId,
       tool: String(p?.tool || 'unknown'),
       action: `Planned ${String(p?.tool || 'unknown')}`,
       request: p && typeof p === 'object' ? (p as any).args ?? null : null,
+      planStepId: typeof p?.id === 'string' ? p.id : null,
+      // Mark planned step as needing confirmation if tool has high risk
+      waitingConfirm: (() => {
+        try {
+          const t = registry.get(String(p?.tool || 'unknown'));
+          return t?.risk === 'high';
+        } catch {
+          return false;
+        }
+      })(),
       startedAt: now,
     }));
 
@@ -245,6 +279,7 @@ export class StepsService {
       errorCode?: string;
       ts?: string | number;
       completedAt?: string | number;
+      planStepId?: string;
     }>,
     userId: number,
   ) {
@@ -263,6 +298,16 @@ export class StepsService {
             request: entry.request ?? null,
             response: entry.result ?? null,
             errorCode: entry.errorCode || undefined,
+            planStepId: entry.planStepId,
+            // Executed steps: mark if tool was high risk
+            waitingConfirm: (() => {
+              try {
+                const t = registry.get(entry.tool || 'unknown');
+                return t?.risk === 'high';
+              } catch {
+                return false;
+              }
+            })(),
             startedAt: new Date(entry.ts || Date.now()),
             endedAt: entry.completedAt ? new Date(entry.completedAt) : undefined,
           },

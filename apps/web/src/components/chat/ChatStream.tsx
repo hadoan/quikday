@@ -78,7 +78,7 @@ export function ChatStream({
 
         // Assistant messages: render structured types with corresponding cards
         if (m.type === 'plan') {
-          const pd = m.data as UiPlanData;
+          const pd = m.data as UiPlanData & { awaitingApproval?: boolean; mode?: string };
           const steps = pd?.steps || [];
           
           const plan = {
@@ -89,8 +89,9 @@ export function ChatStream({
             steps: steps,
           };
 
+          const awaitingApproval = pd?.awaitingApproval === true || pd?.mode === 'approval';
           const canApprove =
-            flags.liveApprovals && runId && lastStatus === 'awaiting_approval' && steps.length > 0;
+            flags.liveApprovals && !!runId && steps.length > 0 && (awaitingApproval || lastStatus === 'awaiting_approval');
           
           console.log('🔍 Approval button check:', {
             liveApprovals: flags.liveApprovals,

@@ -7,6 +7,7 @@ import { CHANNEL_WEBSOCKET } from '@quikday/libs';
 import { registry } from '../registry/registry.js';
 import { events } from '../observability/events.js';
 import { redactForLog } from '../guards/redaction.js';
+import { Queue, QueueEvents, JobsOptions } from 'bullmq';
 
 type Json = string | number | boolean | null | Json[] | { [k: string]: Json };
 
@@ -262,6 +263,71 @@ export const executor: Node<RunState, RunEventBus> = async (s, eventBus) => {
   const commits: Array<{ stepId: string; result: unknown }> = [];
   const undo: Array<{ stepId: string; tool: string; args: unknown }> = [];
   const stepResults = new Map<string, any>(); // Store results by step ID
+  // Approved steps (when resuming after approval). If present, only run these.
+  const approvedSteps = new Set<string>(
+    Array.isArray((s.ctx as any)?.meta?.approvedSteps)
+      ? (((s.ctx as any).meta?.approvedSteps as string[]) ?? [])
+      : []
+  );
+
+  const isApprovedStep = (id: string): boolean => {
+    if (approvedSteps.size === 0) return true;
+    if (approvedSteps.has(id)) return true;
+    const m = id.match(/^step-\d+/);
+    return m ? approvedSteps.has(m[0]) : false;
+  };
+
+  // Lazy init BullMQ queue for step execution
+  let stepQueue: Queue | null = null;
+  let stepQueueEvents: QueueEvents | null = null;
+  const getStepQueue = () => {
+    if (!stepQueue) {
+      const url = process.env.REDIS_URL || process.env.REDIS_URL_HTTP || process.env.REDIS_URL_WS;
+      if (!url) return null;
+      stepQueue = new Queue('steps', { connection: { url } as any });
+      stepQueueEvents = new QueueEvents('steps', { connection: { url } as any });
+    }
+    return stepQueue;
+  };
+
+  async function runStepViaQueue(planStepId: string, toolName: string, args: any) {
+    const q = getStepQueue();
+    if (!q || !stepQueueEvents) {
+      // Fallback to direct call if queue not available
+      return runWithCurrentUser(
+        { userId: s.ctx.userId, teamId: s.ctx.teamId ?? null, scopes: s.ctx.scopes },
+        () => registry.call(toolName, args, s.ctx)
+      );
+    }
+
+    const jobId = `run-${s.ctx.runId}-step-${planStepId}-${Date.now().toString(36)}`;
+    const jobOpts: JobsOptions = {
+      jobId,
+      attempts: 2,
+      removeOnComplete: 100,
+      removeOnFail: 100,
+      backoff: { type: 'exponential', delay: 1000 },
+    };
+    const __ctx = {
+      userId: s.ctx.userId,
+      teamId: s.ctx.teamId ?? null,
+      scopes: s.ctx.scopes,
+      traceId: s.ctx.traceId,
+      tz: s.ctx.tz,
+      runId: s.ctx.runId,
+    } as any;
+
+    const job = await q.add('execute-step', {
+      runId: s.ctx.runId,
+      planStepId,
+      tool: toolName,
+      args,
+      __ctx,
+    }, jobOpts);
+
+    const res = await job.waitUntilFinished(stepQueueEvents, 60_000);
+    return (res as any)?.result ?? null;
+  }
 
   // Process steps dynamically - expand array iterations as we go
   const planQueue = [...(s.scratch?.plan ?? [])];
@@ -287,7 +353,13 @@ export const executor: Node<RunState, RunEventBus> = async (s, eventBus) => {
     }
 
     // Take the first (and only) expanded step
-  const currentStep = expanded[0] || step;
+    const currentStep = expanded[0] || step;
+
+    // If we are resuming with an approvedSteps set, skip any steps not approved
+    if (!isApprovedStep(currentStep.id)) {
+      processedStepIds.add(currentStep.id);
+      continue;
+    }
 
   // Resolve placeholders in args
   const { resolved: resolvedArgs } = resolvePlaceholders(currentStep.args, stepResults);
@@ -353,6 +425,24 @@ export const executor: Node<RunState, RunEventBus> = async (s, eventBus) => {
       args = parsed.data;
     }
 
+    // If high-risk tool and not pre-approved → request approval and halt
+    const isHighRisk = tool?.risk === 'high';
+    if (!isChat && isHighRisk && !isApprovedStep(currentStep.id)) {
+      // Surface approval-needed to subscribers with step details
+      try {
+        events.approvalAwaiting(s, eventBus, [
+          { id: currentStep.id, tool: currentStep.tool, args: redactForLog(args) },
+        ]);
+      } catch {
+        // non-fatal
+      }
+      const err: any = new Error('GRAPH_HALT_AWAITING_APPROVAL');
+      err.code = 'GRAPH_HALT_AWAITING_APPROVAL';
+      err.payload = { stepId: currentStep.id, tool: currentStep.tool };
+      (s as any).error = { node: 'executor', code: err.code, message: 'awaiting approval' };
+      throw err;
+    }
+
     // Emit "called" (suppress for chat.respond to avoid Execution Log)
     if (!isChat) {
       const safeArgs = redactForLog(args);
@@ -364,15 +454,18 @@ export const executor: Node<RunState, RunEventBus> = async (s, eventBus) => {
     try {
       const result = await withRetry(
         () =>
-          runWithCurrentUser(
-            { userId: s.ctx.userId, teamId: s.ctx.teamId ?? null, scopes: s.ctx.scopes },
-            () => registry.call(currentStep.tool, args, s.ctx),
+          (isChat
+            ? runWithCurrentUser(
+                { userId: s.ctx.userId, teamId: s.ctx.teamId ?? null, scopes: s.ctx.scopes },
+                () => registry.call(currentStep.tool, args, s.ctx),
+              )
+            : runStepViaQueue(currentStep.id, currentStep.tool, args)
           ),
         {
-        retries: 3,
-        baseMs: 500,
-        maxMs: 5_000,
-      },
+          retries: 3,
+          baseMs: 500,
+          maxMs: 5_000,
+        },
       );
 
       const duration = (globalThis.performance?.now?.() ?? Date.now()) - t0;

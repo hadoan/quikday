@@ -495,6 +495,8 @@ export class ApiDataSource implements DataSource {
           tools: steps.map((s) => s.tool),
           actions: steps.map((s) => s.action || 'Execute'),
           steps,
+          awaitingApproval: run.status === 'awaiting_approval',
+          mode: run.status === 'awaiting_approval' ? 'approval' : 'plan',
         }),
       );
     }

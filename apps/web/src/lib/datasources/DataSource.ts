@@ -90,7 +90,8 @@ export interface UiPlanData {
   intent: string;
   tools: string[];
   actions: string[];
-  mode: 'plan' | 'auto';
+  mode: 'plan' | 'auto' | 'approval';
+  awaitingApproval?: boolean;
   steps?: UiPlanStep[];
 }
 

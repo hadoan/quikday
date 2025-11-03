@@ -296,6 +296,27 @@ const Index = () => {
               // the run status to 'awaiting_input' so UI components can react.
               try {
                 const payload = event.payload as Record<string, unknown>;
+                // If awaiting_approval mid-execution and backend included step details, surface a plan card
+                if (
+                  status === 'awaiting_approval' &&
+                  Array.isArray((payload as any)?.steps) &&
+                  (payload as any).steps.length > 0
+                ) {
+                  const alreadyHasPlan = newMessages.some((m) => m && m.type === 'plan');
+                  if (!alreadyHasPlan) {
+                    const stepsPayload = (payload as any).steps as any[];
+                  newMessages.push(
+                    buildPlanMessage({
+                      intent: 'Review pending actions',
+                      tools: stepsPayload.map((s: any) => s.tool).filter(Boolean),
+                      actions: stepsPayload.map((s: any) => s.action || `Execute ${s.tool}`),
+                      steps: stepsPayload as any,
+                      awaitingApproval: true,
+                      mode: 'approval',
+                    }),
+                  );
+                }
+              }
                 if (
                   (payload?.status as string) === 'awaiting_input' &&
                   Array.isArray(payload?.questions) &&
