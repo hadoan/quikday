@@ -110,6 +110,18 @@ export class RunsController {
     return { ok: true };
   }
 
+  @Post(':id/approve-steps')
+  async approveStepsForExecution(
+    @Param('id') id: string,
+    @Body()
+    body: {
+      steps: string[];
+    },
+  ) {
+    await this.runs.approveRiskSteps(id, body.steps);
+    return { ok: true };
+  }
+
   @Post(':id/undo')
   async undo(@Param('id') id: string) {
     await this.runs.undoRun(id);

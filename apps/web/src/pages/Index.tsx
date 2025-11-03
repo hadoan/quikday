@@ -302,21 +302,34 @@ const Index = () => {
                   Array.isArray((payload as any)?.steps) &&
                   (payload as any).steps.length > 0
                 ) {
-                  const alreadyHasPlan = newMessages.some((m) => m && m.type === 'plan');
-                  if (!alreadyHasPlan) {
-                    const stepsPayload = (payload as any).steps as any[];
-                  newMessages.push(
-                    buildPlanMessage({
-                      intent: 'Review pending actions',
-                      tools: stepsPayload.map((s: any) => s.tool).filter(Boolean),
-                      actions: stepsPayload.map((s: any) => s.action || `Execute ${s.tool}`),
-                      steps: stepsPayload as any,
-                      awaitingApproval: true,
-                      mode: 'approval',
-                    }),
-                  );
+                  const stepsPayload = (payload as any).steps as any[];
+                  // Show an approval card even if a regular plan card already exists.
+                  // If an approval-mode plan already exists, update it; otherwise append a new one.
+                  let approvalPlanIndex = -1;
+                  for (let i = newMessages.length - 1; i >= 0; i--) {
+                    const msg = newMessages[i];
+                    if (msg && msg.type === 'plan' && (msg.data as any)?.mode === 'approval') {
+                      approvalPlanIndex = i;
+                      break;
+                    }
+                  }
+
+                  const approvalPlan = buildPlanMessage({
+                    intent: 'Review pending actions',
+                    tools: stepsPayload.map((s: any) => s.tool).filter(Boolean),
+                    actions: stepsPayload.map((s: any) => s.action || `Execute ${s.tool}`),
+                    steps: stepsPayload as any,
+                    awaitingApproval: true,
+                    mode: 'approval',
+                  });
+
+                  if (approvalPlanIndex >= 0) {
+                    newMessages[approvalPlanIndex] = approvalPlan;
+                  } else {
+                    newMessages.push(approvalPlan);
+                  }
                 }
-              }
+              
                 if (
                   (payload?.status as string) === 'awaiting_input' &&
                   Array.isArray(payload?.questions) &&

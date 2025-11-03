@@ -203,6 +203,8 @@ export interface DataSource {
   // Approvals & Control
   // -------------------------------------------------------------------------
   approve(runId: string, approvedSteps: string[]): Promise<{ ok: true }>;
+  // Second-level confirmation for high-risk steps
+  confirmSteps?(runId: string, steps: string[]): Promise<{ ok: true }>;
 
   cancel(runId: string): Promise<{ ok: true }>;
 

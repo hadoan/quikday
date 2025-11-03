@@ -449,6 +449,9 @@ export class RunProcessor extends WorkerHost {
     if (Array.isArray(config.approvedSteps) && !Array.isArray(meta.approvedSteps)) {
       (meta as any).approvedSteps = config.approvedSteps;
     }
+    if (Array.isArray((config as any).confirmedSteps) && !Array.isArray((meta as any).confirmedSteps)) {
+      (meta as any).confirmedSteps = (config as any).confirmedSteps;
+    }
     if (!(meta as any).channelTargets && (config as any).channelTargets) {
       (meta as any).channelTargets = (config as any).channelTargets;
     }

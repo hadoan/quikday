@@ -56,6 +56,23 @@ export class ApiDataSource implements DataSource {
   }
 
   // -------------------------------------------------------------------------
+  // Approvals & Control
+  // -------------------------------------------------------------------------
+  async approve(runId: string, approvedSteps: string[]) {
+    const url = `${this.config.apiBaseUrl}/runs/${runId}/approve`;
+    const response = await this.fetch(url, { method: 'POST', body: JSON.stringify({ approvedSteps }) });
+    if (!response.ok) throw new Error(`Approve failed: ${response.status}`);
+    return { ok: true as const };
+  }
+
+  async confirmSteps(runId: string, steps: string[]) {
+    const url = `${this.config.apiBaseUrl}/runs/${runId}/approve-steps`;
+    const response = await this.fetch(url, { method: 'POST', body: JSON.stringify({ steps }) });
+    if (!response.ok) throw new Error(`Confirm steps failed: ${response.status}`);
+    return { ok: true as const };
+  }
+
+  // -------------------------------------------------------------------------
   // Create Run
   // -------------------------------------------------------------------------
   async createRun(params: CreateRunParams): Promise<{ runId: string }> {

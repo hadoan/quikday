@@ -80,16 +80,16 @@ export function ChatStream({
         if (m.type === 'plan') {
           const pd = m.data as UiPlanData & { awaitingApproval?: boolean; mode?: string };
           const steps = pd?.steps || [];
-          
+
+          const awaitingApproval = pd?.awaitingApproval === true || pd?.mode === 'approval';
           const plan = {
             intent: pd?.intent || 'Plan',
             tools: pd?.tools || [],
             actions: pd?.actions || [],
-            mode: 'preview' as const,
+            mode: (awaitingApproval ? 'approval' : 'preview') as const,
             steps: steps,
           };
 
-          const awaitingApproval = pd?.awaitingApproval === true || pd?.mode === 'approval';
           const canApprove =
             flags.liveApprovals && !!runId && steps.length > 0 && (awaitingApproval || lastStatus === 'awaiting_approval');
           
@@ -104,7 +104,12 @@ export function ChatStream({
           const onConfirm = canApprove
             ? async () => {
                 try {
-                  await dataSource.approve(runId, steps.map((s) => s.id));
+                  const ids = steps.map((s) => s.id);
+                  if (pd?.awaitingApproval && typeof dataSource.confirmSteps === 'function') {
+                    await dataSource.confirmSteps(runId!, ids);
+                  } else {
+                    await dataSource.approve(runId!, ids);
+                  }
                 } catch (e) {
                   console.error('approve failed', e);
                 }

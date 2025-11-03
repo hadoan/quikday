@@ -269,6 +269,11 @@ export const executor: Node<RunState, RunEventBus> = async (s, eventBus) => {
       ? (((s.ctx as any).meta?.approvedSteps as string[]) ?? [])
       : []
   );
+  const confirmedSteps = new Set<string>(
+    Array.isArray((s.ctx as any)?.meta?.confirmedSteps)
+      ? (((s.ctx as any).meta?.confirmedSteps as string[]) ?? [])
+      : []
+  );
 
   const isApprovedStep = (id: string): boolean => {
     if (approvedSteps.size === 0) return true;
@@ -355,7 +360,7 @@ export const executor: Node<RunState, RunEventBus> = async (s, eventBus) => {
     // Take the first (and only) expanded step
     const currentStep = expanded[0] || step;
 
-    // If we are resuming with an approvedSteps set, skip any steps not approved
+    // If we are resuming with an approvedSteps set, skip any steps not approved at all
     if (!isApprovedStep(currentStep.id)) {
       processedStepIds.add(currentStep.id);
       continue;
@@ -425,9 +430,15 @@ export const executor: Node<RunState, RunEventBus> = async (s, eventBus) => {
       args = parsed.data;
     }
 
-    // If high-risk tool and not pre-approved → request approval and halt
+    // If high-risk tool and not confirmed → request second-level approval and halt
     const isHighRisk = tool?.risk === 'high';
-    if (!isChat && isHighRisk && !isApprovedStep(currentStep.id)) {
+    const isConfirmedStep = (id: string): boolean => {
+      if (confirmedSteps.size === 0) return false;
+      if (confirmedSteps.has(id)) return true;
+      const m = id.match(/^step-\d+/);
+      return m ? confirmedSteps.has(m[0]) : false;
+    };
+    if (!isChat && isHighRisk && !isConfirmedStep(currentStep.id)) {
       // Surface approval-needed to subscribers with step details
       try {
         events.approvalAwaiting(s, eventBus, [

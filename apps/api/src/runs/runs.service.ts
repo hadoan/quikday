@@ -691,6 +691,51 @@ export class RunsService {
     await this.telemetry.track('run_approved', { runId, stepsCount: approvedSteps.length });
   }
 
+  /**
+   * Approve high-risk steps for execution (second-level confirmation).
+   * Appends to config.confirmedSteps and re-enqueues the run from executor.
+   */
+  async approveRiskSteps(runId: string, stepIds: string[]) {
+    const run = await this.prisma.run.findUnique({ where: { id: runId } });
+    if (!run) throw new NotFoundException('Run not found');
+
+    // Only allow while awaiting approval or approved (mid-run)
+    const allowed = new Set(['awaiting_approval', 'approved', 'running', 'executing']);
+    if (!allowed.has(run.status)) {
+      throw new BadRequestException(`Cannot confirm steps in status '${run.status}'.`);
+    }
+
+    const config = this.asRecord(run.config);
+    const existingConfirmed: string[] = Array.isArray((config as any).confirmedSteps)
+      ? ([...(config as any).confirmedSteps] as string[])
+      : [];
+
+    // Merge unique
+    const set = new Set<string>(existingConfirmed);
+    for (const id of stepIds ?? []) {
+      if (typeof id === 'string' && id.trim()) set.add(id.trim());
+    }
+
+    const nextConfig = {
+      ...config,
+      confirmedSteps: Array.from(set),
+      resumeFrom: 'executor',
+    };
+
+    await this.prisma.run.update({
+      where: { id: runId },
+      data: { config: nextConfig, status: 'approved' },
+    });
+
+    // Re-enqueue to continue execution
+    await this.enqueue(runId, {
+      scratch: {
+        riskApprovalGranted: true,
+        approvedAt: new Date().toISOString(),
+      },
+    });
+  }
+
   async undoRun(runId: string) {
     const run = await this.get(runId);
 
