@@ -1,10 +1,15 @@
 import { z } from 'zod';
-import type { Tool } from '../types';
+import type { Tool } from '../../types.js';
 import { ModuleRef } from '@nestjs/core';
-import { CALENDAR_FACTORY } from '@quikday/appstore/calendar/calendar.tokens';
-import type { CalendarFactory } from '@quikday/appstore/calendar/calendar.factory';
-import { CurrentUserService } from '@quikday/libs';
-import { PrismaService } from '@quikday/prisma';
+import {
+  resolveGoogleCalendarService,
+  startOfDayLike,
+  addDays,
+  setTimeWithSameOffset,
+  maxDate,
+  minDate,
+  alignToStep,
+} from './utils.js';
 
 // Shared schemas
 const iso = z.string().min(10);
@@ -79,6 +84,7 @@ export function calendarCheckAvailability(
     description: 'Find available time slots within a date/time window. Searches for free slots during working hours and returns up to N available slots. Required: startWindow (ISO), endWindow (ISO), durationMin (meeting length in minutes).',
     in: CalendarCheckAvailabilityIn,
     out: CalendarCheckAvailabilityOut,
+    apps: ['google-calendar'],
     scopes: [],
     rate: 'unlimited',
     risk: 'low',
@@ -206,58 +212,4 @@ export function calendarCheckAvailability(
       }
     },
   };
-}
-
-/* ---------------- helpers ---------------- */
-
-function startOfDayLike(d: Date): Date {
-  const x = new Date(d);
-  x.setHours(0, 0, 0, 0);
-  return x;
-}
-function addDays(d: Date, days: number): Date {
-  return new Date(d.getTime() + days * 24 * 60 * 60 * 1000);
-}
-function setTimeWithSameOffset(d: Date, hh: number, mm: number, ss: number, ms: number): Date {
-  const x = new Date(d);
-  x.setHours(hh, mm, ss, ms);
-  return x;
-}
-function maxDate(a: Date, b: Date): Date {
-  return a > b ? a : b;
-}
-function minDate(a: Date, b: Date): Date {
-  return a < b ? a : b;
-}
-function alignToStep(d: Date, stepMs: number): Date {
-  const t = d.getTime();
-  const rem = t % stepMs;
-  return rem === 0 ? d : new Date(t + (stepMs - rem));
-}
-
-/* ---------------- service resolver ---------------- */
-
-async function resolveGoogleCalendarService(moduleRef: ModuleRef): Promise<any> {
-  // Prefer factory so services get constructed with proper dependencies
-  const factory = moduleRef.get(CALENDAR_FACTORY as any, { strict: false }) as
-    | CalendarFactory
-    | undefined;
-  if (factory && typeof (factory as any).create === 'function') {
-    const currentUser = moduleRef.get(CurrentUserService, { strict: false });
-    const prisma = moduleRef.get(PrismaService, { strict: false });
-    if (!currentUser || !prisma) throw new Error('Missing CurrentUserService or PrismaService');
-    // "google" is the provider key; adjust if you add others
-    return (factory as any).create('google', { currentUser, prisma });
-  }
-
-  // Fallback: resolve concrete service directly for compatibility
-  const m = await import('@quikday/appstore-google-calendar');
-  const GoogleCalendarProviderService = (m as any).GoogleCalendarProviderService;
-  const svc = moduleRef.get(GoogleCalendarProviderService as any, { strict: false });
-  if (!svc) {
-    throw new Error(
-      'GoogleCalendarProviderService not found in Nest container. Ensure GoogleCalendarModule is imported.',
-    );
-  }
-  return svc as any;
 }

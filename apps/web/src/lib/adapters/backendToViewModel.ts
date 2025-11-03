@@ -31,6 +31,7 @@ const RUN_STATUS_MAP: Record<string, UiRunStatus> = {
   queued: 'queued',
   planning: 'planning',
   planned: 'awaiting_approval',
+  awaiting_approval: 'awaiting_approval', // Approval required
   executing: 'executing',
   scheduled: 'scheduled',
   succeeded: 'succeeded',
@@ -119,6 +120,7 @@ export interface BackendStep {
   id?: string;
   tool?: string;
   appId?: string;
+  credentialId?: number | null;
   action?: string;
   status?: string;
   request?: unknown;
@@ -140,6 +142,7 @@ export function adaptStepBackendToUi(backend: BackendStep, index = 0): UiPlanSte
     id: backend.id || `step-${index}`,
     tool: backend.tool || 'unknown',
     appId: backend.appId,
+    credentialId: backend.credentialId,
     action: backend.action,
     status: mapStepStatus(backend.status),
     inputsPreview: stringifyPreview(backend.request),

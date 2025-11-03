@@ -4,7 +4,7 @@ import { buildMainGraph } from '@quikday/agent/buildMainGraph';
 import type { RunState } from '@quikday/agent/state/types';
 import type { Graph } from '@quikday/agent/runtime/graph';
 import type { LLM } from '@quikday/agent/llm/types';
-import { AGENT_LLM } from './agent.tokens';
+import { AGENT_LLM } from './agent.tokens.js';
 import { withLlmContext } from '@quikday/agent/llm/context';
 import type { RunEventBus } from '@quikday/libs';
 

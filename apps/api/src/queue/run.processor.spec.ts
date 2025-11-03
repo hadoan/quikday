@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import type { Job } from 'bullmq';
-import { RunProcessor } from './run.processor';
+import { RunProcessor } from './run.processor.js';
 
 const graphRunMock = vi.fn();
 

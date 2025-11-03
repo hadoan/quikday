@@ -3,7 +3,7 @@ import { ErrorCode } from '@quikday/types';
 import type { RunState } from '@quikday/agent/state/types';
 import type { RunEvent as GraphRunEvent } from '@quikday/agent/observability/events';
 import type { RunEvent as UiRunEvent } from '@quikday/libs/redis/RunEvent';
-import type { TelemetryService } from '../telemetry/telemetry.service';
+import type { TelemetryService } from '../telemetry/telemetry.service.js';
 
 type StepLogEntry = {
   tool: string;
@@ -33,6 +33,7 @@ export function createGraphEventHandler(opts: {
   logger: Logger;
   telemetry: TelemetryService;
   persistPlanSteps?: (plan: any[], diff: any) => Promise<void>;
+  enrichPlanWithCredentials?: (plan: any[]) => Promise<any[]>;
 }) {
   const {
     run,
@@ -45,6 +46,7 @@ export function createGraphEventHandler(opts: {
     logger,
     telemetry,
     persistPlanSteps,
+    enrichPlanWithCredentials,
   } = opts;
 
   return (evt: GraphRunEvent) => {
@@ -67,19 +69,56 @@ export function createGraphEventHandler(opts: {
           safePublish('run_status', { status: 'running' });
           break;
         }
-        case 'plan.ready': {
+        case 'plan_generated': {
           const plan = Array.isArray((evt.payload as any)?.plan)
             ? ((evt.payload as any).plan as any[])
             : [];
           const diff = (evt.payload as any)?.diff;
           logger.log('📋 Plan ready', { runId: run.id, steps: plan.length });
-          safePublish('plan_generated', {
-            intent: liveStateRef.get().scratch?.intent,
-            plan,
-            tools: plan.map((step: any) => step.tool),
-            actions: plan.map((step: any) => `Execute ${step.tool}`),
-            diff,
-          });
+          
+          // Enrich plan with credential information before publishing
+          if (enrichPlanWithCredentials) {
+            void enrichPlanWithCredentials(plan).then((enrichedPlan) => {
+              logger.debug('📋 Plan enriched with credentials', { 
+                runId: run.id, 
+                steps: enrichedPlan.length,
+                missingCredentials: enrichedPlan.filter(s => s.credentialId === null).length
+              });
+              safePublish('plan_generated', {
+                intent: liveStateRef.get().scratch?.intent,
+                plan: enrichedPlan,
+                tools: enrichedPlan.map((step: any) => step.tool),
+                actions: enrichedPlan.map((step: any) => `Execute ${step.tool}`),
+                steps: enrichedPlan,
+                diff,
+              });
+            }).catch((err) => {
+              logger.error('❌ Failed to enrich plan with credentials', {
+                runId: run.id,
+                error: err?.message || String(err),
+              });
+              // Fallback: publish without enrichment
+              safePublish('plan_generated', {
+                intent: liveStateRef.get().scratch?.intent,
+                plan,
+                tools: plan.map((step: any) => step.tool),
+                actions: plan.map((step: any) => `Execute ${step.tool}`),
+                steps: plan,
+                diff,
+              });
+            });
+          } else {
+            // No enrichment available, publish as-is
+            safePublish('plan_generated', {
+              intent: liveStateRef.get().scratch?.intent,
+              plan,
+              tools: plan.map((step: any) => step.tool),
+              actions: plan.map((step: any) => `Execute ${step.tool}`),
+              steps: plan,
+              diff,
+            });
+          }
+          
           if (persistPlanSteps) {
             void persistPlanSteps(plan, diff).catch((err) =>
               logger.error('? Failed to persist planned steps', {

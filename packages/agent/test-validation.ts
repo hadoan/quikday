@@ -4,7 +4,7 @@
  * Run with: pnpm tsx packages/agent/test-validation.ts
  */
 
-import { registry } from './registry/registry';
+import { registry } from './registry/registry.js';
 
 // Test case 1: calendar.checkAvailability with WRONG args (what LLM generates)
 console.log('\n=== Test 1: calendar.checkAvailability with WRONG args ===');

@@ -1,6 +1,6 @@
-import type { Hooks } from '../runtime/graph';
-import type { RunState } from '../state/types';
-import { redactForLog } from '../guards/redaction';
+import type { Hooks } from '../runtime/graph.js';
+import type { RunState } from '../state/types.js';
+import { redactForLog } from '../guards/redaction.js';
 import type { RedisPubSubService, RunEventBus } from '@quikday/libs';
 import type { PubSubChannel } from '@quikday/libs';
 import { CHANNEL_WORKER } from '@quikday/libs';

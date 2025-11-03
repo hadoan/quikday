@@ -1,7 +1,7 @@
 import { Body, Controller, Get, Patch, Req, Res, UseGuards } from '@nestjs/common';
 import type { Request, Response } from 'express';
 import { PrismaService } from '@quikday/prisma';
-import { KindeGuard } from '../auth/kinde.guard';
+import { KindeGuard } from '../auth/kinde.guard.js';
 
 @Controller('users')
 export class UsersMeController {

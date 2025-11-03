@@ -1,10 +1,10 @@
-import type { Node } from '../runtime/graph';
-import type { RunState, Question, QuestionType } from '../state/types';
+import type { Node } from '../runtime/graph.js';
+import type { RunState, Question, QuestionType } from '../state/types.js';
 import type { RunEventBus } from '@quikday/libs';
-import { needsApproval } from '../guards/policy';
-import { events } from '../observability/events';
+import { needsApproval } from '../guards/policy.js';
+import { events } from '../observability/events.js';
 import { randomUUID } from 'node:crypto';
-import type { IntentInput } from './intents';
+import type { IntentInput } from './intents.js';
 
 type IntentMetaLike = {
   inputs?: ReadonlyArray<IntentInput>;

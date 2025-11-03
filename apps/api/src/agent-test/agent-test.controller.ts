@@ -1,8 +1,8 @@
 // import { BadRequestException, Body, Controller, Logger, Post } from '@nestjs/common';
 // import { DEFAULT_AGENT_TEST_PROMPT } from '@quikday/agent/testPrompt';
 // import type { ChatMessage, RunMode, RunState } from '@quikday/agent/state/types';
-// import { Public } from '../auth/public.decorator';
-// import { AgentService } from '../agent';
+// import { Public } from '../auth/public.decorator.js';
+// import { AgentService } from '../agent.js';
 
 // type EntryPoint = 'classify' | 'planner' | 'confirm' | 'executor' | 'summarize' | 'fallback';
 

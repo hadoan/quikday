@@ -2,9 +2,9 @@ import { CanActivate, ExecutionContext, Injectable, UnauthorizedException } from
 import { Reflector } from '@nestjs/core';
 import jwksClient from 'jwks-rsa';
 import jwt from 'jsonwebtoken';
-import { ConfigService } from '../config/config.service';
+import { ConfigService } from '../config/config.service.js';
 import { CurrentUserALS } from '@quikday/libs';
-import { IS_PUBLIC_KEY } from './public.decorator';
+import { IS_PUBLIC_KEY } from './public.decorator.js';
 
 @Injectable()
 export class KindeGuard implements CanActivate {

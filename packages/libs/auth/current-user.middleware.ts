@@ -1,8 +1,8 @@
 // src/auth/current-user.middleware.ts
 import type { Request, Response, NextFunction } from 'express';
 import { Injectable, NestMiddleware } from '@nestjs/common';
-import { runWithCurrentUser } from './current-user.als';
-import type { CurrentUserContext } from '@quikday/types/auth/current-user.types';
+import { runWithCurrentUser } from './current-user.als.js';
+import type { CurrentUserContext } from '@quikday/types';
 
 function buildCtxFromRequest(req: Request): CurrentUserContext {
   // Primary source: whatever your auth guard put here

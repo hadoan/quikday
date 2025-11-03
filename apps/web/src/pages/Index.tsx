@@ -13,7 +13,7 @@ import { ThemeToggle } from '@/components/theme/ThemeToggle';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Button } from '@/components/ui/button';
 import { mockRuns, mockTools, mockStats } from '@/data/mockRuns';
-import { Plug2, Plus } from 'lucide-react';
+import { Plug2, Plus, Loader2 } from 'lucide-react';
 import { useKindeAuth } from '@kinde-oss/kinde-auth-react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { getDataSource, getFeatureFlags } from '@/lib/flags/featureFlags';
@@ -30,6 +30,7 @@ import { createLogger } from '@/lib/utils/logger';
 import { useToast } from '@/hooks/use-toast';
 import type { UiRunSummary, UiEvent } from '@/lib/datasources/DataSource';
 import { trackDataSourceActive, trackChatSent, trackRunQueued } from '@/lib/telemetry/telemetry';
+import api from '@/apis/client';
 
 const logger = createLogger('Index');
 
@@ -41,6 +42,7 @@ const Index = () => {
   const [isToolsPanelOpen, setIsToolsPanelOpen] = useState(true);
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
   const [questions, setQuestions] = useState<Question[]>([]);
+  const [isWaitingForResponse, setIsWaitingForResponse] = useState(false);
   const activeRun = runs.find((run) => run.id === activeRunId);
   const bottomRef = useRef<HTMLDivElement | null>(null);
   const navigate = useNavigate();
@@ -50,6 +52,32 @@ const Index = () => {
   // Initialize data source
   const dataSource = getDataSource();
   const { toast } = useToast();
+
+  // Handle pending install return-to-run if present
+  useEffect(() => {
+    const key = 'qd.pendingInstall';
+    let payload: any;
+    try {
+      const raw = localStorage.getItem(key);
+      if (raw) payload = JSON.parse(raw);
+    } catch {
+      payload = undefined;
+    }
+    if (payload && payload.runId) {
+      const runId = String(payload.runId);
+      (async () => {
+        try {
+          await api.post(`/runs/${runId}/refresh-credentials`);
+        } catch (e) {
+          // ignore
+        } finally {
+          try {
+            localStorage.removeItem(key);
+          } catch {}
+        }
+      })();
+    }
+  }, []);
 
   // Connect to WebSocket for real-time updates (if live mode)
   useEffect(() => {
@@ -116,6 +144,11 @@ const Index = () => {
         // ignore
       }
 
+      // Hide loading spinner when we receive any message from backend
+      if (event.type !== 'connection_established') {
+        setIsWaitingForResponse(false);
+      }
+
       setRuns((prev) =>
         prev.map((run) => {
           if (run.id !== activeRunId) return run;
@@ -139,29 +172,38 @@ const Index = () => {
                 (Array.isArray(event.payload.steps) && (event.payload.steps as any[])) ||
                 (Array.isArray(event.payload.plan) && (event.payload.plan as any[])) ||
                 [];
-              newMessages.push(
-                buildPlanMessage({
-                  intent,
-                  tools,
-                  actions,
-                  steps: stepsPayload as any,
-                }),
-              );
 
-              const diff = event.payload.diff as Record<string, unknown> | undefined;
-              if (diff && Object.keys(diff).length > 0) {
-                try {
-                  newMessages.push(
-                    buildOutputMessage({
-                      title: 'Proposed Changes',
-                      content: JSON.stringify(diff, null, 2),
-                      type: 'json',
-                      data: diff,
-                    }),
-                  );
-                } catch (e) {
-                  console.warn('[Index] Failed to render diff preview', e);
+              // Skip plan and proposed changes cards if only chat.respond
+              const onlyChatRespond = 
+                stepsPayload.length > 0 && 
+                stepsPayload.every((step: any) => step?.tool === 'chat.respond');
+
+              if (!onlyChatRespond) {
+                // Show Proposed Changes card first, then Plan card
+                const diff = event.payload.diff as Record<string, unknown> | undefined;
+                if (diff && Object.keys(diff).length > 0) {
+                  try {
+                    newMessages.push(
+                      buildOutputMessage({
+                        title: 'Proposed Changes',
+                        content: JSON.stringify(diff, null, 2),
+                        type: 'json',
+                        data: diff,
+                      }),
+                    );
+                  } catch (e) {
+                    console.warn('[Index] Failed to render diff preview', e);
+                  }
                 }
+
+                newMessages.push(
+                  buildPlanMessage({
+                    intent,
+                    tools,
+                    actions,
+                    steps: stepsPayload as any,
+                  }),
+                );
               }
               break;
             }
@@ -188,6 +230,12 @@ const Index = () => {
             case 'run_status':
             case 'scheduled':
             case 'run_completed': {
+              console.log('[Index] 📊 Status event received:', {
+                type: event.type,
+                status: event.payload.status,
+                timestamp: new Date().toISOString(),
+              });
+              
               const status =
                 (event.type === 'run_completed' ? 'succeeded' : (event.payload.status as string)) ||
                 'queued';
@@ -215,10 +263,13 @@ const Index = () => {
 
               if (lastRunningCardIndex !== -1) {
                 // Update existing active RunCard
+                const oldStatus = (newMessages[lastRunningCardIndex]?.data as any)?.status;
                 console.log(
                   '[Index] Updating active RunCard at index',
                   lastRunningCardIndex,
-                  'with status:',
+                  'from status:',
+                  oldStatus,
+                  'to status:',
                   status,
                 );
                 newMessages[lastRunningCardIndex] = buildRunMessage({
@@ -226,6 +277,7 @@ const Index = () => {
                   started_at,
                   completed_at,
                 });
+                console.log('[Index] After update, message status is:', (newMessages[lastRunningCardIndex]?.data as any)?.status);
               } else {
                 // No active RunCard, create a new one (new run starting)
                 console.log('[Index] Creating new RunCard with status:', status);
@@ -446,12 +498,12 @@ const Index = () => {
     }
   }, [location.search]);
 
-  const handleNewPrompt = async (prompt: string) => {
+  const handleNewPrompt = async (prompt: string, mode: 'preview' | 'approval' | 'auto' = 'preview') => {
     logger.info('📨 Handling new prompt submission', {
       timestamp: new Date().toISOString(),
       activeRunId,
       prompt: prompt.substring(0, 50) + (prompt.length > 50 ? '...' : ''),
-      mode: 'auto',
+      mode,
     });
 
     const conversationalHistory: { role: 'user' | 'assistant'; content: string }[] = [];
@@ -482,28 +534,33 @@ const Index = () => {
       ),
     );
 
+    // Show loading spinner
+    setIsWaitingForResponse(true);
+
     try {
       logger.debug('📊 Tracking telemetry event');
       // Track chat sent event
       trackChatSent({
-        mode: 'auto',
+        mode,
         hasSchedule: false,
         targetsCount: 0,
       });
 
       logger.info('🔄 Calling dataSource.createRun', {
         timestamp: new Date().toISOString(),
+        mode,
       });
 
       // Use data source to create run
       const { runId } = await dataSource.createRun({
         prompt,
-        mode: 'auto',
+        mode,
         messages: [...conversationalHistory, { role: 'user', content: prompt }],
       });
 
       logger.info('✅ Run created successfully', {
         runId,
+        mode,
         timestamp: new Date().toISOString(),
       });
       trackRunQueued(runId);
@@ -517,6 +574,8 @@ const Index = () => {
       setActiveRunId(runId);
     } catch (err) {
       logger.error('Failed to create run', err as Error);
+      // Hide loading spinner on error
+      setIsWaitingForResponse(false);
       // Show error toast
       try {
         const message = err instanceof Error ? err.message : 'Unknown error';
@@ -547,6 +606,8 @@ const Index = () => {
     setActiveRunId(newId);
     // Clear any outstanding questions when starting a fresh run
     setQuestions([]);
+    // Hide loading spinner when starting new task
+    setIsWaitingForResponse(false);
   };
 
   const handleViewProfile = () => {
@@ -568,13 +629,19 @@ const Index = () => {
     }
   };
 
+  const handleSelectRun = (runId: string) => {
+    setActiveRunId(runId);
+    // Hide loading spinner when switching runs
+    setIsWaitingForResponse(false);
+  };
+
   return (
     <div className="flex h-screen w-full bg-background">
       <Sidebar
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         runs={runs as any}
         activeRunId={activeRunId}
-        onSelectRun={setActiveRunId}
+        onSelectRun={handleSelectRun}
         collapsed={isSidebarCollapsed}
         onToggleCollapse={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
       />
@@ -635,6 +702,13 @@ const Index = () => {
               <div className="text-center text-muted-foreground py-8">No messages yet</div>
             )}
             <ChatStream runId={activeRunId} messages={activeRun?.messages ?? []} />
+            {/** Loading spinner while waiting for backend response */}
+            {isWaitingForResponse && (
+              <div className="flex items-center gap-3 text-muted-foreground animate-fade-in">
+                <Loader2 className="h-5 w-5 animate-spin" />
+                <span className="text-sm">Processing your request...</span>
+              </div>
+            )}
             {/** Questions panel (planner missing-info) */}
             {questions.length > 0 && (
               <QuestionsPanel

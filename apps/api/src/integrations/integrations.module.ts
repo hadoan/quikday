@@ -1,10 +1,10 @@
 import { Module, OnModuleInit } from '@nestjs/common';
-import { IntegrationsController } from './integrations.controller';
-import { AppStoreRegistry } from './appstore.registry';
+import { IntegrationsController } from './integrations.controller.js';
+import { AppStoreRegistry } from './appstore.registry.js';
 import { PrismaService } from '@quikday/prisma';
-import { AuthModule } from '../auth/auth.module';
-import { ConfigModule } from '../config/config.module';
-import { createSignedState, validateSignedState } from '../auth/oauth-state.util';
+import { AuthModule } from '../auth/auth.module.js';
+import { ConfigModule } from '../config/config.module.js';
+import { createSignedState, validateSignedState } from '../auth/oauth-state.util.js';
 
 @Module({
   imports: [AuthModule, ConfigModule],

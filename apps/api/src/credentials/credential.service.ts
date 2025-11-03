@@ -1,7 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { PrismaService } from '@quikday/prisma';
 import { CredentialMissingError, CredentialInvalidError } from '@quikday/types';
-import { TelemetryService } from '../telemetry/telemetry.service';
+import { TelemetryService } from '../telemetry/telemetry.service.js';
 
 export interface CredentialResolutionContext {
   userId: number;

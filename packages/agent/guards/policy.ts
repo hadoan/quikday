@@ -1,6 +1,6 @@
 // packages/graph/guards/policy.ts
-import type { Router } from '../runtime/graph';
-import type { RunState, PlanStep } from '../state/types';
+import type { Router } from '../runtime/graph.js';
+import type { RunState, PlanStep } from '../state/types.js';
 import { z } from 'zod';
 
 /** ─────────────────────────────────────────────────────────────────────────────
@@ -17,11 +17,11 @@ export const PolicySchema = z
       .default({ tools: [], scopes: [] }),
     riskRules: z
       .object({
-        defaultMode: z.enum(['PLAN', 'AUTO']).default('PLAN'),
+        defaultMode: z.enum(['PREVIEW', 'APPROVAL', 'AUTO']).default('APPROVAL'),
         minConfidenceAuto: z.number().min(0).max(1).default(0.6),
         requireApprovalForHighRisk: z.boolean().default(true),
       })
-      .default({ defaultMode: 'PLAN', minConfidenceAuto: 0.6, requireApprovalForHighRisk: true }),
+      .default({ defaultMode: 'APPROVAL', minConfidenceAuto: 0.6, requireApprovalForHighRisk: true }),
     quietHours: z
       .object({
         enabled: z.boolean().default(false),
@@ -68,7 +68,7 @@ export async function getTeamPolicy(teamId?: string): Promise<TeamPolicy> {
   const base: TeamPolicy = {
     teamId: teamId ?? 'unknown',
     allowlist: { tools: [], scopes: [] },
-    riskRules: { defaultMode: 'PLAN', minConfidenceAuto: 0.6, requireApprovalForHighRisk: true },
+    riskRules: { defaultMode: 'APPROVAL', minConfidenceAuto: 0.6, requireApprovalForHighRisk: true },
     quietHours: { enabled: false, windows: [], behavior: 'FORCE_PLAN' },
     budgets: { enabled: false, limitCents: 0 },
     residency: { region: 'eu', restrictCrossRegion: false },
@@ -323,12 +323,12 @@ export const routeByMode: Router<RunState> = (s) => {
     }
   }
 
-  // Confidence & mode: low confidence always PLAN; otherwise honor requested mode
-  if (mode === 'PLAN' || confidence < (policy?.riskRules.minConfidenceAuto ?? 0.6)) {
+  // Confidence & mode: low confidence or PREVIEW mode always go to planner; otherwise honor requested mode
+  if (mode === 'PREVIEW' || confidence < (policy?.riskRules.minConfidenceAuto ?? 0.6)) {
     return 'planner';
   }
 
-  // AUTO: still go through planner (confirm may no-op if safe)
+  // APPROVAL or AUTO: still go through planner (confirm may no-op if safe)
   return 'planner';
 };
 

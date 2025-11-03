@@ -43,7 +43,7 @@ export interface UiRunSummary {
   completedAt?: string;
   scheduledAt?: string;
   summaryText?: string;
-  mode?: 'plan' | 'auto' | 'scheduled';
+  mode?: 'preview' | 'approval' | 'auto' | 'scheduled';
   links?: Array<{
     provider: string;
     url: string;
@@ -56,6 +56,7 @@ export interface UiPlanStep {
   id: string;
   tool: string;
   appId?: string;
+  credentialId?: number | null;
   action?: string;
   status: UiStepStatus;
   time?: string;
@@ -228,7 +229,7 @@ export interface DataSource {
 
 export interface CreateRunParams {
   prompt: string;
-  mode: 'plan' | 'auto' | 'scheduled';
+  mode: 'preview' | 'approval' | 'auto' | 'scheduled';
   scheduledAt?: string;
   targets?: { appId: string; credentialId?: number }[];
   toolAllowlist?: string[];

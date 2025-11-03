@@ -3,6 +3,7 @@
   "version": "0.0.0",
   "description": "Quik.day agent library",
   "private": true,
+  "type": "module",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "exports": {

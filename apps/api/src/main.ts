@@ -1,16 +1,19 @@
 import { config as dotenvConfig } from 'dotenv';
 import { existsSync } from 'fs';
 import path from 'path';
+import { fileURLToPath } from 'url';
 import { NestFactory } from '@nestjs/core';
-import { AppModule } from './app.module';
+import { AppModule } from './app.module.js';
 import { json } from 'express';
-import { WebSocketService } from './websocket/websocket.service';
+import { WebSocketService } from './websocket/websocket.service.js';
 import type { LogLevel } from '@nestjs/common';
-import { FileLogger } from './logging/file-logger';
+import { FileLogger } from './logging/file-logger.js';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 
 async function bootstrap() {
   // Load env from monorepo root if present (so API can run under turbo)
+  const __filename = fileURLToPath(import.meta.url);
+  const __dirname = path.dirname(__filename);
   const rootEnv = path.resolve(__dirname, '../../../.env');
   // In dev, prefer values from .env over pre-set shell vars to avoid stale keys.
   // In production, keep default dotenv behavior (do not override process.env).

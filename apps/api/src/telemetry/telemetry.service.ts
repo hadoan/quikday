@@ -1,6 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { PostHog } from 'posthog-node';
-import { ConfigService } from '../config/config.service';
+import { ConfigService } from '../config/config.service.js';
 
 @Injectable()
 export class TelemetryService {

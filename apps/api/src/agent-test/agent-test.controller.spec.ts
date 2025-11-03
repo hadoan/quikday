@@ -1,5 +1,5 @@
 // import { describe, it, expect, beforeEach, vi } from 'vitest';
-// import { AgentTestController } from './agent-test.controller';
+// import { AgentTestController } from './agent-test.controller.js';
 // import { DEFAULT_AGENT_TEST_PROMPT } from '@quikday/agent/testPrompt';
 // import type { RunState } from '@quikday/agent/state/types';
 // import type { AgentService } from '@quikday/agent/nest';

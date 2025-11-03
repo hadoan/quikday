@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { RunsController, type CreateRunDto } from './runs.controller';
+import { RunsController, type CreateRunDto } from './runs.controller.js';
 
 describe('RunsController', () => {
   let controller: RunsController;

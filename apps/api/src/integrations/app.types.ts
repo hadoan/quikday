@@ -1,5 +1,5 @@
 import { PrismaService as QuikdayPrismaService } from '@quikday/prisma';
-import type { OAuthState } from '../auth/oauth-state.util';
+import type { OAuthState } from '../auth/oauth-state.util.js';
 
 export interface AppDeps {
   prisma: QuikdayPrismaService;

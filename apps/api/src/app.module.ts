@@ -1,18 +1,18 @@
 import { Module } from '@nestjs/common';
 import { APP_INTERCEPTOR } from '@nestjs/core';
-import { ConfigModule } from './config/config.module';
+import { ConfigModule } from './config/config.module.js';
 import { PrismaModule } from '@quikday/prisma';
-import { AuthModule } from './auth/auth.module';
-import { RunsModule } from './runs/runs.module';
-import { QueueModule } from './queue/queue.module';
-import { TelemetryModule } from './telemetry/telemetry.module';
-import { TeamsModule } from './teams/teams.module';
-import { CredentialsModule } from './credentials/credentials.module';
-import { WebSocketModule } from './websocket/websocket.module';
-import { IntegrationsModule } from './integrations/integrations.module';
-import { UsersModule } from './users/users.module';
-// import { AgentTestModule } from './agent-test/agent-test.module';
-import { AgentModule } from './agent';
+import { AuthModule } from './auth/auth.module.js';
+import { RunsModule } from './runs/runs.module.js';
+import { QueueModule } from './queue/queue.module.js';
+import { TelemetryModule } from './telemetry/telemetry.module.js';
+import { TeamsModule } from './teams/teams.module.js';
+import { CredentialsModule } from './credentials/credentials.module.js';
+import { WebSocketModule } from './websocket/websocket.module.js';
+import { IntegrationsModule } from './integrations/integrations.module.js';
+import { UsersModule } from './users/users.module.js';
+// import { AgentTestModule } from './agent-test/agent-test.module.js';
+import { AgentModule } from './agent/index.js';
 import {
   InMemoryEventBus,
   PubSubModule,
@@ -22,8 +22,9 @@ import {
 import { EmailModule } from '@quikday/appstore/email/email.module';
 import { CalendarModule } from '@quikday/appstore/calendar/calendar.module';
 import { GmailEmailService, GmailEmailModule } from '@quikday/appstore-gmail-email';
-import { TemplatesModule } from './templates/templates.module';
+import { TemplatesModule } from './templates/templates.module.js';
 import { GoogleCalendarModule, GoogleCalendarProviderService } from '@quikday/appstore-google-calendar';
+import { EmailController } from './email/email.controller.js';
 
 const registry = new Map();
 registry.set('gmail', GmailEmailService);
@@ -56,6 +57,7 @@ calendarRegistry.set('google', GoogleCalendarProviderService);
     TemplatesModule,
     // AgentTestModule,
   ],
+  controllers: [EmailController],
   providers: [{ provide: APP_INTERCEPTOR, useClass: CurrentUserInterceptor }],
 })
 export class AppModule {}

@@ -1,5 +1,5 @@
 import { Module } from '@nestjs/common';
-import { RedisPubSubService } from './redis-pubsub.service';
+import { RedisPubSubService } from './redis-pubsub.service.js';
 
 @Module({
   providers: [RedisPubSubService],

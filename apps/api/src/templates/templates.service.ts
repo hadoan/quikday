@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '@quikday/prisma';
-import { CreateTemplateDto } from './dto/create-template.dto';
+import { CreateTemplateDto } from './dto/create-template.dto.js';
 
 @Injectable()
 export class TemplatesService {

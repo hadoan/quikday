@@ -12,6 +12,7 @@ import { Plug2, Search } from 'lucide-react';
 import { useKindeAuth } from '@kinde-oss/kinde-auth-react';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useNavigate } from 'react-router-dom';
+import api from '@/apis/client';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 
@@ -289,3 +290,29 @@ const Apps = () => {
 };
 
 export default Apps;
+  // If an app install was initiated from a specific run, refresh that run's steps and return to chat
+  useEffect(() => {
+    const key = 'qd.pendingInstall';
+    let payload: any;
+    try {
+      const raw = localStorage.getItem(key);
+      if (raw) payload = JSON.parse(raw);
+    } catch {
+      payload = undefined;
+    }
+    if (payload && payload.runId) {
+      const runId = String(payload.runId);
+      (async () => {
+        try {
+          await api.post(`/runs/${runId}/refresh-credentials`);
+        } catch (e) {
+          // best-effort
+        } finally {
+          try {
+            localStorage.removeItem(key);
+          } catch {}
+          navigate(`/?runId=${encodeURIComponent(runId)}`);
+        }
+      })();
+    }
+  }, [navigate]);

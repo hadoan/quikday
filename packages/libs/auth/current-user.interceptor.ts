@@ -1,6 +1,6 @@
 import { Injectable, NestInterceptor, ExecutionContext, CallHandler } from '@nestjs/common';
 import type { Observable } from 'rxjs';
-import { runWithCurrentUser } from './current-user.als';
+import { runWithCurrentUser } from './current-user.als.js';
 
 @Injectable()
 export class CurrentUserInterceptor implements NestInterceptor {

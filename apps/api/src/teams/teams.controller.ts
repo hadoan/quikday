@@ -1,6 +1,6 @@
 import { Controller, Get, Param, ParseIntPipe, UseGuards } from '@nestjs/common';
 import { PrismaService } from '@quikday/prisma';
-import { KindeGuard } from '../auth/kinde.guard';
+import { KindeGuard } from '../auth/kinde.guard.js';
 
 @Controller('teams')
 @UseGuards(KindeGuard)

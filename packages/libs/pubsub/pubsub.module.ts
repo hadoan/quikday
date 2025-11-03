@@ -1,5 +1,5 @@
 import { Module } from '@nestjs/common';
-import { InMemoryEventBus } from './in-memory-event-bus.service';
+import { InMemoryEventBus } from './in-memory-event-bus.service.js';
 
 @Module({
   providers: [{ provide: 'RunEventBus', useClass: InMemoryEventBus }],

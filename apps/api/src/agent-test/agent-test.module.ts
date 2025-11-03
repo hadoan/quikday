@@ -1,6 +1,6 @@
 // import { Module } from '@nestjs/common';
-// import { AgentTestController } from './agent-test.controller';
-// import { AgentModule } from '../agent';
+// import { AgentTestController } from './agent-test.controller.js';
+// import { AgentModule } from '../agent.js';
 
 // @Module({
 //   imports: [AgentModule.forRoot()],

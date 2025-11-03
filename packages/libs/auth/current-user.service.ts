@@ -1,7 +1,7 @@
 // src/auth/current-user.service.ts
 import { Injectable } from '@nestjs/common';
-import { ICurrentUserService } from './ICurrentUserService';
-import { getCurrentUserCtx } from './current-user.als';
+import { ICurrentUserService } from './ICurrentUserService.js';
+import { getCurrentUserCtx } from './current-user.als.js';
 
 @Injectable()
 export class CurrentUserService implements ICurrentUserService {

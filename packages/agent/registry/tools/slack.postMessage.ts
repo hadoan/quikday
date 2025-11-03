@@ -1,6 +1,6 @@
 import { z } from 'zod';
-import type { Tool } from '../types';
-import type { RunCtx } from '../../state/types';
+import type { Tool } from '../types.js';
+import type { RunCtx } from '../../state/types.js';
 
 /**
  * Input & Output schemas
@@ -64,6 +64,7 @@ export const slackPostMessage: Tool<
   description: 'Post a message to a Slack channel. Required: channel (with or without # prefix), text.',
   in: SlackPostMessageIn,
   out: SlackPostMessageOut,
+  apps: ['slack-messaging'],
   scopes: ['slack:write'], // least-privilege scope checked by requireScopes()
   rate: '60/m', // works with your checkRate("N/m" | "N/s")
   risk: 'low',
