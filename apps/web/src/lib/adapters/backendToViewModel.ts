@@ -352,6 +352,8 @@ export function buildRunMessage(data: {
   progress?: number;
   // optional awaiting questions (passed through from backend WS payload)
   questions?: unknown[];
+  // optional approval steps (passed through from backend WS payload)
+  steps?: unknown[];
 }): UiMessage {
   // Include any awaiting-input questions directly on the run data so
   // UI components can render an inline form when needed.
@@ -366,10 +368,15 @@ export function buildRunMessage(data: {
     runData.awaitingQuestions = data.questions;
   }
 
+  // Include approval steps when status is awaiting_approval
+  if (Array.isArray(data.steps) && data.steps.length > 0) {
+    runData.approvalSteps = data.steps;
+  }
+
   return {
     role: 'assistant',
     type: 'run',
-    data: runData as unknown as UiRunData & { awaitingQuestions?: unknown[] },
+    data: runData as unknown as UiRunData & { awaitingQuestions?: unknown[]; approvalSteps?: unknown[] },
   };
 }
 

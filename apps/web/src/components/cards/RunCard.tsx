@@ -2,6 +2,7 @@ import * as React from 'react';
 import { CheckCircle2, Loader2, XCircle } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Progress } from '@/components/ui/progress';
+import { Button } from '@/components/ui/button';
 import type { UiRunData, UiRunStatus, UiStepStatus } from '@/lib/datasources/DataSource';
 import { getDataSource } from '@/lib/flags/featureFlags';
 
@@ -33,10 +34,21 @@ export const RunCard = ({ data, runId }: RunCardProps) => {
   const status = normalizeStatus(data.status);
   const awaitingQuestions =
     (data as any).awaitingQuestions || (data as any).awaiting?.questions || [];
+  const approvalSteps = (data as any).approvalSteps || [];
 
-  const dsAny = getDataSource() as unknown as { applyAnswers?: Function; confirm?: Function };
+  // Debug logging
+  console.log('🎯 RunCard render:', {
+    rawStatus,
+    hasRunId: !!runId,
+    approvalStepsCount: approvalSteps.length,
+    approvalSteps: approvalSteps,
+  });
+
+  const dataSource = getDataSource();
+  const dsAny = dataSource as unknown as { applyAnswers?: Function; confirm?: Function; approve?: Function; cancel?: Function };
   const [answers, setAnswers] = React.useState<Record<string, string>>({});
   const [submitting, setSubmitting] = React.useState(false);
+  const [approving, setApproving] = React.useState(false);
 
   React.useEffect(() => {
     const seed: Record<string, string> = {};
@@ -46,6 +58,35 @@ export const RunCard = ({ data, runId }: RunCardProps) => {
   }, [awaitingQuestions?.map?.((q: any) => q.key).join('|')]);
 
   const onChange = (k: string, v: string) => setAnswers((prev) => ({ ...prev, [k]: v }));
+
+  const handleApprove = async () => {
+    if (!runId || approving) return;
+    setApproving(true);
+    try {
+      const stepIds = approvalSteps.map((s: any) => s.id).filter(Boolean);
+      if (typeof dsAny.approve === 'function') {
+        await dsAny.approve(runId, stepIds);
+      }
+    } catch (e) {
+      console.error('Approval failed', e);
+    } finally {
+      setApproving(false);
+    }
+  };
+
+  const handleReject = async () => {
+    if (!runId || approving) return;
+    setApproving(true);
+    try {
+      if (typeof dsAny.cancel === 'function') {
+        await dsAny.cancel(runId);
+      }
+    } catch (e) {
+      console.error('Rejection failed', e);
+    } finally {
+      setApproving(false);
+    }
+  };
 
   const onSubmit = async () => {
     if (!runId) {
@@ -199,6 +240,45 @@ export const RunCard = ({ data, runId }: RunCardProps) => {
             <div className="space-y-2">
               <Progress value={data.progress} className="h-2" />
               <p className="text-xs text-muted-foreground text-right">{data.progress}%</p>
+            </div>
+          )}
+
+          {/* Display approval steps when awaiting approval */}
+          {rawStatus === 'awaiting_approval' && approvalSteps.length > 0 && (
+            <div className="mt-4 space-y-2">
+              <h4 className="text-sm font-semibold text-foreground">Steps Awaiting Approval:</h4>
+              {approvalSteps.map((step: any, idx: number) => (
+                <div key={idx} className="p-3 border rounded-lg bg-background/50">
+                  <div className="font-mono text-xs text-muted-foreground mb-1">{step.tool}</div>
+                  {step.args && (
+                    <pre className="text-xs overflow-auto max-h-32 bg-muted/30 p-2 rounded">
+                      {JSON.stringify(step.args, null, 2)}
+                    </pre>
+                  )}
+                </div>
+              ))}
+              <p className="text-xs text-muted-foreground mt-2">
+                Review the actions above and approve to proceed.
+              </p>
+              <div className="flex gap-2 mt-3">
+                <Button
+                  onClick={handleApprove}
+                  disabled={approving}
+                  size="sm"
+                  className="flex-1"
+                >
+                  {approving ? 'Approving...' : 'Approve'}
+                </Button>
+                <Button
+                  onClick={handleReject}
+                  disabled={approving}
+                  variant="destructive"
+                  size="sm"
+                  className="flex-1"
+                >
+                  Reject
+                </Button>
+              </div>
             </div>
           )}
 

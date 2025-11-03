@@ -215,8 +215,32 @@ export class RunProcessor extends WorkerHost {
               approvedSteps: config?.approvedSteps?.length || 0,
             });
             
-            // Run from executor directly, bypassing planner
-            final = await graph.run('executor', initialState, this.eventBus);
+            // Restore persisted state (plan, output, etc.) from database
+            const persistedOutput = run.output && typeof run.output === 'object' ? run.output as any : {};
+            const persistedScratch = persistedOutput.scratch || {};
+            const persistedPlan = persistedScratch.plan || [];
+            
+            // Merge persisted state into initialState
+            const resumeState: RunState = {
+              ...initialState,
+              scratch: {
+                ...initialState.scratch,
+                ...persistedScratch,
+                plan: persistedPlan,
+              },
+              output: {
+                ...initialState.output,
+                ...persistedOutput,
+              },
+            };
+            
+            this.logger.log('📋 Restored plan for execution', {
+              runId: run.id,
+              planSteps: persistedPlan.length,
+            });
+            
+            // Run from executor directly with restored state
+            final = await graph.run('executor', resumeState, this.eventBus);
           } else {
             // Normal flow: start from classify
             final = await graph.run('classify', initialState, this.eventBus);
@@ -579,18 +603,28 @@ export class RunProcessor extends WorkerHost {
     publishRunEvent: (type: UiRunEvent['type'], payload: UiRunEvent['payload']) => Promise<void>;
   }) {
     const { err, run, liveState, formatLogsForPersistence, job, publishRunEvent } = opts;
-    this.logger.error('❌ Job execution failed', {
-      timestamp: new Date().toISOString(),
-      jobId: job.id,
-      runId: run.id,
-      error: err?.message,
-      errorCode: err?.code,
-    });
-
+    
     const isApprovalHalt =
       err?.code === GRAPH_HALT_AWAITING_APPROVAL ||
       err?.name === GRAPH_HALT_AWAITING_APPROVAL ||
       err?.message === GRAPH_HALT_AWAITING_APPROVAL;
+
+    // Log approval halt as info, not error (it's expected behavior)
+    if (isApprovalHalt) {
+      this.logger.log('⏸️ Job halted for approval', {
+        timestamp: new Date().toISOString(),
+        jobId: job.id,
+        runId: run.id,
+      });
+    } else {
+      this.logger.error('❌ Job execution failed', {
+        timestamp: new Date().toISOString(),
+        jobId: job.id,
+        runId: run.id,
+        error: err?.message,
+        errorCode: err?.code,
+      });
+    }
 
     if (isApprovalHalt) {
       const approvalId =

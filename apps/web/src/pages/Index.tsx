@@ -236,9 +236,20 @@ const Index = () => {
                 timestamp: new Date().toISOString(),
               });
               
-              const status =
-                (event.type === 'run_completed' ? 'succeeded' : (event.payload.status as string)) ||
-                'queued';
+              // Determine status - prioritize payload.status if available, otherwise use event type
+              // IMPORTANT: run_completed doesn't always mean succeeded - could be awaiting_approval!
+              let status: string;
+              if (event.payload.status) {
+                // Payload explicitly provides status - use it
+                status = event.payload.status as string;
+              } else if (event.type === 'run_completed') {
+                // Legacy: run_completed without explicit status defaults to succeeded
+                status = 'succeeded';
+              } else {
+                // Fallback
+                status = 'queued';
+              }
+              
               const started_at =
                 (event.payload.started_at as string | undefined) ||
                 (event.payload.startedAt as string | undefined) ||
@@ -246,6 +257,7 @@ const Index = () => {
               const completed_at =
                 (event.payload.completed_at as string | undefined) ||
                 (event.payload.completedAt as string | undefined);
+              const steps = (event.payload.steps as unknown[] | undefined);
 
               // Find last RunCard that is still "running" or "queued" (not completed)
               let lastRunningCardIndex = -1;
@@ -262,8 +274,12 @@ const Index = () => {
               }
 
               if (lastRunningCardIndex !== -1) {
-                // Update existing active RunCard
-                const oldStatus = (newMessages[lastRunningCardIndex]?.data as any)?.status;
+                // Update existing active RunCard - MERGE with existing data to preserve fields like approvalSteps
+                const existingMessage = newMessages[lastRunningCardIndex];
+                const existingData = existingMessage?.data as any;
+                const oldStatus = existingData?.status;
+                const existingSteps = existingData?.approvalSteps;
+                
                 console.log(
                   '[Index] Updating active RunCard at index',
                   lastRunningCardIndex,
@@ -271,13 +287,28 @@ const Index = () => {
                   oldStatus,
                   'to status:',
                   status,
+                  '| Existing steps:',
+                  existingSteps?.length || 0,
+                  '| New steps from event:',
+                  steps?.length || 0,
                 );
-                newMessages[lastRunningCardIndex] = buildRunMessage({
+                
+                // Build new message with updates, but preserve existing approvalSteps if new event has no steps
+                const stepsToUse = steps || existingSteps;
+                const updatedMessage = buildRunMessage({
                   status,
                   started_at,
                   completed_at,
+                  steps: stepsToUse,
                 });
-                console.log('[Index] After update, message status is:', (newMessages[lastRunningCardIndex]?.data as any)?.status);
+                
+                // Defensive: Ensure approvalSteps are preserved even if buildRunMessage didn't set them
+                if (existingSteps && !(updatedMessage.data as any)?.approvalSteps) {
+                  (updatedMessage.data as any).approvalSteps = existingSteps;
+                }
+                
+                newMessages[lastRunningCardIndex] = updatedMessage;
+                console.log('[Index] ✅ After update: status =', (newMessages[lastRunningCardIndex]?.data as any)?.status, '| approvalSteps =', (newMessages[lastRunningCardIndex]?.data as any)?.approvalSteps?.length || 0);
               } else {
                 // No active RunCard, create a new one (new run starting)
                 console.log('[Index] Creating new RunCard with status:', status);
@@ -286,6 +317,7 @@ const Index = () => {
                     status,
                     started_at,
                     completed_at,
+                    steps,
                   }),
                 );
               }

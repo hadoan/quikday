@@ -1,4 +1,4 @@
-import { CheckCircle2, Sparkles, ThumbsUp, X, AlertCircle } from 'lucide-react';
+import { CheckCircle2, Sparkles, ThumbsUp, X, AlertCircle, ChevronDown, ChevronUp } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { ToolBadge } from './ToolBadge';
@@ -7,6 +7,7 @@ import { getAppInstallProps } from '@/lib/utils/appConfig';
 import { useState } from 'react';
 import type { UiPlanStep } from '@/lib/datasources/DataSource';
 import api from '@/apis/client';
+import { StepApprovalCard } from './StepApprovalCard';
 
 export interface PlanData {
   intent: string;
@@ -26,12 +27,20 @@ interface PlanCardProps {
 export const PlanCard = ({ data, onConfirm, onReject, runId }: PlanCardProps) => {
   const [isApproving, setIsApproving] = useState(false);
   const [isRejecting, setIsRejecting] = useState(false);
+  const [showAllSteps, setShowAllSteps] = useState(false);
 
   // Check if any steps are missing credentials
   const stepsNeedingInstall = (data.steps || []).filter(
     (step) => step.appId && (step.credentialId === null || step.credentialId === undefined)
   );
   const hasMissingCredentials = stepsNeedingInstall.length > 0;
+
+  // Filter steps that need approval (high risk or explicitly marked)
+  const stepsNeedingApproval = (data.steps || []).filter((step) => {
+    const stepWithRisk = step as UiPlanStep & { risk?: string; waitingConfirm?: boolean };
+    return stepWithRisk.waitingConfirm === true || stepWithRisk.risk === 'high';
+  });
+  const hasApprovalSteps = stepsNeedingApproval.length > 0;
 
   const handleApprove = async () => {
     if (!onConfirm) return;
@@ -94,6 +103,56 @@ export const PlanCard = ({ data, onConfirm, onReject, runId }: PlanCardProps) =>
             </ul>
           </div>
 
+          {/* Show step approval cards for high-risk steps */}
+          {hasApprovalSteps && (
+            <div className="space-y-2 pt-2 border-t">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <AlertCircle className="h-4 w-4 text-amber-500" />
+                  <p className="text-xs font-medium text-amber-600 dark:text-amber-400 uppercase tracking-wide">
+                    Steps Requiring Approval ({stepsNeedingApproval.length})
+                  </p>
+                </div>
+                {stepsNeedingApproval.length > 3 && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => setShowAllSteps(!showAllSteps)}
+                    className="h-auto py-1 text-xs gap-1"
+                  >
+                    {showAllSteps ? (
+                      <>
+                        <ChevronUp className="h-3 w-3" />
+                        Show Less
+                      </>
+                    ) : (
+                      <>
+                        <ChevronDown className="h-3 w-3" />
+                        Show All
+                      </>
+                    )}
+                  </Button>
+                )}
+              </div>
+              <div className="space-y-2">
+                {(showAllSteps ? stepsNeedingApproval : stepsNeedingApproval.slice(0, 3)).map(
+                  (step, idx) => (
+                    <StepApprovalCard
+                      key={step.id}
+                      step={step}
+                      stepNumber={data.steps?.indexOf(step) ?? idx + 1}
+                    />
+                  )
+                )}
+              </div>
+              {!showAllSteps && stepsNeedingApproval.length > 3 && (
+                <p className="text-xs text-muted-foreground text-center py-2">
+                  + {stepsNeedingApproval.length - 3} more steps
+                </p>
+              )}
+            </div>
+          )}
+
           {/* Show steps that need credentials installed */}
           {hasMissingCredentials && (
             <div className="space-y-2 pt-2 border-t">
@@ -151,7 +210,7 @@ export const PlanCard = ({ data, onConfirm, onReject, runId }: PlanCardProps) =>
       </div>
 
       {onConfirm && (
-        <div className="border-t pt-4 mt-4 space-y-2">
+        <div className="border-t pt-4 mt-4 space-y-3">
           {hasMissingCredentials && (
             <div className="mb-2 p-3 bg-amber-50 dark:bg-amber-900/10 border border-amber-200 dark:border-amber-800 rounded-lg">
               <p className="text-sm text-amber-800 dark:text-amber-200">
@@ -160,14 +219,52 @@ export const PlanCard = ({ data, onConfirm, onReject, runId }: PlanCardProps) =>
               </p>
             </div>
           )}
-          <div className="flex items-center justify-between gap-2">
-            <p className="text-sm font-medium text-foreground">
-              Review this plan before execution
-            </p>
-            <Badge variant="outline" className="text-xs">
-              Awaiting Approval
-            </Badge>
+          
+          {/* Approval Summary */}
+          <div className="bg-muted/30 rounded-lg p-4 space-y-3">
+            <div className="flex items-start justify-between gap-3">
+              <div className="flex-1 space-y-2">
+                <div className="flex items-center gap-2">
+                  <AlertCircle className="h-5 w-5 text-amber-500" />
+                  <p className="text-sm font-semibold text-foreground">
+                    Approval Required
+                  </p>
+                </div>
+                <p className="text-sm text-muted-foreground">
+                  {hasApprovalSteps ? (
+                    <>
+                      This plan contains <strong>{stepsNeedingApproval.length}</strong> high-risk {stepsNeedingApproval.length === 1 ? 'action' : 'actions'} that require your explicit approval.
+                      Review the details above before proceeding.
+                    </>
+                  ) : (
+                    'Review this plan carefully before execution.'
+                  )}
+                </p>
+                
+                {/* Quick summary of what will happen */}
+                {hasApprovalSteps && (
+                  <ul className="text-xs text-muted-foreground space-y-1 ml-7">
+                    {stepsNeedingApproval.slice(0, 3).map((step, idx) => (
+                      <li key={idx} className="flex items-start gap-1.5">
+                        <span className="text-amber-500">•</span>
+                        <span>{step.action || step.tool}</span>
+                      </li>
+                    ))}
+                    {stepsNeedingApproval.length > 3 && (
+                      <li className="text-muted-foreground/70">
+                        ...and {stepsNeedingApproval.length - 3} more
+                      </li>
+                    )}
+                  </ul>
+                )}
+              </div>
+              <Badge variant="outline" className="text-xs shrink-0">
+                Awaiting Approval
+              </Badge>
+            </div>
           </div>
+
+          {/* Action Buttons */}
           <div className="flex justify-end gap-2">
             {onReject && (
               <Button
