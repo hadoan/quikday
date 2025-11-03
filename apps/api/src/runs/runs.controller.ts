@@ -13,7 +13,6 @@ import {
 import { RunsService } from './runs.service.js';
 import { KindeGuard } from '../auth/kinde.guard.js';
 import { validateAnswers } from '@quikday/agent/validation/answers';
-import { UseGuards } from '@nestjs/common';
 
 export interface ChatMessageDto {
   role: 'system' | 'user' | 'assistant' | 'tool';

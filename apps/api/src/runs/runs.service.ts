@@ -225,6 +225,10 @@ export class RunsService {
     const teamId = this.current.getCurrentTeamId();
     const userId = this.current.getCurrentUserId();
     if (!userId) throw new UnauthorizedException('Not authenticated');
+    const numericUserId = Number(userId);
+    if (!Number.isFinite(numericUserId)) {
+      throw new UnauthorizedException('Invalid user id');
+    }
 
     const page = Math.max(1, Number(params.page ?? 1));
     const pageSize = Math.min(100, Math.max(1, Number(params.pageSize ?? 25)));
@@ -793,6 +797,11 @@ export class RunsService {
 
     const userId = this.current.getCurrentUserId();
     if (!userId) throw new UnauthorizedException('Not authenticated');
+    
+    const numericUserId = Number(userId);
+    if (!Number.isFinite(numericUserId)) {
+      throw new UnauthorizedException('Invalid user id');
+    }
 
     const steps = await this.prisma.step.findMany({ where: { runId } });
     let updated = 0;
@@ -802,7 +811,7 @@ export class RunsService {
         if (s.appId && (s.credentialId === null || s.credentialId === undefined)) {
           const { credentialId } = await this.stepsService.reResolveAppAndCredential(
             s.tool,
-            userId,
+            numericUserId,
           );
           if (credentialId) {
             await this.prisma.step.update({ where: { id: s.id }, data: { credentialId } });

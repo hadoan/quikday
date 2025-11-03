@@ -38,7 +38,15 @@ export class GmailEmailService implements EmailService {
     const resp = await gmail.users.threads.get({ userId: 'me', id: threadId, format: 'full' });
     const data: any = resp.data;
     const messages: any[] = Array.isArray(data?.messages) ? data.messages : [];
-    return messages.map((m) => this.mapGmailMessageToEmailMessage(m));
+    const mapped = messages.map((m) => this.mapGmailMessageToEmailMessage(m));
+    try {
+      this.logger.log(this.formatMeta({
+        op: 'getThread.summary',
+        threadId,
+        messages: mapped.length,
+      }));
+    } catch {}
+    return mapped;
   }
 
   async getMessage(messageId: string): Promise<EmailMessage> {
@@ -71,6 +79,10 @@ export class GmailEmailService implements EmailService {
     params.append('metadataHeaders', 'To');
     params.append('metadataHeaders', 'Date');
 
+    try {
+      this.logger.log(this.formatMeta({ op: 'search.queryString', q: query }));
+    } catch {}
+
     const resp = await gmail.users.messages.list({
       userId: 'me',
       q: query || undefined,
@@ -79,6 +91,13 @@ export class GmailEmailService implements EmailService {
     });
     const listing: any = resp.data;
     const items: any[] = Array.isArray(listing?.messages) ? listing.messages : [];
+    try {
+      this.logger.log(this.formatMeta({
+        op: 'search.listed',
+        count: items.length,
+        hasNext: typeof listing?.nextPageToken === 'string',
+      }));
+    } catch {}
 
     // Fetch details for each message in parallel (metadata is sometimes enough, but we map uniformly)
     const results: EmailMessage[] = await Promise.all(
@@ -92,6 +111,9 @@ export class GmailEmailService implements EmailService {
         }
       }),
     ).then((arr) => arr.filter((x): x is EmailMessage => !!x));
+    try {
+      this.logger.log(this.formatMeta({ op: 'search.hydrated', messages: results.length }));
+    } catch {}
 
     return {
       messages: results,

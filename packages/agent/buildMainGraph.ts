@@ -14,6 +14,7 @@ import { RunEventBus } from '@quikday/libs';
 import { Run } from 'openai/resources/beta/threads/runs/runs';
 import { registerToolsWithLLM } from './registry/registry.js';
 import { ModuleRef } from '@nestjs/core';
+import { ensureInputs } from './nodes/ensureInputs.js';
 
 type BuildMainGraphOptions = {
   llm: LLM;
@@ -27,6 +28,7 @@ export const buildMainGraph = ({ llm, eventBus, moduleRef }: BuildMainGraphOptio
     new Graph<RunState, RunEventBus>(hooks(eventBus))
       .addNode('classify', makeClassifyIntent(llm))
       .addNode('planner', safeNode('planner', makePlanner(llm), eventBus))
+      .addNode('ensure_inputs', safeNode('ensure_inputs', ensureInputs, eventBus))
       .addNode('confirm', safeNode('confirm', confirm, eventBus))
       .addNode('executor', safeNode('executor', executor, eventBus))
       .addNode('summarize', summarize(llm))
@@ -41,13 +43,9 @@ export const buildMainGraph = ({ llm, eventBus, moduleRef }: BuildMainGraphOptio
       // .addEdge('fallback', () => 'END');
 
       .addEdge('START', () => 'classify')
-      // First gate on missing inputs immediately after classify
-      .addEdge('classify', (s) => {
-        // If missing inputs, go to confirm which will ask questions
-        if (s.scratch?.awaiting) return 'confirm';
-        // Otherwise go straight to planner
-        return 'planner';
-      })
+      // Always run confirm right after classify to surface missing inputs
+      // Confirm will either pause with questions or clear awaiting and continue
+      .addEdge('classify', () => 'confirm')
       // After planning: check mode to determine flow
       .addEdge('planner', (s) => {
         const plan = s.scratch?.plan ?? [];
@@ -71,21 +69,18 @@ export const buildMainGraph = ({ llm, eventBus, moduleRef }: BuildMainGraphOptio
           (s.scratch as any).requiresApproval = true;
           return 'END'; // Halt graph here, wait for approval
         }
-        
-        // AUTO mode: Continue to execution immediately (no approval needed)
-        if (s.mode === 'AUTO') {
-          return 'confirm'; // Proceed to execution flow
-        }
-        
-        // Default: go to confirm
-        return 'confirm';
+        // For AUTO/default: check inputs one more time before confirm
+        return 'ensure_inputs';
       })
-      // After confirm, check if awaiting or ready to execute
+      // If inputs missing, pause; otherwise proceed to confirm
+      .addEdge('ensure_inputs', (s) => (s.scratch?.awaiting ? 'END' : 'confirm'))
+      // After confirm, either pause (awaiting), proceed to planner (no plan yet), or execute (plan ready)
       .addEdge('confirm', (s) => {
+        // If confirm created questions, pause until /runs/:id/confirm answers arrive
         if (s.scratch?.awaiting) return 'END';
-        // If we have a plan, execute it
+        // No questions — if no plan yet, head to planner; otherwise execute the plan
         const hasPlan = (s.scratch?.plan ?? []).length > 0;
-        return hasPlan ? 'executor' : 'END';
+        return hasPlan ? 'executor' : 'planner';
       })
       .addEdge('executor', (s) => {
         if (s.error) return 'fallback';

@@ -148,7 +148,25 @@ export function ChatStream({
                   : JSON.stringify(step.request ?? step.response ?? '');
               const time = String(step.time ?? step.startedAt ?? '');
               const status = String(step.status ?? '') === 'succeeded' ? 'success' : 'pending';
-              return { tool, action, time, status: status as 'success' | 'pending' };
+
+              // Prefer a short output preview if available; fallback to response stringified
+              const outputsPreview = step.outputsPreview as string | undefined;
+              let output: string | undefined = outputsPreview && outputsPreview.trim().length > 0
+                ? outputsPreview
+                : undefined;
+              if (!output) {
+                const response = step.response as unknown;
+                if (typeof response === 'string') output = response;
+                else if (response != null) {
+                  try {
+                    output = JSON.stringify(response);
+                  } catch {
+                    output = String(response);
+                  }
+                }
+              }
+
+              return { tool, action, time, status: status as 'success' | 'pending', output };
             })
             .slice(0, 50);
 

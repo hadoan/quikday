@@ -5,6 +5,7 @@ export interface LogEntry {
   action: string;
   time: string;
   status?: 'success' | 'pending';
+  output?: string; // optional short preview of step output
 }
 
 interface LogCardProps {
@@ -38,6 +39,15 @@ export const LogCard = ({ logs }: LogCardProps) => {
                 <span className="text-xs text-muted-foreground">{log.time}</span>
               </div>
               <p className="text-muted-foreground break-all">{log.action}</p>
+
+              {log.output && (
+                <div className="mt-2 rounded border border-border bg-background/80 p-2 font-mono text-[11px] leading-relaxed text-foreground/90">
+                  <div className="mb-1 text-[10px] uppercase tracking-wide text-muted-foreground">
+                    Output
+                  </div>
+                  <pre className="whitespace-pre-wrap break-words">{log.output}</pre>
+                </div>
+              )}
             </div>
           </div>
         ))}

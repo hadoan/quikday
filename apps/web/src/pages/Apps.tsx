@@ -177,6 +177,33 @@ const Apps = () => {
     });
   }, [query]);
 
+  // If an app install was initiated from a specific run, refresh that run's steps and return to chat
+  useEffect(() => {
+    const key = 'qd.pendingInstall';
+    let payload: any;
+    try {
+      const raw = localStorage.getItem(key);
+      if (raw) payload = JSON.parse(raw);
+    } catch {
+      payload = undefined;
+    }
+    if (payload && payload.runId) {
+      const runId = String(payload.runId);
+      (async () => {
+        try {
+          await api.post(`/runs/${runId}/refresh-credentials`);
+        } catch (e) {
+          // best-effort
+        } finally {
+          try {
+            localStorage.removeItem(key);
+          } catch {}
+          navigate(`/?runId=${encodeURIComponent(runId)}`);
+        }
+      })();
+    }
+  }, [navigate]);
+
   return (
     <div className="flex h-screen w-full bg-background">
       <Sidebar
@@ -290,29 +317,3 @@ const Apps = () => {
 };
 
 export default Apps;
-  // If an app install was initiated from a specific run, refresh that run's steps and return to chat
-  useEffect(() => {
-    const key = 'qd.pendingInstall';
-    let payload: any;
-    try {
-      const raw = localStorage.getItem(key);
-      if (raw) payload = JSON.parse(raw);
-    } catch {
-      payload = undefined;
-    }
-    if (payload && payload.runId) {
-      const runId = String(payload.runId);
-      (async () => {
-        try {
-          await api.post(`/runs/${runId}/refresh-credentials`);
-        } catch (e) {
-          // best-effort
-        } finally {
-          try {
-            localStorage.removeItem(key);
-          } catch {}
-          navigate(`/?runId=${encodeURIComponent(runId)}`);
-        }
-      })();
-    }
-  }, [navigate]);
