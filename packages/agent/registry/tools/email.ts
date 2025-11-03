@@ -7,4 +7,7 @@ export * from './emails/draftSend.js';
 export * from './emails/labelsChange.js';
 export * from './emails/archive.js';
 export * from './emails/snooze.js';
+export * from './emails/searchNoReply.js';
+export * from './emails/generateFollowup.js';
+export * from './emails/sendFollowup.js';
 export * from './emails/utils.js';

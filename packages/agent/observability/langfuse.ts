@@ -1,22 +1,35 @@
-// Lazy import to avoid requiring the dependency if not configured
+// Lazy import to avoid loading dependency unless configured (ESM-safe)
 let _langfuse: any | null | undefined;
+let _initPromise: Promise<any | null> | null = null;
 
-function init() {
+async function init(): Promise<any | null> {
   if (_langfuse !== undefined) return _langfuse; // already initialized
+  if (_initPromise) return _initPromise;
 
-  const publicKey = process.env.LANGFUSE_PUBLIC_KEY;
-  const secretKey = process.env.LANGFUSE_SECRET_KEY;
-  const baseUrl = process.env.LANGFUSE_HOST || process.env.LANGFUSE_BASE_URL;
+  _initPromise = (async () => {
+    const publicKey = process.env.LANGFUSE_PUBLIC_KEY;
+    const secretKey = process.env.LANGFUSE_SECRET_KEY;
+    const baseUrl = process.env.LANGFUSE_HOST || process.env.LANGFUSE_BASE_URL;
 
-  if (!publicKey || !secretKey) {
-    _langfuse = null; // explicitly disabled
+    if (!publicKey || !secretKey) {
+      _langfuse = null; // explicitly disabled
+      return _langfuse;
+    }
+
+    try {
+      const mod = await import('langfuse');
+      const LangfuseCtor = (mod as any).Langfuse ?? (mod as any).default?.Langfuse ?? (mod as any);
+      _langfuse = new LangfuseCtor({ publicKey, secretKey, baseUrl });
+    } catch (err) {
+      _langfuse = null;
+      if (process.env.NODE_ENV !== 'production') {
+        console.error('Langfuse init failed', err);
+      }
+    }
     return _langfuse;
-  }
+  })();
 
-  // eslint-disable-next-line @typescript-eslint/no-var-requires
-  const { Langfuse } = require('langfuse');
-  _langfuse = new Langfuse({ publicKey, secretKey, baseUrl });
-  return _langfuse;
+  return _initPromise;
 }
 
 export async function logLlmGeneration(args: {
@@ -33,7 +46,7 @@ export async function logLlmGeneration(args: {
     | { prompt_tokens?: number; completion_tokens?: number; total_tokens?: number }
     | Record<string, any>;
 }): Promise<void> {
-  const lf = init();
+  const lf = await init();
   if (!lf) return; // not configured
 
   const name = args.requestType ?? 'llm.call';

@@ -279,3 +279,22 @@ model Template {
     createdAt    DateTime @default(now())
     updatedAt    DateTime @updatedAt
 }
+
+// Email actions for undo capability (60-minute window)
+model EmailAction {
+    id             Int       @id @default(autoincrement())
+    userId         String
+    runId          String
+    messageId      String
+    threadId       String
+    action         String    // 'SENT', 'UNDONE'
+    canUndo        Boolean   @default(true)
+    undoExpiresAt  DateTime?
+    undoneAt       DateTime?
+    createdAt      DateTime  @default(now())
+
+    @@index([messageId])
+    @@index([userId])
+    @@index([runId])
+    @@index([undoExpiresAt])
+}

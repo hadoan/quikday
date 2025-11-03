@@ -27,6 +27,9 @@ import {
   emailLabelsChange,
   emailArchive,
   emailSnooze,
+  emailSearchNoReply,
+  emailGenerateFollowup,
+  emailSendFollowup,
 } from './tools/email.js';
 import { ModuleRef } from '@nestjs/core';
 
@@ -146,6 +149,9 @@ export function registerToolsWithLLM(llm: LLM, moduleRef: ModuleRef) {
   registry.register(emailLabelsChange(moduleRef));
   registry.register(emailArchive(moduleRef));
   registry.register(emailSnooze(moduleRef));
+  registry.register(emailSearchNoReply(moduleRef));
+  registry.register(emailGenerateFollowup(moduleRef, llm));
+  registry.register(emailSendFollowup(moduleRef));
 
   //Calendar tools
   registry.register(calendarCheckAvailability(moduleRef));

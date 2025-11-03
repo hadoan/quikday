@@ -24,6 +24,7 @@ import { CalendarModule } from '@quikday/appstore/calendar/calendar.module';
 import { GmailEmailService, GmailEmailModule } from '@quikday/appstore-gmail-email';
 import { TemplatesModule } from './templates/templates.module.js';
 import { GoogleCalendarModule, GoogleCalendarProviderService } from '@quikday/appstore-google-calendar';
+import { EmailController } from './email/email.controller.js';
 
 const registry = new Map();
 registry.set('gmail', GmailEmailService);
@@ -56,6 +57,7 @@ calendarRegistry.set('google', GoogleCalendarProviderService);
     TemplatesModule,
     // AgentTestModule,
   ],
+  controllers: [EmailController],
   providers: [{ provide: APP_INTERCEPTOR, useClass: CurrentUserInterceptor }],
 })
 export class AppModule {}
