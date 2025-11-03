@@ -299,10 +299,14 @@ const Index = () => {
                 // If awaiting_approval mid-execution and backend included step details, surface a plan card
                 if (
                   status === 'awaiting_approval' &&
-                  Array.isArray((payload as any)?.steps) &&
-                  (payload as any).steps.length > 0
+                  (
+                    (Array.isArray((payload as any)?.steps) && (payload as any).steps.length > 0) ||
+                    (Array.isArray((payload as any)?.plan) && (payload as any).plan.length > 0)
+                  )
                 ) {
-                  const stepsPayload = (payload as any).steps as any[];
+                  const stepsPayload = (Array.isArray((payload as any)?.steps)
+                    ? ((payload as any).steps as any[])
+                    : ((payload as any).plan as any[])) as any[];
                   // Show an approval card even if a regular plan card already exists.
                   // If an approval-mode plan already exists, update it; otherwise append a new one.
                   let approvalPlanIndex = -1;

@@ -90,8 +90,10 @@ export function ChatStream({
             steps: steps,
           };
 
+          // Only allow approve while the run is actively awaiting_approval.
+          // This prevents confirming steps after the run has already completed.
           const canApprove =
-            flags.liveApprovals && !!runId && steps.length > 0 && (awaitingApproval || lastStatus === 'awaiting_approval');
+            flags.liveApprovals && !!runId && steps.length > 0 && lastStatus === 'awaiting_approval';
           
           console.log('🔍 Approval button check:', {
             liveApprovals: flags.liveApprovals,
