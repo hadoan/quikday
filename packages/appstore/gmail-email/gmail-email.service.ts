@@ -240,7 +240,7 @@ export class GmailEmailService implements EmailService {
       replyToMessageId: draft.replyToMessageId,
     });
 
-    const res = await this.sendEmailViaGmailApi('me', rawMessage, accessToken);
+    const res = await this.sendEmailViaGmailApi('me', rawMessage, accessToken, { threadId: opts?.threadId });
     return { messageId: res.messageId ?? '', threadId: res.threadId ?? '' };
   }
 
@@ -576,12 +576,13 @@ export class GmailEmailService implements EmailService {
     _userId: string,
     rawMessage: string,
     _accessToken: string,
+    opts?: { threadId?: string },
   ): Promise<GmailSendResponse> {
     this.logger.log(this.formatMeta({ op: 'sendEmailViaGmailApi' }));
     const { gmail } = await this.getGmailClient();
     const resp = await gmail.users.messages.send({
       userId: 'me',
-      requestBody: { raw: rawMessage },
+      requestBody: opts?.threadId ? { raw: rawMessage, threadId: opts.threadId } : { raw: rawMessage },
     });
     const payload: any = resp.data;
     const messageId = (typeof payload?.id === 'string' ? payload.id : undefined) ?? '';

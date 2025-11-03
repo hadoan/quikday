@@ -45,16 +45,34 @@ export function emailSendFollowup(moduleRef: ModuleRef): Tool<EmailSendFollowupA
         throw new Error('Email send not available');
       }
 
+      // Resolve proper reply headers for Gmail: use the original message's Internet Message-ID
+      let replyToMessageId: string | undefined;
+      try {
+        if (svc?.getThread && typeof svc.getThread === 'function') {
+          const thread = await svc.getThread(parsed.threadId);
+          if (Array.isArray(thread) && thread.length > 0) {
+            const last = thread[thread.length - 1];
+            const msgIdRaw = last?.headers?.['Message-ID'] || last?.headers?.['Message-Id'] || last?.headers?.['MessageId'];
+            if (typeof msgIdRaw === 'string' && msgIdRaw.trim().length > 0) {
+              // Normalize by stripping any surrounding angle brackets
+              replyToMessageId = msgIdRaw.trim().replace(/^<|>$/g, '');
+            }
+          }
+        }
+      } catch {
+        // Non-fatal; will still attempt to set threadId on send
+      }
+
       // Send the email as a reply in the thread
       const draft = {
         subject: parsed.subject,
         to: [{ address: parsed.to }],
         html: parsed.isHtml ? parsed.body : undefined,
         text: !parsed.isHtml ? parsed.body : undefined,
-        replyToMessageId: parsed.threadId, // This should map to threadId for Gmail
+        replyToMessageId,
       };
 
-      const sendResult = await svc.send(draft);
+      const sendResult = await svc.send(draft, { threadId: parsed.threadId });
 
       // Store for undo capability (60 minutes)
       const prisma = moduleRef.get(PrismaService, { strict: false });

@@ -144,6 +144,64 @@ function resolvePlaceholders(
   return { resolved, needsExpansion, expansionKey };
 }
 
+/** Collect base step ids referenced via placeholders like "$step-02.field" */
+function collectBasePlaceholders(args: any): Set<string> {
+  const bases = new Set<string>();
+  const walk = (v: any) => {
+    if (typeof v === 'string') {
+      const m = v.match(/^\$step-(\d+)\./);
+      if (m) bases.add(`step-${m[1]}`);
+      return;
+    }
+    if (Array.isArray(v)) {
+      for (const it of v) walk(it);
+      return;
+    }
+    if (v && typeof v === 'object') {
+      for (const val of Object.values(v)) walk(val);
+    }
+  };
+  walk(args);
+  return bases;
+}
+
+/** Get child results for a base step id: step-02-0, step-02-1, ... (sorted by suffix) */
+function getChildResults(stepResults: Map<string, any>, baseId: string): Array<{ id: string; result: any }> {
+  const prefix = `${baseId}-`;
+  const out: Array<{ id: string; result: any }> = [];
+  for (const [id, result] of stepResults.entries()) {
+    if (id.startsWith(prefix)) out.push({ id, result });
+  }
+  out.sort((a, b) => {
+    const na = Number(a.id.slice(prefix.length)) || 0;
+    const nb = Number(b.id.slice(prefix.length)) || 0;
+    return na - nb;
+  });
+  return out;
+}
+
+function getByPath(obj: any, path: string) {
+  return path.split('.').reduce((acc: any, k: string) => (acc == null ? undefined : acc[k]), obj);
+}
+
+/** Replace "$step-XX.something" with values from a given child result */
+function replacePlaceholdersWithChild(args: any, baseId: string, childResult: any): any {
+  if (typeof args === 'string') {
+    const m = args.match(/^\$step-(\d+)\.(.+)$/);
+    if (m && `step-${m[1]}` === baseId) {
+      return getByPath(childResult, m[2]);
+    }
+    return args;
+  }
+  if (Array.isArray(args)) return args.map((v) => replacePlaceholdersWithChild(v, baseId, childResult));
+  if (args && typeof args === 'object') {
+    const out: any = Array.isArray(args) ? [] : {};
+    for (const [k, v] of Object.entries(args)) out[k] = replacePlaceholdersWithChild(v as any, baseId, childResult);
+    return out;
+  }
+  return args;
+}
+
 /**
  * Expand a step that has array iteration placeholders into multiple concrete steps.
  * Example: If step-01 returned { threads: [{id: 'a'}, {id: 'b'}] },
@@ -229,11 +287,45 @@ export const executor: Node<RunState, RunEventBus> = async (s, eventBus) => {
     }
 
     // Take the first (and only) expanded step
-    const currentStep = expanded[0] || step;
+  const currentStep = expanded[0] || step;
 
-    // Resolve placeholders in args
-    const { resolved: resolvedArgs } = resolvePlaceholders(currentStep.args, stepResults);
-    
+  // Resolve placeholders in args
+  const { resolved: resolvedArgs } = resolvePlaceholders(currentStep.args, stepResults);
+
+    // Implicit fan-out: if args still reference a base step id (e.g., "$step-02.*")
+    // and only child commits like step-02-0/1 exist, expand one send per child.
+    const bases = collectBasePlaceholders(currentStep.args);
+    const unresolvedBases = Array.from(bases).filter((baseId) => !stepResults.has(baseId) && getChildResults(stepResults, baseId).length > 0);
+    if (unresolvedBases.length === 1) {
+      const baseId = unresolvedBases[0];
+      const children = getChildResults(stepResults, baseId);
+      if (children.length > 0) {
+        const fanout = children.map((child, idx) => ({
+          ...currentStep,
+          id: `${currentStep.id}-${idx}`,
+          args: replacePlaceholdersWithChild(currentStep.args, baseId, child.result),
+        }));
+        planQueue.unshift(...fanout);
+        processedStepIds.add(currentStep.id);
+        continue;
+      }
+    }
+
+    // After implicit fan-out, ensure no unresolved placeholders remain
+    const containsUnresolved = (v: any): boolean => {
+      if (typeof v === 'string') return /^\$step-\d+\./.test(v);
+      if (Array.isArray(v)) return v.some(containsUnresolved);
+      if (v && typeof v === 'object') return Object.values(v).some(containsUnresolved);
+      return false;
+    };
+    if (containsUnresolved(resolvedArgs)) {
+      const err: any = new Error(`Unresolved placeholders in arguments for ${currentStep.tool}`);
+      err.code = 'E_ARGS_UNRESOLVED';
+      events.toolFailed(s, eventBus, currentStep.tool, { code: err.code, message: err.message }, currentStep.id);
+      (s as any).error = { node: 'executor', message: err.message, code: err.code };
+      throw err;
+    }
+
     // Parse args
     let args: any = resolvedArgs ?? {};
     if (isChat) {

@@ -49,6 +49,8 @@ export type DraftInput = {
 export type SendOptions = {
   scheduleAt?: Date; // if supported by provider
   requestIdempotencyKey?: string;
+  // For replying within an existing conversation (provider-supported)
+  threadId?: ThreadId;
 };
 
 export type LabelChange = {
