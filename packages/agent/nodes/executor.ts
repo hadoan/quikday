@@ -254,25 +254,64 @@ function expandStepForArray(
 
 /** ────────────────────────────────────────────────────────────────────────────
  * Executor node
- * - Runs each planned step.
- * - For chat.respond: always produce an assistant message (never route to fallback).
- * - Other tools: original behavior (retry, error → set s.error so graph can route).
- * - NOW: Resolves placeholders and expands array iterations.
+ * 
+ * Executes each planned step from the plan, with support for:
+ * - Placeholder resolution (e.g., "$step-01.fieldName")
+ * - Array iteration expansion (e.g., "$step-01.threads[*].id")
+ * - High-risk tool approval flow
+ * - Retry logic with exponential backoff
+ * - Idempotency and undo support
+ * 
+ * HIGH-RISK TOOL APPROVAL FLOW:
+ * ═════════════════════════════════════════════════════════════════════════════
+ * Tools marked with risk: 'high' (e.g., calendar.createEvent, calendar.updateEvent,
+ * calendar.cancelEvent) require explicit user approval BEFORE execution.
+ * 
+ * Process:
+ * 1. Before executing a step, check if tool.risk === 'high'
+ * 2. If high-risk and not pre-approved:
+ *    - Emit 'approval.awaiting' event with step details (id, tool, args, risk)
+ *    - Throw GRAPH_HALT_AWAITING_APPROVAL error to pause graph execution
+ *    - Frontend displays approval UI to user
+ * 3. User reviews and approves/rejects via API endpoint (POST /runs/:id/approve)
+ * 4. API resumes run with approvedSteps in ctx.meta
+ * 5. Executor checks isApprovedStep() and proceeds with execution
+ * 
+ * chat.respond is always executed without approval (low-risk conversation tool).
+ * ═════════════════════════════════════════════════════════════════════════════
  * ─────────────────────────────────────────────────────────────────────────── */
 export const executor: Node<RunState, RunEventBus> = async (s, eventBus) => {
   const commits: Array<{ stepId: string; result: unknown }> = [];
   const undo: Array<{ stepId: string; tool: string; args: unknown }> = [];
   const stepResults = new Map<string, any>(); // Store results by step ID
-  // Approved steps (when resuming after approval). If present, only run these.
+  
+  // ──────────────────────────────────────────────────────────────────────────
+  // APPROVED STEPS TRACKING
+  // ──────────────────────────────────────────────────────────────────────────
+  // When resuming execution after user approval, ctx.meta.approvedSteps contains
+  // the list of step IDs that the user explicitly approved (e.g., ["step-01"]).
+  // This set is used to determine which high-risk steps can proceed.
+  // If the set is empty, all steps are implicitly approved (initial run).
+  // ──────────────────────────────────────────────────────────────────────────
   const approvedSteps = new Set<string>(
     Array.isArray((s.ctx as any)?.meta?.approvedSteps)
       ? (((s.ctx as any).meta?.approvedSteps as string[]) ?? [])
       : []
   );
 
+  /**
+   * Check if a step is approved for execution.
+   * @param id - The step ID (e.g., "step-01", "step-01-0")
+   * @returns true if the step is approved or if no approval list exists (initial run)
+   */
   const isApprovedStep = (id: string): boolean => {
+    // If no approvedSteps list exists, all steps are implicitly approved (initial run)
     if (approvedSteps.size === 0) return true;
+    
+    // Check if this specific step ID is approved
     if (approvedSteps.has(id)) return true;
+    
+    // For expanded steps (e.g., "step-01-0"), check if base step is approved
     const m = id.match(/^step-\d+/);
     return m ? approvedSteps.has(m[0]) : false;
   };
@@ -425,21 +464,43 @@ export const executor: Node<RunState, RunEventBus> = async (s, eventBus) => {
       args = parsed.data;
     }
 
-    // If high-risk tool and not pre-approved → request approval and halt
+    // ──────────────────────────────────────────────────────────────────────────
+    // HIGH-RISK TOOL APPROVAL CHECK (BEFORE EXECUTION)
+    // ──────────────────────────────────────────────────────────────────────────
+    // Before executing any step, check if the tool is marked as high-risk.
+    // High-risk tools (e.g., calendar.createEvent, calendar.updateEvent, calendar.cancelEvent)
+    // require explicit user approval before execution.
+    //
+    // Flow:
+    // 1. Check if tool.risk === 'high'
+    // 2. Check if step is not already pre-approved (via ctx.meta.approvedSteps)
+    // 3. If approval needed:
+    //    a. Emit 'approval.awaiting' event with step details
+    //    b. Throw GRAPH_HALT_AWAITING_APPROVAL error to pause execution
+    //    c. Wait for user to approve via API endpoint
+    //    d. Resume execution with approvedSteps in ctx.meta
+    // ──────────────────────────────────────────────────────────────────────────
     const isHighRisk = tool?.risk === 'high';
     if (!isChat && isHighRisk && !isApprovedStep(currentStep.id)) {
+      console.log(`[executor] High-risk tool detected: ${currentStep.tool} (step: ${currentStep.id}). Requesting approval...`);
+      
       // Surface approval-needed to subscribers with step details
       try {
         events.approvalAwaiting(s, eventBus, [
-          { id: currentStep.id, tool: currentStep.tool, args: redactForLog(args) },
+          { id: currentStep.id, tool: currentStep.tool, args: redactForLog(args), risk: 'high' },
         ]);
-      } catch {
-        // non-fatal
+      } catch (eventErr) {
+        // Event emission failure is non-fatal, but log for debugging
+        console.warn(`[executor] Failed to emit approval.awaiting event:`, eventErr);
       }
+      
+      // Halt graph execution and wait for user approval
       const err: any = new Error('GRAPH_HALT_AWAITING_APPROVAL');
       err.code = 'GRAPH_HALT_AWAITING_APPROVAL';
       err.payload = { stepId: currentStep.id, tool: currentStep.tool };
       (s as any).error = { node: 'executor', code: err.code, message: 'awaiting approval' };
+      
+      console.log(`[executor] Execution halted for approval. Step: ${currentStep.id}`);
       throw err;
     }
 

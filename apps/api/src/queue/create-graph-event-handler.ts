@@ -193,7 +193,17 @@ export function createGraphEventHandler(opts: {
           const steps = Array.isArray((evt.payload as any)?.steps)
             ? ((evt.payload as any).steps as any[])
             : [];
-          logger.log('⏸️ Awaiting approval', { runId: run.id, approvalId });
+          
+          // Log high-risk steps requiring approval
+          const highRiskSteps = steps.filter(step => step.risk === 'high');
+          logger.log('⏸️ Awaiting approval for high-risk steps', { 
+            runId: run.id, 
+            approvalId,
+            stepCount: steps.length,
+            highRiskCount: highRiskSteps.length,
+            tools: steps.map(s => s.tool).join(', ')
+          });
+          
           // Include pending steps so the UI can render an approval CTA with step ids
           safePublish('run_status', { status: 'awaiting_approval', approvalId, steps });
           break;
