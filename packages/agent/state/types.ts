@@ -1,6 +1,6 @@
 import z from 'zod';
 
-export type RunMode = 'PREVIEW' | 'APPROVAL' | 'AUTO';
+export type RunMode = 'PREVIEW' | 'AUTO';
 export type Risk = 'low' | 'high';
 
 export interface RunCtx {

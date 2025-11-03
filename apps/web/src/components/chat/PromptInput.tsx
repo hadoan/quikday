@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Send, Sparkles, Eye, Zap, CheckCircle } from 'lucide-react';
+import { Send, Sparkles, Eye, Zap } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { cn } from '@/lib/utils';
@@ -7,7 +7,7 @@ import { createLogger } from '@/lib/utils/logger';
 
 const logger = createLogger('PromptInput');
 
-export type RunMode = 'preview' | 'approval' | 'auto';
+export type RunMode = 'preview' | 'auto';
 
 interface PromptInputProps {
   onSubmit: (prompt: string, mode: RunMode) => void;
@@ -22,7 +22,7 @@ export const PromptInput = ({
   disabled = false,
   placeholder = "Type your intent... (e.g., 'Schedule a check-in with Sara tomorrow at 10')",
   initialValue,
-  defaultMode = 'preview',
+  defaultMode = 'auto',
 }: PromptInputProps) => {
   const [prompt, setPrompt] = useState(initialValue || '');
   const [mode, setMode] = useState<RunMode>(defaultMode);
@@ -73,20 +73,6 @@ export const PromptInput = ({
           >
             <Eye className="h-3.5 w-3.5" />
             Preview
-          </button>
-          <button
-            type="button"
-            onClick={() => setMode('approval')}
-            className={cn(
-              'inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 text-sm font-medium transition-all',
-              mode === 'approval'
-                ? 'bg-background text-foreground shadow-sm'
-                : 'text-muted-foreground hover:text-foreground',
-            )}
-            title="Show plan and wait for approval"
-          >
-            <CheckCircle className="h-3.5 w-3.5" />
-            Approval
           </button>
           <button
             type="button"

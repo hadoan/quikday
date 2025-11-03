@@ -225,16 +225,6 @@ export class ApiDataSource implements DataSource {
   // -------------------------------------------------------------------------
   // Approvals & Control
   // -------------------------------------------------------------------------
-  async approve(runId: string, approvedSteps: string[]): Promise<{ ok: true }> {
-    const url = `${this.config.apiBaseUrl}/runs/${runId}/approve`;
-
-    await this.fetch(url, {
-      method: 'POST',
-      body: JSON.stringify({ approvedSteps }),
-    });
-
-    return { ok: true };
-  }
 
   async cancel(runId: string): Promise<{ ok: true }> {
     const url = `${this.config.apiBaseUrl}/runs/${runId}/cancel`;
@@ -513,7 +503,6 @@ export class ApiDataSource implements DataSource {
           actions: steps.map((s) => s.action || 'Execute'),
           steps,
           awaitingApproval: run.status === 'awaiting_approval',
-          mode: run.status === 'awaiting_approval' ? 'approval' : 'plan',
         }),
       );
     }

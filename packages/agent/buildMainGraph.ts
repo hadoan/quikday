@@ -63,12 +63,6 @@ export const buildMainGraph = ({ llm, eventBus, moduleRef }: BuildMainGraphOptio
           return 'END'; // Show plan only, no execution
         }
         
-        // APPROVAL mode: Show plan and halt for user approval
-        if (s.mode === 'APPROVAL' && hasExecutableSteps) {
-          // Mark as awaiting approval - will be handled by processor
-          (s.scratch as any).requiresApproval = true;
-          return 'END'; // Halt graph here, wait for approval
-        }
         // For AUTO/default: check inputs one more time before confirm
         return 'ensure_inputs';
       })

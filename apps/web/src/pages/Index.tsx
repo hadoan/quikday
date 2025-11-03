@@ -312,7 +312,7 @@ const Index = () => {
                   let approvalPlanIndex = -1;
                   for (let i = newMessages.length - 1; i >= 0; i--) {
                     const msg = newMessages[i];
-                    if (msg && msg.type === 'plan' && (msg.data as any)?.mode === 'approval') {
+                    if (msg && msg.type === 'plan' && (msg.data as any)?.awaitingApproval === true) {
                       approvalPlanIndex = i;
                       break;
                     }
@@ -324,7 +324,6 @@ const Index = () => {
                     actions: stepsPayload.map((s: any) => s.action || `Execute ${s.tool}`),
                     steps: stepsPayload as any,
                     awaitingApproval: true,
-                    mode: 'approval',
                   });
 
                   if (approvalPlanIndex >= 0) {
@@ -536,7 +535,7 @@ const Index = () => {
     }
   }, [location.search]);
 
-  const handleNewPrompt = async (prompt: string, mode: 'preview' | 'approval' | 'auto' = 'preview') => {
+  const handleNewPrompt = async (prompt: string, mode: 'preview' | 'auto' = 'auto') => {
     logger.info('📨 Handling new prompt submission', {
       timestamp: new Date().toISOString(),
       activeRunId,

@@ -59,12 +59,10 @@ export class RunProcessor extends WorkerHost {
       case 'preview':
       case 'plan':
         return 'PREVIEW';
-      case 'approval':
-        return 'APPROVAL';
       case 'auto':
         return 'AUTO';
       default:
-        return 'APPROVAL'; // Default to approval mode for safety
+        return 'AUTO'; // Default to auto mode
     }
   }
 

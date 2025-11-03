@@ -67,7 +67,7 @@ export const mockRuns = [
           intent: 'Schedule meeting and send invitation',
           tools: ['google-calendar', 'slack-messaging'],
           actions: ['Create 15-min event at 10:00 tomorrow', 'Send DM with calendar link'],
-          mode: 'approval' as const,
+          awaitingApproval: true,
           steps: [
             {
               id: 'step-1',

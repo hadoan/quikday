@@ -12,7 +12,7 @@ export interface PlanData {
   intent: string;
   tools: string[];
   actions: string[];
-  mode: 'preview' | 'approval' | 'auto';
+  mode: 'preview' | 'auto';
   steps?: UiPlanStep[];
 }
 

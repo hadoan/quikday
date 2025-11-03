@@ -6,6 +6,8 @@ import type {
   UiLogData,
   UiOutputData,
   UiUndoData,
+  UiMessage,
+  UiPlanStep,
 } from '@/lib/datasources/DataSource';
 import { ChatMessage } from './ChatMessage';
 import { PlanCard } from '@/components/cards/PlanCard';
@@ -28,10 +30,11 @@ export function ChatStream({
   // Find last known run status from messages (if any)
   const lastStatus = React.useMemo(() => {
     for (let i = messages.length - 1; i >= 0; i--) {
-      const m = messages[i] as any;
-      if (m?.type === 'run' && m?.data?.status) {
-        console.log('🔎 Found run message at index', i, 'with status:', m.data.status);
-        return String(m.data.status);
+      const m = messages[i] as UiMessage | undefined;
+      const runData = (m?.data as unknown) as UiRunData | undefined;
+      if (m?.type === 'run' && runData?.status) {
+        console.log('🔎 Found run message at index', i, 'with status:', runData.status);
+        return String(runData.status);
       }
     }
     console.log('🔎 No run message found in', messages.length, 'messages');
@@ -46,7 +49,7 @@ export function ChatStream({
     const outputTexts = new Set<string>();
     for (const m of messages ?? []) {
       if (m?.type === 'output') {
-        const content = (m.data as any)?.content as string | undefined;
+        const content = ((m.data as unknown) as UiOutputData | undefined)?.content as string | undefined;
         const n = norm(content);
         if (n) outputTexts.add(n);
       }
@@ -63,10 +66,89 @@ export function ChatStream({
     return out;
   }, [messages]);
 
+  // Create a lightweight stable key for messages when possible and
+  // dedupe repeated plan messages which sometimes arrive twice
+  // (e.g. plan + approval plan updates). We only dedupe plan cards
+  // to avoid unintentionally collapsing other message types.
+  const uniqueMessages = React.useMemo(() => {
+    const seen = new Set<string>();
+    const out: typeof dedupedMessages = [];
+
+    const makeKey = (m: UiMessage | undefined, i: number) => {
+      // Prefer an explicit id if present
+  // Note: UiMessage does not define an `id` field in the view model, but
+  // some upstream code may attach it. Guard safely by treating the
+  // message as a generic record and checking for an `id` property.
+  const runtimeId = m ? ((m as unknown) as Record<string, unknown>)['id'] : undefined;
+  if (typeof runtimeId === 'string') return `id:${runtimeId}`;
+      // For plan messages, try to derive a stable key from intent + step ids
+      if (m?.type === 'plan' && m?.data) {
+        try {
+          const dataRec = (m.data as unknown) as Record<string, unknown> | undefined;
+          const stepsRaw = dataRec?.['steps'];
+          if (Array.isArray(stepsRaw)) {
+            const steps = stepsRaw as UiPlanStep[];
+            const stepIds = steps.map((s) => s?.id || s?.tool || JSON.stringify(s)).join(',');
+            return `plan:${String(dataRec?.['intent'] || '')}:${stepIds}`;
+          }
+        } catch {
+          // fallthrough
+        }
+      }
+      // Fallback: use serialized data (cheap) or index
+      try {
+        return `${String(m.type || m.role || 'msg')}:${JSON.stringify(m.data ?? m.content ?? {})}`;
+      } catch {
+        return `idx:${i}`;
+      }
+    };
+
+  for (let i = 0; i < (dedupedMessages?.length || 0); i++) {
+  const m = dedupedMessages[i] as UiMessage | undefined;
+      if (!m) continue;
+      const k = makeKey(m, i);
+
+      // Only dedupe plan messages (skip adding duplicates of same plan key)
+      if (m.type === 'plan') {
+        if (seen.has(k)) continue;
+        seen.add(k);
+      }
+
+      out.push(m);
+    }
+
+    return out;
+  }, [dedupedMessages]);
+
   return (
     <div className="space-y-6">
-      {dedupedMessages?.map((m, i) => {
-        if (!m) return null;
+      {uniqueMessages?.map((m, i) => {
+        const msg = m as UiMessage | undefined;
+        if (!msg) return null;
+        // compute a more stable key similar to makeKey above so React can track
+        const computeKey = (m: UiMessage | undefined, i: number) => {
+            const runtimeId = m ? ((m as unknown) as Record<string, unknown>)['id'] : undefined;
+            if (typeof runtimeId === 'string') return `id:${runtimeId}`;
+            if (m?.type === 'plan' && m?.data) {
+              try {
+                const dataRec = (m.data as unknown) as Record<string, unknown> | undefined;
+                const stepsRaw = dataRec?.['steps'];
+                if (Array.isArray(stepsRaw)) {
+                  const steps = stepsRaw as UiPlanStep[];
+                  const stepIds = steps.map((s) => s?.id || s?.tool || JSON.stringify(s)).join(',');
+                  return `plan:${String(dataRec?.['intent'] || '')}:${stepIds}`;
+                }
+              } catch {
+                // fallthrough
+              }
+          }
+          try {
+            return `${String(m?.type || m?.role || 'msg')}:${JSON.stringify(m?.data ?? m?.content ?? {})}`;
+          } catch {
+            return `idx:${i}`;
+          }
+        };
+        const key = computeKey(msg, i);
 
         if (m.role === 'user') {
           return (
@@ -78,15 +160,14 @@ export function ChatStream({
 
         // Assistant messages: render structured types with corresponding cards
         if (m.type === 'plan') {
-          const pd = m.data as UiPlanData & { awaitingApproval?: boolean; mode?: string };
+          const pd = m.data as UiPlanData & { awaitingApproval?: boolean };
           const steps = pd?.steps || [];
-
-          const awaitingApproval = pd?.awaitingApproval === true || pd?.mode === 'approval';
+          const awaitingApproval = pd?.awaitingApproval === true;
           const plan = {
             intent: pd?.intent || 'Plan',
             tools: pd?.tools || [],
             actions: pd?.actions || [],
-            mode: (awaitingApproval ? 'approval' : 'preview') as const,
+            mode: 'preview',
             steps: steps,
           };
 
