@@ -302,15 +302,19 @@ export const executor: Node<RunState, RunEventBus> = async (s, eventBus) => {
   /**
    * Check if a step is approved for execution.
    * @param id - The step ID (e.g., "step-01", "step-01-0")
-   * @returns true if the step is approved or if no approval list exists (initial run)
+   * @param isHighRisk - Whether the step's tool is marked as high-risk
+   * @returns true if the step is approved to execute
    */
-  const isApprovedStep = (id: string): boolean => {
-    // If no approvedSteps list exists, all steps are implicitly approved (initial run)
-    if (approvedSteps.size === 0) return true;
-    
+  const isApprovedStep = (id: string, isHighRisk: boolean): boolean => {
+    // Low-risk steps always execute without approval
+    if (!isHighRisk) return true;
+
+    // If no approvedSteps list exists (initial run), high-risk steps need approval
+    if (approvedSteps.size === 0) return false;
+
     // Check if this specific step ID is approved
     if (approvedSteps.has(id)) return true;
-    
+
     // For expanded steps (e.g., "step-01-0"), check if base step is approved
     const m = id.match(/^step-\d+/);
     return m ? approvedSteps.has(m[0]) : false;
@@ -372,14 +376,23 @@ export const executor: Node<RunState, RunEventBus> = async (s, eventBus) => {
   const planQueue = [...(s.scratch?.plan ?? [])];
   const processedStepIds = new Set<string>();
 
+  console.log(`[executor] Starting execution with ${planQueue.length} steps in queue`);
+  console.log(`[executor] Plan:`, planQueue.map(s => ({ id: s.id, tool: s.tool, risk: s.risk })));
+
   while (planQueue.length > 0) {
     const step = planQueue.shift()!;
     
+    console.log(`[executor] Processing step: ${step.id} (${step.tool}), queue remaining: ${planQueue.length}`);
+    
     // Skip if already processed (from expansion)
-    if (processedStepIds.has(step.id)) continue;
+    if (processedStepIds.has(step.id)) {
+      console.log(`[executor] Skipping already processed step: ${step.id}`);
+      continue;
+    }
 
     const isChat = step.tool === 'chat.respond';
     const tool = registry.get(step.tool);
+    const isHighRisk = tool?.risk === 'high';
 
     // Check if this step needs array expansion
     const expanded = expandStepForArray(step, stepResults);
@@ -394,14 +407,8 @@ export const executor: Node<RunState, RunEventBus> = async (s, eventBus) => {
     // Take the first (and only) expanded step
     const currentStep = expanded[0] || step;
 
-    // If we are resuming with an approvedSteps set, skip any steps not approved
-    if (!isApprovedStep(currentStep.id)) {
-      processedStepIds.add(currentStep.id);
-      continue;
-    }
-
-  // Resolve placeholders in args
-  const { resolved: resolvedArgs } = resolvePlaceholders(currentStep.args, stepResults);
+    // Resolve placeholders in args
+    const { resolved: resolvedArgs } = resolvePlaceholders(currentStep.args, stepResults);
 
     // Implicit fan-out: if args still reference a base step id (e.g., "$step-02.*")
     // and only child commits like step-02-0/1 exist, expand one send per child.
@@ -480,8 +487,7 @@ export const executor: Node<RunState, RunEventBus> = async (s, eventBus) => {
     //    c. Wait for user to approve via API endpoint
     //    d. Resume execution with approvedSteps in ctx.meta
     // ──────────────────────────────────────────────────────────────────────────
-    const isHighRisk = tool?.risk === 'high';
-    if (!isChat && isHighRisk && !isApprovedStep(currentStep.id)) {
+    if (!isChat && isHighRisk && !isApprovedStep(currentStep.id, isHighRisk)) {
       console.log(`[executor] High-risk tool detected: ${currentStep.tool} (step: ${currentStep.id}). Requesting approval...`);
       
       // Surface approval-needed to subscribers with step details

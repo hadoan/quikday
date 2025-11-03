@@ -99,16 +99,30 @@ const isEmail = (v?: string) =>
   typeof v === 'string' && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v.trim());
 
 
-/** Wire ids & naïve linear dependsOn; assign simple risk */
+/** 
+ * Wire ids & naïve linear dependsOn; assign risk from tool registry.
+ * 
+ * Risk Level Assignment:
+ * - Reads the `risk` property from the tool definition in the registry
+ * - Falls back to 'low' if tool not found or risk not defined
+ * - This ensures the plan accurately reflects the tool's actual risk level
+ */
 function finalizeSteps(steps: Omit<PlanStep, 'id' | 'risk' | 'dependsOn'>[]): PlanStep[] {
   return steps.map((st, i) => {
     const id = sid(i + 1);
     const dependsOn = i === 0 ? [] : [sid(i)];
-    const risk =
-      st.tool === 'calendar.createEvent' ||
-      (typeof st.tool === 'string' && st.tool.endsWith('_write'))
-        ? 'high'
-        : 'low';
+    
+    // Get risk level from tool registry instead of hardcoding
+    let risk: 'low' | 'high' = 'low'; // default
+    try {
+      const tool = registry.get(st.tool);
+      if (tool?.risk) {
+        risk = tool.risk;
+      }
+    } catch (err) {
+      console.warn(`[planner] Could not get risk for tool ${st.tool}:`, err);
+    }
+    
     return { id, dependsOn, risk, ...st };
   });
 }

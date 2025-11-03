@@ -24,7 +24,6 @@ export class InMemoryEventBus implements RunEventBus {
     event: Omit<RunEvent, 'runId' | 'ts' | 'id' | 'origin'>,
     channel: PubSubChannel,
   ): Promise<void> {
-    this.logger.debug({ msg: 'publish called', runId, event, channel });
     const full: RunEvent = {
       ...event,
       id: randomUUID(),
@@ -38,7 +37,6 @@ export class InMemoryEventBus implements RunEventBus {
     const globalKey = this.keyFor('*', channel);
     const globalSet = this.handlers.get(globalKey);
     if ((!set || set.size === 0) && (!globalSet || globalSet.size === 0)) {
-      this.logger.debug({ msg: 'no handlers for run+channel', runId, channel });
       return;
     }
     // Dedupe: compute a simple fingerprint of type + payload to avoid
@@ -56,12 +54,6 @@ export class InMemoryEventBus implements RunEventBus {
       }
       const last = map.get(fp);
       if (last && now - last < this.DEDUPE_WINDOW_MS) {
-        this.logger.debug({
-          msg: 'skipping duplicate event (deduped)',
-          runId,
-          channel,
-          type: full.type,
-        });
         return;
       }
       map.set(fp, now);
@@ -71,34 +63,13 @@ export class InMemoryEventBus implements RunEventBus {
       }
     } catch (e) {
       // if fingerprinting fails for any reason, continue without dedupe
-      this.logger.debug({
-        msg: 'event fingerprinting failed, skipping dedupe',
-        err: (e as Error).message,
-      });
     }
-    // Helpful debug: how many handlers/subscribers will receive this event
-    const count = (set?.size ?? 0) + (globalSet?.size ?? 0);
-    this.logger.debug({ msg: 'handlers count', runId, channel, count });
     // Deliver to specific and global subscribers
     const deliver = async (map?: Map<string, (e: RunEvent) => void>) => {
       if (!map) return;
       for (const [subId, h] of Array.from(map.entries())) {
         try {
-          this.logger.debug({
-            msg: 'delivering event to handler',
-            runId,
-            channel,
-            handlerId: subId,
-            event: full,
-          });
           await Promise.resolve().then(() => h(full));
-          this.logger.verbose({
-            msg: 'handler delivered',
-            runId,
-            channel,
-            handlerId: subId,
-            eventId: full.id,
-          });
         } catch (e) {
           const err = e as Error;
           this.logger.error(
@@ -130,27 +101,12 @@ export class InMemoryEventBus implements RunEventBus {
     const base = opts?.label || (handler as any)?.name || 'subscriber';
     const subId = `${base}-${randomUUID().slice(0, 8)}`;
     map.set(subId, handler);
-    this.logger.debug({
-      msg: 'handler subscribed',
-      runId,
-      channel: channel,
-      subscriberId: subId,
-      totalHandlers: map.size,
-    });
     return () => {
       const m = this.handlers.get(key);
       if (!m) return;
       m.delete(subId);
-      this.logger.debug({
-        msg: 'handler unsubscribed',
-        runId,
-        channel: channel,
-        subscriberId: subId,
-        remaining: m.size,
-      });
       if (m.size === 0) {
         this.handlers.delete(key);
-        this.logger.verbose({ msg: 'no handlers remain for run, key deleted', runId });
       }
     };
   }
