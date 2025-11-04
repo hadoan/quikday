@@ -319,6 +319,8 @@ model Template {
     kind         String
     label        String
     sampleText   String
+    icon         String?  // SVG icon as string
+    category     String?  // e.g., "triage", "follow-ups", "meeting-prep", etc.
     variables    Json?
     locale       String   @default("en")
     isDefault    Boolean  @default(false)

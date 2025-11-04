@@ -665,6 +665,8 @@ const Index = () => {
 
   const handleSelectRun = (runId: string) => {
     setActiveRunId(runId);
+    // Clear questions when switching runs to avoid showing old questions
+    setQuestions([]);
     // Hide loading spinner when switching runs
     setIsWaitingForResponse(false);
   };
@@ -738,6 +740,7 @@ const Index = () => {
             {/** Questions panel (planner missing-info) */}
             {questions.length > 0 && (
               <QuestionsPanel
+                key={activeRunId} // Force remount for each new run
                 runId={activeRunId}
                 questions={questions}
                 onSubmitted={() => {

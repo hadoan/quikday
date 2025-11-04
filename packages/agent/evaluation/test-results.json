@@ -1,0 +1,347 @@
+[
+  {
+    "id": "schedule-basic",
+    "input": "Schedule a call with jane@acme.com tomorrow at 3pm for 30 minutes",
+    "success": false,
+    "error": "401 Incorrect API key provided: sk-proj-********************************************************************************************************************************************************_hgA. You can find your API key at https://platform.openai.com/account/api-keys.",
+    "domains": [
+      "calendar"
+    ],
+    "promptLength": 0,
+    "duration": 258
+  },
+  {
+    "id": "email-followup-draft",
+    "input": "Draft follow-up emails for no-reply threads from the last 7 days",
+    "success": false,
+    "error": "401 Incorrect API key provided: sk-proj-********************************************************************************************************************************************************_hgA. You can find your API key at https://platform.openai.com/account/api-keys.",
+    "domains": [
+      "email"
+    ],
+    "promptLength": 0,
+    "duration": 133
+  },
+  {
+    "id": "social-missing-content",
+    "input": "Post to LinkedIn about our new feature",
+    "success": false,
+    "error": "401 Incorrect API key provided: sk-proj-********************************************************************************************************************************************************_hgA. You can find your API key at https://platform.openai.com/account/api-keys.",
+    "domains": [
+      "social"
+    ],
+    "promptLength": 0,
+    "duration": 141
+  },
+  {
+    "id": "email-triage-complex",
+    "input": "Give me a 10-minute triage of priority emails and create quick-reply drafts (max 8)",
+    "success": false,
+    "error": "401 Incorrect API key provided: sk-proj-********************************************************************************************************************************************************_hgA. You can find your API key at https://platform.openai.com/account/api-keys.",
+    "domains": [
+      "email"
+    ],
+    "promptLength": 0,
+    "duration": 134
+  },
+  {
+    "id": "calendar-availability",
+    "input": "Check my availability for a 1-hour meeting next Tuesday",
+    "success": false,
+    "error": "401 Incorrect API key provided: sk-proj-********************************************************************************************************************************************************_hgA. You can find your API key at https://platform.openai.com/account/api-keys.",
+    "domains": [
+      "calendar"
+    ],
+    "promptLength": 0,
+    "duration": 229
+  },
+  {
+    "id": "slack-message",
+    "input": "Send a message to #engineering about the deployment",
+    "success": false,
+    "error": "401 Incorrect API key provided: sk-proj-********************************************************************************************************************************************************_hgA. You can find your API key at https://platform.openai.com/account/api-keys.",
+    "domains": [
+      "email",
+      "messaging"
+    ],
+    "promptLength": 0,
+    "duration": 195
+  },
+  {
+    "id": "multi-domain",
+    "input": "Schedule a meeting with John tomorrow at 2pm and DM him the meeting link on Slack",
+    "success": false,
+    "error": "401 Incorrect API key provided: sk-proj-********************************************************************************************************************************************************_hgA. You can find your API key at https://platform.openai.com/account/api-keys.",
+    "domains": [
+      "calendar",
+      "messaging"
+    ],
+    "promptLength": 0,
+    "duration": 290
+  },
+  {
+    "id": "triage-quick-reply",
+    "input": "Give me a 10-minute triage of priority emails and create quick-reply drafts (max 8)",
+    "success": false,
+    "error": "401 Incorrect API key provided: sk-proj-********************************************************************************************************************************************************_hgA. You can find your API key at https://platform.openai.com/account/api-keys.",
+    "domains": [
+      "email"
+    ],
+    "promptLength": 0,
+    "duration": 193
+  },
+  {
+    "id": "inbox-sprint",
+    "input": "Run a 15-minute inbox sprint: archive newsletters, snooze low-priority items for 3d, and surface actionables (max 12)",
+    "success": false,
+    "error": "401 Incorrect API key provided: sk-proj-********************************************************************************************************************************************************_hgA. You can find your API key at https://platform.openai.com/account/api-keys.",
+    "domains": [
+      "email"
+    ],
+    "promptLength": 0,
+    "duration": 147
+  },
+  {
+    "id": "time-sensitive-threads",
+    "input": "Show top 10 time-sensitive threads from the last 3 days and draft concise replies",
+    "success": false,
+    "error": "401 Incorrect API key provided: sk-proj-********************************************************************************************************************************************************_hgA. You can find your API key at https://platform.openai.com/account/api-keys.",
+    "domains": [
+      "email"
+    ],
+    "promptLength": 0,
+    "duration": 171
+  },
+  {
+    "id": "no-reply-sweep-polite",
+    "input": "Sweep my sent threads with no reply from the last 14 days and draft polite nudges (tone polite)",
+    "success": false,
+    "error": "401 Incorrect API key provided: sk-proj-********************************************************************************************************************************************************_hgA. You can find your API key at https://platform.openai.com/account/api-keys.",
+    "domains": [
+      "email"
+    ],
+    "promptLength": 0,
+    "duration": 142
+  },
+  {
+    "id": "starred-followup",
+    "input": "Find starred threads older than 7 days without response and draft follow-ups (max 15)",
+    "success": false,
+    "error": "401 Incorrect API key provided: sk-proj-********************************************************************************************************************************************************_hgA. You can find your API key at https://platform.openai.com/account/api-keys.",
+    "domains": [
+      "email"
+    ],
+    "promptLength": 0,
+    "duration": 183
+  },
+  {
+    "id": "scheduled-nudge",
+    "input": "For follow-ups I send today, schedule a second nudge in 3d if no reply",
+    "success": false,
+    "error": "401 Incorrect API key provided: sk-proj-********************************************************************************************************************************************************_hgA. You can find your API key at https://platform.openai.com/account/api-keys.",
+    "domains": [
+      "email",
+      "calendar"
+    ],
+    "promptLength": 0,
+    "duration": 142
+  },
+  {
+    "id": "meeting-prep-onepager",
+    "input": "Prepare a one-pager for my 3pm meeting with Acme Corp using related recent emails; add 3 talking points",
+    "success": false,
+    "error": "401 Incorrect API key provided: sk-proj-********************************************************************************************************************************************************_hgA. You can find your API key at https://platform.openai.com/account/api-keys.",
+    "domains": [
+      "email",
+      "calendar"
+    ],
+    "promptLength": 0,
+    "duration": 166
+  },
+  {
+    "id": "meeting-recap-reminder",
+    "input": "Draft a recap for the last meeting with john@acme.com and add a follow-up reminder in 3d on my calendar",
+    "success": false,
+    "error": "401 Incorrect API key provided: sk-proj-********************************************************************************************************************************************************_hgA. You can find your API key at https://platform.openai.com/account/api-keys.",
+    "domains": [
+      "email",
+      "calendar"
+    ],
+    "promptLength": 0,
+    "duration": 134
+  },
+  {
+    "id": "pre-meeting-emails",
+    "input": "For my next 24 hours of meetings, draft quick \"see you soon\" emails with agenda bullets to all attendees",
+    "success": false,
+    "error": "401 Incorrect API key provided: sk-proj-********************************************************************************************************************************************************_hgA. You can find your API key at https://platform.openai.com/account/api-keys.",
+    "domains": [
+      "email",
+      "calendar"
+    ],
+    "promptLength": 0,
+    "duration": 175
+  },
+  {
+    "id": "propose-slots",
+    "input": "From my availability over the next 7 days, propose 3 30-min slots and draft a scheduling email to jane@startup.io",
+    "success": false,
+    "error": "401 Incorrect API key provided: sk-proj-********************************************************************************************************************************************************_hgA. You can find your API key at https://platform.openai.com/account/api-keys.",
+    "domains": [
+      "email"
+    ],
+    "promptLength": 0,
+    "duration": 174
+  },
+  {
+    "id": "conflict-detection",
+    "input": "Detect conflicts in the next 5 days and draft reschedule emails with 2 alternatives",
+    "success": false,
+    "error": "401 Incorrect API key provided: sk-proj-********************************************************************************************************************************************************_hgA. You can find your API key at https://platform.openai.com/account/api-keys.",
+    "domains": [
+      "email",
+      "calendar"
+    ],
+    "promptLength": 0,
+    "duration": 132
+  },
+  {
+    "id": "focus-blocks",
+    "input": "Create calendar focus blocks tomorrow for top actionable threads (max 5) with 30m each; link emails in description",
+    "success": false,
+    "error": "401 Incorrect API key provided: sk-proj-********************************************************************************************************************************************************_hgA. You can find your API key at https://platform.openai.com/account/api-keys.",
+    "domains": [
+      "email",
+      "calendar"
+    ],
+    "promptLength": 0,
+    "duration": 132
+  },
+  {
+    "id": "daily-digest",
+    "input": "Every weekday at 08:45, send a digest of today's meetings, hot emails, and pending follow-ups (max 8)",
+    "success": false,
+    "error": "401 Incorrect API key provided: sk-proj-********************************************************************************************************************************************************_hgA. You can find your API key at https://platform.openai.com/account/api-keys.",
+    "domains": [
+      "email",
+      "calendar"
+    ],
+    "promptLength": 0,
+    "duration": 134
+  },
+  {
+    "id": "weekly-summary",
+    "input": "Each Mon at 09:00, summarize key threads from last week, this week's meetings, and suggested follow-ups",
+    "success": false,
+    "error": "401 Incorrect API key provided: sk-proj-********************************************************************************************************************************************************_hgA. You can find your API key at https://platform.openai.com/account/api-keys.",
+    "domains": [
+      "email",
+      "calendar"
+    ],
+    "promptLength": 0,
+    "duration": 134
+  },
+  {
+    "id": "action-items-reminders",
+    "input": "Extract action items from the last 3 days of starred threads and add calendar reminders across 3d",
+    "success": false,
+    "error": "401 Incorrect API key provided: sk-proj-********************************************************************************************************************************************************_hgA. You can find your API key at https://platform.openai.com/account/api-keys.",
+    "domains": [
+      "calendar"
+    ],
+    "promptLength": 0,
+    "duration": 160
+  },
+  {
+    "id": "smart-rsvp",
+    "input": "For invites in the last 7 days, draft RSVP emails based on my calendar availability; accept if free, propose alt slots if busy",
+    "success": false,
+    "error": "401 Incorrect API key provided: sk-proj-********************************************************************************************************************************************************_hgA. You can find your API key at https://platform.openai.com/account/api-keys.",
+    "domains": [
+      "email",
+      "calendar"
+    ],
+    "promptLength": 0,
+    "duration": 135
+  },
+  {
+    "id": "meeting-confirmation",
+    "input": "Confirm the Product Review meeting on Nov 15 at 2pm with location Building A, Room 301 and attach a brief agenda",
+    "success": false,
+    "error": "401 Incorrect API key provided: sk-proj-********************************************************************************************************************************************************_hgA. You can find your API key at https://platform.openai.com/account/api-keys.",
+    "domains": [
+      "calendar"
+    ],
+    "promptLength": 0,
+    "duration": 489
+  },
+  {
+    "id": "ooo-setup",
+    "input": "Set an out-of-office from Dec 20 to Dec 27 with this message: \"On vacation, will respond Jan 2\". Draft a heads-up to my top contacts",
+    "success": false,
+    "error": "401 Incorrect API key provided: sk-proj-********************************************************************************************************************************************************_hgA. You can find your API key at https://platform.openai.com/account/api-keys.",
+    "domains": [
+      "email",
+      "messaging"
+    ],
+    "promptLength": 0,
+    "duration": 174
+  },
+  {
+    "id": "focus-time-autoreplies",
+    "input": "During Mon–Fri 13:00–15:00, auto-draft \"in focus time\" replies and suggest booking links from my calendar",
+    "success": false,
+    "error": "401 Incorrect API key provided: sk-proj-********************************************************************************************************************************************************_hgA. You can find your API key at https://platform.openai.com/account/api-keys.",
+    "domains": [
+      "email",
+      "calendar"
+    ],
+    "promptLength": 0,
+    "duration": 236
+  },
+  {
+    "id": "calendar-hygiene",
+    "input": "Review next 14 days: flag double-bookings, remove declined events, and add buffers of 10m around back-to-backs",
+    "success": false,
+    "error": "401 Incorrect API key provided: sk-proj-********************************************************************************************************************************************************_hgA. You can find your API key at https://platform.openai.com/account/api-keys.",
+    "domains": [
+      "calendar"
+    ],
+    "promptLength": 0,
+    "duration": 159
+  },
+  {
+    "id": "newsletter-digest",
+    "input": "Collect newsletters from the last 7 days into one summary and schedule a single reading block of 20m",
+    "success": false,
+    "error": "401 Incorrect API key provided: sk-proj-********************************************************************************************************************************************************_hgA. You can find your API key at https://platform.openai.com/account/api-keys.",
+    "domains": [
+      "calendar"
+    ],
+    "promptLength": 0,
+    "duration": 205
+  },
+  {
+    "id": "scheduled-replies",
+    "input": "For the top 8 threads today, draft short replies (crisp style) and schedule send for 17:30",
+    "success": false,
+    "error": "401 Incorrect API key provided: sk-proj-********************************************************************************************************************************************************_hgA. You can find your API key at https://platform.openai.com/account/api-keys.",
+    "domains": [
+      "email",
+      "calendar"
+    ],
+    "promptLength": 0,
+    "duration": 131
+  },
+  {
+    "id": "double-optin-intro",
+    "input": "Draft a double-opt-in intro between alice@startup.com and bob@corp.io; schedule a reminder in 5d to follow up",
+    "success": false,
+    "error": "401 Incorrect API key provided: sk-proj-********************************************************************************************************************************************************_hgA. You can find your API key at https://platform.openai.com/account/api-keys.",
+    "domains": [
+      "email",
+      "calendar"
+    ],
+    "promptLength": 0,
+    "duration": 136
+  }
+]

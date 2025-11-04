@@ -253,6 +253,30 @@ packages/agent/prompts/README.md       # Updated documentation
 - **Testing**: ⬆️ Framework in place for regression testing
 - **Flexibility**: ⬆️ Easy to add new domains/versions
 
+## How to Run
+
+### Demo the Modular Prompt System
+
+```bash
+# Run the interactive demo showing all features
+pnpm tsx packages/agent/examples/modular-prompt-demo.ts
+```
+
+This demo shows:
+- Basic prompt compilation
+- Token savings comparison
+- Domain detection
+- Code-based validation
+- Integration policy enforcement
+- JSON repair utilities
+
+### View Golden Utterances
+
+```bash
+# List all test cases
+pnpm tsx packages/agent/evaluation/golden-utterances.ts
+```
+
 ---
 
 **Status**: ✅ Implementation complete, ready for production use and iterative improvement

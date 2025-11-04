@@ -5,6 +5,8 @@ export type Template = {
   kind: string;
   label: string;
   sample_text: string;
+  icon?: string;
+  category?: string;
   variables?: Array<{ key: string; type: string; required?: boolean }>;
   locale: 'en' | 'de';
   is_default?: boolean;

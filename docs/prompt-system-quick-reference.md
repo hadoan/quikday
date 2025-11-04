@@ -140,8 +140,11 @@ And add to golden utterances for testing:
 # View test cases
 pnpm tsx packages/agent/evaluation/golden-utterances.ts
 
+# Run the modular prompt demo
+pnpm tsx packages/agent/examples/modular-prompt-demo.ts
+
 # Run evaluation (once implemented)
-pnpm eval:prompts
+pnpm --filter @quikday/agent eval:prompts
 ```
 
 ### Adding Test Cases
