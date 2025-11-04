@@ -9,7 +9,8 @@ export const EmailReadIn = z.object({
   limit: z.number().int().positive().max(50).default(10),
   from: z.string().optional(),
   to: z.string().optional(),
-  newerThanDays: z.number().int().positive().max(365).optional(),
+  // Accept 0 to represent "today/recent" windows (e.g., last N minutes upstream)
+  newerThanDays: z.number().int().nonnegative().max(365).optional(),
 });
 
 export const EmailReadOut = z.object({

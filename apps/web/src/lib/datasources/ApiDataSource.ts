@@ -138,7 +138,11 @@ export class ApiDataSource implements DataSource {
   connectRunStream(runId: string, onEvent: (evt: UiEvent) => void): { close: () => void } {
     // If the runId looks like a temporary client-generated ID (e.g., `R-<timestamp>`),
     // avoid opening WS/polling until the real backend ID is known to prevent 404 spam.
-    if (/^R-\d{10,}$/.test(runId)) {
+    // If the runId looks like a temporary client-generated ID (e.g., `R-<digits>`),
+    // avoid opening WS/polling until the real backend ID is known to prevent 404 spam.
+    // Accept any number of digits so short dev/test ids like `R-1001` are also
+    // treated as temporary.
+    if (/^R-\d+$/.test(runId)) {
       this.logger.info('Deferring stream connection for temporary runId', { runId });
       return {
         close: () => {
@@ -466,6 +470,18 @@ export class ApiDataSource implements DataSource {
         }
       }
     } catch (err) {
+      // Treat 404 / Run not found as an expected transient condition for
+      // client-side temporary runs (they may be created locally before the
+      // backend has a persisted run). Avoid noisy error logs in that case.
+      try {
+        const e = err as Error;
+        const msg = e.message || '';
+        if (/run not found|404/i.test(msg)) {
+          this.logger.debug('Run not found while polling (will retry)', { runId, message: msg });
+          return;
+        }
+      } catch {}
+
       this.logger.error('Polling error', err as Error);
     }
   }

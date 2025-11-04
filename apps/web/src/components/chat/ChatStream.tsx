@@ -14,6 +14,7 @@ import { LogCard } from '@/components/cards/LogCard';
 import { OutputCard } from '@/components/cards/OutputCard';
 import { UndoCard } from '@/components/cards/UndoCard';
 import { getDataSource, getFeatureFlags } from '@/lib/flags/featureFlags';
+import QuestionsPanel from '@/components/QuestionsPanel';
 
 export function ChatStream({
   runId,
@@ -195,6 +196,20 @@ export function ChatStream({
           return (
             <ChatMessage key={i} role="assistant">
               <LogCard logs={logs} />
+            </ChatMessage>
+          );
+        }
+
+        if (m.type === 'questions') {
+          const qd = (m.data as any) || {};
+          const qs = Array.isArray(qd?.questions) ? (qd.questions as any[]) : [];
+          return (
+            <ChatMessage key={i} role="assistant">
+              <QuestionsPanel
+                runId={runId || ''}
+                questions={qs}
+                onSubmitted={() => {}}
+              />
             </ChatMessage>
           );
         }

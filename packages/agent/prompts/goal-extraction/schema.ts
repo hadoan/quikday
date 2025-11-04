@@ -21,6 +21,7 @@ export const GoalSchema = z.object({
     key: z.string(),
     question: z.string(),
     type: z.string().optional(),
+    options: z.array(z.string()).optional(),
     required: z.boolean().optional(),
   })).optional().describe('Information needed to proceed'),
   

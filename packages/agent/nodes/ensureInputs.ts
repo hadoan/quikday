@@ -55,7 +55,16 @@ export const ensureInputs: Node<RunState, RunEventBus> = async (s, eventBus) => 
     const questions: Question[] = unresolved.map((m: any) => {
       const qt: QuestionType = m.type ? (typeMap[m.type] || 'text') : 'text';
       const label = m.question || `Please provide ${m.key}`;
-      return { key: m.key, question: label, type: qt, required: m.required !== false };
+      const opts = Array.isArray(m.options)
+        ? m.options.filter((o: any) => typeof o === 'string')
+        : undefined;
+      return {
+        key: m.key,
+        question: label,
+        type: qt,
+        required: m.required !== false,
+        options: opts,
+      };
     });
 
     const ts = new Date().toISOString();
@@ -77,4 +86,3 @@ export const ensureInputs: Node<RunState, RunEventBus> = async (s, eventBus) => 
     return { scratch: { ...s.scratch } };
   }
 };
-

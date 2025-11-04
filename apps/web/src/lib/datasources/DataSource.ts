@@ -28,7 +28,15 @@ export type UiStepStatus = 'pending' | 'started' | 'succeeded' | 'failed' | 'ski
 
 export type UiMessageRole = 'user' | 'assistant';
 
-export type UiMessageType = 'plan' | 'run' | 'log' | 'output' | 'undo' | 'config' | 'error';
+export type UiMessageType =
+  | 'plan'
+  | 'run'
+  | 'log'
+  | 'output'
+  | 'undo'
+  | 'config'
+  | 'error'
+  | 'questions';
 
 // ============================================================================
 // Core View Models (mirror current UI props)
@@ -84,6 +92,7 @@ export type UiMessageData =
   | UiOutputData
   | UiUndoData
   | UiConfigData
+  | UiQuestionsData
   | UiErrorData;
 
 export interface UiPlanData {
@@ -120,6 +129,20 @@ export interface UiUndoData {
   available: boolean;
   allowed?: boolean;
   deadline?: string;
+}
+
+export interface UiQuestionItem {
+  key: string;
+  question: string;
+  type?: string;
+  required?: boolean;
+  placeholder?: string;
+  options?: string[];
+}
+
+export interface UiQuestionsData {
+  runId?: string;
+  questions: UiQuestionItem[];
 }
 
 export interface UiConfigData {

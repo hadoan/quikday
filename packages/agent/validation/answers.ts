@@ -78,15 +78,34 @@ export function validateAnswers(
 
         case 'select': {
           const s = asString(v);
-          if (!q.options?.includes(s)) throw new Error('Invalid option');
-          normalized[q.key] = s;
+          if (Array.isArray(q.options) && q.options.length > 0) {
+            const canon: Record<string, string> = Object.fromEntries(
+              q.options.map((opt) => [String(opt).toLowerCase(), String(opt)])
+            );
+            const hit = canon[s.toLowerCase()];
+            if (!hit) throw new Error('Invalid option');
+            normalized[q.key] = hit;
+          } else {
+            normalized[q.key] = s;
+          }
           break;
         }
 
         case 'multiselect': {
           const arr = Array.isArray(v) ? v.map(asString) : [asString(v)];
-          if (!arr.every((x) => q.options?.includes(x))) throw new Error('Invalid option');
-          normalized[q.key] = arr;
+          if (Array.isArray(q.options) && q.options.length > 0) {
+            const canon: Record<string, string> = Object.fromEntries(
+              q.options.map((opt) => [String(opt).toLowerCase(), String(opt)])
+            );
+            const mapped = arr.map((x) => {
+              const hit = canon[x.toLowerCase()];
+              if (!hit) throw new Error('Invalid option');
+              return hit;
+            });
+            normalized[q.key] = mapped;
+          } else {
+            normalized[q.key] = arr;
+          }
           break;
         }
 

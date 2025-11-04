@@ -89,15 +89,29 @@ export function QuestionsPanel({
   const [error, setError] = React.useState<string | null>(null);
   const [fieldErrors, setFieldErrors] = React.useState<Record<string, string | null>>({});
 
+  // Source options from backend; no hardcoded defaults
+  const getOptionsForQuestion = React.useCallback((q: Question): string[] => {
+    return Array.isArray(q.options) ? q.options : [];
+  }, []);
+
   React.useEffect(() => {
     // reset answers when questions change
     const initial: Record<string, unknown> = {};
     const initialFieldErrors: Record<string, string | null> = {};
     questions?.forEach((q) => {
       const t = normalizeType(q.type);
-      if (q.defaultValue !== undefined) initial[q.key] = q.defaultValue;
-      else if (t === 'multiselect' || t === 'email_list') initial[q.key] = [];
-      else initial[q.key] = '';
+      // For select inputs, intentionally start with no selection even if a
+      // defaultValue is provided. This keeps the UI in a "no selection" state
+      // until the user explicitly chooses an option.
+      if (t === 'select') {
+        initial[q.key] = '';
+      } else if (q.defaultValue !== undefined) {
+        initial[q.key] = q.defaultValue;
+      } else if (t === 'multiselect' || t === 'email_list') {
+        initial[q.key] = [];
+      } else {
+        initial[q.key] = '';
+      }
       initialFieldErrors[q.key] = null;
     });
     setAnswers(initial);
@@ -194,11 +208,20 @@ export function QuestionsPanel({
         e.preventDefault();
         setLoading(true);
         setError(null);
-        setFieldErrors((fe) => {
-          const copy: Record<string, string | null> = { ...fe };
-          questions.forEach((q) => (copy[q.key] = validateField(q, answers[q.key])));
-          return copy;
+        // Validate all fields up front and block submit when invalid
+        const newFieldErrors: Record<string, string | null> = {};
+        let hasErrors = false;
+        questions.forEach((q) => {
+          const err = validateField(q, answers[q.key]);
+          newFieldErrors[q.key] = err;
+          if (err) hasErrors = true;
         });
+        setFieldErrors(newFieldErrors);
+
+        if (hasErrors) {
+          setLoading(false);
+          return; // prevent submit when required fields are missing/invalid
+        }
 
         try {
           // normalize answers according to type
@@ -309,10 +332,17 @@ export function QuestionsPanel({
           const err = fieldErrors[q.key];
           const required = q.required !== false;
           const valueStr = value == null ? '' : String(value);
+          const options = getOptionsForQuestion(q);
           return (
             <div key={q.key} className="flex flex-col gap-1">
               <label className="text-sm font-medium">
-                {q.question} {required && <span aria-hidden> *</span>}
+                {q.question}{' '}
+                {required && (
+                  <>
+                    <span aria-hidden className="text-destructive">*</span>
+                    <span className="sr-only"> required</span>
+                  </>
+                )}
               </label>
               {q.rationale && <p className="text-xs text-gray-500">{q.rationale}</p>}
 
@@ -325,6 +355,7 @@ export function QuestionsPanel({
                   onChange={(ev) => setFieldValue(q.key, ev.target.value, q)}
                   disabled={submitted}
                   readOnly={submitted}
+                  aria-required={required}
                 />
               ) : t === 'email' ? (
                 <input
@@ -335,6 +366,7 @@ export function QuestionsPanel({
                   onChange={(ev) => setFieldValue(q.key, ev.target.value, q)}
                   disabled={submitted}
                   readOnly={submitted}
+                  aria-required={required}
                 />
               ) : t === 'email_list' ? (
                 <div>
@@ -384,6 +416,7 @@ export function QuestionsPanel({
                   onChange={(ev) => setFieldValue(q.key, ev.target.value, q)}
                   disabled={submitted}
                   readOnly={submitted}
+                  aria-required={required}
                 />
               ) : t === 'date' ? (
                 <input
@@ -393,6 +426,7 @@ export function QuestionsPanel({
                   onChange={(ev) => setFieldValue(q.key, ev.target.value, q)}
                   disabled={submitted}
                   readOnly={submitted}
+                  aria-required={required}
                 />
               ) : t === 'time' ? (
                 <input
@@ -402,6 +436,7 @@ export function QuestionsPanel({
                   onChange={(ev) => setFieldValue(q.key, ev.target.value, q)}
                   disabled={submitted}
                   readOnly={submitted}
+                  aria-required={required}
                 />
               ) : t === 'number' ? (
                 <input
@@ -414,23 +449,38 @@ export function QuestionsPanel({
                   }
                   disabled={submitted}
                   readOnly={submitted}
+                  aria-required={required}
                 />
               ) : t === 'select' ? (
-                <select
-                  className="border rounded px-2 py-1 disabled:bg-muted disabled:cursor-not-allowed disabled:opacity-75"
-                  value={valueStr}
-                  onChange={(ev) => setFieldValue(q.key, ev.target.value, q)}
-                  disabled={submitted}
-                >
-                  <option value="" disabled>
-                    Select…
-                  </option>
-                  {(q.options ?? []).map((opt) => (
-                    <option key={opt} value={opt}>
-                      {opt}
+                options.length > 0 ? (
+                  <select
+                    className="border rounded px-2 py-1 disabled:bg-muted disabled:cursor-not-allowed disabled:opacity-75"
+                    value={valueStr}
+                    onChange={(ev) => setFieldValue(q.key, ev.target.value, q)}
+                    disabled={submitted}
+                    aria-required={required}
+                  >
+                    <option value="" disabled>
+                      {required ? 'Select… (required)' : 'Select…'}
                     </option>
-                  ))}
-                </select>
+                    {options.map((opt) => (
+                      <option key={opt} value={opt}>
+                        {opt}
+                      </option>
+                    ))}
+                  </select>
+                ) : (
+                  <input
+                    type="text"
+                    className="border rounded px-2 py-1 disabled:bg-muted disabled:cursor-not-allowed disabled:opacity-75"
+                    placeholder={q.placeholder}
+                    value={valueStr}
+                    onChange={(ev) => setFieldValue(q.key, ev.target.value, q)}
+                    disabled={submitted}
+                    readOnly={submitted}
+                    aria-required={required}
+                  />
+                )
               ) : t === 'multiselect' ? (
                 <div className="flex flex-col gap-1">
                   {(q.options ?? []).map((opt) => (
@@ -448,6 +498,7 @@ export function QuestionsPanel({
                           setFieldValue(q.key, current, q);
                         }}
                         disabled={submitted}
+                        aria-required={required}
                       />
                       <span>{opt}</span>
                     </label>
@@ -463,6 +514,7 @@ export function QuestionsPanel({
                   onChange={(ev) => setFieldValue(q.key, ev.target.value, q)}
                   disabled={submitted}
                   readOnly={submitted}
+                  aria-required={required}
                 />
               )}
 

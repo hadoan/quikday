@@ -94,6 +94,28 @@ export const PlanCard = ({ data, onConfirm, onReject, runId }: PlanCardProps) =>
             </ul>
           </div>
 
+          {/* Planned steps detail (if provided) */}
+          {(data.steps && data.steps.length > 0) && (
+            <div className="space-y-2">
+              <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
+                Planned Steps
+              </p>
+              <ol className="space-y-1.5 list-decimal list-inside">
+                {data.steps.map((step) => (
+                  <li key={step.id} className="text-sm">
+                    <span className="font-medium">{step.tool}</span>
+                    {step.action && <span className="text-muted-foreground"> — {step.action}</span>}
+                    {step.inputsPreview && (
+                      <div className="text-xs text-muted-foreground mt-0.5 truncate">
+                        {step.inputsPreview}
+                      </div>
+                    )}
+                  </li>
+                ))}
+              </ol>
+            </div>
+          )}
+
           {/* Show steps that need credentials installed */}
           {hasMissingCredentials && (
             <div className="space-y-2 pt-2 border-t">

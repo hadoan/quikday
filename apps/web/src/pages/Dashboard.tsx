@@ -48,8 +48,11 @@ export default function DashboardPage() {
   };
 
   const prefillPush = (text: string) => {
+    // Start a new chat when navigating from templates so we don't reuse an
+    // existing active run. The chat page will look for `startNew` and create
+    // a fresh run when present.
     const msg = stripControls(text || '').slice(0, 2000);
-    navigate(`/chat?prefill=${encodeURIComponent(msg)}`);
+    navigate(`/chat?prefill=${encodeURIComponent(msg)}&startNew=1`);
   };
 
   const onCreateTemplate = async () => {

@@ -10,4 +10,5 @@ export const FORMAT_RULES_V1 = [
   '- For emails: validate format or mark as missing',
   '- For numbers: extract numeric values only',
   '- For arrays: use proper JSON array syntax',
+  '- For select/multiselect: include an "options" string array of allowed values; do not set defaults',
 ].join('\n');

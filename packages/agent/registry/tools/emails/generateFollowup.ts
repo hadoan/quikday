@@ -13,10 +13,11 @@ export const EmailGenerateFollowupIn = z.object({
   originalSubject: z.string().describe('Original email subject'),
   originalSnippet: z.string().describe('Snippet or preview of original email'),
   recipient: z.string().describe('Recipient email address'),
-  tone: z
-    .enum(['polite', 'friendly', 'professional'])
-    .default('polite')
-    .describe('Tone of the follow-up email'),
+  // Be flexible on casing from upstream (e.g., "Friendly" → "friendly")
+  tone: z.preprocess(
+    (v) => (typeof v === 'string' ? v.toLowerCase() : v),
+    z.enum(['polite', 'friendly', 'professional']).default('polite'),
+  ).describe('Tone of the follow-up email'),
 });
 
 export const EmailGenerateFollowupOut = z.object({

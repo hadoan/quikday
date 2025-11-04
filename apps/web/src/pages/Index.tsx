@@ -336,17 +336,12 @@ const Index = () => {
                   event.runId === activeRunId
                 ) {
                   const qs = (payload.questions as any[]) || [];
-                  // Save questions to the active run object so UI can render them inline
-                  setRuns((prevRuns) =>
-                    prevRuns.map((r) =>
-                      r.id === activeRunId
-                        ? { ...r, status: 'awaiting_input', awaitingQuestions: qs }
-                        : r,
-                    ),
-                  );
-
-                  // Also set the local questions state (used by QuestionsPanel currently)
-                  setQuestions(qs as any);
+                  // Persist questions as an inline chat message so it stays in place
+                  newMessages.push({
+                    role: 'assistant',
+                    type: 'questions',
+                    data: { runId: activeRunId, questions: qs } as any,
+                  });
                 }
               } catch (e) {
                 // ignore
@@ -644,6 +639,26 @@ const Index = () => {
     setIsWaitingForResponse(false);
   };
 
+  // If navigated with ?startNew=1 (from Dashboard template 'Try this'), start a
+  // fresh run so we don't reuse an existing active run. We also strip the
+  // query param from the URL afterwards to avoid re-creating on reload.
+  useEffect(() => {
+    try {
+      const sp = new URLSearchParams(location.search);
+      const v = sp.get('startNew') || sp.get('startnew');
+      if (v === '1' || v === 'true') {
+        handleNewTask();
+        // Remove the param so refresh doesn't recreate
+        const url = new URL(window.location.href);
+        url.searchParams.delete('startNew');
+        url.searchParams.delete('startnew');
+        window.history.replaceState({}, '', url.toString());
+      }
+    } catch (e) {
+      // ignore
+    }
+  }, [location.search]);
+
   const handleViewProfile = () => {
     console.log('View profile');
     // Navigate to profile page
@@ -737,18 +752,7 @@ const Index = () => {
                 <span className="text-sm">Processing your request...</span>
               </div>
             )}
-            {/** Questions panel (planner missing-info) */}
-            {questions.length > 0 && (
-              <QuestionsPanel
-                key={activeRunId} // Force remount for each new run
-                runId={activeRunId}
-                questions={questions}
-                onSubmitted={() => {
-                  // Keep questions visible in read-only mode after submission
-                  // Don't clear the questions array
-                }}
-              />
-            )}
+            {/** Questions are now rendered inline within ChatStream as a message */}
             <div ref={bottomRef} />
           </div>
         </ScrollArea>
