@@ -223,12 +223,16 @@ export class RunsService {
     sortDir?: 'asc' | 'desc';
   }) {
     const teamId = this.current.getCurrentTeamId();
-    const userId = this.current.getCurrentUserId();
-    if (!userId) throw new UnauthorizedException('Not authenticated');
-    const numericUserId = Number(userId);
-    if (!Number.isFinite(numericUserId)) {
-      throw new UnauthorizedException('Invalid user id');
+    const userSub = this.current.getCurrentUserSub(); // This is the Kinde sub ID (string)
+    console.log('[RunsService.list] Retrieved from ALS:', { userId: userSub, teamId });
+    if (!userSub) throw new UnauthorizedException('Not authenticated');
+    
+    // Look up the user by their Kinde sub to get the numeric database ID
+    const user = await this.prisma.user.findUnique({ where: { sub: userSub } });
+    if (!user) {
+      throw new UnauthorizedException('User not found in database. Please ensure user sync completed.');
     }
+    const numericUserId = user.id;
 
     const page = Math.max(1, Number(params.page ?? 1));
     const pageSize = Math.min(100, Math.max(1, Number(params.pageSize ?? 25)));
@@ -358,9 +362,9 @@ export class RunsService {
     });
 
     // Require ALS-based context for enqueue (works in HTTP/WS; for background callers, construct ctx explicitly)
-    const userId = this.current.getCurrentUserId();
+    const userSub = this.current.getCurrentUserSub();
     const teamId = this.current.getCurrentTeamId();
-    if (!userId) throw new UnauthorizedException('Not authenticated.');
+    if (!userSub) throw new UnauthorizedException('Not authenticated.');
     // if (!teamId && run.teamId) throw new ForbiddenException('Team context is required.');
 
     // Clone ALS ctx to ensure serializable payload, and append runId for traceability
@@ -816,12 +820,13 @@ export class RunsService {
     const run = await this.prisma.run.findUnique({ where: { id: runId } });
     if (!run) throw new NotFoundException('Run not found');
 
-    const userId = this.current.getCurrentUserId();
-    if (!userId) throw new UnauthorizedException('Not authenticated');
+    const userSub = this.current.getCurrentUserSub();
+    if (!userSub) throw new UnauthorizedException('Not authenticated');
     
-    const numericUserId = Number(userId);
-    if (!Number.isFinite(numericUserId)) {
-      throw new UnauthorizedException('Invalid user id');
+    // Look up the user in the database by Kinde sub field
+    const user = await this.prisma.user.findFirst({ where: { sub: userSub } });
+    if (!user) {
+      throw new UnauthorizedException('User not found in database');
     }
 
     const steps = await this.prisma.step.findMany({ where: { runId } });
@@ -832,7 +837,7 @@ export class RunsService {
         if (s.appId && (s.credentialId === null || s.credentialId === undefined)) {
           const { credentialId } = await this.stepsService.reResolveAppAndCredential(
             s.tool,
-            numericUserId,
+            user.id,
           );
           if (credentialId) {
             await this.prisma.step.update({ where: { id: s.id }, data: { credentialId } });

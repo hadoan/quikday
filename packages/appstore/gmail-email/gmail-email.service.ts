@@ -167,7 +167,7 @@ export class GmailEmailService implements EmailService {
   }
 
   async send(draft: DraftInput, opts?: SendOptions) {
-    const currentUserId = this.currentUserService.getCurrentUserId();
+    const currentUserId = this.currentUserService.getCurrentUserSub();
     if (!currentUserId) throw new Error('No current user in context');
 
     // Resolve numeric userId: if currentUserId is a non-numeric string, treat as external "sub"
@@ -361,7 +361,7 @@ export class GmailEmailService implements EmailService {
     credentialId: number;
     email?: string;
   }> {
-    const currentUserId = this.currentUserService.getCurrentUserId();
+    const currentUserId = this.currentUserService.getCurrentUserSub();
     if (!currentUserId) throw new Error('No current user in context');
 
     let userId: number | null = null;

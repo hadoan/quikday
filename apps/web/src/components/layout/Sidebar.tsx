@@ -83,21 +83,32 @@ export const Sidebar = ({
           <div className="p-4 border-b border-sidebar-border">
             <Button
               variant="ghost"
+              className="w-full justify-start gap-2 mt-1.5"
+              size="sm"
+              onClick={() => navigate('/dashboard')}
+            >
+              <Zap className="h-4 w-4" />
+              Dashboard
+            </Button>
+
+            <Button
+              variant="ghost"
+              className="w-full justify-start gap-2"
+              size="sm"
+              onClick={() => navigate('/chat')}
+            >
+              <MessageSquare className="h-4 w-4" />
+              Chat
+            </Button>
+
+            <Button
+              variant="ghost"
               className="w-full justify-start gap-2"
               size="sm"
               onClick={() => navigate('/apps')}
             >
               <Grid className="h-4 w-4" />
               Apps
-            </Button>
-            <Button
-              variant="ghost"
-              className="w-full justify-start gap-2 mt-1.5"
-              size="sm"
-              onClick={() => navigate('/chat')}
-            >
-              <MessageSquare className="h-4 w-4" />
-              Chat
             </Button>
           </div>
           <div className="p-4 space-y-2 border-b border-sidebar-border">

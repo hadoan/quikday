@@ -64,6 +64,13 @@ export class KindeGuard implements CanActivate {
 
     let payload: any;
     try {
+      console.log('[KindeGuard] Verifying token with:', {
+        audience: this.config.env.KINDE_AUDIENCE,
+        issuer: this.config.normalizedIssuer,
+        jwksUri: this.config.jwksUri,
+        hasClient: !!this.client,
+      });
+      
       payload = await new Promise((resolve, reject) => {
         jwt.verify(
           token,
@@ -74,7 +81,15 @@ export class KindeGuard implements CanActivate {
             algorithms: ['RS256'],
             clockTolerance: 5, // seconds of leeway to reduce edge expiries
           },
-          (err: any, decoded: any) => (err ? reject(err) : resolve(decoded))
+          (err: any, decoded: any) => {
+            if (err) {
+              console.error('[KindeGuard] JWT verification failed:', err.message, err.name);
+              reject(err);
+            } else {
+              console.log('[KindeGuard] JWT verification succeeded');
+              resolve(decoded);
+            }
+          }
         );
       });
     } catch (err: any) {
@@ -82,6 +97,7 @@ export class KindeGuard implements CanActivate {
         // Normalize to 401 with a stable message that frontend can detect and refresh
         throw new UnauthorizedException('jwt expired');
       }
+      console.error('[KindeGuard] Throwing error:', err);
       throw err;
     }
     req.user = payload;
@@ -92,7 +108,7 @@ export class KindeGuard implements CanActivate {
         : typeof (payload as any)?.scope === 'string'
           ? ((payload as any).scope as string).split(' ')
           : [];
-      CurrentUserALS.enterWith({
+      const alsContext = {
         userId: (payload as any)?.sub ?? null,
         teamId: (payload as any)?.teamId ?? req.header('x-team-id') ?? null,
         scopes,
@@ -100,8 +116,11 @@ export class KindeGuard implements CanActivate {
         traceId: req.header('x-trace-id') ?? undefined,
         runId: req.header('x-run-id') ?? undefined,
         tz: (payload as any)?.tz ?? req.header('x-tz') ?? 'Europe/Berlin',
-      } as any);
-    } catch {
+      } as any;
+      console.log('[KindeGuard] Setting ALS context:', { userId: alsContext.userId, teamId: alsContext.teamId });
+      CurrentUserALS.enterWith(alsContext);
+    } catch (err) {
+      console.error('[KindeGuard] Failed to set ALS context:', err);
       // best-effort; do not block request on ALS issues
     }
     return true;

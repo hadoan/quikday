@@ -165,16 +165,11 @@ export class GoogleCalendarProviderService implements CalendarService {
     credentialId: number;
   }> {
     // Pull from ALS first to avoid undefined when invoked from background jobs
-    const current = currentUser.getCurrentUserId();
+    const current = currentUser.getCurrentUserSub();
     if (!current) throw new Error('No current user in context');
-    let userId: number | null = null;
-    if (/^\d+$/.test(current)) {
-      userId = Number(current);
-    } else {
-      const user = await prisma.user.findUnique({ where: { sub: current } });
-      if (!user) throw new Error('User not found for provided subject');
-      userId = user.id;
-    }
+    const user = await prisma.user.findUnique({ where: { sub: current } });
+    if (!user) throw new Error('User not found for provided subject');
+    const userId = user.id;
 
     const credential = await prisma.credential.findFirst({
       where: { userId, appId: 'google-calendar', invalid: false },

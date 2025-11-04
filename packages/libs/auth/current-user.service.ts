@@ -5,7 +5,7 @@ import { getCurrentUserCtx } from './current-user.als.js';
 
 @Injectable()
 export class CurrentUserService implements ICurrentUserService {
-  getCurrentUserId(): string | null {
+  getCurrentUserSub(): string | null {
     return getCurrentUserCtx().userId;
   }
   getCurrentTeamId(): string | null {

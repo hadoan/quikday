@@ -49,14 +49,41 @@ export function useRunsQuery(params: {
       const headers = new Headers({ 'Content-Type': 'application/json' });
       try {
         const provider = getAccessTokenProvider();
+        console.log('[useRuns] Token provider:', provider ? 'exists' : 'missing');
         const tokenOrPromise = provider?.();
         const token = tokenOrPromise instanceof Promise ? await tokenOrPromise : tokenOrPromise;
-        if (token) headers.set('Authorization', `Bearer ${token}`);
-      } catch {
+        console.log('[useRuns] Token retrieved:', token ? `${token.substring(0, 20)}... (length: ${token.length})` : 'none');
+        
+        // Decode JWT payload to debug
+        if (token) {
+          try {
+            const parts = token.split('.');
+            console.log('[useRuns] Token parts count:', parts.length, 'expected: 3');
+            if (parts.length >= 2) {
+              const payload = JSON.parse(atob(parts[1].replace(/-/g, '+').replace(/_/g, '/')));
+              console.log('[useRuns] Token payload:', {
+                aud: payload.aud,
+                iss: payload.iss,
+                exp: payload.exp,
+                expDate: new Date(payload.exp * 1000).toISOString(),
+                sub: payload.sub,
+              });
+            }
+          } catch (decodeErr) {
+            console.error('[useRuns] Failed to decode token:', decodeErr);
+          }
+          headers.set('Authorization', `Bearer ${token}`);
+        }
+      } catch (err) {
+        console.error('[useRuns] Failed to get token:', err);
         // best-effort; proceed without token
       }
-      const res = await fetch(url, { headers });
-      if (!res.ok) throw new Error(`Failed to fetch runs: ${res.status}`);
+      console.log('[useRuns] Fetching:', url);
+      const res = await fetch(url, { headers, credentials: 'include' });
+      if (!res.ok) {
+        console.error('[useRuns] Fetch failed:', res.status, res.statusText);
+        throw new Error(`Failed to fetch runs: ${res.status}`);
+      }
       const data = (await res.json()) as RunsListResponse;
       return data;
     },
