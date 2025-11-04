@@ -1,13 +1,13 @@
 **Agent Graph Overview**
 
-- Purpose: Orchestrates an LLM-driven workflow to classify intent, collect any missing inputs, plan tool calls, execute them, and summarize results.
+- Purpose: Orchestrates an LLM-driven workflow to extract user goals, identify missing inputs based on tool schemas, plan tool calls, execute them, and summarize results.
 - Runtime: A lightweight directed graph with typed nodes and shallow state merges.
 
 **State Model**
 
 - scratch: Ephemeral working memory used by nodes to coordinate logic.
-  - Keys: `intent`, `intentMeta`, `plan`, `awaiting`, etc.
-  - Missing-input flow: `intentMeta.inputs`, `intentMeta.inputValues`, `intentMeta.missingInputs` (populated by classify).
+  - Keys: `goal`, `plan`, `awaiting`, `answers`, etc.
+  - Goal-oriented flow: `goal.outcome`, `goal.provided`, `goal.missing` (extracted by extractGoal, validated by planner).
 - output: User-facing result that the API/UI consume and persist.
   - Keys: `summary`, `diff`, `commits`, `undo`, and `awaiting` for input prompts.
 - Files: packages/agent/state/types.ts
@@ -16,35 +16,50 @@
 
 - Build: packages/agent/buildMainGraph.ts
 - Nodes:
-  - classify → planner → confirm → executor → summarize → END
+  - extractGoal → planner → [ensure_inputs] → confirm → executor → summarize → END
   - fallback is used when errors occur in executor.
 - Edges (simplified):
-  - START → `classify`
-  - `classify` → `planner`
-  - `planner` → `confirm`
-  - `confirm` → `END` if `scratch.awaiting` is set; otherwise `executor`
+  - START → `extractGoal`
+  - `extractGoal` → `planner`
+  - `planner` → `ensure_inputs` if missing required inputs; else proceeds based on mode
+  - `planner` → `confirm` (AUTO mode with complete inputs)
+  - `planner` → `END` (PREVIEW or APPROVAL mode)
+  - `ensure_inputs` → `END` if `scratch.awaiting` is set; else `planner` (re-plan with answers)
+  - `confirm` → `END` if `scratch.awaiting` is set; else `executor`
   - `executor` → `fallback` on error; else `summarize`
   - `summarize` → END
 
 **Nodes**
 
-- classifyIntent: packages/agent/nodes/classifyIntent.ts
-  - Calls LLM with the intents catalog and user text.
-  - Sets `scratch.intent` and `scratch.intentMeta`.
-  - intentMeta includes: `targets`, `inputs`, `inputValues`, `missingInputs`.
+- extractGoal: packages/agent/nodes/extractGoal.js
+  - Uses LLM with modular prompt system and domain-specific rules.
+  - Extracts user's goal, context, and basic provided information.
+  - Sets `scratch.goal` with outcome, confidence, provided data, and basic missing fields.
+  - Does NOT perform deep validation - that's handled by planner.
 
 - planner: packages/agent/nodes/planner.ts
-  - Asks LLM to draft tool `steps` only (no longer returns questions/inputs).
+  - Asks LLM to draft tool `steps` based on the extracted goal.
+  - Uses LLM-based intelligent detection to identify missing required inputs:
+    - Reads tool `in` schemas from registry (Zod schemas with required/optional params).
+    - Sends user message, provided info, and tool requirements to LLM.
+    - LLM contextually determines which parameters are truly missing.
+    - Generates natural language questions with appropriate types.
   - Post-processes steps (filter allowed tools, assign ids/risk/dependsOn).
+  - If missing required inputs detected, updates `goal.missing` and pauses for input.
   - Writes steps to `scratch.plan` and a minimal `output.diff` summary.
 
-- confirm: packages/agent/nodes/confirm.ts
-  - Reads `scratch.intentMeta.missingInputs` and `scratch.intentMeta.inputs`.
-  - Builds typed questions for unresolved required inputs and sets:
+- ensure_inputs: packages/agent/nodes/ensureInputs.ts
+  - Validates that all required inputs from `goal.missing` are answered.
+  - If unresolved required inputs remain, builds typed questions and sets:
     - `scratch.awaiting = { reason: 'missing_info', questions, ts }`
     - `output.awaiting = { reason: 'missing_info', questions, ts }`
-  - Emits `awaiting.input` event and returns, causing the graph to end on this pass.
-  - If nothing is missing, routes onward to `executor`.
+  - Emits `awaiting.input` event and ends the graph.
+  - Once answers provided, flow returns to `planner` for re-validation with tool schemas.
+
+- confirm: packages/agent/nodes/confirm.ts
+  - Performs final confirmation checks before execution.
+  - Can set `scratch.awaiting` if additional confirmation needed.
+  - If no issues, routes to `executor`.
 
 - executor: packages/agent/nodes/executor.ts
   - Runs each step in `scratch.plan` via the registry with retries.
@@ -59,12 +74,27 @@
 
 **Awaiting Input Loop**
 
-- On first pass, `confirm` may set `awaiting` and end the run.
+- On first pass, `planner` may detect missing inputs via LLM analysis and end the run.
+- `ensure_inputs` validates answers and may set `awaiting` if inputs incomplete.
 - The API persists `run.output.awaiting` and exposes questions to the UI.
 - When the user answers, the backend merges answers and clears awaiting:
   - apps/api/src/runs/runs.service.ts: `applyUserAnswers()`
     - Updates `run.output.scratch.answers`, clears `awaiting`, and persists.
   - apps/api/src/queue/run.processor.ts rebuilds `RunState` on resume by merging persisted `output.scratch` back into `state.scratch`.
+- Flow returns to `planner` to re-validate with new answers against tool schemas.
+
+**Missing Inputs Detection**
+
+- Location: packages/agent/nodes/planner.ts (function `detectMissingInputsWithLLM`)
+- Method: LLM-based intelligent detection
+- Prompts: packages/agent/prompts/MISSING_INPUTS_SYSTEM.ts and MISSING_INPUTS_USER_PROMPT.ts
+- Process:
+  1. Extract tool schemas (in params) from registry for each planned step
+  2. Build context with user message, provided info, and tool requirements
+  3. LLM analyzes what's truly missing vs. can be inferred
+  4. Returns array of missing inputs with natural questions and types
+  5. Fallback to Zod validation if LLM fails
+- Benefits: Contextual understanding, avoids asking for info that can be inferred
 
 **Events**
 
@@ -75,7 +105,10 @@
 **Routing & Approvals**
 
 - Edges are declared in packages/agent/buildMainGraph.ts.
-- Approval checks live in packages/agent/guards/policy.ts and are evaluated in `confirm` after input collection.
+- Mode-based routing in planner edge:
+  - PREVIEW: Shows plan only, doesn't execute
+  - APPROVAL: Halts for user approval before execution
+  - AUTO: Proceeds to execution after validation
 
 **Persistence**
 
@@ -85,5 +118,5 @@
 **Extending The Graph**
 
 - Add a node: implement `Node<RunState>` and register via `buildMainGraph.ts`.
-- Add tools: register in packages/agent/registry/registry.ts; expose `undo` if applicable.
-- Add an app integration: implement service in packages/appstore/\* and provide a tool wrapper in the registry.
+- Add tools: register in packages/agent/registry/registry.ts; expose `undo` if applicable; define Zod schema for `in` params.
+- Add an app integration: implement service in packages/appstore/\* and provide a tool wrapper in the registry with proper schema validation.

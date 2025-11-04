@@ -8,6 +8,8 @@ import { registry } from '../registry/registry.js';
 import type { LLM } from '../llm/types.js';
 import { buildPlannerSystemPrompt } from '../prompts/PLANNER_SYSTEM.js';
 import { DEFAULT_ASSISTANT_SYSTEM } from '../prompts/DEFAULT_ASSISTANT_SYSTEM.js';
+import { MISSING_INPUTS_SYSTEM } from '../prompts/MISSING_INPUTS_SYSTEM.js';
+import { buildMissingInputsUserPrompt, type ToolRequirement } from '../prompts/MISSING_INPUTS_USER_PROMPT.js';
 
 /* ------------------ Whitelist & Schemas ------------------ */
 
@@ -381,6 +383,171 @@ function generatePreviewSteps(goal: any, missing: any[]): string[] {
   return steps;
 }
 
+/* ------------------ Missing Inputs Detection ------------------ */
+
+/**
+ * Use LLM to intelligently identify missing inputs based on tool schemas and user message.
+ * This provides contextual understanding of what information is truly missing.
+ */
+async function detectMissingInputsWithLLM(
+  llm: LLM,
+  steps: PlanStep[],
+  userMessage: string,
+  provided: Record<string, unknown>,
+  answers: Record<string, unknown>,
+  s: RunState
+): Promise<Array<{ key: string; question: string; type?: string; required?: boolean; options?: string[] }>> {
+  if (steps.length === 0) return [];
+
+  const allProvided = { ...provided, ...answers };
+  
+  // Build a summary of tool requirements
+  const toolRequirements: ToolRequirement[] = [];
+
+  for (const step of steps) {
+    try {
+      const tool = registry.get(step.tool);
+      if (!tool?.in) continue;
+
+      // Extract schema information
+      const schema = tool.in;
+      const shape = (schema as any)._def?.shape?.() || (schema as any).shape || {};
+      
+      const requiredParams: Array<{ name: string; type: string; description?: string; required: boolean }> = [];
+      
+      for (const [key, value] of Object.entries(shape)) {
+        if (!value || typeof value !== 'object') continue;
+        
+        const zodType = (value as any)._def?.typeName || 'unknown';
+        const isOptional = (value as any).isOptional?.() || (value as any)._def?.typeName === 'ZodOptional';
+        const description = (value as any)._def?.description || (value as any).description;
+        
+        // Map Zod types to readable types
+        let type = 'text';
+        if (zodType.includes('String')) type = 'text';
+        else if (zodType.includes('Number')) type = 'number';
+        else if (zodType.includes('Boolean')) type = 'boolean';
+        else if (zodType.includes('Date')) type = 'datetime';
+        else if (zodType.includes('Array')) type = 'array';
+        
+        // Check if this field name suggests a specific type
+        const keyLower = key.toLowerCase();
+        if (keyLower.includes('email')) type = 'email';
+        else if (keyLower.includes('date') || keyLower.includes('time') || keyLower.includes('when')) type = 'datetime';
+        else if (keyLower.includes('channel') || keyLower.includes('room')) type = 'text';
+        
+        requiredParams.push({
+          name: key,
+          type,
+          description,
+          required: !isOptional,
+        });
+      }
+      
+      toolRequirements.push({
+        tool: step.tool,
+        requiredParams,
+        currentArgs: step.args || {},
+      });
+    } catch (err) {
+      console.warn(`[planner] Could not extract schema for tool ${step.tool}:`, err);
+    }
+  }
+
+  if (toolRequirements.length === 0) return [];
+
+  // Build prompts using the centralized prompt system
+  const userPrompt = buildMissingInputsUserPrompt(userMessage, allProvided, toolRequirements);
+
+  try {
+    const raw = await llm.text({
+      system: MISSING_INPUTS_SYSTEM,
+      user: userPrompt,
+      temperature: 0,
+      maxTokens: 1000,
+      timeoutMs: 10_000,
+      metadata: {
+        requestType: 'missing-inputs-detection',
+        runId: s.ctx.runId as any,
+        userId: s.ctx.userId as any,
+      },
+    });
+
+    // Extract JSON from response
+    const cleaned = extractJsonFromOutput(raw);
+    const parsed = JSON.parse(cleaned);
+    
+    if (!Array.isArray(parsed)) {
+      console.warn('[planner] LLM did not return an array for missing inputs');
+      return [];
+    }
+
+    // Validate and clean the response
+    const missingInputs = parsed
+      .filter((item: any) => item && typeof item === 'object' && item.key && item.question)
+      .map((item: any) => ({
+        key: String(item.key),
+        question: String(item.question),
+        type: item.type || 'text',
+        required: item.required !== false,
+        options: Array.isArray(item.options) ? item.options : undefined,
+      }));
+
+    console.log('[planner] LLM identified missing inputs:', missingInputs);
+    return missingInputs;
+    
+  } catch (err) {
+    console.warn('[planner] Failed to use LLM for missing input detection:', err);
+    // Fallback to simple validation check
+    return fallbackMissingInputsDetection(steps, allProvided);
+  }
+}
+
+/**
+ * Fallback: Simple check for missing required params using Zod validation
+ * Used if LLM-based detection fails
+ */
+function fallbackMissingInputsDetection(
+  steps: PlanStep[],
+  allProvided: Record<string, unknown>
+): Array<{ key: string; question: string; type?: string; required?: boolean }> {
+  const missingInputs: Array<{ key: string; question: string; type?: string; required?: boolean }> = [];
+
+  for (const step of steps) {
+    try {
+      const tool = registry.get(step.tool);
+      if (!tool?.in) continue;
+
+      const result = tool.in.safeParse(step.args);
+      
+      if (!result.success) {
+        const zodError = result.error;
+        const issues = zodError.issues;
+
+        for (const issue of issues) {
+          const fieldPath = issue.path.join('.');
+          const fieldName = String(issue.path[issue.path.length - 1] || 'unknown');
+          
+          if (allProvided[fieldPath] === undefined && allProvided[fieldName] === undefined) {
+            const required = issue.code === 'invalid_type' || !issue.message.includes('optional');
+            
+            missingInputs.push({
+              key: fieldPath || fieldName,
+              question: `Please provide ${fieldName} for ${step.tool}`,
+              type: 'text',
+              required,
+            });
+          }
+        }
+      }
+    } catch (err) {
+      console.warn(`[planner] Fallback validation failed for tool ${step.tool}:`, err);
+    }
+  }
+
+  return missingInputs;
+}
+
 /* ------------------ Planner Node ------------------ */
 
 export const makePlanner =
@@ -415,13 +582,73 @@ export const makePlanner =
       return { scratch: { ...s.scratch, plan: steps }, output: { ...s.output, diff } };
     }
 
-    // 2) Check if there are missing required fields
-    const missing = goal.missing || [];
-    const requiredMissing = missing.filter((m: any) => m.required !== false);
+    // 2) Try LLM planning with available tools
+    const tools = getToolSchemas();
+    const system = buildSystemPrompt(tools);
+    const user = buildUserPrompt(s);
+    const raw = await planWithLLM(llm, s, system, user);
+
+    if (raw) {
+      try {
+        const cleaned = extractJsonFromOutput(raw);
+        const parsed = PlanInSchema.parse(JSON.parse(cleaned));
+        const hardened = patchAndHardenPlan(s, parsed);
+        steps = hardened.steps;
+      } catch (err) {
+        console.warn('[planner] Failed to parse LLM plan:', err);
+        steps = null; // fall back
+      }
+    }
+
+    // 3) If no valid steps, fall back to chat.respond
+    if (!steps || steps.length === 0) {
+      steps = finalizeSteps([
+        {
+          tool: 'chat.respond',
+          args: {
+            prompt: userText ?? '',
+            system: DEFAULT_ASSISTANT_SYSTEM,
+          },
+        },
+      ]);
+    }
+
+    // 4) Check for missing inputs using LLM-based intelligent detection
+    const provided = (goal?.provided ?? {}) as Record<string, unknown>;
+    const answers = (s.scratch?.answers ?? {}) as Record<string, unknown>;
+    const missingFromToolSchemas = await detectMissingInputsWithLLM(
+      llm,
+      steps,
+      userText,
+      provided,
+      answers,
+      s
+    );
     
+    // Merge with any missing inputs from goal extraction
+    const existingMissing = (goal?.missing ?? []) as Array<{ key: string; question: string; type?: string; required?: boolean }>;
+    const allMissing = [...existingMissing];
+    
+    // Add new missing inputs from tool schemas (avoid duplicates)
+    for (const newMissing of missingFromToolSchemas) {
+      if (!allMissing.some(m => m.key === newMissing.key)) {
+        allMissing.push(newMissing);
+      }
+    }
+    
+    // Filter to only required missing inputs
+    const requiredMissing = allMissing.filter((m: any) => m.required !== false);
+    
+    // 5) If there are missing required inputs, pause and return
     if (requiredMissing.length > 0) {
       // Generate preview steps to show what we'll do once we have the info
       const previewSteps = generatePreviewSteps(goal, requiredMissing);
+      
+      // Update goal with all missing inputs
+      const updatedGoal = {
+        ...goal,
+        missing: allMissing,
+      };
       
       // Return empty plan with preview - the confirm node will ask questions
       const diff = safe({
@@ -440,43 +667,12 @@ export const makePlanner =
       });
       events.planReady(s, eventBus, safe([]), diff);
       return { 
-        scratch: { ...s.scratch, plan: [], previewSteps }, 
+        scratch: { ...s.scratch, goal: updatedGoal, plan: [], previewSteps }, 
         output: { ...s.output, diff } 
       };
     }
 
-    // 3) Try LLM planning with available tools
-    const tools = getToolSchemas();
-    const system = buildSystemPrompt(tools);
-    const user = buildUserPrompt(s);
-    const raw = await planWithLLM(llm, s, system, user);
-
-    if (raw) {
-      try {
-        const cleaned = extractJsonFromOutput(raw);
-        const parsed = PlanInSchema.parse(JSON.parse(cleaned));
-        const hardened = patchAndHardenPlan(s, parsed);
-        steps = hardened.steps;
-      } catch (err) {
-        console.warn('[planner] Failed to parse LLM plan:', err);
-        steps = null; // fall back
-      }
-    }
-
-    // 4) If no valid steps, fall back to chat.respond
-    if (!steps || steps.length === 0) {
-      steps = finalizeSteps([
-        {
-          tool: 'chat.respond',
-          args: {
-            prompt: userText ?? '',
-            system: DEFAULT_ASSISTANT_SYSTEM,
-          },
-        },
-      ]);
-    }
-
-    // 5) Build diff
+    // 6) Build diff for successful planning
     const diff = safe({
       summary:
         steps && steps.length > 0

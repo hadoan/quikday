@@ -8,15 +8,15 @@ import {
   detectDomains 
 } from '../prompts/goal-extraction/compiler.js';
 import { 
-  validateEmail, 
-  validateDateTime, 
-  filterIntegrationPolicyQuestions,
   repairJsonOutput 
 } from '../guards/validators.js';
 
 /**
  * Goal extraction node factory
  * Uses modular prompt system with domain-specific rules
+ * 
+ * This node focuses on extracting the user's goal and basic information.
+ * Detailed validation of required inputs based on tool schemas happens in the planner node.
  */
 export const makeExtractGoal = (llm: LLM): Node<RunState> => {
   return async (s) => {
@@ -67,30 +67,7 @@ export const makeExtractGoal = (llm: LLM): Node<RunState> => {
 
       // Repair and extract JSON safely
       const json = repairJsonOutput(raw);
-      let parsed = GoalSchema.parse(JSON.parse(json));
-
-      // Apply code-based guardrails
-      if (parsed.missing && parsed.missing.length > 0) {
-        // Filter out questions that violate integration policy
-        parsed.missing = filterIntegrationPolicyQuestions(parsed.missing, connectedApps);
-        
-        // Validate email fields in provided data
-        for (const [key, value] of Object.entries(parsed.provided)) {
-          if (typeof value === 'string' && (key.includes('email') || key.includes('@'))) {
-            const validation = validateEmail(value);
-            if (!validation.valid) {
-              // Move invalid email to missing
-              parsed.missing.push({
-                key,
-                question: `Please provide a valid email address for ${key}`,
-                type: 'email',
-                required: true,
-              });
-              delete parsed.provided[key];
-            }
-          }
-        }
-      }
+      const parsed = GoalSchema.parse(JSON.parse(json));
 
       console.log('[extractGoal] LLM returned:', JSON.stringify(parsed, null, 2));
       console.log('[extractGoal] missing fields:', parsed.missing);
