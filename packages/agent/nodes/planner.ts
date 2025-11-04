@@ -318,6 +318,69 @@ function patchAndHardenPlan(
   return { steps: finalizeSteps(steps as any) };
 }
 
+/* ------------------ Preview Steps Generator ------------------ */
+
+/**
+ * Generate human-readable preview of what will happen once we have missing info
+ */
+function generatePreviewSteps(goal: any, missing: any[]): string[] {
+  const outcome = (goal?.outcome || '').toLowerCase();
+  const steps: string[] = [];
+  
+  // Email triage patterns
+  if (outcome.includes('triage') && outcome.includes('email')) {
+    const timeWindow = goal?.provided?.time_window_minutes || 'specified';
+    const maxResults = goal?.provided?.max_results || 'N';
+    steps.push(`1. Search your inbox for emails from the last ${timeWindow} minutes`);
+    steps.push(`2. Filter and rank emails based on priority criteria`);
+    steps.push(`3. Select up to ${maxResults} emails that need replies`);
+  }
+  
+  // Draft creation patterns
+  if (outcome.includes('draft') || outcome.includes('reply') || outcome.includes('quick-reply')) {
+    steps.push(`${steps.length + 1}. Generate context-appropriate reply drafts`);
+    steps.push(`${steps.length + 1}. Present drafts for your review`);
+  }
+  
+  // Follow-up patterns
+  if (outcome.includes('follow-up') || outcome.includes('no-reply')) {
+    const days = goal?.provided?.days || goal?.provided?.time_window_days || 'specified';
+    steps.push(`1. Search for email threads with no replies from the last ${days} days`);
+    steps.push(`2. Generate polite follow-up drafts for each thread`);
+    steps.push(`3. Present drafts for your review`);
+  }
+  
+  // Calendar patterns
+  if (outcome.includes('schedule') || outcome.includes('meeting') || outcome.includes('call')) {
+    steps.push(`1. Check calendar availability for requested time`);
+    steps.push(`2. Create calendar event with attendees`);
+    if (outcome.includes('notify') || outcome.includes('send')) {
+      steps.push(`3. Send calendar invitations to attendees`);
+    }
+  }
+  
+  // Posting patterns
+  if (outcome.includes('post') || outcome.includes('publish')) {
+    const platform = goal?.provided?.platform || 'the platform';
+    steps.push(`1. Format content for ${platform}`);
+    steps.push(`2. Post to ${platform}`);
+  }
+  
+  // Generic fallback
+  if (steps.length === 0) {
+    steps.push(`1. Process your request: ${goal?.outcome || 'complete the task'}`);
+    steps.push(`2. Present results for your review`);
+  }
+  
+  // Add missing info indicator
+  if (missing.length > 0) {
+    steps.push('');
+    steps.push(`⏸️ Waiting for: ${missing.map((m: any) => m.key.replace(/_/g, ' ')).join(', ')}`);
+  }
+  
+  return steps;
+}
+
 /* ------------------ Planner Node ------------------ */
 
 export const makePlanner =
@@ -357,15 +420,29 @@ export const makePlanner =
     const requiredMissing = missing.filter((m: any) => m.required !== false);
     
     if (requiredMissing.length > 0) {
-      // Return empty plan - the confirm node will ask questions
+      // Generate preview steps to show what we'll do once we have the info
+      const previewSteps = generatePreviewSteps(goal, requiredMissing);
+      
+      // Return empty plan with preview - the confirm node will ask questions
       const diff = safe({
-        summary: `Need more information: ${requiredMissing.map((m: any) => m.key).join(', ')}`,
+        summary: `Need ${requiredMissing.length} more detail${requiredMissing.length > 1 ? 's' : ''} to proceed`,
         steps: [],
+        previewSteps,
         goalDesc: goal.outcome,
-        missingFields: requiredMissing,
+        missingFields: requiredMissing.map((m: any) => ({
+          key: m.key,
+          question: m.question,
+          required: m.required !== false,
+          type: m.type,
+          options: m.options,
+        })),
+        status: 'awaiting_input',
       });
       events.planReady(s, eventBus, safe([]), diff);
-      return { scratch: { ...s.scratch, plan: [] }, output: { ...s.output, diff } };
+      return { 
+        scratch: { ...s.scratch, plan: [], previewSteps }, 
+        output: { ...s.output, diff } 
+      };
     }
 
     // 3) Try LLM planning with available tools

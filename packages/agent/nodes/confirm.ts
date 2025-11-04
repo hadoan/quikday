@@ -10,6 +10,9 @@ type GoalMissing = {
   question: string;
   type?: string;
   required?: boolean;
+  options?: string[];
+  placeholder?: string;
+  defaultValue?: any;
 };
 
 export const confirm: Node<RunState, RunEventBus> = async (s, eventBus) => {
@@ -63,27 +66,61 @@ export const confirm: Node<RunState, RunEventBus> = async (s, eventBus) => {
 
         const questions: Question[] = unresolved.map((m) => {
           const qt: QuestionType = m.type ? (typeMap[m.type] || 'text') : 'text';
-          return { 
+          const question: Question = { 
             key: m.key, 
             question: m.question, 
             type: qt, 
             required: m.required !== false 
           };
+          
+          // Add options for select/multiselect types
+          if ((qt === 'select' || qt === 'multiselect') && m.options) {
+            (question as any).options = m.options;
+          }
+          
+          // Add placeholder if provided
+          if (m.placeholder) {
+            (question as any).placeholder = m.placeholder;
+          }
+          
+          // Add default value if provided
+          if (m.defaultValue !== undefined) {
+            (question as any).defaultValue = m.defaultValue;
+          }
+          
+          return question;
         });
 
         const ts = new Date().toISOString();
 
+        // Build context message based on goal
+        const contextMsg = goal?.outcome 
+          ? `To ${goal.outcome.toLowerCase()}, I need the following information:`
+          : 'I need more information to proceed:';
+
         // Update scratch.awaiting so graph halts (router checks this)
         const nextScratch: RunState['scratch'] = {
           ...(s.scratch ?? {}),
-          awaiting: { reason: 'missing_info', questions, ts },
+          awaiting: { 
+            reason: 'missing_info', 
+            questions, 
+            ts,
+            context: contextMsg,
+            goalDesc: goal?.outcome,
+          },
         };
         s.scratch = nextScratch;
 
         // Also surface awaiting in output for API/UI consumers
         const nextOutput: RunState['output'] = {
           ...(s.output ?? {}),
-          awaiting: { reason: 'missing_info', questions, ts },
+          awaiting: { 
+            reason: 'missing_info', 
+            questions, 
+            ts,
+            context: contextMsg,
+            goalDesc: goal?.outcome,
+          },
         };
 
         // Notify subscribers

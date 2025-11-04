@@ -64,13 +64,6 @@ export class KindeGuard implements CanActivate {
 
     let payload: any;
     try {
-      console.log('[KindeGuard] Verifying token with:', {
-        audience: this.config.env.KINDE_AUDIENCE,
-        issuer: this.config.normalizedIssuer,
-        jwksUri: this.config.jwksUri,
-        hasClient: !!this.client,
-      });
-      
       payload = await new Promise((resolve, reject) => {
         jwt.verify(
           token,
@@ -83,10 +76,8 @@ export class KindeGuard implements CanActivate {
           },
           (err: any, decoded: any) => {
             if (err) {
-              console.error('[KindeGuard] JWT verification failed:', err.message, err.name);
               reject(err);
             } else {
-              console.log('[KindeGuard] JWT verification succeeded');
               resolve(decoded);
             }
           }
@@ -97,7 +88,6 @@ export class KindeGuard implements CanActivate {
         // Normalize to 401 with a stable message that frontend can detect and refresh
         throw new UnauthorizedException('jwt expired');
       }
-      console.error('[KindeGuard] Throwing error:', err);
       throw err;
     }
     req.user = payload;
@@ -117,10 +107,8 @@ export class KindeGuard implements CanActivate {
         runId: req.header('x-run-id') ?? undefined,
         tz: (payload as any)?.tz ?? req.header('x-tz') ?? 'Europe/Berlin',
       } as any;
-      console.log('[KindeGuard] Setting ALS context:', { userId: alsContext.userId, teamId: alsContext.teamId });
       CurrentUserALS.enterWith(alsContext);
     } catch (err) {
-      console.error('[KindeGuard] Failed to set ALS context:', err);
       // best-effort; do not block request on ALS issues
     }
     return true;

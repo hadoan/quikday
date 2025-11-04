@@ -98,6 +98,7 @@ export interface RunState {
     intentMeta?: { confidence: number; reason?: string };
     
     plan?: PlanStep[];
+    previewSteps?: string[]; // human-readable preview of what will happen
     stepsRun?: number;
     errors?: Array<{ code: string; message: string }>;
     // internal routing/fallback info added by guards/policy
@@ -112,14 +113,20 @@ export interface RunState {
       reason: 'missing_info';
       questions: Question[];
       ts: string;
+      context?: string; // contextual message explaining why we need this info
+      goalDesc?: string; // the goal we're trying to achieve
     } | null;
   };
   output?: {
     summary?: string;
     diff?: {
       steps?: any[];
+      previewSteps?: string[]; // human-readable preview when awaiting input
       summary?: string;
       intentDesc?: string;
+      goalDesc?: string;
+      missingFields?: any[];
+      status?: string; // e.g., 'awaiting_input', 'ready', 'executing'
     };
     commits?: Array<{ stepId: string; result: unknown }>;
     undo?: Array<{ stepId: string; tool: string; args: unknown }>;
@@ -128,6 +135,8 @@ export interface RunState {
       reason: 'missing_info';
       questions: Question[];
       ts: string;
+      context?: string; // contextual message explaining why we need this info
+      goalDesc?: string; // the goal we're trying to achieve
     } | null;
   };
   error?: RunError;

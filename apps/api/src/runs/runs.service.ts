@@ -224,7 +224,6 @@ export class RunsService {
   }) {
     const teamId = this.current.getCurrentTeamId();
     const userSub = this.current.getCurrentUserSub(); // This is the Kinde sub ID (string)
-    console.log('[RunsService.list] Retrieved from ALS:', { userId: userSub, teamId });
     if (!userSub) throw new UnauthorizedException('Not authenticated');
     
     // Look up the user by their Kinde sub to get the numeric database ID
@@ -653,14 +652,10 @@ export class RunsService {
   }
 
   async approveSteps(runId: string, approvedSteps: string[]) {
-    console.log('[approveSteps] Called with:', { runId, approvedStepsCount: approvedSteps.length, approvedSteps });
-    
     const run = await this.prisma.run.findUnique({ where: { id: runId } });
     if (!run) {
       throw new NotFoundException('Run not found');
     }
-
-    console.log('[approveSteps] Run status:', run.status);
 
     // Verify run is in awaiting_approval state
     if (run.status !== 'awaiting_approval') {
@@ -679,8 +674,6 @@ export class RunsService {
       resumeFrom: 'executor' 
     };
 
-    console.log('[approveSteps] Updating run to approved status');
-
     // Update run status to approved and persist config
     await this.prisma.run.update({
       where: { id: runId },
@@ -690,17 +683,11 @@ export class RunsService {
       },
     });
 
-    console.log('[approveSteps] Re-enqueueing run for execution');
-
     // Get the existing scratch with plan from run output
     const rawOutput = this.asRecord(run.output);
     const existingScratch = rawOutput.scratch && typeof rawOutput.scratch === 'object' 
       ? rawOutput.scratch as Record<string, unknown>
       : {};
-    
-    console.log('[approveSteps] Existing scratch keys:', Object.keys(existingScratch));
-    console.log('[approveSteps] Has plan in scratch?', 'plan' in existingScratch);
-    console.log('[approveSteps] Plan length:', Array.isArray(existingScratch.plan) ? existingScratch.plan.length : 0);
 
     // Re-enqueue with scratch data to continue execution, preserving the plan
     await this.enqueue(runId, { 
@@ -710,8 +697,6 @@ export class RunsService {
         approvedAt: new Date().toISOString()
       } 
     });
-
-    console.log('[approveSteps] Approval complete, execution should resume');
 
     await this.telemetry.track('run_approved', { runId, stepsCount: approvedSteps.length });
   }
