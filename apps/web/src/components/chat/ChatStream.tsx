@@ -90,21 +90,42 @@ export function ChatStream({
           };
 
           const awaitingApproval = pd?.awaitingApproval === true || pd?.mode === 'approval';
+          
+          // Only show approve button if:
+          // 1. This is an approval plan card (awaitingApproval === true)
+          // 2. Current run status is awaiting_approval
+          // 3. This is the LAST approval plan card (most recent one)
+          const isLastApprovalPlan = awaitingApproval && 
+            dedupedMessages.slice(i + 1).every((msg) => 
+              !msg || msg.type !== 'plan' || !(msg.data as any)?.awaitingApproval
+            );
+          
           const canApprove =
-            flags.liveApprovals && !!runId && steps.length > 0 && (awaitingApproval || lastStatus === 'awaiting_approval');
+            flags.liveApprovals && 
+            !!runId && 
+            steps.length > 0 && 
+            awaitingApproval &&
+            isLastApprovalPlan &&
+            lastStatus === 'awaiting_approval';
           
           console.log('🔍 Approval button check:', {
+            cardIndex: i,
             liveApprovals: flags.liveApprovals,
             hasRunId: !!runId,
             lastStatus,
             stepsCount: steps.length,
+            awaitingApproval,
+            isLastApprovalPlan,
             canApprove,
           });
           
           const onConfirm = canApprove
             ? async () => {
                 try {
-                  await dataSource.approve(runId, steps.map((s) => s.id));
+                  const stepIds = steps.map((s) => s.id);
+                  console.log('[ChatStream] onConfirm called with:', { runId, stepIds });
+                  await dataSource.approve(runId, stepIds);
+                  console.log('[ChatStream] approve call successful');
                 } catch (e) {
                   console.error('approve failed', e);
                 }

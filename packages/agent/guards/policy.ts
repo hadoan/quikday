@@ -261,7 +261,7 @@ export function requireScopes(have: string[], need: string[]) {
 }
 
 /** ─────────────────────────────────────────────────────────────────────────────
- * Router: decides where to go after classify.
+ * Router: decides where to go after extractGoal.
  * Returns a node id string ("planner", "fallback_*") or "END".
  * ──────────────────────────────────────────────────────────────────────────── */
 export const routeByMode: Router<RunState> = (s) => {

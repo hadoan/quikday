@@ -296,14 +296,26 @@ const Index = () => {
               // the run status to 'awaiting_input' so UI components can react.
               try {
                 const payload = event.payload as Record<string, unknown>;
+                console.log('[Index] 🔍 Checking approval payload:', {
+                  status,
+                  hasSteps: Array.isArray((payload as any)?.steps),
+                  stepsLength: (payload as any)?.steps?.length,
+                  steps: (payload as any)?.steps,
+                });
                 // If awaiting_approval mid-execution and backend included step details, surface a plan card
                 if (
                   status === 'awaiting_approval' &&
                   Array.isArray((payload as any)?.steps) &&
                   (payload as any).steps.length > 0
                 ) {
-                  const alreadyHasPlan = newMessages.some((m) => m && m.type === 'plan');
-                  if (!alreadyHasPlan) {
+                  // Check if there's already an approval plan card AFTER the last RunCard
+                  // This ensures each run can have its own approval card
+                  const hasApprovalPlanAfterRunCard = lastRunningCardIndex !== -1 &&
+                    newMessages.slice(lastRunningCardIndex + 1).some(
+                      (m) => m && m.type === 'plan' && (m.data as any)?.awaitingApproval === true
+                    );
+                  console.log('[Index] ✅ Creating approval plan card, hasApprovalPlanAfterRunCard:', hasApprovalPlanAfterRunCard);
+                  if (!hasApprovalPlanAfterRunCard) {
                     const stepsPayload = (payload as any).steps as any[];
                   newMessages.push(
                     buildPlanMessage({
@@ -315,6 +327,7 @@ const Index = () => {
                       mode: 'approval',
                     }),
                   );
+                  console.log('[Index] 📋 Approval plan card created');
                 }
               }
                 if (
@@ -691,15 +704,7 @@ const Index = () => {
             </div>
             <div className="w-full md:w-auto flex flex-wrap items-center gap-2 md:gap-3 justify-end">
               <ThemeToggle />
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => setIsToolsPanelOpen(!isToolsPanelOpen)}
-                className="gap-2"
-              >
-                <Plug2 className="h-4 w-4" />
-                Integrations
-              </Button>
+            
               <Button size="sm" onClick={handleNewTask} className="gap-2">
                 <Plus className="h-4 w-4" />
                 New Task
@@ -735,7 +740,10 @@ const Index = () => {
               <QuestionsPanel
                 runId={activeRunId}
                 questions={questions}
-                onSubmitted={() => setQuestions([])}
+                onSubmitted={() => {
+                  // Keep questions visible in read-only mode after submission
+                  // Don't clear the questions array
+                }}
               />
             )}
             <div ref={bottomRef} />
@@ -750,13 +758,7 @@ const Index = () => {
         </div>
       </div>
 
-      {isToolsPanelOpen && (
-        <ToolsPanel
-          tools={mockTools}
-          stats={mockStats}
-          onClose={() => setIsToolsPanelOpen(false)}
-        />
-      )}
+    
     </div>
   );
 };

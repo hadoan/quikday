@@ -1,7 +1,7 @@
 import { Graph } from './runtime/graph.js';
 import type { RunState } from './state/types.js';
 import type { LLM } from './llm/types.js';
-import { makeClassifyIntent } from './nodes/classifyIntent.js';
+import { makeExtractGoal } from './nodes/extractGoal.js';
 import { makePlanner } from './nodes/planner.js';
 import { confirm } from './nodes/confirm.js';
 import { executor } from './nodes/executor.js';
@@ -26,7 +26,7 @@ export const buildMainGraph = ({ llm, eventBus, moduleRef }: BuildMainGraphOptio
   registerToolsWithLLM(llm, moduleRef);
   return (
     new Graph<RunState, RunEventBus>(hooks(eventBus))
-      .addNode('classify', makeClassifyIntent(llm))
+      .addNode('extractGoal', makeExtractGoal(llm))
       .addNode('planner', safeNode('planner', makePlanner(llm), eventBus))
       .addNode('ensure_inputs', safeNode('ensure_inputs', ensureInputs, eventBus))
       .addNode('confirm', safeNode('confirm', confirm, eventBus))
@@ -34,18 +34,10 @@ export const buildMainGraph = ({ llm, eventBus, moduleRef }: BuildMainGraphOptio
       .addNode('summarize', summarize(llm))
       .addNode('fallback', fallback('unspecified'))
 
-      // .addEdge('START', () => 'classify')
-      // .addEdge('classify', routeByMode)
-      // .addEdge('planner', () => 'confirm')
-      // .addEdge('confirm', () => 'executor')
-      // .addEdge('executor', (s) => (s.error ? 'fallback' : 'summarize'))
-      // .addEdge('summarize', () => 'END')
-      // .addEdge('fallback', () => 'END');
-
-      .addEdge('START', () => 'classify')
-      // Always run confirm right after classify to surface missing inputs
-      // Confirm will either pause with questions or clear awaiting and continue
-      .addEdge('classify', () => 'confirm')
+      // Goal-oriented flow: extract goal → confirm → plan → execute
+      .addEdge('START', () => 'extractGoal')
+      // After extracting goal, check if we need more information
+      .addEdge('extractGoal', () => 'confirm')
       // After planning: check mode to determine flow
       .addEdge('planner', (s) => {
         const plan = s.scratch?.plan ?? [];

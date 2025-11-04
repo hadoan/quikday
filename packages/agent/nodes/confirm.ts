@@ -4,22 +4,13 @@ import type { RunEventBus } from '@quikday/libs';
 import { needsApproval } from '../guards/policy.js';
 import { events } from '../observability/events.js';
 import { randomUUID } from 'node:crypto';
-import type { IntentInput } from './intents.js';
 
-type IntentMetaLike = {
-  inputs?: ReadonlyArray<IntentInput>;
-  inputValues?: Record<string, unknown>;
-  missingInputs?: string[];
+type GoalMissing = {
+  key: string;
+  question: string;
+  type?: string;
+  required?: boolean;
 };
-
-function asIntentMeta(v: unknown): IntentMetaLike | null {
-  if (!v || typeof v !== 'object') return null;
-  const o = v as Record<string, unknown>;
-  const okInputs = !('inputs' in o) || Array.isArray((o as any).inputs);
-  const okVals = !('inputValues' in o) || typeof (o as any).inputValues === 'object';
-  const okMissing = !('missingInputs' in o) || Array.isArray((o as any).missingInputs);
-  return okInputs && okVals && okMissing ? (o as IntentMetaLike) : null;
-}
 
 export const confirm: Node<RunState, RunEventBus> = async (s, eventBus) => {
   // Feature toggle: approvals can be disabled via ctx.meta.approvalsEnabled or env
@@ -28,31 +19,33 @@ export const confirm: Node<RunState, RunEventBus> = async (s, eventBus) => {
   const envFlag = (process.env.AGENT_APPROVALS_ENABLED ?? 'false').toString().toLowerCase();
   const approvalsEnabled = typeof metaFlag === 'boolean' ? metaFlag : envFlag === 'true';
 
-  // If classify detected missing inputs, pause run and ask the user.
+  // If goal extraction detected missing required information, pause run and ask the user.
   try {
-    const meta = asIntentMeta(s.scratch?.intentMeta);
-    const missing: string[] = Array.isArray(meta?.missingInputs) ? meta!.missingInputs! : [];
-    const inputs: ReadonlyArray<IntentInput> = Array.isArray(meta?.inputs)
-      ? (meta!.inputs as ReadonlyArray<IntentInput>)
-      : [];
+    const goal = (s.scratch as any)?.goal;
+    const missing: GoalMissing[] = Array.isArray(goal?.missing) ? goal.missing : [];
 
-    if (missing.length > 0 && inputs.length > 0) {
+    console.log('[confirm] Goal object:', JSON.stringify(goal, null, 2));
+    console.log('[confirm] Missing fields count:', missing.length);
+
+    if (missing.length > 0) {
       // Collect already known answers to avoid re-asking
       const providedAnswers: Record<string, unknown> = { ...(s.scratch?.answers ?? {}) };
-      const inputValues: Record<string, unknown> =
-        (meta?.inputValues as Record<string, unknown> | undefined) ?? {};
+      const provided: Record<string, unknown> = goal?.provided ?? {};
 
-      const unresolved = missing.filter((k) => {
-        const v = (providedAnswers as any)[k] ?? (inputValues as any)[k];
+      const unresolved = missing.filter((m) => {
+        const v = providedAnswers[m.key] ?? provided[m.key];
         if (v === undefined || v === null) return true;
         if (Array.isArray(v)) return v.length === 0;
         if (typeof v === 'string') return v.trim().length === 0;
         return false;
       });
 
+      console.log('[confirm] Unresolved missing fields:', unresolved.length);
+      console.log('[confirm] Questions to ask:', JSON.stringify(unresolved, null, 2));
+
       if (unresolved.length > 0) {
-        // Map intent inputs → UI questions shape
-        const typeMap: Record<IntentInput['type'], QuestionType> = {
+        // Map goal missing types → UI questions shape
+        const typeMap: Record<string, QuestionType> = {
           string: 'text',
           text: 'textarea',
           textarea: 'textarea',
@@ -68,12 +61,14 @@ export const confirm: Node<RunState, RunEventBus> = async (s, eventBus) => {
           boolean: 'boolean',
         };
 
-        const byKey = new Map(inputs.map((i) => [i.key, i] as const));
-        const questions: Question[] = unresolved.map((key) => {
-          const def = byKey.get(key);
-          const qt: QuestionType = def ? typeMap[def.type] : 'text';
-          const label = def?.prompt ?? `Please provide ${key}`;
-          return { key, question: label, type: qt, required: def?.required !== false };
+        const questions: Question[] = unresolved.map((m) => {
+          const qt: QuestionType = m.type ? (typeMap[m.type] || 'text') : 'text';
+          return { 
+            key: m.key, 
+            question: m.question, 
+            type: qt, 
+            required: m.required !== false 
+          };
         });
 
         const ts = new Date().toISOString();

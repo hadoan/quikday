@@ -2,7 +2,6 @@
 import type { Node } from '../runtime/graph.js';
 import type { RunState, PlanStep } from '../state/types.js';
 import { events } from '../observability/events.js';
-import { INTENTS, type IntentId } from './intents.js';
 import { z } from 'zod';
 import type { RunEventBus } from '@quikday/libs';
 import { registry } from '../registry/registry.js';
@@ -156,32 +155,32 @@ async function planWithLLM(
   }
 }
 
-/* ------------------ Prompts (include inputs + today/tz, valid_inputs as dict) ------------------ */
+/* ------------------ Prompts (include goal + today/tz) ------------------ */
 
 function buildSystemPrompt(tools: Array<{ name: string; description: string; args: any }>) {
   return buildPlannerSystemPrompt(tools);
 }
 
-function buildUserPrompt(s: RunState, intent: IntentId) {
-  // const { start, end } = resolveWhen(s);
-  // const title = getTitle(s);
-  // const attendeesPreview = getAttendeesPreview(s);
-  // const slackChannel = getSlackChannel(s);
-
+function buildUserPrompt(s: RunState) {
   const todayISO = (s.ctx.now instanceof Date ? s.ctx.now : new Date()).toISOString();
   const timezone = s.ctx.tz || 'UTC';
 
-  // Include intentMeta with inputValues so LLM knows what parameters are available
-  const intentMeta = s.scratch?.intentMeta || {};
-  const inputValues = (intentMeta as any).inputValues || {};
+  // Extract goal information
+  const goal = s.scratch?.goal || {};
+  const outcome = (goal as any).outcome || 'Unspecified goal';
+  const context = (goal as any).context || {};
+  const provided = (goal as any).provided || {};
 
-  // Compact, LLM-friendly user payload (no examples here)
+  // Compact, LLM-friendly user payload
   const payload = {
-    intent,
+    goal: {
+      outcome,
+      context,
+      provided,
+    },
     meta: { todayISO, timezone },
-    inputs: inputValues, // Include the extracted input values
   };
-  return JSON.stringify(payload);
+  return JSON.stringify(payload, null, 2);
 }
 
 /* ------------------ Post-processing (patch/harden) ------------------ */
@@ -324,8 +323,8 @@ function patchAndHardenPlan(
 export const makePlanner =
   (llm: LLM): Node<RunState, RunEventBus> =>
   async (s, eventBus) => {
-    const intent = s.scratch?.intent as IntentId | undefined;
-    const confidence = (s.scratch as any)?.intentMeta?.confidence ?? 0;
+    const goal = (s.scratch as any)?.goal;
+    const confidence = goal?.confidence ?? 0;
     const userText =
       s.input.prompt ??
       s.input.messages?.map((m) => (typeof m.content === 'string' ? m.content : '')).join('\n') ??
@@ -333,8 +332,8 @@ export const makePlanner =
 
     let steps: PlanStep[] | null = null;
 
-    // 1) Explicit chat.respond → chat-only
-    if (intent === 'chat.respond') {
+    // 1) If no goal or very low confidence → use chat.respond
+    if (!goal || confidence < 0.5) {
       steps = finalizeSteps([
         {
           tool: 'chat.respond',
@@ -347,14 +346,48 @@ export const makePlanner =
       const diff = safe({
         summary: 'Answer with assistant (chat.respond).',
         steps: steps.map(({ id, tool, dependsOn }) => ({ id, tool, dependsOn })),
-        intentDesc: INTENTS.find((x) => x.id === intent)?.desc,
+        goalDesc: goal?.outcome || 'No clear goal identified',
       });
       events.planReady(s, eventBus, safe(steps), diff);
       return { scratch: { ...s.scratch, plan: steps }, output: { ...s.output, diff } };
     }
 
-    // 2) Unknown/low-confidence → answer normally (no tools)
-    if (!intent || confidence < 0.6) {
+    // 2) Check if there are missing required fields
+    const missing = goal.missing || [];
+    const requiredMissing = missing.filter((m: any) => m.required !== false);
+    
+    if (requiredMissing.length > 0) {
+      // Return empty plan - the confirm node will ask questions
+      const diff = safe({
+        summary: `Need more information: ${requiredMissing.map((m: any) => m.key).join(', ')}`,
+        steps: [],
+        goalDesc: goal.outcome,
+        missingFields: requiredMissing,
+      });
+      events.planReady(s, eventBus, safe([]), diff);
+      return { scratch: { ...s.scratch, plan: [] }, output: { ...s.output, diff } };
+    }
+
+    // 3) Try LLM planning with available tools
+    const tools = getToolSchemas();
+    const system = buildSystemPrompt(tools);
+    const user = buildUserPrompt(s);
+    const raw = await planWithLLM(llm, s, system, user);
+
+    if (raw) {
+      try {
+        const cleaned = extractJsonFromOutput(raw);
+        const parsed = PlanInSchema.parse(JSON.parse(cleaned));
+        const hardened = patchAndHardenPlan(s, parsed);
+        steps = hardened.steps;
+      } catch (err) {
+        console.warn('[planner] Failed to parse LLM plan:', err);
+        steps = null; // fall back
+      }
+    }
+
+    // 4) If no valid steps, fall back to chat.respond
+    if (!steps || steps.length === 0) {
       steps = finalizeSteps([
         {
           tool: 'chat.respond',
@@ -364,42 +397,16 @@ export const makePlanner =
           },
         },
       ]);
-      const diff = safe({
-        summary: 'Answer normally (no tools).',
-        steps: steps.map(({ id, tool, dependsOn }) => ({ id, tool, dependsOn })),
-        intentDesc: INTENTS.find((x) => x.id === intent)?.desc,
-      });
-      events.planReady(s, eventBus, safe(steps), diff);
-      return { scratch: { ...s.scratch, plan: steps }, output: { ...s.output, diff } };
     }
 
-    // 3) Try LLM planning
-    if (intent) {
-      const tools = getToolSchemas();
-      const system = buildSystemPrompt(tools);
-      const user = buildUserPrompt(s, intent);
-      const raw = await planWithLLM(llm, s, system, user);
-
-      if (raw) {
-        try {
-          const cleaned = extractJsonFromOutput(raw);
-          const parsed = PlanInSchema.parse(JSON.parse(cleaned));
-          const hardened = patchAndHardenPlan(s, parsed);
-          steps = hardened.steps;
-        } catch {
-          steps = null; // fall back
-        }
-      }
-    }
-
-    // 5) Build diff including inputs sections
+    // 5) Build diff
     const diff = safe({
       summary:
         steps && steps.length > 0
           ? `Proposed actions: ${steps.map((x) => x.tool.split('.').pop()).join(' → ')}`
           : 'No actions proposed.',
       steps: (steps ?? []).map(({ id, tool, dependsOn }) => ({ id, tool, dependsOn })),
-      intentDesc: INTENTS.find((x) => x.id === intent)?.desc,
+      goalDesc: goal.outcome,
     });
 
     events.planReady(s, eventBus, safe(steps ?? []), diff);

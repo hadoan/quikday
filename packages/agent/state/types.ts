@@ -77,8 +77,26 @@ export interface RunState {
   mode: RunMode;
   ctx: RunCtx;
   scratch?: {
+    // Goal-oriented approach: extracted goal replaces intent
+    goal?: {
+      outcome: string;
+      context?: {
+        who?: string;
+        what?: string;
+        when?: string;
+        where?: string;
+        constraints?: string[];
+      };
+      provided: Record<string, unknown>;
+      missing?: Array<{ key: string; question: string; type?: string; required?: boolean }>;
+      success_criteria?: string;
+      confidence: number;
+    };
+    
+    // Legacy fields (deprecated, kept for backward compatibility during transition)
     intent?: string;
     intentMeta?: { confidence: number; reason?: string };
+    
     plan?: PlanStep[];
     stepsRun?: number;
     errors?: Array<{ code: string; message: string }>;

@@ -37,6 +37,7 @@ export const RunCard = ({ data, runId }: RunCardProps) => {
   const dsAny = getDataSource() as unknown as { applyAnswers?: Function; confirm?: Function };
   const [answers, setAnswers] = React.useState<Record<string, string>>({});
   const [submitting, setSubmitting] = React.useState(false);
+  const [submitted, setSubmitted] = React.useState(false);
 
   React.useEffect(() => {
     const seed: Record<string, string> = {};
@@ -74,6 +75,9 @@ export const RunCard = ({ data, runId }: RunCardProps) => {
           if (!r.ok) throw new Error('confirm failed');
         });
       }
+      
+      // Mark as submitted to show read-only view
+      setSubmitted(true);
     } catch (e) {
       console.error('Submit failed', e);
       alert('Could not submit answers. Please check values and try again.');
@@ -123,9 +127,13 @@ export const RunCard = ({ data, runId }: RunCardProps) => {
 
     return (
       <div className="card border rounded-xl p-4 bg-card">
-        <h3 className="font-semibold text-lg">I need a couple details to proceed</h3>
+        <h3 className="font-semibold text-lg">
+          {submitted ? 'Input Submitted' : 'I need a couple details to proceed'}
+        </h3>
         <p className="text-sm text-muted-foreground mb-4">
-          Please fill these in. I’ll continue automatically once you submit.
+          {submitted
+            ? "Your inputs have been submitted. Processing will continue automatically."
+            : "Please fill these in. I'll continue automatically once you submit."}
         </p>
 
         <div className="space-y-3">
@@ -138,7 +146,8 @@ export const RunCard = ({ data, runId }: RunCardProps) => {
                 <select
                   value={answers[q.key] ?? ''}
                   onChange={(e) => onChange(q.key, e.target.value)}
-                  className="border rounded px-2 py-1"
+                  disabled={submitted}
+                  className="border rounded px-2 py-1 disabled:bg-muted disabled:cursor-not-allowed disabled:opacity-75"
                 >
                   <option value="" disabled>
                     Select an option…
@@ -155,22 +164,33 @@ export const RunCard = ({ data, runId }: RunCardProps) => {
                   placeholder="e.g., 2025-10-24T10:00:00Z"
                   value={answers[q.key] ?? ''}
                   onChange={(e) => onChange(q.key, e.target.value)}
-                  className="border rounded px-2 py-1"
+                  disabled={submitted}
+                  readOnly={submitted}
+                  className="border rounded px-2 py-1 disabled:bg-muted disabled:cursor-not-allowed disabled:opacity-75"
                 />
               )}
             </div>
           ))}
         </div>
 
-        {/* <div className="mt-4 flex gap-2">
-          <button
-            onClick={onSubmit}
-            disabled={submitting || qs.some((q) => !(answers[q.key] ?? '').trim())}
-            className="bg-black text-white rounded px-3 py-2 disabled:opacity-50"
-          >
-            {submitting ? 'Submitting…' : 'Submit & Continue'}
-          </button>
-        </div> */}
+        {!submitted && (
+          <div className="mt-4 flex gap-2">
+            <button
+              onClick={onSubmit}
+              disabled={submitting || qs.some((q) => !(answers[q.key] ?? '').trim())}
+              className="bg-black text-white rounded px-3 py-2 disabled:opacity-50 hover:bg-black/90 transition-colors"
+            >
+              {submitting ? 'Submitting…' : 'Submit & Continue'}
+            </button>
+          </div>
+        )}
+
+        {submitted && (
+          <div className="mt-4 flex items-center gap-2 text-sm text-success">
+            <CheckCircle2 className="h-4 w-4" />
+            <span>Submitted successfully</span>
+          </div>
+        )}
       </div>
     );
   }

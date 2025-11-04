@@ -103,15 +103,7 @@ export default function DashboardPage() {
             </div>
             <div className="w-full md:w-auto flex flex-wrap items-center gap-2 md:gap-3 justify-end">
               <ThemeToggle />
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => setIsToolsPanelOpen(!isToolsPanelOpen)}
-                className="gap-2"
-              >
-                <Plug2 className="h-4 w-4" />
-                Integrations
-              </Button>
+             
               <UserMenu
                 onViewProfile={() => {}}
                 onEditProfile={() => navigate('/settings/profile')}
@@ -139,13 +131,7 @@ export default function DashboardPage() {
         </ScrollArea>
       </div>
 
-      {isToolsPanelOpen && (
-        <ToolsPanel
-          tools={mockTools}
-          stats={mockStats}
-          onClose={() => setIsToolsPanelOpen(false)}
-        />
-      )}
+    
     </div>
   );
 }

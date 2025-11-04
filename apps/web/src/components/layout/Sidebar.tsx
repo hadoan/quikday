@@ -29,8 +29,8 @@ export const Sidebar = ({
   const navigate = useNavigate();
   const filters = [
     { label: 'All Runs', icon: Clock },
-    { label: 'My Runs', icon: Zap },
-    { label: 'Team', icon: Users },
+    // { label: 'My Runs', icon: Zap },
+    // { label: 'Team', icon: Users },
   ];
 
   return (
@@ -157,11 +157,12 @@ export const Sidebar = ({
             variant="ghost"
             size="icon"
             className="h-10 w-10"
-            title="Apps"
-            onClick={() => navigate('/apps')}
+            title="Dashboard"
+            onClick={() => navigate('/dashboard')}
           >
-            <Grid className="h-4 w-4" />
+            <Zap className="h-4 w-4" />
           </Button>
+
           <Button
             variant="ghost"
             size="icon"
@@ -171,6 +172,17 @@ export const Sidebar = ({
           >
             <MessageSquare className="h-4 w-4" />
           </Button>
+
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-10 w-10"
+            title="Apps"
+            onClick={() => navigate('/apps')}
+          >
+            <Grid className="h-4 w-4" />
+          </Button>
+
           {filters.map((filter) => (
             <Button
               key={filter.label}

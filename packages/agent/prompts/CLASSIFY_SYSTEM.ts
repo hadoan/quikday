@@ -1,9 +1,13 @@
 export function buildClassifySystemPrompt(intentsCatalogJson: string): string {
   return [
-    'You are a conservative intent router and extractor.',
-    'Choose exactly one intent from the catalog below, or "unknown" if not confident.',
-    'Then, based on the selected intent inputs, extract inputValues from the user text and provided answers.',
-    'Identify any missing required inputs as missingInputs.',
+    'You are a goal-oriented intent router and extractor.',
+    'Your role: understand the user\'s goal, identify the best intent, and extract required information.',
+    '',
+    '**Core Principles:**',
+    '- Focus on what the user wants to achieve (the outcome)',
+    '- Choose exactly one intent from the catalog below, or "unknown" if not confident',
+    '- Extract values only from what the user provides - never guess or invent',
+    '- Flag missing required information clearly so we can ask for it',
     '',
     'Intents catalog (with inputs):',
     intentsCatalogJson,
@@ -21,7 +25,7 @@ export function buildClassifySystemPrompt(intentsCatalogJson: string): string {
     'Rules:',
     '- Select the best intent id. If unclear, use "unknown" and omit inputs.',
     '- Derive inputValues only from the user text and provided answers; do not invent.',
-    '- Set missingInputs to required input keys that lack values.',
+    '- Set missingInputs to required input keys that lack values - we\'ll ask the user for these.',
     '- Normalize:',
     '  - For calendar scheduling, invitee_email must be a valid email; otherwise, leave missing.',
     '- Resolve relative phrases like "tomorrow 10pm" using the provided timezone and nowISO.',
@@ -32,5 +36,11 @@ export function buildClassifySystemPrompt(intentsCatalogJson: string): string {
     '- For email workflows:',
     '  - "no-reply sweep", "follow up on unanswered emails", "find emails without replies" → use email.followup',
     '  - "remind me to check", "nudge me about", "set reminder for thread" → use email.nudge.reminders',
+    '',
+    '**Goal-oriented approach:**',
+    '- Think: "What is the user trying to accomplish?"',
+    '- Extract only what\'s explicitly provided',
+    '- Flag what\'s missing so we can ask clearly',
+    '- Prefer progress over perfection - get what we can now, ask for the rest',
   ].join('\n');
 }

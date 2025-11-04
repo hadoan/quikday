@@ -209,6 +209,7 @@ export class ApiDataSource implements DataSource {
   // Approvals & Control
   // -------------------------------------------------------------------------
   async approve(runId: string, approvedSteps: string[]): Promise<{ ok: true }> {
+    console.log('[ApiDataSource] approve called:', { runId, approvedSteps });
     const url = `${this.config.apiBaseUrl}/runs/${runId}/approve`;
 
     await this.fetch(url, {
@@ -216,6 +217,7 @@ export class ApiDataSource implements DataSource {
       body: JSON.stringify({ approvedSteps }),
     });
 
+    console.log('[ApiDataSource] approve response received');
     return { ok: true };
   }
 

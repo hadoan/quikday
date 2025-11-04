@@ -1,49 +1,29 @@
 import type { Node } from '../runtime/graph.js';
 import type { RunState, Question, QuestionType } from '../state/types.js';
 import type { RunEventBus } from '@quikday/libs';
-import type { IntentInput } from './intents.js';
 import { events } from '../observability/events.js';
 
-type IntentMetaLike = {
-  inputs?: ReadonlyArray<IntentInput>;
-  inputValues?: Record<string, unknown>;
-  missingInputs?: string[];
-};
-
-function asIntentMeta(v: unknown): IntentMetaLike | null {
-  if (!v || typeof v !== 'object') return null;
-  const o = v as Record<string, unknown>;
-  const okInputs = !('inputs' in o) || Array.isArray((o as any).inputs);
-  const okVals = !('inputValues' in o) || typeof (o as any).inputValues === 'object';
-  const okMissing = !('missingInputs' in o) || Array.isArray((o as any).missingInputs);
-  return okInputs && okVals && okMissing ? (o as IntentMetaLike) : null;
-}
-
 /**
- * Ensure all required intent inputs are answered.
+ * Ensure all required goal inputs are answered.
  * - If unresolved required inputs remain, set awaiting questions and pause the run.
  * - Otherwise, noop and allow graph to continue.
  */
 export const ensureInputs: Node<RunState, RunEventBus> = async (s, eventBus) => {
   try {
-    const meta = asIntentMeta(s.scratch?.intentMeta);
-    const missing: string[] = Array.isArray(meta?.missingInputs) ? meta!.missingInputs! : [];
-    const inputs: ReadonlyArray<IntentInput> = Array.isArray(meta?.inputs)
-      ? (meta!.inputs as ReadonlyArray<IntentInput>)
-      : [];
+    const goal = (s.scratch as any)?.goal;
+    const missing = Array.isArray(goal?.missing) ? goal.missing : [];
 
-    if (missing.length === 0 || inputs.length === 0) {
+    if (missing.length === 0) {
       // No required inputs to check
       return { scratch: { ...s.scratch, awaiting: null } };
     }
 
-    // Already provided answers or LLM-extracted inputValues
+    // Already provided answers or goal-extracted provided values
     const providedAnswers: Record<string, unknown> = { ...(s.scratch?.answers ?? {}) };
-    const inputValues: Record<string, unknown> =
-      (meta?.inputValues as Record<string, unknown> | undefined) ?? {};
+    const provided: Record<string, unknown> = goal?.provided ?? {};
 
-    const unresolved = missing.filter((k) => {
-      const v = (providedAnswers as any)[k] ?? (inputValues as any)[k];
+    const unresolved = missing.filter((m: any) => {
+      const v = providedAnswers[m.key] ?? provided[m.key];
       if (v === undefined || v === null) return true;
       if (Array.isArray(v)) return v.length === 0;
       if (typeof v === 'string') return v.trim().length === 0;
@@ -56,7 +36,7 @@ export const ensureInputs: Node<RunState, RunEventBus> = async (s, eventBus) => 
     }
 
     // Map unresolved inputs → UI questions
-    const typeMap: Record<IntentInput['type'], QuestionType> = {
+    const typeMap: Record<string, QuestionType> = {
       string: 'text',
       text: 'textarea',
       textarea: 'textarea',
@@ -72,12 +52,10 @@ export const ensureInputs: Node<RunState, RunEventBus> = async (s, eventBus) => 
       boolean: 'boolean',
     };
 
-    const byKey = new Map(inputs.map((i) => [i.key, i] as const));
-    const questions: Question[] = unresolved.map((key) => {
-      const def = byKey.get(key);
-      const qt: QuestionType = def ? typeMap[def.type] : 'text';
-      const label = def?.prompt ?? `Please provide ${key}`;
-      return { key, question: label, type: qt, required: def?.required !== false };
+    const questions: Question[] = unresolved.map((m: any) => {
+      const qt: QuestionType = m.type ? (typeMap[m.type] || 'text') : 'text';
+      const label = m.question || `Please provide ${m.key}`;
+      return { key: m.key, question: label, type: qt, required: m.required !== false };
     });
 
     const ts = new Date().toISOString();

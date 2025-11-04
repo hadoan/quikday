@@ -85,6 +85,7 @@ export function QuestionsPanel({
 }) {
   const [answers, setAnswers] = React.useState<Record<string, unknown>>({});
   const [loading, setLoading] = React.useState(false);
+  const [submitted, setSubmitted] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
   const [fieldErrors, setFieldErrors] = React.useState<Record<string, string | null>>({});
 
@@ -280,6 +281,7 @@ export function QuestionsPanel({
 
           // success
           setFieldErrors({});
+          setSubmitted(true);
           onSubmitted?.();
         } catch (err: unknown) {
           let message: string;
@@ -291,9 +293,13 @@ export function QuestionsPanel({
         }
       }}
     >
-      <h4 className="font-medium">Missing details</h4>
+      <h4 className="font-medium">
+        {submitted ? 'Details Submitted' : 'Missing details'}
+      </h4>
       <p className="text-sm text-muted-foreground">
-        Please provide the requested information to continue the run.
+        {submitted
+          ? 'Your information has been submitted. The run will continue automatically.'
+          : 'Please provide the requested information to continue the run.'}
       </p>
 
       <div className="grid gap-3 mt-2">
@@ -313,18 +319,22 @@ export function QuestionsPanel({
               {t === 'textarea' ? (
                 <textarea
                   rows={4}
-                  className="border rounded px-2 py-1"
+                  className="border rounded px-2 py-1 disabled:bg-muted disabled:cursor-not-allowed disabled:opacity-75"
                   placeholder={q.placeholder}
                   value={valueStr}
                   onChange={(ev) => setFieldValue(q.key, ev.target.value, q)}
+                  disabled={submitted}
+                  readOnly={submitted}
                 />
               ) : t === 'email' ? (
                 <input
                   type="email"
-                  className="border rounded px-2 py-1"
+                  className="border rounded px-2 py-1 disabled:bg-muted disabled:cursor-not-allowed disabled:opacity-75"
                   placeholder={q.placeholder}
                   value={valueStr}
                   onChange={(ev) => setFieldValue(q.key, ev.target.value, q)}
+                  disabled={submitted}
+                  readOnly={submitted}
                 />
               ) : t === 'email_list' ? (
                 <div>
@@ -335,69 +345,82 @@ export function QuestionsPanel({
                         className="px-2 py-0.5 bg-gray-200 rounded flex items-center gap-2"
                       >
                         <span className="text-sm">{e}</span>
-                        <button
-                          type="button"
-                          aria-label={`Remove ${e}`}
-                          onClick={() =>
-                            setFieldValue(
-                              q.key,
-                              (Array.isArray(value)
-                                ? value.filter((x: string) => x !== e)
-                                : []
-                              ).slice(),
-                              q,
-                            )
-                          }
-                        >
-                          ×
-                        </button>
+                        {!submitted && (
+                          <button
+                            type="button"
+                            aria-label={`Remove ${e}`}
+                            onClick={() =>
+                              setFieldValue(
+                                q.key,
+                                (Array.isArray(value)
+                                  ? value.filter((x: string) => x !== e)
+                                  : []
+                                ).slice(),
+                                q,
+                              )
+                            }
+                          >
+                            ×
+                          </button>
+                        )}
                       </span>
                     ))}
                   </div>
-                  <EmailListInput
-                    placeholder={q.placeholder}
-                    onAdd={(email) =>
-                      setFieldValue(q.key, [...(Array.isArray(value) ? value : []), email], q)
-                    }
-                  />
+                  {!submitted && (
+                    <EmailListInput
+                      placeholder={q.placeholder}
+                      onAdd={(email) =>
+                        setFieldValue(q.key, [...(Array.isArray(value) ? value : []), email], q)
+                      }
+                    />
+                  )}
                 </div>
               ) : t === 'datetime' ? (
                 <input
                   type="datetime-local"
-                  className="border rounded px-2 py-1"
+                  className="border rounded px-2 py-1 disabled:bg-muted disabled:cursor-not-allowed disabled:opacity-75"
                   placeholder={q.placeholder}
                   value={valueStr}
                   onChange={(ev) => setFieldValue(q.key, ev.target.value, q)}
+                  disabled={submitted}
+                  readOnly={submitted}
                 />
               ) : t === 'date' ? (
                 <input
                   type="date"
-                  className="border rounded px-2 py-1"
+                  className="border rounded px-2 py-1 disabled:bg-muted disabled:cursor-not-allowed disabled:opacity-75"
                   value={valueStr}
                   onChange={(ev) => setFieldValue(q.key, ev.target.value, q)}
+                  disabled={submitted}
+                  readOnly={submitted}
                 />
               ) : t === 'time' ? (
                 <input
                   type="time"
-                  className="border rounded px-2 py-1"
+                  className="border rounded px-2 py-1 disabled:bg-muted disabled:cursor-not-allowed disabled:opacity-75"
                   value={valueStr}
                   onChange={(ev) => setFieldValue(q.key, ev.target.value, q)}
+                  disabled={submitted}
+                  readOnly={submitted}
                 />
               ) : t === 'number' ? (
                 <input
                   type="number"
                   step={1}
-                  className="border rounded px-2 py-1"
+                  className="border rounded px-2 py-1 disabled:bg-muted disabled:cursor-not-allowed disabled:opacity-75"
                   value={typeof value === 'number' ? value : valueStr}
                   onChange={(ev) =>
                     setFieldValue(q.key, ev.target.value === '' ? '' : Number(ev.target.value), q)
                   }
+                  disabled={submitted}
+                  readOnly={submitted}
                 />
               ) : t === 'select' ? (
                 <select
-                  className="border rounded px-2 py-1"
+                  className="border rounded px-2 py-1 disabled:bg-muted disabled:cursor-not-allowed disabled:opacity-75"
                   value={valueStr}
                   onChange={(ev) => setFieldValue(q.key, ev.target.value, q)}
+                  disabled={submitted}
                 >
                   <option value="" disabled>
                     Select…
@@ -424,6 +447,7 @@ export function QuestionsPanel({
                           }
                           setFieldValue(q.key, current, q);
                         }}
+                        disabled={submitted}
                       />
                       <span>{opt}</span>
                     </label>
@@ -433,10 +457,12 @@ export function QuestionsPanel({
                 // fallback to text
                 <input
                   type="text"
-                  className="border rounded px-2 py-1"
+                  className="border rounded px-2 py-1 disabled:bg-muted disabled:cursor-not-allowed disabled:opacity-75"
                   placeholder={q.placeholder}
                   value={valueStr}
                   onChange={(ev) => setFieldValue(q.key, ev.target.value, q)}
+                  disabled={submitted}
+                  readOnly={submitted}
                 />
               )}
 
@@ -448,15 +474,32 @@ export function QuestionsPanel({
 
       {error && <div className="text-sm text-destructive mt-2">{error}</div>}
 
-      <div className="mt-4">
-        <button
-          type="submit"
-          className="px-3 py-1 rounded bg-black text-white"
-          disabled={loading || !allValid}
-        >
-          {loading ? 'Submitting…' : 'Continue'}
-        </button>
-      </div>
+      {!submitted && (
+        <div className="mt-4">
+          <button
+            type="submit"
+            className="px-3 py-1 rounded bg-black text-white hover:bg-black/90 transition-colors disabled:opacity-50"
+            disabled={loading || !allValid}
+          >
+            {loading ? 'Submitting…' : 'Continue'}
+          </button>
+        </div>
+      )}
+
+      {submitted && (
+        <div className="mt-4 flex items-center gap-2 text-sm text-green-600">
+          <svg
+            className="h-4 w-4"
+            fill="none"
+            stroke="currentColor"
+            viewBox="0 0 24 24"
+            xmlns="http://www.w3.org/2000/svg"
+          >
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+          </svg>
+          <span>Submitted successfully</span>
+        </div>
+      )}
     </form>
   );
 }

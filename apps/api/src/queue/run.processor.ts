@@ -217,11 +217,15 @@ export class RunProcessor extends WorkerHost {
               approvedSteps: config?.approvedSteps?.length || 0,
             });
             
+            console.log('[run.processor] Initial state scratch keys:', Object.keys(initialState.scratch || {}));
+            console.log('[run.processor] Has plan?', !!initialState.scratch?.plan);
+            console.log('[run.processor] Plan length:', initialState.scratch?.plan?.length || 0);
+            
             // Run from executor directly, bypassing planner
             final = await graph.run('executor', initialState, this.eventBus);
           } else {
-            // Normal flow: start from classify
-            final = await graph.run('classify', initialState, this.eventBus);
+            // Normal flow: start from extractGoal (goal-oriented flow)
+            final = await graph.run('extractGoal', initialState, this.eventBus);
           }
         } finally {
           unsubscribe();
@@ -594,8 +598,21 @@ export class RunProcessor extends WorkerHost {
     if (isApprovalHalt) {
       const approvalId =
         err?.approvalId ?? err?.payload?.approvalId ?? err?.data?.approvalId ?? undefined;
+      
+      console.log('[run.processor] Approval halt - liveState keys:', Object.keys(liveState));
+      console.log('[run.processor] liveState.scratch keys:', Object.keys(liveState.scratch || {}));
+      console.log('[run.processor] liveState.output keys:', Object.keys(liveState.output || {}));
+      console.log('[run.processor] Has plan in liveState.scratch?', !!liveState.scratch?.plan);
+      console.log('[run.processor] Plan length:', Array.isArray(liveState.scratch?.plan) ? liveState.scratch.plan.length : 0);
+      
+      // Persist output with scratch containing the plan
+      const outputToPersist = {
+        ...liveState.output,
+        scratch: liveState.scratch,
+      };
+      
       await this.runs.persistResult(run.id, {
-        output: liveState.output,
+        output: outputToPersist,
         logs: formatLogsForPersistence(),
       });
       await this.runs.updateStatus(run.id, 'awaiting_approval');

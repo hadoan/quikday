@@ -176,9 +176,7 @@ export default function RunsPage() {
 
       <RunDetailDrawer runId={activeRunId} open={!!activeRunId} onClose={() => setActiveRunId(undefined)} />
 
-      {isToolsPanelOpen && (
-        <ToolsPanel tools={mockTools} stats={mockStats} onClose={() => setIsToolsPanelOpen(false)} />
-      )}
+    
     </div>
   );
 }
