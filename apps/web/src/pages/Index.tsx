@@ -204,6 +204,19 @@ const Index = () => {
                     steps: stepsPayload as any,
                   }),
                 );
+                
+                // If plan_generated includes missing fields (awaiting_input), show questions card AFTER plan
+                if (diff && (diff as any).missingFields && Array.isArray((diff as any).missingFields)) {
+                  const missingFields = (diff as any).missingFields as any[];
+                  if (missingFields.length > 0 && event.runId === activeRunId) {
+                    console.log('[Index] 📝 Adding missing details card after plan:', missingFields);
+                    newMessages.push({
+                      role: 'assistant',
+                      type: 'questions',
+                      data: { runId: activeRunId, questions: missingFields } as any,
+                    });
+                  }
+                }
               }
               break;
             }
@@ -296,12 +309,15 @@ const Index = () => {
               // the run status to 'awaiting_input' so UI components can react.
               try {
                 const payload = event.payload as Record<string, unknown>;
-                console.log('[Index] 🔍 Checking approval payload:', {
+                console.log('[Index] 🔍 Checking status payload:', {
                   status,
                   hasSteps: Array.isArray((payload as any)?.steps),
                   stepsLength: (payload as any)?.steps?.length,
-                  steps: (payload as any)?.steps,
+                  hasQuestions: Array.isArray(payload?.questions),
+                  questionsLength: Array.isArray(payload?.questions) ? (payload.questions as any[]).length : 0,
+                  questions: payload?.questions,
                 });
+                
                 // If awaiting_approval mid-execution and backend included step details, surface a plan card
                 if (
                   status === 'awaiting_approval' &&
@@ -317,31 +333,53 @@ const Index = () => {
                   console.log('[Index] ✅ Creating approval plan card, hasApprovalPlanAfterRunCard:', hasApprovalPlanAfterRunCard);
                   if (!hasApprovalPlanAfterRunCard) {
                     const stepsPayload = (payload as any).steps as any[];
-                  newMessages.push(
-                    buildPlanMessage({
-                      intent: 'Review pending actions',
-                      tools: stepsPayload.map((s: any) => s.tool).filter(Boolean),
-                      actions: stepsPayload.map((s: any) => s.action || `Execute ${s.tool}`),
-                      steps: stepsPayload as any,
-                      awaitingApproval: true,
-                      mode: 'approval',
-                    }),
-                  );
-                  console.log('[Index] 📋 Approval plan card created');
+                    newMessages.push(
+                      buildPlanMessage({
+                        intent: 'Review pending actions',
+                        tools: stepsPayload.map((s: any) => s.tool).filter(Boolean),
+                        actions: stepsPayload.map((s: any) => s.action || `Execute ${s.tool}`),
+                        steps: stepsPayload as any,
+                        awaitingApproval: true,
+                        mode: 'approval',
+                      }),
+                    );
+                    console.log('[Index] 📋 Approval plan card created');
+                  }
                 }
-              }
+                
+                // If awaiting_input and backend included questions, show questions card AFTER plan
                 if (
-                  (payload?.status as string) === 'awaiting_input' &&
+                  status === 'awaiting_input' &&
                   Array.isArray(payload?.questions) &&
                   event.runId === activeRunId
                 ) {
                   const qs = (payload.questions as any[]) || [];
-                  // Persist questions as an inline chat message so it stays in place
-                  newMessages.push({
-                    role: 'assistant',
-                    type: 'questions',
-                    data: { runId: activeRunId, questions: qs } as any,
+                  console.log('[Index] 💭 Processing awaiting_input with questions:', {
+                    questionsCount: qs.length,
+                    questions: qs,
                   });
+                  
+                  // Check if questions card already exists (e.g., from plan_generated event)
+                  const hasQuestionsCard = newMessages.some(
+                    (m) => m && m.type === 'questions' && m.data && (m.data as any).runId === activeRunId
+                  );
+                  
+                  console.log('[Index] 📝 Questions card check:', {
+                    hasQuestionsCard,
+                    currentMessagesCount: newMessages.length,
+                  });
+                  
+                  if (!hasQuestionsCard) {
+                    console.log('[Index] ✅ Creating questions card with', qs.length, 'questions');
+                    // Persist questions as an inline chat message so it stays in place
+                    newMessages.push({
+                      role: 'assistant',
+                      type: 'questions',
+                      data: { runId: activeRunId, questions: qs } as any,
+                    });
+                  } else {
+                    console.log('[Index] ⏭️ Skipping questions card creation - already exists');
+                  }
                 }
               } catch (e) {
                 // ignore
