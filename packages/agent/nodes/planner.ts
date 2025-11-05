@@ -769,10 +769,11 @@ export const makePlanner =
       // Generate preview steps to show what we'll do once we have the info
       const previewSteps = generatePreviewSteps(goal, requiredMissing);
       
-      // Return empty plan with preview - the confirm node will ask questions
+      // Return plan with preview and mark awaiting_input so the UI can
+      // show the intended plan while also prompting for missing info.
       const diff = safe({
         summary: `Need ${requiredMissing.length} more detail${requiredMissing.length > 1 ? 's' : ''} to proceed`,
-        steps: [],
+        steps: (steps ?? []).map(({ id, tool, dependsOn }) => ({ id, tool, dependsOn })),
         previewSteps,
         goalDesc: goal.outcome,
         missingFields: requiredMissing.map((m: MissingField) => ({
@@ -784,10 +785,10 @@ export const makePlanner =
         })),
         status: 'awaiting_input',
       });
-      events.planReady(s, eventBus, safe([]), diff);
-      return { 
-        scratch: { ...s.scratch, plan: [], previewSteps }, 
-        output: { ...s.output, diff } 
+      events.planReady(s, eventBus, safe(steps ?? []), diff);
+      return {
+        scratch: { ...s.scratch, plan: steps ?? [], previewSteps },
+        output: { ...s.output, diff },
       };
     }
 
