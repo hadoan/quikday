@@ -77,7 +77,8 @@ export class WebSocketService implements OnModuleDestroy {
           const runAny: any = run;
           const projection = {
             id: run.id,
-            title: (run.intent as any)?.title || run.prompt?.slice(0, 80) || 'Run',
+            title:
+              ((run as any).goal as any)?.title || (run.intent as any)?.title || run.prompt?.slice(0, 80) || 'Run',
             status: run.status,
             createdAt: run.createdAt,
             createdBy: { id: run.userId, name: runAny.User?.displayName || runAny.User?.email || 'User', avatar: runAny.User?.avatar || null },
@@ -160,8 +161,8 @@ export class WebSocketService implements OnModuleDestroy {
             lastAssistant = match ? (match.result as any).message : null;
           }
 
-          // Extract missing fields from run config
-          const missing = (run?.config as any)?.missing || [];
+          // Extract missing fields from run (new field) with fallback to legacy location in config
+          const missing = (run as any)?.missing || (run?.config as any)?.missing || [];
 
           this.sendMessage(ws, {
             type: 'run_snapshot',

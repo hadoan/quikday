@@ -96,6 +96,12 @@ model Run {
     mode          String
     status        String
     intent        Json?
+    // Goal extracted from the prompt (structured)
+    goal          Json?
+    // Planned steps for this run (structured array)
+    plan          Json?
+    // Missing fields required from the user (structured array)
+    missing       Json?
     config        Json?
     output        Json?
     error         Json?

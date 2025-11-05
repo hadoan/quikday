@@ -16,6 +16,7 @@ import { getTeamPolicy, type TeamPolicy } from '@quikday/agent/guards/policy';
 import type { ChatMessage } from '@quikday/agent/state/types';
 import { CurrentUserService, getCurrentUserCtx } from '@quikday/libs';
 import { StepsService } from './steps.service.js';
+import type { Goal, PlanStep, MissingField } from './types.js';
 
 @Injectable()
 export class RunsService {
@@ -953,9 +954,9 @@ export class RunsService {
     userId: number;
     teamId?: number;
     tz: string;
-    goal: any;
-    plan: any[];
-    missing: any[];
+    goal: Goal | null;
+    plan: PlanStep[];
+    missing: MissingField[];
   }) {
     const { prompt, userId, teamId, tz, goal, plan, missing } = data;
 
@@ -976,15 +977,16 @@ export class RunsService {
         userId,
         teamId: teamId ?? undefined,
         prompt,
-        mode: 'PREVIEW',
+        mode: 'preview',
         status,
-        intent: goal || null,
+        // Persist structured planning fields directly on Run
+        goal: (goal ?? null) as any,
+        plan: (Array.isArray(plan) ? plan : []) as any,
+        missing: (Array.isArray(missing) ? missing : []) as any,
+        // Preserve tz in config for downstream usage
         config: {
           tz,
-          missing: missing || [],
-        },
-        createdAt: new Date(),
-        updatedAt: new Date(),
+        } as any,
       },
     });
 
@@ -996,13 +998,12 @@ export class RunsService {
     // Create Step records for each step in the plan using StepsService
     if (Array.isArray(plan) && plan.length > 0) {
       await this.stepsService.createSteps(
-        plan.map((step: any, index: number) => ({
+        plan.map((step: PlanStep, index: number) => ({
           runId: run.id,
           tool: step.tool || 'unknown',
-          action: step.action || 'execute',
-          request: step.inputs || null,
-          planStepId: `step-${index}`,
-          waitingConfirm: false,
+          action: `Execute ${step.tool || 'unknown'}`,
+          request: (step as any).request ?? step.args ?? null,
+          planStepId: step.id || `step-${index}`,
           startedAt: new Date(),
         })),
         userId,
