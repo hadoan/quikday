@@ -8,7 +8,7 @@ import { AuthController } from './auth.controller.js';
 @Module({
   imports: [ConfigModule, PrismaModule],
   providers: [KindeGuard, AuthService],
-  exports: [KindeGuard, AuthService],
+  exports: [KindeGuard, AuthService, ConfigModule],
   controllers: [AuthController],
 })
 export class AuthModule {}

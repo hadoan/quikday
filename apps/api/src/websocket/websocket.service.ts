@@ -160,6 +160,9 @@ export class WebSocketService implements OnModuleDestroy {
             lastAssistant = match ? (match.result as any).message : null;
           }
 
+          // Extract missing fields from run config
+          const missing = (run?.config as any)?.missing || [];
+
           this.sendMessage(ws, {
             type: 'run_snapshot',
             payload: {
@@ -167,6 +170,7 @@ export class WebSocketService implements OnModuleDestroy {
               activeNode: null,
               planPreview: null,
               lastAssistant,
+              missingFields: missing.length > 0 ? missing : undefined,
             },
             ts: new Date().toISOString(),
             runId,

@@ -22,6 +22,12 @@ Rules:
 - For optional parameters, never ask unless explicitly needed
 - Be conservative - only ask for truly necessary missing information
 
+**Special validation rules:**
+- Email addresses MUST be in valid format (user@domain.com) - if you see just a name (e.g., "Sara", "John"), mark the email field as missing
+- Contact names without email addresses are NOT valid - they need to be looked up or provided
+- Phone numbers must be in valid format
+- URLs must start with http:// or https://
+
 Output a JSON array of missing inputs:
 [
   {

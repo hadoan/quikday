@@ -11,6 +11,7 @@ import type {
   UiPlanStep,
   UiEvent,
   UiCredential,
+  UiQuestionItem,
   CreateRunParams,
   DataSourceConfig,
 } from './DataSource';
@@ -58,8 +59,8 @@ export class ApiDataSource implements DataSource {
   // -------------------------------------------------------------------------
   // Create Run
   // -------------------------------------------------------------------------
-  async createRun(params: CreateRunParams): Promise<{ runId: string }> {
-    const url = `${this.config.apiBaseUrl}/runs`;
+  async createRun(params: CreateRunParams): Promise<{ goal: unknown; plan: unknown[]; missing: UiQuestionItem[]; runId?: string }> {
+    const url = `${this.config.apiBaseUrl}/agent/plan`;
 
     const history =
       params.messages
@@ -71,21 +72,13 @@ export class ApiDataSource implements DataSource {
 
     const body = {
       prompt: params.prompt,
-      mode: params.mode,
-      teamId: this.config.teamId,
-      scheduledAt: params.scheduledAt,
-      channelTargets: params.targets,
-      toolAllowlist: params.toolAllowlist,
       messages: history,
     };
 
-    this.logger.info('🌐 Making API request to create run', {
+    this.logger.info('🌐 Making API request to /agent/plan', {
       timestamp: new Date().toISOString(),
       url,
-      mode: params.mode,
-      teamId: this.config.teamId,
-      hasTargets: !!params.targets,
-      hasSchedule: !!params.scheduledAt,
+      hasMessages: !!history,
     });
 
     const response = await this.fetch(url, {
@@ -95,13 +88,16 @@ export class ApiDataSource implements DataSource {
 
     const data = await response.json();
 
-    this.logger.info('✅ API response received', {
+    this.logger.info('✅ Plan API response received', {
       timestamp: new Date().toISOString(),
-      runId: data.id,
+      runId: data.runId,
+      hasGoal: !!data.goal,
+      planSteps: data.plan?.length || 0,
+      missingFields: data.missing?.length || 0,
       status: response.status,
     });
 
-    return { runId: data.id };
+    return { goal: data.goal, plan: data.plan, missing: data.missing, runId: data.runId };
   }
 
   // -------------------------------------------------------------------------

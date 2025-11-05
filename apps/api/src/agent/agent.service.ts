@@ -102,7 +102,17 @@ export class AgentService {
 
     const goal = (s2.scratch as any)?.goal ?? null;
     const plan = (s2.scratch as any)?.plan ?? [];
-    const missing = Array.isArray(goal?.missing) ? goal.missing : [];
+    // Get missing fields from planner's diff output (not from goal.missing)
+    const diff = (s2.output as any)?.diff ?? {};
+    const missing = Array.isArray(diff.missingFields) ? diff.missingFields : [];
+
+    console.log('[AgentService.planOnly] Returning:', {
+      hasGoal: !!goal,
+      planSteps: plan.length,
+      missingFields: missing.length,
+      missing,
+      diff,
+    });
 
     return { goal, plan, missing };
   }

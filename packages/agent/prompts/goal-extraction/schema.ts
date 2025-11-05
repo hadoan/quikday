@@ -17,14 +17,6 @@ export const GoalSchema = z.object({
   
   provided: z.record(z.string(), z.unknown()).describe('Explicit values extracted from user input'),
   
-  missing: z.array(z.object({
-    key: z.string(),
-    question: z.string(),
-    type: z.string().optional(),
-    options: z.array(z.string()).optional(),
-    required: z.boolean().optional(),
-  })).optional().describe('Information needed to proceed'),
-  
   success_criteria: z.string().optional().describe('Definition of done'),
   
   confidence: z.number().min(0).max(1).default(0.7),

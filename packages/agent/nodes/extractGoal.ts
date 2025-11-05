@@ -15,8 +15,8 @@ import {
  * Goal extraction node factory
  * Uses modular prompt system with domain-specific rules
  * 
- * This node focuses on extracting the user's goal and basic information.
- * Detailed validation of required inputs based on tool schemas happens in the planner node.
+ * This node extracts the user's goal, context, and provided values.
+ * Missing input detection is handled later by the planner node using tool schemas.
  */
 export const makeExtractGoal = (llm: LLM): Node<RunState> => {
   return async (s) => {
@@ -30,7 +30,6 @@ export const makeExtractGoal = (llm: LLM): Node<RunState> => {
             outcome: 'No input provided',
             confidence: 0,
             provided: {},
-            missing: [{ key: 'prompt', question: 'What would you like me to do?', type: 'text', required: true }],
           },
         },
       };
@@ -70,7 +69,6 @@ export const makeExtractGoal = (llm: LLM): Node<RunState> => {
       const parsed = GoalSchema.parse(JSON.parse(json));
 
       console.log('[extractGoal] LLM returned:', JSON.stringify(parsed, null, 2));
-      console.log('[extractGoal] missing fields:', parsed.missing);
 
       return {
         scratch: {
@@ -84,7 +82,7 @@ export const makeExtractGoal = (llm: LLM): Node<RunState> => {
         error: e instanceof Error ? e.message : String(e),
       });
 
-      // Fallback: treat as general assistance request
+      // Fallback: treat as general assistance request (no missing fields)
       return {
         scratch: {
           ...s.scratch,
@@ -92,7 +90,6 @@ export const makeExtractGoal = (llm: LLM): Node<RunState> => {
             outcome: userPrompt.slice(0, 100),
             confidence: 0.5,
             provided: { prompt: userPrompt },
-            missing: [],
           },
         },
       };

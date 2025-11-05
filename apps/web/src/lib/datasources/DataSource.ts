@@ -206,7 +206,7 @@ export interface DataSource {
   // -------------------------------------------------------------------------
   // Composer / Run Creation
   // -------------------------------------------------------------------------
-  createRun(params: CreateRunParams): Promise<{ runId: string }>;
+  createRun(params: CreateRunParams): Promise<{ goal: unknown; plan: unknown[]; missing: UiQuestionItem[]; runId?: string }>;
 
   // -------------------------------------------------------------------------
   // Run Retrieval (initial load / refresh)

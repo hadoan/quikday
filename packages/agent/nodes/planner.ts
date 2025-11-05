@@ -410,7 +410,10 @@ async function detectMissingInputsWithLLM(
   for (const step of steps) {
     try {
       const tool = registry.get(step.tool);
-      if (!tool?.in) continue;
+      if (!tool?.in) {
+        console.log(`[detectMissingInputsWithLLM] Tool ${step.tool} has no schema, skipping`);
+        continue;
+      }
 
       // Extract schema information (support different Zod versions and wrappers)
       const schema = tool.in as any;
@@ -454,6 +457,11 @@ async function detectMissingInputsWithLLM(
 
       const shape = getShape(schema);
       
+      console.log(`[detectMissingInputsWithLLM] Extracted shape for ${step.tool}:`, {
+        shapeKeys: Object.keys(shape),
+        currentArgs: step.args,
+      });
+      
       const requiredParams: Array<{ name: string; type: string; description?: string; required: boolean }> = [];
       
       for (const [key, value] of Object.entries(shape)) {
@@ -485,6 +493,11 @@ async function detectMissingInputsWithLLM(
         });
       }
       
+      console.log(`[detectMissingInputsWithLLM] Required params for ${step.tool}:`, {
+        count: requiredParams.length,
+        params: requiredParams,
+      });
+      
       toolRequirements.push({
         tool: step.tool,
         requiredParams,
@@ -495,10 +508,20 @@ async function detectMissingInputsWithLLM(
     }
   }
 
-  if (toolRequirements.length === 0) return [];
+  if (toolRequirements.length === 0) {
+    console.log('[detectMissingInputsWithLLM] No tool requirements found, returning empty array');
+    return [];
+  }
 
   // Build prompts using the centralized prompt system
   const userPrompt = buildMissingInputsUserPrompt(userMessage, allProvided, toolRequirements);
+  
+  console.log('[detectMissingInputsWithLLM] Prepared prompt for LLM:', {
+    toolRequirementsCount: toolRequirements.length,
+    toolNames: toolRequirements.map(t => t.tool),
+    allProvidedKeys: Object.keys(allProvided),
+    userMessagePreview: userMessage.slice(0, 100),
+  });
 
   try {
     const raw = await llm.text({
@@ -516,7 +539,22 @@ async function detectMissingInputsWithLLM(
 
     // Extract JSON from response
     const cleaned = extractJsonFromOutput(raw);
+    
+    console.log('[detectMissingInputsWithLLM] Raw LLM response:', {
+      rawLength: raw.length,
+      rawPreview: raw.slice(0, 200),
+      cleanedLength: cleaned.length,
+      cleanedPreview: cleaned.slice(0, 200),
+    });
+    
     const parsed = JSON.parse(cleaned);
+    
+    console.log('[detectMissingInputsWithLLM] Parsed JSON:', {
+      isArray: Array.isArray(parsed),
+      type: typeof parsed,
+      length: Array.isArray(parsed) ? parsed.length : 'N/A',
+      parsed: parsed,
+    });
     
     if (!Array.isArray(parsed)) {
       console.warn('[planner] LLM did not return an array for missing inputs');
@@ -534,7 +572,11 @@ async function detectMissingInputsWithLLM(
         options: Array.isArray(item.options) ? item.options : undefined,
       }));
 
-    console.log('[planner] LLM identified missing inputs:', missingInputs);
+    console.log('[detectMissingInputsWithLLM] Final missing inputs after validation:', {
+      count: missingInputs.length,
+      missingInputs,
+    });
+    
     return missingInputs;
     
   } catch (err) {
@@ -627,13 +669,43 @@ export const makePlanner =
     const tools = getToolSchemas();
     const system = buildSystemPrompt(tools);
     const user = buildUserPrompt(s);
+    
+    console.log('[planner] Calling LLM for planning:', {
+      goalOutcome: goal?.outcome,
+      goalConfidence: confidence,
+      toolsCount: tools.length,
+      toolNames: tools.map(t => t.name),
+      userPromptPreview: user.slice(0, 200),
+    });
+    
     const raw = await planWithLLM(llm, s, system, user);
+
+    console.log('[planner] LLM raw response:', {
+      hasResponse: !!raw,
+      rawLength: raw?.length ?? 0,
+      rawPreview: raw?.slice(0, 300),
+    });
 
     if (raw) {
       try {
         const cleaned = extractJsonFromOutput(raw);
+        console.log('[planner] Cleaned JSON:', {
+          cleanedLength: cleaned.length,
+          cleanedPreview: cleaned.slice(0, 300),
+        });
+        
         const parsed = PlanInSchema.parse(JSON.parse(cleaned));
+        console.log('[planner] Parsed plan:', {
+          stepsCount: parsed.steps.length,
+          steps: parsed.steps,
+        });
+        
         const hardened = patchAndHardenPlan(s, parsed);
+        console.log('[planner] Hardened plan:', {
+          stepsCount: hardened.steps.length,
+          tools: hardened.steps.map(s => s.tool),
+        });
+        
         steps = hardened.steps;
       } catch (err) {
         console.warn('[planner] Failed to parse LLM plan:', err);
@@ -643,6 +715,7 @@ export const makePlanner =
 
     // 3) If no valid steps, fall back to chat.respond
     if (!steps || steps.length === 0) {
+      console.warn('[planner] No valid steps from planner, falling back to chat.respond');
       steps = finalizeSteps([
         {
           tool: 'chat.respond',
@@ -657,6 +730,14 @@ export const makePlanner =
     // 4) Check for missing inputs using LLM-based intelligent detection
     const provided = (goal?.provided ?? {}) as Record<string, unknown>;
     const answers = (s.scratch?.answers ?? {}) as Record<string, unknown>;
+    
+    console.log('[planner] Starting missing inputs detection:', {
+      provided,
+      answers,
+      stepsCount: steps.length,
+      stepTools: steps.map(s => s.tool),
+    });
+    
     const missingFromToolSchemas = await detectMissingInputsWithLLM(
       llm,
       steps,
@@ -666,30 +747,27 @@ export const makePlanner =
       s
     );
     
-    // Merge with any missing inputs from goal extraction
-    const existingMissing = (goal?.missing ?? []) as Array<{ key: string; question: string; type?: string; required?: boolean }>;
-    const allMissing = [...existingMissing];
+    console.log('[planner] LLM detected missing inputs:', {
+      count: missingFromToolSchemas.length,
+      missing: missingFromToolSchemas,
+    });
     
-    // Add new missing inputs from tool schemas (avoid duplicates)
-    for (const newMissing of missingFromToolSchemas) {
-      if (!allMissing.some(m => m.key === newMissing.key)) {
-        allMissing.push(newMissing);
-      }
-    }
+    // Collect all missing inputs from tool schema validation
+    const allMissing = [...missingFromToolSchemas];
     
     // Filter to only required missing inputs
     const requiredMissing = allMissing.filter((m: any) => m.required !== false);
+    
+    console.log('[planner] Filtered missing inputs:', {
+      allMissingCount: allMissing.length,
+      requiredMissingCount: requiredMissing.length,
+      requiredMissing,
+    });
     
     // 5) If there are missing required inputs, pause and return
     if (requiredMissing.length > 0) {
       // Generate preview steps to show what we'll do once we have the info
       const previewSteps = generatePreviewSteps(goal, requiredMissing);
-      
-      // Update goal with all missing inputs
-      const updatedGoal = {
-        ...goal,
-        missing: allMissing,
-      };
       
       // Return empty plan with preview - the confirm node will ask questions
       const diff = safe({
@@ -708,12 +786,28 @@ export const makePlanner =
       });
       events.planReady(s, eventBus, safe([]), diff);
       return { 
-        scratch: { ...s.scratch, goal: updatedGoal, plan: [], previewSteps }, 
+        scratch: { ...s.scratch, plan: [], previewSteps }, 
         output: { ...s.output, diff } 
       };
     }
 
     // 6) Build diff for successful planning
+    const missingFieldsFormatted = allMissing.length > 0 ? allMissing.map((m: MissingField) => ({
+      key: m.key,
+      question: m.question,
+      required: m.required !== false,
+      type: m.type,
+      options: m.options,
+    })) : undefined;
+    
+    console.log('[planner] Building successful diff:', {
+      hasSteps: steps && steps.length > 0,
+      stepsCount: steps?.length ?? 0,
+      hasMissingFields: !!missingFieldsFormatted,
+      missingFieldsCount: missingFieldsFormatted?.length ?? 0,
+      missingFields: missingFieldsFormatted,
+    });
+    
     const diff = safe({
       summary:
         steps && steps.length > 0
@@ -721,6 +815,9 @@ export const makePlanner =
           : 'No actions proposed.',
       steps: (steps ?? []).map(({ id, tool, dependsOn }) => ({ id, tool, dependsOn })),
       goalDesc: goal.outcome,
+      // Include ALL missing fields (both required and optional) for the client to handle
+      missingFields: missingFieldsFormatted,
+      status: 'ready',
     });
 
     events.planReady(s, eventBus, safe(steps ?? []), diff);

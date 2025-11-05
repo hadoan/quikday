@@ -18,6 +18,7 @@ model User {
     email        String?      @unique
     displayName  String?
     avatar       String?
+    timeZone     String?      @default("Europe/Berlin")
     plan         Plan         @default(PRO)
     lastLoginAt  DateTime?
     createdAt    DateTime     @default(now())

@@ -283,9 +283,42 @@ const Index = () => {
               try {
                 const status = (event.payload.status as UiRunSummary['status']) || run.status;
                 const lastAssistant = event.payload.lastAssistant as string | undefined;
+                const missingFields = event.payload.missingFields as UiQuestionItem[] | undefined;
+                
                 if (lastAssistant && typeof lastAssistant === 'string' && lastAssistant.trim()) {
                   newMessages.push({ role: 'assistant', content: lastAssistant });
                 }
+                
+                // Add missing inputs questions if present
+                if (Array.isArray(missingFields) && missingFields.length > 0) {
+                  // Check if we already have a questions card to avoid duplicates
+                  const hasQuestionsCard = newMessages.some(
+                    (m) => m && m.type === 'questions' && (m.data as any)?.runId === activeRunId,
+                  );
+                  if (!hasQuestionsCard) {
+                    console.log('[Index] 📝 Missing inputs in run_snapshot; adding questions card');
+                    newMessages.push({
+                      role: 'assistant',
+                      type: 'questions',
+                      data: {
+                        runId: activeRunId,
+                        questions: missingFields,
+                      } satisfies UiQuestionsData,
+                    });
+                    
+                    // Also set questions state for QuestionsPanel
+                    const qs: Question[] = missingFields.map((q) => ({
+                      key: q.key,
+                      question: q.question,
+                      required: q.required,
+                      placeholder: q.placeholder,
+                      options: q.options,
+                      type: normalizeQuestionType(q.type),
+                    }));
+                    setQuestions(qs);
+                  }
+                }
+                
                 // Update run status via nextStatus below
                 // fallthrough handled by run_status processing after switch
               } catch (e) {
@@ -678,27 +711,96 @@ const Index = () => {
         mode,
       });
 
-      // Use data source to create run
-      const { runId } = await dataSource.createRun({
+      // Use data source to call /agent/plan endpoint
+      const { goal, plan, missing, runId } = await dataSource.createRun({
         prompt,
         mode,
         messages: [...conversationalHistory, { role: 'user', content: prompt }],
       });
 
-      logger.info('✅ Run created successfully', {
+      logger.info('✅ Plan received successfully', {
         runId,
-        mode,
+        hasGoal: !!goal,
+        planSteps: plan?.length || 0,
+        missingFields: missing?.length || 0,
+        missing,
         timestamp: new Date().toISOString(),
       });
-      trackRunQueued(runId);
 
-      // In live mode, WebSocket will update the UI
-      // In mock mode, MockDataSource simulates events
-      // Switch active run to the backend runId and keep the user's message
+      console.log('[Index.handleNewPrompt] Missing inputs received:', missing);
+
+      // Update the active run with the backend runId
+      if (runId) {
+        setActiveRunId(runId);
+      }
+
+      // Display the plan response
       setRuns((prev) =>
-        prev.map((run) => (run.id === activeRunId ? { ...run, id: runId, status: 'queued' } : run)),
+        prev.map((run) => {
+          if (run.id !== activeRunId && run.id !== runId) return run;
+          
+          const newMessages: UiRunSummary['messages'] = [...(run.messages ?? [])];
+          
+          // Add plan message if we have steps
+          if (Array.isArray(plan) && plan.length > 0) {
+            const goalData = goal as Record<string, unknown> | null;
+            const planData: UiPlanData = {
+              intent: (goalData?.intent as string) || 'Process request',
+              tools: [],
+              actions: [],
+              mode: 'plan',
+              steps: plan.map((step: unknown, idx: number) => {
+                const stepData = step as Record<string, unknown>;
+                return {
+                  id: `step-${idx}`,
+                  tool: (stepData.tool as string) || 'unknown',
+                  action: stepData.action as string | undefined,
+                  status: 'pending' as const,
+                  inputsPreview: stepData.inputs ? JSON.stringify(stepData.inputs) : undefined,
+                };
+              }),
+            };
+            newMessages.push({
+              role: 'assistant',
+              type: 'plan',
+              data: planData,
+            });
+          }
+          
+          // Add missing inputs questions if present
+          if (Array.isArray(missing) && missing.length > 0) {
+            newMessages.push({
+              role: 'assistant',
+              type: 'questions',
+              data: {
+                runId: activeRunId,
+                questions: missing,
+              } satisfies UiQuestionsData,
+            });
+          }
+          
+          // If no missing inputs and we have a plan, show assistant response
+          if ((!missing || missing.length === 0) && plan && plan.length > 0) {
+            const goalData = goal as Record<string, unknown> | null;
+            const goalText = (goalData?.intent as string) || (goalData?.summary as string) || 'Plan generated';
+            newMessages.push({
+              role: 'assistant',
+              content: goalText,
+            });
+          }
+          
+          return {
+            ...run,
+            id: runId || run.id, // Update to backend runId if provided
+            prompt: run.prompt || prompt,
+            status: (missing && missing.length > 0) ? 'awaiting_input' : 'planning',
+            messages: newMessages,
+          };
+        }),
       );
-      setActiveRunId(runId);
+
+      // Hide loading spinner
+      setIsWaitingForResponse(false);
     } catch (err) {
       logger.error('Failed to create run', err as Error);
       // Hide loading spinner on error

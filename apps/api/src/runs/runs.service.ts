@@ -941,4 +941,80 @@ export class RunsService {
 
     await this.prisma.run.update({ where: { id: runId }, data: { output: nextOutput } });
   }
+
+  /**
+   * Create a run with plan data (for /agent/plan endpoint).
+   * This creates a run in 'planning' or 'awaiting_input' status with intent and steps.
+   * @param data - Run creation data including prompt, userId, teamId, tz, goal, plan, missing
+   * @returns Created run with id
+   */
+  async createPlanRun(data: {
+    prompt: string;
+    userId: number;
+    teamId?: number;
+    tz: string;
+    goal: any;
+    plan: any[];
+    missing: any[];
+  }) {
+    const { prompt, userId, teamId, tz, goal, plan, missing } = data;
+
+    // Determine status based on whether there are missing inputs
+    const status = missing && missing.length > 0 ? 'awaiting_input' : 'planning';
+
+    this.logger.log('💾 Creating plan run', {
+      userId,
+      teamId: teamId ?? null,
+      status,
+      planSteps: plan?.length || 0,
+      missingFields: missing?.length || 0,
+    });
+
+    // Create the Run record
+    const run = await this.prisma.run.create({
+      data: {
+        userId,
+        teamId: teamId ?? undefined,
+        prompt,
+        mode: 'PREVIEW',
+        status,
+        intent: goal || null,
+        config: {
+          tz,
+          missing: missing || [],
+        },
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      },
+    });
+
+    this.logger.log('✅ Plan run created', {
+      runId: run.id,
+      status: run.status,
+    });
+
+    // Create Step records for each step in the plan using StepsService
+    if (Array.isArray(plan) && plan.length > 0) {
+      await this.stepsService.createSteps(
+        plan.map((step: any, index: number) => ({
+          runId: run.id,
+          tool: step.tool || 'unknown',
+          action: step.action || 'execute',
+          request: step.inputs || null,
+          planStepId: `step-${index}`,
+          waitingConfirm: false,
+          startedAt: new Date(),
+        })),
+        userId,
+      );
+
+      this.logger.log('✅ Plan steps created', {
+        runId: run.id,
+        stepCount: plan.length,
+      });
+    }
+
+    return run;
+  }
 }
+
