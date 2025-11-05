@@ -232,6 +232,15 @@ export class RunProcessor extends WorkerHost {
             console.log('[run.processor] Has answers?', !!initialState.scratch?.answers);
             console.log('[run.processor] Answers keys:', Object.keys(initialState.scratch?.answers || {}));
             
+            this.logger.debug('Resuming execution with state:', {
+              scratchKeys: Object.keys(initialState.scratch || {}),
+              hasPlan: !!initialState.scratch?.plan,
+              planLength: initialState.scratch?.plan?.length || 0,
+              hasAnswers: !!initialState.scratch?.answers,
+              answersKeys: Object.keys(initialState.scratch?.answers || {}),
+              answersValues: initialState.scratch?.answers,
+            });
+            
             // Run from executor directly, bypassing planner
             final = await graph.run('executor', initialState, this.eventBus);
           } else {

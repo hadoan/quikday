@@ -414,13 +414,6 @@ export const executor: Node<RunState, RunEventBus> = async (s, eventBus) => {
     // This ensures user-provided answers (e.g., "to" for email recipient) are included
     const answers = (s.scratch?.answers ?? {}) as Record<string, unknown>;
     const argsWithAnswers = { ...resolvedArgs, ...answers };
-    
-    console.log(`[executor] Step ${currentStep.id} args resolution:`, {
-      originalArgs: currentStep.args,
-      resolvedArgs,
-      answers,
-      argsWithAnswers,
-    });
 
     // Implicit fan-out: if args still reference a base step id (e.g., "$step-02.*")
     // and only child commits like step-02-0/1 exist, expand one send per child.
