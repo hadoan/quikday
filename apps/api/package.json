@@ -24,6 +24,7 @@
     "@quikday/appstore-gmail-email": "workspace:*",
     "@quikday/appstore-google-calendar": "workspace:*",
     "@quikday/appstore-hubspot-crm": "workspace:*",
+    "@quikday/appstore-slack-messaging": "workspace:*",
     "@quikday/crypto": "workspace:*",
     "@quikday/libs": "workspace:*",
     "@quikday/prisma": "workspace:*",

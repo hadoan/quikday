@@ -40,6 +40,7 @@
     "@quikday/appstore": "workspace:*",
     "@quikday/appstore-gmail-email": "workspace:*",
     "@quikday/appstore-google-calendar": "workspace:*",
+    "@quikday/appstore-slack-messaging": "workspace:*",
     "@quikday/libs": "workspace:*",
     "@quikday/prisma": "workspace:*",
     "dotenv": "^17.2.3",

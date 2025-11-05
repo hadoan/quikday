@@ -32,8 +32,7 @@ import {
   emailSetOutOfOffice,
 } from './tools/email.js';
 import { ModuleRef } from '@nestjs/core';
-import { slackPostMessage } from './tools/slack.postMessage.js';
-import { slackChannelsList } from './tools/slack.channels.list.js';
+import { slackPostMessage, slackChannelsList } from './tools/slack.js';
 import {
   hubspotFindContactsByEmail,
   hubspotCreateContacts,
@@ -139,9 +138,6 @@ registry.register({
   }),
 });
 
-// Slack basic tool (no ModuleRef needed)
-registry.register(slackPostMessage);
-
 // Calendar and Email tools are registered with moduleRef in registerToolsWithLLM
 
 export function registerToolsWithLLM(llm: LLM, moduleRef: ModuleRef) {
@@ -180,4 +176,5 @@ export function registerToolsWithLLM(llm: LLM, moduleRef: ModuleRef) {
 
   // Slack tools requiring Prisma via ModuleRef
   registry.register(slackChannelsList(moduleRef));
+  registry.register(slackPostMessage(moduleRef));
 }
