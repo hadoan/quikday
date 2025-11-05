@@ -142,6 +142,11 @@ export default function InstallApp({
             : [],
         );
         setExistingCount(Array.isArray(creds) ? creds.length : 0);
+        try {
+          onInstalled?.(type);
+        } catch {
+          // ignore callback errors
+        }
       } catch {
         // ignore refresh errors
       }

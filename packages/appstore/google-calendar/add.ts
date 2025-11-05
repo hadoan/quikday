@@ -8,10 +8,14 @@ import { GoogleCalendarAuthUrlResult } from './types/GoogleCalendarAuthUrlResult
  * OAuth scopes required for Google Calendar integration.
  * - calendar.readonly: Read calendar events
  * - calendar.events: Create, update, delete events
+ * - openid/email/profile: allow retrieving basic profile info (for display in UI)
  */
 const GOOGLE_CALENDAR_SCOPES = [
   'https://www.googleapis.com/auth/calendar.readonly',
   'https://www.googleapis.com/auth/calendar.events',
+  'openid',
+  'email',
+  'profile',
 ];
 
 export function generateGoogleCalendarAuthUrl(

@@ -309,12 +309,44 @@ export async function callback(params: {
 
     // Persist credential
     const type = meta.slug;
-    const credential = await prisma.credential.create({
+
+    // Attempt to extract user info from id_token (if present)
+    let emailOrUserName: string | undefined = undefined;
+    let avatarUrl: string | undefined = undefined;
+    let name: string | undefined = undefined;
+    let vendorAccountId: string | undefined = undefined;
+    let tokenExpiresAt: Date | undefined = undefined;
+
+    try {
+      const idToken = (result.tokens as any)?.id_token as string | undefined;
+      if (idToken && typeof idToken === 'string') {
+        const parts = idToken.split('.');
+        if (parts.length >= 2) {
+          const payload = JSON.parse(Buffer.from(parts[1], 'base64url').toString('utf-8'));
+          if (payload?.email) emailOrUserName = payload.email as string;
+          if (payload?.name) name = payload.name as string;
+          if (payload?.picture) avatarUrl = payload.picture as string;
+          if (payload?.sub) vendorAccountId = payload.sub as string;
+        }
+      }
+      if (!tokenExpiresAt && (result.tokens as any)?.expiry_date) {
+        tokenExpiresAt = new Date((result.tokens as any).expiry_date as number);
+      }
+    } catch {
+      // ignore parsing errors
+    }
+
+    await prisma.credential.create({
       data: {
         type,
         key: result.tokens as any,
         ...(typeof numericUserId === 'number' ? { userId: numericUserId } : {}),
         appId: meta.slug,
+        ...(emailOrUserName ? { emailOrUserName } : {}),
+        ...(name ? { name } : {}),
+        ...(avatarUrl ? { avatarUrl } : {}),
+        ...(vendorAccountId ? { vendorAccountId } : {}),
+        ...(tokenExpiresAt ? { tokenExpiresAt } : {}),
       },
     });
 
