@@ -352,8 +352,9 @@ export async function callback(params: {
 
     // Choose redirect target
     const returnTo = state?.returnTo as string | undefined;
-    const redirectTo =
-      returnTo && typeof returnTo === 'string' ? returnTo : `/apps/${meta.variant}/${meta.slug}`;
+    const defaultWeb = process.env.WEBAPP_URL || process.env.WEBAPP_BASE_URL;
+    const defaultRedirect = defaultWeb ? `${defaultWeb.replace(/\/$/, '')}/apps` : '/apps';
+    const redirectTo = returnTo && typeof returnTo === 'string' ? returnTo : defaultRedirect;
 
     return { redirectTo };
   } catch (error) {

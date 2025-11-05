@@ -11,7 +11,7 @@ import {
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import { useToast } from '@/hooks/use-toast';
-import api, { getApiBaseUrl } from '@/apis/client';
+import api, { getApiBaseUrl, getWebBaseUrl } from '@/apis/client';
 import axios from 'axios';
 
 /**
@@ -221,7 +221,12 @@ export default function InstallApp({
       const redirectPath = oauthPath || `/integrations/${slug}/add`;
 
       const fetchAddUrl = async () =>
-        api.get<{ url?: string }>(redirectPath, { params: { format: 'json' } });
+        api.get<{ url?: string }>(redirectPath, {
+          params: {
+            format: 'json',
+            returnTo: `${getWebBaseUrl()}/apps`,
+          },
+        });
 
       try {
         const resp = await fetchAddUrl();

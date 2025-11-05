@@ -19,6 +19,33 @@ const computeApiBaseUrl = (): string => {
 
 export const getApiBaseUrl = computeApiBaseUrl;
 
+// Compute the Web App base URL (for building returnTo redirects)
+const computeWebBaseUrl = (): string => {
+  // Prefer explicit webapp base URL if provided
+  const envAny = (import.meta as any)?.env as Record<string, unknown> | undefined;
+  const explicit = (envAny?.VITE_WEBAPP_BASE_URL as string | undefined) || undefined;
+  if (explicit) return explicit.replace(/\/$/, '');
+
+  // Derive from Kinde redirect URI if set (use origin)
+  const kin = envAny?.VITE_KINDE_REDIRECT_URI as string | undefined;
+  if (kin) {
+    try {
+      const u = new URL(kin);
+      return u.origin;
+    } catch {
+      // fallthrough
+    }
+  }
+
+  // Fallback to current origin in browser
+  if (typeof window !== 'undefined') return window.location.origin;
+
+  // Final fallback for SSR/dev scripts
+  return 'http://localhost:8000';
+};
+
+export const getWebBaseUrl = computeWebBaseUrl;
+
 const api: AxiosInstance = axios.create({
   baseURL: computeApiBaseUrl(),
   withCredentials: true,

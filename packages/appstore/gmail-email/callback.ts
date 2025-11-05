@@ -205,6 +205,23 @@ export async function callback(params: {
       // ignore parsing errors
     }
 
+    // Fallback: if email still missing, query Gmail profile API using access token
+    try {
+      if (!emailOrUserName && result.tokens.access_token) {
+        const oAuth2 = new google.auth.OAuth2(clientId, clientSecret);
+        oAuth2.setCredentials({
+          access_token: result.tokens.access_token,
+          refresh_token: result.tokens.refresh_token || undefined,
+        });
+        const gmail = google.gmail({ version: 'v1', auth: oAuth2 });
+        const prof = await gmail.users.getProfile({ userId: 'me' });
+        const addr = (prof.data as any)?.emailAddress as string | undefined;
+        if (addr) emailOrUserName = addr;
+      }
+    } catch {
+      // ignore profile fetch errors
+    }
+
     await prisma.credential.create({
       data: {
         type,
@@ -220,8 +237,9 @@ export async function callback(params: {
     });
 
     const returnTo = state?.returnTo as string | undefined;
-    const redirectTo =
-      returnTo && typeof returnTo === 'string' ? returnTo : `/apps/${meta.variant}/${meta.slug}`;
+    const defaultWeb = process.env.WEBAPP_URL || process.env.WEBAPP_BASE_URL;
+    const defaultRedirect = defaultWeb ? `${defaultWeb.replace(/\/$/, '')}/apps` : '/apps';
+    const redirectTo = returnTo && typeof returnTo === 'string' ? returnTo : defaultRedirect;
 
     return { redirectTo };
   } catch (error) {
