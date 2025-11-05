@@ -834,10 +834,31 @@ export const makePlanner =
 // Extract a JSON object if the model wrapped it in ```json fences or extra prose
 function extractJsonFromOutput(output: string): string {
   let s = (output || '').trim();
+  
+  // Remove markdown code fences if present
   const fence = s.match(/```(?:json)?\s*([\s\S]*?)```/i);
   if (fence && fence[1]) s = fence[1].trim();
-  const first = s.indexOf('{');
-  const last = s.lastIndexOf('}');
-  if (first >= 0 && last > first) s = s.slice(first, last + 1);
+  
+  // Check if it's an array or object
+  const firstBracket = s.indexOf('[');
+  const firstBrace = s.indexOf('{');
+  
+  // Determine if we're dealing with an array or object
+  const isArray = firstBracket >= 0 && (firstBrace < 0 || firstBracket < firstBrace);
+  
+  if (isArray) {
+    // Extract array
+    const last = s.lastIndexOf(']');
+    if (firstBracket >= 0 && last > firstBracket) {
+      return s.slice(firstBracket, last + 1);
+    }
+  } else {
+    // Extract object
+    const last = s.lastIndexOf('}');
+    if (firstBrace >= 0 && last > firstBrace) {
+      return s.slice(firstBrace, last + 1);
+    }
+  }
+  
   return s;
 }
