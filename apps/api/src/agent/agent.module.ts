@@ -1,5 +1,6 @@
 import { DynamicModule, Module, Provider } from '@nestjs/common';
 import { AgentService } from './agent.service.js';
+import { AgentController } from './agent.controller.js';
 import { AGENT_LLM, type AgentModuleOptions } from './agent.tokens.js';
 import { makeOpenAiLLM } from '@quikday/agent/llm/openai';
 import { PubSubModule } from '@quikday/libs';
@@ -15,6 +16,7 @@ export class AgentModule {
       module: AgentModule,
       imports: [PubSubModule],
       providers: [llmProvider, AgentService],
+      controllers: [AgentController],
       exports: [AgentService, AGENT_LLM],
     };
   }
