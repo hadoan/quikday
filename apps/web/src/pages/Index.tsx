@@ -769,11 +769,14 @@ const Index = () => {
           
           // Add missing inputs questions if present
           if (Array.isArray(missing) && missing.length > 0) {
+            // Use the backend runId if available to avoid duplicate questions
+            // being added later by WebSocket snapshots for the same run.
+            const questionsRunId = runId || activeRunId;
             newMessages.push({
               role: 'assistant',
               type: 'questions',
               data: {
-                runId: activeRunId,
+                runId: questionsRunId,
                 questions: missing,
               } satisfies UiQuestionsData,
             });
