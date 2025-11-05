@@ -2,10 +2,13 @@ import * as React from 'react';
 import type {
   UiRunSummary,
   UiPlanData,
+  UiPlanStep,
   UiRunData,
   UiLogData,
   UiOutputData,
   UiUndoData,
+  UiQuestionsData,
+  UiQuestionItem,
 } from '@/lib/datasources/DataSource';
 import { ChatMessage } from './ChatMessage';
 import { PlanCard } from '@/components/cards/PlanCard';
@@ -79,14 +82,15 @@ export function ChatStream({
 
         // Assistant messages: render structured types with corresponding cards
         if (m.type === 'plan') {
-          const pd = m.data as UiPlanData & { awaitingApproval?: boolean; mode?: string };
-          const steps = pd?.steps || [];
+          const pd = m.data as UiPlanData;
+          const steps: UiPlanStep[] = pd?.steps || [];
           
           const plan = {
             intent: pd?.intent || 'Plan',
             tools: pd?.tools || [],
             actions: pd?.actions || [],
-            mode: 'preview' as const,
+            // Map UiPlanData.mode ('plan' | 'auto' | 'approval') to PlanCard mode ('preview' | 'auto' | 'approval')
+            mode: (pd?.mode === 'approval' ? 'approval' : pd?.mode === 'auto' ? 'auto' : 'preview') as const,
             steps: steps,
           };
 
@@ -201,8 +205,8 @@ export function ChatStream({
         }
 
         if (m.type === 'questions') {
-          const qd = (m.data as any) || {};
-          const qs = Array.isArray(qd?.questions) ? (qd.questions as any[]) : [];
+          const qd = (m.data as UiQuestionsData) || ({} as UiQuestionsData);
+          const qs: UiQuestionItem[] = Array.isArray(qd?.questions) ? qd.questions : [];
           return (
             <ChatMessage key={i} role="assistant">
               <QuestionsPanel

@@ -28,7 +28,15 @@ import ChatStream from '@/components/chat/ChatStream';
 import QuestionsPanel, { type Question } from '@/components/QuestionsPanel';
 import { createLogger } from '@/lib/utils/logger';
 import { useToast } from '@/hooks/use-toast';
-import type { UiRunSummary, UiEvent } from '@/lib/datasources/DataSource';
+import type {
+  UiRunSummary,
+  UiEvent,
+  UiPlanData,
+  UiQuestionItem,
+  UiQuestionsData,
+  UiMessage,
+} from '@/lib/datasources/DataSource';
+import type { BackendStep } from '@/lib/adapters/backendToViewModel';
 import { trackDataSourceActive, trackChatSent, trackRunQueued } from '@/lib/telemetry/telemetry';
 import api from '@/apis/client';
 
@@ -48,6 +56,21 @@ const Index = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const [prefill, setPrefill] = useState<string | undefined>(undefined);
+
+  // Normalize question type from backend string to QuestionsPanel Question type
+  const normalizeQuestionType = (t?: string): Question['type'] => {
+    const v = String(t || 'text').toLowerCase();
+    if (v === 'textarea') return 'textarea';
+    if (v === 'email') return 'email';
+    if (v === 'email_list' || v === 'email-list') return 'email_list';
+    if (v === 'datetime' || v === 'date_time' || v === 'date-time') return 'datetime';
+    if (v === 'date') return 'date';
+    if (v === 'time') return 'time';
+    if (v === 'number' || v === 'numeric') return 'number';
+    if (v === 'select') return 'select';
+    if (v === 'multiselect' || v === 'multi_select' || v === 'multi-select') return 'multiselect';
+    return 'text';
+  };
 
   // Initialize data source
   const dataSource = getDataSource();
@@ -117,20 +140,29 @@ const Index = () => {
       // Extract planner questions if present (plan_generated or planner node exit)
       try {
         // Questions may be in payload.diff.questions (plan_generated)
-        const planQs = (event.payload as any)?.diff?.questions as any[] | undefined;
+        const planQs = (event.payload as { diff?: { questions?: UiQuestionItem[] } })?.diff?.questions;
         if (
           event.runId &&
           event.runId === activeRunId &&
           Array.isArray(planQs) &&
           planQs.length > 0
         ) {
-          setQuestions(planQs as any);
+          // Normalize UiQuestionItem[] to QuestionsPanel Question[]
+          const qs: Question[] = planQs.map((q) => ({
+            key: q.key,
+            question: q.question,
+            required: q.required,
+            placeholder: q.placeholder,
+            options: q.options,
+            type: normalizeQuestionType(q.type),
+          }));
+          setQuestions(qs);
         }
 
         // Or nested in node.exit delta -> output.diff.questions
-        const raw = (event.payload as any)?._raw as any;
+        const raw = (event.payload as { _raw?: any })?._raw as any;
         const node = raw?.payload?.node as string | undefined;
-        const nestedQs = raw?.payload?.delta?.output?.diff?.questions as any[] | undefined;
+        const nestedQs = raw?.payload?.delta?.output?.diff?.questions as UiQuestionItem[] | undefined;
         if (
           event.runId &&
           event.runId === activeRunId &&
@@ -138,7 +170,15 @@ const Index = () => {
           Array.isArray(nestedQs) &&
           nestedQs.length > 0
         ) {
-          setQuestions(nestedQs as any);
+          const qs: Question[] = nestedQs.map((q) => ({
+            key: q.key,
+            question: q.question,
+            required: q.required,
+            placeholder: q.placeholder,
+            options: q.options,
+            type: normalizeQuestionType(q.type),
+          }));
+          setQuestions(qs);
         }
       } catch (qErr) {
         // ignore
@@ -157,7 +197,7 @@ const Index = () => {
           const nextStatus = (event.payload.status as UiRunSummary['status']) || run.status;
 
           // Translate common events into chat messages
-          const newMessages = [...(run.messages ?? [])];
+          const newMessages: UiRunSummary['messages'] = [...(run.messages ?? [])];
           switch (event.type) {
             case 'connection_established': {
               // Just log connection, don't show a card
@@ -168,10 +208,12 @@ const Index = () => {
               const intent = (event.payload.intent as string) || 'Process request';
               const tools = (event.payload.tools as string[]) || [];
               const actions = (event.payload.actions as string[]) || [];
-              const stepsPayload =
-                (Array.isArray(event.payload.steps) && (event.payload.steps as any[])) ||
-                (Array.isArray(event.payload.plan) && (event.payload.plan as any[])) ||
-                [];
+              const stepsPayload: BackendStep[] =
+                (Array.isArray((event.payload as any).steps)
+                  ? ((event.payload as any).steps as BackendStep[])
+                  : Array.isArray((event.payload as any).plan)
+                    ? ((event.payload as any).plan as BackendStep[])
+                    : []);
 
               // Skip plan and proposed changes cards if only chat.respond
               const onlyChatRespond = 
@@ -179,43 +221,59 @@ const Index = () => {
                 stepsPayload.every((step: any) => step?.tool === 'chat.respond');
 
               if (!onlyChatRespond) {
-                // Show Proposed Changes card first, then Plan card
-                const diff = event.payload.diff as Record<string, unknown> | undefined;
-                if (diff && Object.keys(diff).length > 0) {
-                  try {
-                    newMessages.push(
-                      buildOutputMessage({
-                        title: 'Proposed Changes',
-                        content: JSON.stringify(diff, null, 2),
-                        type: 'json',
-                        data: diff,
-                      }),
-                    );
-                  } catch (e) {
-                    console.warn('[Index] Failed to render diff preview', e);
-                  }
-                }
+                const diff = (event.payload as { diff?: { missingFields?: UiQuestionItem[]; status?: string } | undefined }).diff;
+                const missingFields: UiQuestionItem[] = Array.isArray(diff?.missingFields)
+                  ? (diff!.missingFields as UiQuestionItem[])
+                  : [];
+                const statusInDiff = typeof diff?.status === 'string' ? String(diff.status) : '';
+                const hasMissingInputs = missingFields.length > 0 || statusInDiff === 'awaiting_input';
 
-                newMessages.push(
-                  buildPlanMessage({
-                    intent,
-                    tools,
-                    actions,
-                    steps: stepsPayload as any,
-                  }),
-                );
-                
-                // If plan_generated includes missing fields (awaiting_input), show questions card AFTER plan
-                if (diff && (diff as any).missingFields && Array.isArray((diff as any).missingFields)) {
-                  const missingFields = (diff as any).missingFields as any[];
-                  if (missingFields.length > 0 && event.runId === activeRunId) {
-                    console.log('[Index] 📝 Adding missing details card after plan:', missingFields);
-                    newMessages.push({
-                      role: 'assistant',
-                      type: 'questions',
-                      data: { runId: activeRunId, questions: missingFields } as any,
-                    });
+                if (hasMissingInputs) {
+                  // Show only Missing Inputs card; hide Proposed Changes and Plan card
+                  if (event.runId === activeRunId) {
+                    // Avoid creating duplicate questions cards if one already exists
+                    const hasQuestionsCard = newMessages.some(
+                      (m) => m && m.type === 'questions' && (m.data as any)?.runId === activeRunId,
+                    );
+                    if (!hasQuestionsCard) {
+                      console.log('[Index] 📝 Missing inputs detected in planner step; showing questions only');
+                    if (missingFields.length > 0) {
+                      const qMsg: UiMessage = {
+                        role: 'assistant',
+                        type: 'questions',
+                        data: { runId: activeRunId, questions: missingFields } satisfies UiQuestionsData,
+                      };
+                      newMessages.push(qMsg);
+                    }
+                } else {
+                      console.log('[Index] ⏭️ Skipping duplicate questions card from planner');
+                    }
                   }
+                } else {
+                  // Show Proposed Changes card first, then Plan card
+                  if (diff && Object.keys(diff).length > 0) {
+                    try {
+                      newMessages.push(
+                        buildOutputMessage({
+                          title: 'Proposed Changes',
+                          content: JSON.stringify(diff, null, 2),
+                          type: 'json',
+                          data: diff,
+                        }),
+                      );
+                    } catch (e) {
+                      console.warn('[Index] Failed to render diff preview', e);
+                    }
+                  }
+
+                  newMessages.push(
+                    buildPlanMessage({
+                      intent,
+                      tools,
+                      actions,
+                      steps: stepsPayload as any,
+                    }),
+                  );
                 }
               }
               break;
@@ -326,19 +384,20 @@ const Index = () => {
                 ) {
                   // Check if there's already an approval plan card AFTER the last RunCard
                   // This ensures each run can have its own approval card
-                  const hasApprovalPlanAfterRunCard = lastRunningCardIndex !== -1 &&
+                  const hasApprovalPlanAfterRunCard =
+                    lastRunningCardIndex !== -1 &&
                     newMessages.slice(lastRunningCardIndex + 1).some(
-                      (m) => m && m.type === 'plan' && (m.data as any)?.awaitingApproval === true
+                      (m) => m && m.type === 'plan' && (m.data as UiPlanData)?.awaitingApproval === true,
                     );
                   console.log('[Index] ✅ Creating approval plan card, hasApprovalPlanAfterRunCard:', hasApprovalPlanAfterRunCard);
                   if (!hasApprovalPlanAfterRunCard) {
-                    const stepsPayload = (payload as any).steps as any[];
+                    const stepsPayload = (payload as { steps: BackendStep[] }).steps as BackendStep[];
                     newMessages.push(
                       buildPlanMessage({
                         intent: 'Review pending actions',
                         tools: stepsPayload.map((s: any) => s.tool).filter(Boolean),
                         actions: stepsPayload.map((s: any) => s.action || `Execute ${s.tool}`),
-                        steps: stepsPayload as any,
+                        steps: stepsPayload,
                         awaitingApproval: true,
                         mode: 'approval',
                       }),
@@ -353,16 +412,16 @@ const Index = () => {
                   Array.isArray(payload?.questions) &&
                   event.runId === activeRunId
                 ) {
-                  const qs = (payload.questions as any[]) || [];
+                  const qs = (payload.questions as UiQuestionItem[]) || [];
                   console.log('[Index] 💭 Processing awaiting_input with questions:', {
                     questionsCount: qs.length,
                     questions: qs,
                   });
                   
                   // Check if questions card already exists (e.g., from plan_generated event)
-                  const hasQuestionsCard = newMessages.some(
-                    (m) => m && m.type === 'questions' && m.data && (m.data as any).runId === activeRunId
-                  );
+                    const hasQuestionsCard = newMessages.some(
+                      (m) => m && m.type === 'questions' && (m.data as UiQuestionsData)?.runId === activeRunId,
+                    );
                   
                   console.log('[Index] 📝 Questions card check:', {
                     hasQuestionsCard,
@@ -372,11 +431,12 @@ const Index = () => {
                   if (!hasQuestionsCard) {
                     console.log('[Index] ✅ Creating questions card with', qs.length, 'questions');
                     // Persist questions as an inline chat message so it stays in place
-                    newMessages.push({
+                    const qMsg: UiMessage = {
                       role: 'assistant',
                       type: 'questions',
-                      data: { runId: activeRunId, questions: qs } as any,
-                    });
+                      data: { runId: activeRunId, questions: qs } satisfies UiQuestionsData,
+                    };
+                    newMessages.push(qMsg);
                   } else {
                     console.log('[Index] ⏭️ Skipping questions card creation - already exists');
                   }

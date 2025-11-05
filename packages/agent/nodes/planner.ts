@@ -325,7 +325,10 @@ function patchAndHardenPlan(
 /**
  * Generate human-readable preview of what will happen once we have missing info
  */
-function generatePreviewSteps(goal: any, missing: any[]): string[] {
+type MissingField = { key: string; question: string; type?: string; required?: boolean; options?: string[] };
+type SimpleGoal = { outcome?: string; provided?: Record<string, unknown> };
+
+function generatePreviewSteps(goal: SimpleGoal, missing: MissingField[]): string[] {
   const outcome = (goal?.outcome || '').toLowerCase();
   const steps: string[] = [];
   
@@ -377,7 +380,7 @@ function generatePreviewSteps(goal: any, missing: any[]): string[] {
   // Add missing info indicator
   if (missing.length > 0) {
     steps.push('');
-    steps.push(`⏸️ Waiting for: ${missing.map((m: any) => m.key.replace(/_/g, ' ')).join(', ')}`);
+    steps.push(`⏸️ Waiting for: ${missing.map((m) => m.key.replace(/_/g, ' ')).join(', ')}`);
   }
   
   return steps;
@@ -409,9 +412,47 @@ async function detectMissingInputsWithLLM(
       const tool = registry.get(step.tool);
       if (!tool?.in) continue;
 
-      // Extract schema information
-      const schema = tool.in;
-      const shape = (schema as any)._def?.shape?.() || (schema as any).shape || {};
+      // Extract schema information (support different Zod versions and wrappers)
+      const schema = tool.in as any;
+      const getShape = (sch: any): Record<string, unknown> => {
+        try {
+          let cur = sch;
+          let guard = 0;
+          while (cur && guard++ < 5) {
+            const typeName = cur?._def?.typeName;
+            if (typeName === 'ZodObject') {
+              const maybe = cur?._def?.shape ?? cur?.shape;
+              if (typeof maybe === 'function') return maybe();
+              if (maybe && typeof maybe === 'object') return maybe as Record<string, unknown>;
+              return {};
+            }
+            // unwrap common wrappers (Optional/Nullable/Default/Effects)
+            if (cur?._def?.schema) {
+              cur = cur._def.schema;
+              continue;
+            }
+            if (cur?._def?.innerType) {
+              cur = cur._def.innerType;
+              continue;
+            }
+            if (typeof cur.unwrap === 'function') {
+              cur = cur.unwrap();
+              continue;
+            }
+            break;
+          }
+        } catch {
+          // fall through
+        }
+        // Last resort: attempt legacy access
+        const maybeLegacy = sch?._def?.shape ?? sch?.shape;
+        if (typeof maybeLegacy === 'function') {
+          try { return maybeLegacy(); } catch { return {}; }
+        }
+        return (maybeLegacy && typeof maybeLegacy === 'object') ? (maybeLegacy as Record<string, unknown>) : {};
+      };
+
+      const shape = getShape(schema);
       
       const requiredParams: Array<{ name: string; type: string; description?: string; required: boolean }> = [];
       
@@ -656,7 +697,7 @@ export const makePlanner =
         steps: [],
         previewSteps,
         goalDesc: goal.outcome,
-        missingFields: requiredMissing.map((m: any) => ({
+        missingFields: requiredMissing.map((m: MissingField) => ({
           key: m.key,
           question: m.question,
           required: m.required !== false,
