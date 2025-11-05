@@ -4,7 +4,6 @@ import { Idempotency } from './idempotency.js';
 import { checkRate } from './support/rate.js';
 import { requireScopes } from '../guards/policy.js';
 import { z } from 'zod';
-import { slackPostMessage } from './tools/slack.postMessage.js';
 import { chatRespondTool } from './tools/chatRespond.js';
 import { LLM } from '../llm/types.js';
 import {
@@ -33,6 +32,14 @@ import {
   emailSetOutOfOffice,
 } from './tools/email.js';
 import { ModuleRef } from '@nestjs/core';
+import { slackPostMessage } from './tools/slack.postMessage.js';
+import { slackChannelsList } from './tools/slack.channels.list.js';
+import {
+  hubspotFindContactsByEmail,
+  hubspotCreateContacts,
+  hubspotCreateMeeting,
+  hubspotUpdateMeeting,
+} from './tools/hubspot.js';
 
 export class ToolRegistry {
   private tools = new Map<string, Tool<any, any>>();
@@ -132,10 +139,10 @@ registry.register({
   }),
 });
 
+// Slack basic tool (no ModuleRef needed)
 registry.register(slackPostMessage);
-// Calendar tools are registered with moduleRef in registerToolsWithLLM
 
-// Email tools registered with moduleRef in registerToolsWithLLM
+// Calendar and Email tools are registered with moduleRef in registerToolsWithLLM
 
 export function registerToolsWithLLM(llm: LLM, moduleRef: ModuleRef) {
   registry.register(chatRespondTool(llm, moduleRef));
@@ -164,4 +171,13 @@ export function registerToolsWithLLM(llm: LLM, moduleRef: ModuleRef) {
   registry.register(calendarUpdateEvent(moduleRef));
   registry.register(calendarCancelEvent(moduleRef));
   registry.register(calendarSuggestSlots(moduleRef));
+
+  // HubSpot CRM tools
+  registry.register(hubspotFindContactsByEmail(moduleRef));
+  registry.register(hubspotCreateContacts(moduleRef));
+  registry.register(hubspotCreateMeeting(moduleRef));
+  registry.register(hubspotUpdateMeeting(moduleRef));
+
+  // Slack tools requiring Prisma via ModuleRef
+  registry.register(slackChannelsList(moduleRef));
 }

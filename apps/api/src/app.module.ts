@@ -23,6 +23,7 @@ import { EmailModule } from '@quikday/appstore/email/email.module';
 import { CalendarModule } from '@quikday/appstore/calendar/calendar.module';
 import { GmailEmailService, GmailEmailModule } from '@quikday/appstore-gmail-email';
 import { TemplatesModule } from './templates/templates.module.js';
+import { HubspotCrmModule } from '@quikday/appstore-hubspot-crm';
 import { GoogleCalendarModule, GoogleCalendarProviderService } from '@quikday/appstore-google-calendar';
 import { EmailController } from './email/email.controller.js';
 
@@ -40,6 +41,8 @@ calendarRegistry.set('google', GoogleCalendarProviderService);
     GmailEmailModule,
     // Ensure GoogleCalendarProviderService is available to ModuleRef for agent tools
     GoogleCalendarModule,
+    // Ensure HubSpot service is available to ModuleRef for agent tools
+    HubspotCrmModule,
     PubSubModule,
     CurrentUserModule,
     ConfigModule,
