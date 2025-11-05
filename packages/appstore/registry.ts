@@ -24,7 +24,7 @@ export const INTEGRATION_SLUGS = [
   // 'notion-docs',
   // 'github-devtools',
   // 'jira-devtools',
-  // 'hubspot-crm',
+  'hubspot-crm',
   // 'close-crm',
   // 'googlesheets-data',
 ] as const;
