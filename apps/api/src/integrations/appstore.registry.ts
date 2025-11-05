@@ -1,7 +1,9 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { AppMeta } from '@quikday/types';
-import { BaseApp } from './app.base';
-import { AppDeps } from './app.types';
+import { getIntegrationSlugs } from '@quikday/appstore';
+import { BaseApp } from './app.base.js';
+import { AppDeps } from './app.types.js';
+import { createSignedState, validateSignedState } from '../auth/oauth-state.util.js';
 
 @Injectable()
 export class AppStoreRegistry {
@@ -9,36 +11,34 @@ export class AppStoreRegistry {
   private apps = new Map<string, BaseApp>();
   private metas = new Map<string, AppMeta>();
 
-  // TODO: Discover apps dynamically from filesystem and build artifacts (dist).
-  // For now, use a simple static list. At runtime/build, consider resolving `dist` paths.
-  private static readonly APPS_BASES: string[] = [
-    // NOTE: Relative to this file at runtime. Adjust if build output structure differs.
-    '../../../../packages/appstore/linkedin-social',
-    '../../../../packages/appstore/gmail',
-  ];
-
   async init(deps: AppDeps): Promise<void> {
     this.logger.log('Initializing AppStoreRegistry...');
 
-    for (const base of AppStoreRegistry.APPS_BASES) {
+    // Augment deps with OAuth state utilities
+    const augmentedDeps: AppDeps = {
+      ...deps,
+      createSignedState,
+      validateSignedState,
+    };
+
+    // Get integration slugs from centralized registry
+    const slugs = getIntegrationSlugs();
+
+    for (const slug of slugs) {
       try {
-        // Load metadata and factory
-        const metaMod = await import(`${base}/metadata`);
-        const idxMod = await import(`${base}/index`);
-        const metadata: AppMeta = metaMod.metadata;
-        const create: (meta: AppMeta, deps: AppDeps) => BaseApp = idxMod.default;
+        const { metadata, create } = await this.loadIntegration(slug);
 
         if (!metadata?.slug) {
-          this.logger.warn(`Skipping app at ${base}: missing slug in metadata`);
+          this.logger.warn(`Skipping app ${slug}: missing slug in metadata`);
           continue;
         }
 
-        const instance = create(metadata, deps);
+        const instance = create(metadata, augmentedDeps);
         this.apps.set(metadata.slug, instance);
         this.metas.set(metadata.slug, metadata);
         this.logger.log(`Loaded app: ${metadata.slug}`);
       } catch (err) {
-        this.logger.error(`Failed to load app at ${base}`, err as any);
+        this.logger.error(`Failed to load app: ${slug}`, err as any);
       }
     }
   }
@@ -49,5 +49,49 @@ export class AppStoreRegistry {
 
   list(): AppMeta[] {
     return Array.from(this.metas.values());
+  }
+
+  private async loadIntegration(slug: string): Promise<{
+    metadata: AppMeta;
+    create: (meta: AppMeta, deps: AppDeps) => BaseApp;
+  }> {
+    const candidateBases = [
+      `@quikday/appstore/${slug}/dist`,
+      `@quikday/appstore-${slug}/dist`,
+      `@quikday/appstore-${slug}`,
+    ];
+
+    let lastError: unknown;
+
+    for (const basePath of candidateBases) {
+      try {
+        const [metaMod, idxMod] = await Promise.all([
+          import(`${basePath}/metadata`),
+          import(`${basePath}/index`),
+        ]);
+
+        // Support both ESM and CJS dynamic import shapes
+        const metadata =
+          (metaMod as any)?.metadata ??
+          ((metaMod as any)?.default?.metadata as AppMeta | undefined);
+        const create = (
+          typeof (idxMod as any)?.default === 'function'
+            ? (idxMod as any).default
+            : typeof (idxMod as any)?.default?.default === 'function'
+              ? (idxMod as any).default.default
+              : (idxMod as any)?.create
+        ) as ((meta: AppMeta, deps: AppDeps) => BaseApp) | undefined;
+
+        if (!metadata || typeof create !== 'function') {
+          throw new Error(`Invalid exports for integration ${slug} at ${basePath}`);
+        }
+
+        return { metadata, create };
+      } catch (error) {
+        lastError = error;
+      }
+    }
+
+    throw lastError ?? new Error(`Unable to resolve integration modules for ${slug}`);
   }
 }

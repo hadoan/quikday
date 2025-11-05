@@ -13,33 +13,94 @@ import { ThemeToggle } from '@/components/theme/ThemeToggle';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Button } from '@/components/ui/button';
 import { mockRuns, mockTools, mockStats } from '@/data/mockRuns';
-import { Plug2, Plus } from 'lucide-react';
+import { Plug2, Plus, Loader2 } from 'lucide-react';
+import { useKindeAuth } from '@kinde-oss/kinde-auth-react';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { getDataSource, getFeatureFlags } from '@/lib/flags/featureFlags';
 import {
   buildPlanMessage,
   buildRunMessage,
   buildLogMessage,
+  buildOutputMessage,
+  buildUndoMessage,
 } from '@/lib/adapters/backendToViewModel';
+import ChatStream from '@/components/chat/ChatStream';
+import QuestionsPanel, { type Question } from '@/components/QuestionsPanel';
 import { createLogger } from '@/lib/utils/logger';
 import { useToast } from '@/hooks/use-toast';
-import type { UiRunSummary, UiEvent } from '@/lib/datasources/DataSource';
+import type {
+  UiRunSummary,
+  UiEvent,
+  UiPlanData,
+  UiQuestionItem,
+  UiQuestionsData,
+  UiMessage,
+} from '@/lib/datasources/DataSource';
+import type { BackendStep } from '@/lib/adapters/backendToViewModel';
 import { trackDataSourceActive, trackChatSent, trackRunQueued } from '@/lib/telemetry/telemetry';
+import api from '@/apis/client';
 
 const logger = createLogger('Index');
 
 const Index = () => {
   const [runs, setRuns] = useState<UiRunSummary[]>(
-    mockRuns.map((r) => ({ ...r, messages: r.messages as UiRunSummary['messages'] }))
+    mockRuns.map((r) => ({ ...r, messages: r.messages as UiRunSummary['messages'] })),
   );
   const [activeRunId, setActiveRunId] = useState(mockRuns[0].id);
   const [isToolsPanelOpen, setIsToolsPanelOpen] = useState(true);
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
+  const [questions, setQuestions] = useState<Question[]>([]);
+  const [isWaitingForResponse, setIsWaitingForResponse] = useState(false);
   const activeRun = runs.find((run) => run.id === activeRunId);
   const bottomRef = useRef<HTMLDivElement | null>(null);
+  const navigate = useNavigate();
+  const location = useLocation();
+  const [prefill, setPrefill] = useState<string | undefined>(undefined);
+
+  // Normalize question type from backend string to QuestionsPanel Question type
+  const normalizeQuestionType = (t?: string): Question['type'] => {
+    const v = String(t || 'text').toLowerCase();
+    if (v === 'textarea') return 'textarea';
+    if (v === 'email') return 'email';
+    if (v === 'email_list' || v === 'email-list') return 'email_list';
+    if (v === 'datetime' || v === 'date_time' || v === 'date-time') return 'datetime';
+    if (v === 'date') return 'date';
+    if (v === 'time') return 'time';
+    if (v === 'number' || v === 'numeric') return 'number';
+    if (v === 'select') return 'select';
+    if (v === 'multiselect' || v === 'multi_select' || v === 'multi-select') return 'multiselect';
+    return 'text';
+  };
 
   // Initialize data source
   const dataSource = getDataSource();
   const { toast } = useToast();
+
+  // Handle pending install return-to-run if present
+  useEffect(() => {
+    const key = 'qd.pendingInstall';
+    let payload: any;
+    try {
+      const raw = localStorage.getItem(key);
+      if (raw) payload = JSON.parse(raw);
+    } catch {
+      payload = undefined;
+    }
+    if (payload && payload.runId) {
+      const runId = String(payload.runId);
+      (async () => {
+        try {
+          await api.post(`/runs/${runId}/refresh-credentials`);
+        } catch (e) {
+          // ignore
+        } finally {
+          try {
+            localStorage.removeItem(key);
+          } catch {}
+        }
+      })();
+    }
+  }, []);
 
   // Connect to WebSocket for real-time updates (if live mode)
   useEffect(() => {
@@ -49,6 +110,85 @@ const Index = () => {
     const stream = dataSource.connectRunStream(activeRunId, (event: UiEvent) => {
       console.log('[Index] Received event:', event);
 
+      // If we receive an event for a run that the UI doesn't yet know about,
+      // create a minimal run entry and activate it so incoming events are visible.
+      // This covers cases where runs are created outside the UI (CLI, API clients)
+      // and the frontend wasn't aware of the new run id.
+      try {
+        const incomingRunId = event.runId;
+        if (incomingRunId) {
+          setRuns((prev) => {
+            const exists = prev.find((r) => r.id === incomingRunId);
+            if (exists) return prev;
+            const minimal = {
+              id: incomingRunId,
+              prompt: '',
+              timestamp: new Date().toISOString(),
+              status: 'running' as const,
+              messages: [],
+            } as any;
+            return [minimal, ...prev];
+          });
+
+          setActiveRunId((cur) => cur || (event.runId as string));
+        }
+      } catch (e) {
+        // don't let debugging code break the stream handler
+        console.warn('[Index] Failed to auto-add incoming run', e);
+      }
+
+      // Extract planner questions if present (plan_generated or planner node exit)
+      try {
+        // Questions may be in payload.diff.questions (plan_generated)
+        const planQs = (event.payload as { diff?: { questions?: UiQuestionItem[] } })?.diff?.questions;
+        if (
+          event.runId &&
+          event.runId === activeRunId &&
+          Array.isArray(planQs) &&
+          planQs.length > 0
+        ) {
+          // Normalize UiQuestionItem[] to QuestionsPanel Question[]
+          const qs: Question[] = planQs.map((q) => ({
+            key: q.key,
+            question: q.question,
+            required: q.required,
+            placeholder: q.placeholder,
+            options: q.options,
+            type: normalizeQuestionType(q.type),
+          }));
+          setQuestions(qs);
+        }
+
+        // Or nested in node.exit delta -> output.diff.questions
+        const raw = (event.payload as { _raw?: any })?._raw as any;
+        const node = raw?.payload?.node as string | undefined;
+        const nestedQs = raw?.payload?.delta?.output?.diff?.questions as UiQuestionItem[] | undefined;
+        if (
+          event.runId &&
+          event.runId === activeRunId &&
+          node === 'planner' &&
+          Array.isArray(nestedQs) &&
+          nestedQs.length > 0
+        ) {
+          const qs: Question[] = nestedQs.map((q) => ({
+            key: q.key,
+            question: q.question,
+            required: q.required,
+            placeholder: q.placeholder,
+            options: q.options,
+            type: normalizeQuestionType(q.type),
+          }));
+          setQuestions(qs);
+        }
+      } catch (qErr) {
+        // ignore
+      }
+
+      // Hide loading spinner when we receive any message from backend
+      if (event.type !== 'connection_established') {
+        setIsWaitingForResponse(false);
+      }
+
       setRuns((prev) =>
         prev.map((run) => {
           if (run.id !== activeRunId) return run;
@@ -57,26 +197,348 @@ const Index = () => {
           const nextStatus = (event.payload.status as UiRunSummary['status']) || run.status;
 
           // Translate common events into chat messages
-          const newMessages = [...(run.messages ?? [])];
+          const newMessages: UiRunSummary['messages'] = [...(run.messages ?? [])];
           switch (event.type) {
+            case 'connection_established': {
+              // Just log connection, don't show a card
+              console.log('[Index] WebSocket connected:', event.payload.message);
+              break;
+            }
             case 'plan_generated': {
               const intent = (event.payload.intent as string) || 'Process request';
               const tools = (event.payload.tools as string[]) || [];
               const actions = (event.payload.actions as string[]) || [];
-              newMessages.push(buildPlanMessage({ intent, tools, actions }));
+              const stepsPayload: BackendStep[] =
+                (Array.isArray((event.payload as any).steps)
+                  ? ((event.payload as any).steps as BackendStep[])
+                  : Array.isArray((event.payload as any).plan)
+                    ? ((event.payload as any).plan as BackendStep[])
+                    : []);
+
+              // Skip plan and proposed changes cards if only chat.respond
+              const onlyChatRespond = 
+                stepsPayload.length > 0 && 
+                stepsPayload.every((step: any) => step?.tool === 'chat.respond');
+
+              if (!onlyChatRespond) {
+                const diff = (event.payload as { diff?: { missingFields?: UiQuestionItem[]; status?: string } | undefined }).diff;
+                const missingFields: UiQuestionItem[] = Array.isArray(diff?.missingFields)
+                  ? (diff!.missingFields as UiQuestionItem[])
+                  : [];
+                const statusInDiff = typeof diff?.status === 'string' ? String(diff.status) : '';
+                const hasMissingInputs = missingFields.length > 0 || statusInDiff === 'awaiting_input';
+
+                if (hasMissingInputs) {
+                  // Show only Missing Inputs card; hide Proposed Changes and Plan card
+                  if (event.runId === activeRunId) {
+                    // Avoid creating duplicate questions cards if one already exists
+                    const hasQuestionsCard = newMessages.some(
+                      (m) => m && m.type === 'questions' && (m.data as any)?.runId === activeRunId,
+                    );
+                    if (!hasQuestionsCard) {
+                      console.log('[Index] 📝 Missing inputs detected in planner step; showing questions only');
+                    if (missingFields.length > 0) {
+                      const qMsg: UiMessage = {
+                        role: 'assistant',
+                        type: 'questions',
+                        data: { runId: activeRunId, questions: missingFields } satisfies UiQuestionsData,
+                      };
+                      newMessages.push(qMsg);
+                    }
+                } else {
+                      console.log('[Index] ⏭️ Skipping duplicate questions card from planner');
+                    }
+                  }
+                } else {
+                  // Show Proposed Changes card first, then Plan card
+                  if (diff && Object.keys(diff).length > 0) {
+                    try {
+                      newMessages.push(
+                        buildOutputMessage({
+                          title: 'Proposed Changes',
+                          content: JSON.stringify(diff, null, 2),
+                          type: 'json',
+                          data: diff,
+                        }),
+                      );
+                    } catch (e) {
+                      console.warn('[Index] Failed to render diff preview', e);
+                    }
+                  }
+
+                  newMessages.push(
+                    buildPlanMessage({
+                      intent,
+                      tools,
+                      actions,
+                      steps: stepsPayload as any,
+                    }),
+                  );
+                }
+              }
+              break;
+            }
+            case 'run_snapshot': {
+              // Snapshot includes status and lastAssistant for quick UI hydration
+              try {
+                const status = (event.payload.status as UiRunSummary['status']) || run.status;
+                const lastAssistant = event.payload.lastAssistant as string | undefined;
+                const missingFields = event.payload.missingFields as UiQuestionItem[] | undefined;
+                
+                if (lastAssistant && typeof lastAssistant === 'string' && lastAssistant.trim()) {
+                  newMessages.push({ role: 'assistant', content: lastAssistant });
+                }
+                
+                // Add missing inputs questions if present
+                if (Array.isArray(missingFields) && missingFields.length > 0) {
+                  // Check if we already have a questions card to avoid duplicates
+                  const hasQuestionsCard = newMessages.some(
+                    (m) => m && m.type === 'questions' && (m.data as any)?.runId === activeRunId,
+                  );
+                  if (!hasQuestionsCard) {
+                    console.log('[Index] 📝 Missing inputs in run_snapshot; adding questions card');
+                    newMessages.push({
+                      role: 'assistant',
+                      type: 'questions',
+                      data: {
+                        runId: activeRunId,
+                        questions: missingFields,
+                      } satisfies UiQuestionsData,
+                    });
+                    
+                    // Also set questions state for QuestionsPanel
+                    const qs: Question[] = missingFields.map((q) => ({
+                      key: q.key,
+                      question: q.question,
+                      required: q.required,
+                      placeholder: q.placeholder,
+                      options: q.options,
+                      type: normalizeQuestionType(q.type),
+                    }));
+                    setQuestions(qs);
+                  }
+                }
+                
+                // Update run status via nextStatus below
+                // fallthrough handled by run_status processing after switch
+              } catch (e) {
+                console.warn('[Index] Failed to handle run_snapshot', e);
+              }
+              break;
+            }
+            case 'step_started': {
+              // Show step starting (optional - could show loading state)
+              console.log('[Index] Step started:', event.payload.tool, event.payload.action);
               break;
             }
             case 'run_status':
             case 'scheduled':
             case 'run_completed': {
-              const status = (event.type === 'run_completed' ? 'succeeded' : (event.payload.status as string)) || 'queued';
-              newMessages.push(
-                buildRunMessage({
+              console.log('[Index] 📊 Status event received:', {
+                type: event.type,
+                status: event.payload.status,
+                timestamp: new Date().toISOString(),
+              });
+              
+              const status =
+                (event.type === 'run_completed' ? 'succeeded' : (event.payload.status as string)) ||
+                'queued';
+              const started_at =
+                (event.payload.started_at as string | undefined) ||
+                (event.payload.startedAt as string | undefined) ||
+                (event.ts as string | undefined);
+              const completed_at =
+                (event.payload.completed_at as string | undefined) ||
+                (event.payload.completedAt as string | undefined);
+
+              // Find last RunCard that is still "running" or "queued" (not completed)
+              let lastRunningCardIndex = -1;
+              for (let i = newMessages.length - 1; i >= 0; i--) {
+                const msg = newMessages[i];
+                if (msg && msg.role === 'assistant' && msg.type === 'run' && msg.data) {
+                  const cardStatus = (msg.data as any).status;
+                  // Only update if card is in active state (running, queued, executing)
+                  if (cardStatus && !['succeeded', 'failed', 'partial'].includes(cardStatus)) {
+                    lastRunningCardIndex = i;
+                    break;
+                  }
+                }
+              }
+
+              if (lastRunningCardIndex !== -1) {
+                // Update existing active RunCard
+                const oldStatus = (newMessages[lastRunningCardIndex]?.data as any)?.status;
+                console.log(
+                  '[Index] Updating active RunCard at index',
+                  lastRunningCardIndex,
+                  'from status:',
+                  oldStatus,
+                  'to status:',
                   status,
-                  started_at: event.payload.started_at as string | undefined,
-                  completed_at: event.payload.completed_at as string | undefined,
-                })
-              );
+                );
+                newMessages[lastRunningCardIndex] = buildRunMessage({
+                  status,
+                  started_at,
+                  completed_at,
+                });
+                console.log('[Index] After update, message status is:', (newMessages[lastRunningCardIndex]?.data as any)?.status);
+              } else {
+                // No active RunCard, create a new one (new run starting)
+                console.log('[Index] Creating new RunCard with status:', status);
+                newMessages.push(
+                  buildRunMessage({
+                    status,
+                    started_at,
+                    completed_at,
+                  }),
+                );
+              }
+
+              // If backend provides structured output or summary, show it alongside plain text
+              // Handle awaiting_input specially: persist questions to the active run and
+              // surface the QuestionsPanel (which posts answers + confirm). We also set
+              // the run status to 'awaiting_input' so UI components can react.
+              try {
+                const payload = event.payload as Record<string, unknown>;
+                console.log('[Index] 🔍 Checking status payload:', {
+                  status,
+                  hasSteps: Array.isArray((payload as any)?.steps),
+                  stepsLength: (payload as any)?.steps?.length,
+                  hasQuestions: Array.isArray(payload?.questions),
+                  questionsLength: Array.isArray(payload?.questions) ? (payload.questions as any[]).length : 0,
+                  questions: payload?.questions,
+                });
+                
+                // If awaiting_approval mid-execution and backend included step details, surface a plan card
+                if (
+                  status === 'awaiting_approval' &&
+                  Array.isArray((payload as any)?.steps) &&
+                  (payload as any).steps.length > 0
+                ) {
+                  // Check if there's already an approval plan card AFTER the last RunCard
+                  // This ensures each run can have its own approval card
+                  const hasApprovalPlanAfterRunCard =
+                    lastRunningCardIndex !== -1 &&
+                    newMessages.slice(lastRunningCardIndex + 1).some(
+                      (m) => m && m.type === 'plan' && (m.data as UiPlanData)?.awaitingApproval === true,
+                    );
+                  console.log('[Index] ✅ Creating approval plan card, hasApprovalPlanAfterRunCard:', hasApprovalPlanAfterRunCard);
+                  if (!hasApprovalPlanAfterRunCard) {
+                    const stepsPayload = (payload as { steps: BackendStep[] }).steps as BackendStep[];
+                    newMessages.push(
+                      buildPlanMessage({
+                        intent: 'Review pending actions',
+                        tools: stepsPayload.map((s: any) => s.tool).filter(Boolean),
+                        actions: stepsPayload.map((s: any) => s.action || `Execute ${s.tool}`),
+                        steps: stepsPayload,
+                        awaitingApproval: true,
+                        mode: 'approval',
+                      }),
+                    );
+                    console.log('[Index] 📋 Approval plan card created');
+                  }
+                }
+                
+                // If awaiting_input and backend included questions, show questions card AFTER plan
+                if (
+                  status === 'awaiting_input' &&
+                  Array.isArray(payload?.questions) &&
+                  event.runId === activeRunId
+                ) {
+                  const qs = (payload.questions as UiQuestionItem[]) || [];
+                  console.log('[Index] 💭 Processing awaiting_input with questions:', {
+                    questionsCount: qs.length,
+                    questions: qs,
+                  });
+                  
+                  // Check if questions card already exists (e.g., from plan_generated event)
+                    const hasQuestionsCard = newMessages.some(
+                      (m) => m && m.type === 'questions' && (m.data as UiQuestionsData)?.runId === activeRunId,
+                    );
+                  
+                  console.log('[Index] 📝 Questions card check:', {
+                    hasQuestionsCard,
+                    currentMessagesCount: newMessages.length,
+                  });
+                  
+                  if (!hasQuestionsCard) {
+                    console.log('[Index] ✅ Creating questions card with', qs.length, 'questions');
+                    // Persist questions as an inline chat message so it stays in place
+                    const qMsg: UiMessage = {
+                      role: 'assistant',
+                      type: 'questions',
+                      data: { runId: activeRunId, questions: qs } satisfies UiQuestionsData,
+                    };
+                    newMessages.push(qMsg);
+                  } else {
+                    console.log('[Index] ⏭️ Skipping questions card creation - already exists');
+                  }
+                }
+              } catch (e) {
+                // ignore
+              }
+              try {
+                const payload = event.payload as Record<string, unknown>;
+                const output = (payload?.output as any) || {};
+
+                const textOut =
+                  (typeof output === 'object' &&
+                    (output.message || output.text || output.content)) ||
+                  (payload?.finalMessage as string) ||
+                  (payload?.message as string) ||
+                  (payload?.text as string);
+
+                if (typeof textOut === 'string' && textOut.trim().length > 0) {
+                  newMessages.push({ role: 'assistant', content: textOut });
+                }
+
+                // Also respect run-level lastAssistant (convenience field from the backend)
+                const lastAssistant = (event.payload as any)?.lastAssistant as string | undefined;
+                if (typeof lastAssistant === 'string' && lastAssistant.trim().length > 0) {
+                  const last = newMessages[newMessages.length - 1];
+                  if (!(last && last.role === 'assistant' && last.content === lastAssistant)) {
+                    newMessages.push({ role: 'assistant', content: lastAssistant });
+                  }
+                }
+
+                if (event.type === 'run_completed') {
+                  if (typeof output?.summary === 'string' && output.summary.trim().length > 0) {
+                    newMessages.push(
+                      buildOutputMessage({
+                        title: 'Summary',
+                        content: output.summary,
+                        type: 'summary',
+                        data: output,
+                      }),
+                    );
+                  }
+
+                  if (Array.isArray(output?.undo) && output.undo.length > 0) {
+                    newMessages.push(buildUndoMessage(true));
+                  }
+                }
+
+                if (
+                  (event.type === 'run_status' || event.type === 'run_completed') &&
+                  (event.payload.reason || event.payload.details)
+                ) {
+                  const reason = String(event.payload.reason || 'policy');
+                  try {
+                    newMessages.push(
+                      buildOutputMessage({
+                        title: 'Run halted',
+                        content: `Reason: ${reason}`,
+                        type: 'text',
+                        data: event.payload,
+                      }),
+                    );
+                  } catch (haltErr) {
+                    console.warn('[Index] Failed to render fallback reason', haltErr);
+                  }
+                }
+              } catch (e) {
+                console.warn('[Index] Failed to extract plain output message from payload', e);
+              }
               break;
             }
             case 'step_succeeded':
@@ -92,6 +554,43 @@ const Index = () => {
                 completedAt: (event.payload.completedAt as string) || (event.payload.ts as string),
               };
               newMessages.push(buildLogMessage([entry] as any));
+
+              // Also render plain text output if provided in the event
+              try {
+                const payload = event.payload as Record<string, unknown>;
+                const output = (payload?.output as any) || {};
+                const textOut =
+                  (typeof output === 'object' &&
+                    (output.message || output.text || output.content)) ||
+                  (payload?.message as string) ||
+                  (payload?.text as string);
+                if (typeof textOut === 'string' && textOut.trim().length > 0) {
+                  newMessages.push({ role: 'assistant', content: textOut });
+                }
+              } catch (e) {
+                console.warn('[Index] Failed to extract step text output from payload', e);
+              }
+              break;
+            }
+            case 'assistant.final':
+            case 'assistant.delta': {
+              try {
+                const payloadRec = event.payload as Record<string, unknown>;
+                const resp = payloadRec?.response as unknown as Record<string, unknown> | undefined;
+                const text =
+                  (payloadRec?.text as string) ||
+                  (payloadRec?.message as string) ||
+                  (resp?.message as string) ||
+                  '';
+                if (typeof text === 'string' && text.trim().length > 0) {
+                  const last = newMessages[newMessages.length - 1];
+                  if (!(last && last.role === 'assistant' && last.content === text)) {
+                    newMessages.push({ role: 'assistant', content: text });
+                  }
+                }
+              } catch (e) {
+                console.warn('[Index] Failed to handle assistant event', e);
+              }
               break;
             }
             case 'step_failed': {
@@ -112,7 +611,7 @@ const Index = () => {
           }
 
           return { ...run, status: nextStatus, messages: newMessages };
-        })
+        }),
       );
     });
 
@@ -142,13 +641,42 @@ const Index = () => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
   }, [activeRunId, activeRun?.messages?.length]);
 
-  const handleNewPrompt = async (prompt: string) => {
+  // Read ?prefill= from URL and sanitize (input placeholder only)
+  useEffect(() => {
+    try {
+      const sp = new URLSearchParams(location.search);
+      const raw = sp.get('prefill') || '';
+      if (raw) {
+        const stripped = raw.replace(/[\u0000-\u001F\u007F]/g, '');
+        const trimmed = stripped.slice(0, 2000);
+        setPrefill(trimmed);
+      } else {
+        setPrefill(undefined);
+      }
+    } catch {
+      setPrefill(undefined);
+    }
+  }, [location.search]);
+
+  const handleNewPrompt = async (prompt: string, mode: 'preview' | 'approval' | 'auto' = 'preview') => {
     logger.info('📨 Handling new prompt submission', {
       timestamp: new Date().toISOString(),
       activeRunId,
       prompt: prompt.substring(0, 50) + (prompt.length > 50 ? '...' : ''),
-      mode: 'auto',
+      mode,
     });
+
+    const conversationalHistory: { role: 'user' | 'assistant'; content: string }[] = [];
+    if (activeRun?.messages?.length) {
+      for (const message of activeRun.messages) {
+        if (message.role === 'user' && typeof message.content === 'string') {
+          conversationalHistory.push({ role: 'user', content: message.content });
+        }
+        if (message.role === 'assistant' && typeof message.content === 'string') {
+          conversationalHistory.push({ role: 'assistant', content: message.content });
+        }
+      }
+    }
 
     // Append user message locally first
     setRuns((prev) =>
@@ -166,44 +694,120 @@ const Index = () => {
       ),
     );
 
+    // Show loading spinner
+    setIsWaitingForResponse(true);
+
     try {
       logger.debug('📊 Tracking telemetry event');
       // Track chat sent event
       trackChatSent({
-        mode: 'auto',
+        mode,
         hasSchedule: false,
         targetsCount: 0,
       });
 
       logger.info('🔄 Calling dataSource.createRun', {
         timestamp: new Date().toISOString(),
+        mode,
       });
 
-      // Use data source to create run
-      const { runId } = await dataSource.createRun({
+      // Use data source to call /agent/plan endpoint
+      const { goal, plan, missing, runId } = await dataSource.createRun({
         prompt,
-        mode: 'auto',
+        mode,
+        messages: [...conversationalHistory, { role: 'user', content: prompt }],
       });
 
-      logger.info('✅ Run created successfully', {
+      logger.info('✅ Plan received successfully', {
         runId,
+        hasGoal: !!goal,
+        planSteps: plan?.length || 0,
+        missingFields: missing?.length || 0,
+        missing,
         timestamp: new Date().toISOString(),
       });
-      trackRunQueued(runId);
 
-      // In live mode, WebSocket will update the UI
-      // In mock mode, MockDataSource simulates events
-      // Switch active run to the backend runId and keep the user's message
+      console.log('[Index.handleNewPrompt] Missing inputs received:', missing);
+
+      // Update the active run with the backend runId
+      if (runId) {
+        setActiveRunId(runId);
+      }
+
+      // Display the plan response
       setRuns((prev) =>
-        prev.map((run) =>
-          run.id === activeRunId
-            ? { ...run, id: runId, status: 'queued' }
-            : run,
-        ),
+        prev.map((run) => {
+          if (run.id !== activeRunId && run.id !== runId) return run;
+          
+          const newMessages: UiRunSummary['messages'] = [...(run.messages ?? [])];
+          
+          // Add plan message if we have steps
+          if (Array.isArray(plan) && plan.length > 0) {
+            const goalData = goal as Record<string, unknown> | null;
+            const planData: UiPlanData = {
+              intent: (goalData?.intent as string) || 'Process request',
+              tools: [],
+              actions: [],
+              mode: 'plan',
+              steps: plan.map((step: unknown, idx: number) => {
+                const stepData = step as Record<string, unknown>;
+                return {
+                  id: `step-${idx}`,
+                  tool: (stepData.tool as string) || 'unknown',
+                  action: stepData.action as string | undefined,
+                  status: 'pending' as const,
+                  inputsPreview: stepData.inputs ? JSON.stringify(stepData.inputs) : undefined,
+                };
+              }),
+            };
+            newMessages.push({
+              role: 'assistant',
+              type: 'plan',
+              data: planData,
+            });
+          }
+          
+          // Add missing inputs questions if present
+          if (Array.isArray(missing) && missing.length > 0) {
+            // Use the backend runId if available to avoid duplicate questions
+            // being added later by WebSocket snapshots for the same run.
+            const questionsRunId = runId || activeRunId;
+            newMessages.push({
+              role: 'assistant',
+              type: 'questions',
+              data: {
+                runId: questionsRunId,
+                questions: missing,
+              } satisfies UiQuestionsData,
+            });
+          }
+          
+          // If no missing inputs and we have a plan, show assistant response
+          if ((!missing || missing.length === 0) && plan && plan.length > 0) {
+            const goalData = goal as Record<string, unknown> | null;
+            const goalText = (goalData?.intent as string) || (goalData?.summary as string) || 'Plan generated';
+            newMessages.push({
+              role: 'assistant',
+              content: goalText,
+            });
+          }
+          
+          return {
+            ...run,
+            id: runId || run.id, // Update to backend runId if provided
+            prompt: run.prompt || prompt,
+            status: (missing && missing.length > 0) ? 'awaiting_input' : 'planning',
+            messages: newMessages,
+          };
+        }),
       );
-      setActiveRunId(runId);
+
+      // Hide loading spinner
+      setIsWaitingForResponse(false);
     } catch (err) {
       logger.error('Failed to create run', err as Error);
+      // Hide loading spinner on error
+      setIsWaitingForResponse(false);
       // Show error toast
       try {
         const message = err instanceof Error ? err.message : 'Unknown error';
@@ -219,6 +823,8 @@ const Index = () => {
     }
   };
 
+  // No autosend; when navigated with ?prefill, show in chatbox only.
+
   const handleNewTask = () => {
     const newId = `R-${Date.now()}`;
     const newRun: UiRunSummary = {
@@ -230,7 +836,31 @@ const Index = () => {
     };
     setRuns((prev) => [newRun, ...prev]);
     setActiveRunId(newId);
+    // Clear any outstanding questions when starting a fresh run
+    setQuestions([]);
+    // Hide loading spinner when starting new task
+    setIsWaitingForResponse(false);
   };
+
+  // If navigated with ?startNew=1 (from Dashboard template 'Try this'), start a
+  // fresh run so we don't reuse an existing active run. We also strip the
+  // query param from the URL afterwards to avoid re-creating on reload.
+  useEffect(() => {
+    try {
+      const sp = new URLSearchParams(location.search);
+      const v = sp.get('startNew') || sp.get('startnew');
+      if (v === '1' || v === 'true') {
+        handleNewTask();
+        // Remove the param so refresh doesn't recreate
+        const url = new URL(window.location.href);
+        url.searchParams.delete('startNew');
+        url.searchParams.delete('startnew');
+        window.history.replaceState({}, '', url.toString());
+      }
+    } catch (e) {
+      // ignore
+    }
+  }, [location.search]);
 
   const handleViewProfile = () => {
     console.log('View profile');
@@ -238,13 +868,25 @@ const Index = () => {
   };
 
   const handleEditProfile = () => {
-    console.log('Edit profile');
-    // Navigate to edit profile page
+    navigate('/settings/profile');
   };
 
-  const handleLogout = () => {
-    console.log('Logout');
-    // Handle logout
+  const { logout } = useKindeAuth();
+  const handleLogout = async () => {
+    try {
+      const redirect = `${window.location.origin}/auth/login`;
+      await logout?.(redirect);
+    } catch (err) {
+      console.error('Logout failed', err);
+    }
+  };
+
+  const handleSelectRun = (runId: string) => {
+    setActiveRunId(runId);
+    // Clear questions when switching runs to avoid showing old questions
+    setQuestions([]);
+    // Hide loading spinner when switching runs
+    setIsWaitingForResponse(false);
   };
 
   return (
@@ -253,7 +895,7 @@ const Index = () => {
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         runs={runs as any}
         activeRunId={activeRunId}
-        onSelectRun={setActiveRunId}
+        onSelectRun={handleSelectRun}
         collapsed={isSidebarCollapsed}
         onToggleCollapse={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
       />
@@ -282,15 +924,7 @@ const Index = () => {
             </div>
             <div className="w-full md:w-auto flex flex-wrap items-center gap-2 md:gap-3 justify-end">
               <ThemeToggle />
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => setIsToolsPanelOpen(!isToolsPanelOpen)}
-                className="gap-2"
-              >
-                <Plug2 className="h-4 w-4" />
-                Integrations
-              </Button>
+            
               <Button size="sm" onClick={handleNewTask} className="gap-2">
                 <Plus className="h-4 w-4" />
                 New Task
@@ -307,46 +941,21 @@ const Index = () => {
         {/* Chat Area */}
         <ScrollArea className="flex-1">
           <div className="max-w-4xl mx-auto px-8 py-8 space-y-6">
-            {activeRun?.messages.map((message, idx) => {
-              if (message.role === 'user') {
-                return (
-                  <ChatMessage key={idx} role="user">
-                    <p className="text-sm">{message.content}</p>
-                  </ChatMessage>
-                );
-              }
-
-              return (
-                <ChatMessage key={idx} role="assistant">
-                  {message.type === 'plan' && message.data && 'intent' in message.data && (
-                    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                    <PlanCard data={message.data as any} />
-                  )}
-                  {message.type === 'run' && message.data && 'status' in message.data && (
-                    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                    <RunCard data={message.data as any} />
-                  )}
-                  {message.type === 'log' && message.data && (
-                    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                    <LogCard logs={(Array.isArray(message.data) ? message.data : (message.data as any).entries) as any} />
-                  )}
-                  {message.type === 'undo' && message.data && 'available' in message.data && (
-                    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                    <UndoCard data={message.data as any} />
-                  )}
-                  {message.type === 'output' && message.data && 'title' in message.data && (
-                    <OutputCard
-                      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                      title={(message.data as any).title}
-                      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                      content={(message.data as any).content}
-                      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                      type={(message.data as any).type}
-                    />
-                  )}
-                </ChatMessage>
-              );
-            })}
+            {!activeRun && (
+              <div className="text-center text-muted-foreground py-8">No active run selected</div>
+            )}
+            {activeRun && (!activeRun.messages || activeRun.messages.length === 0) && (
+              <div className="text-center text-muted-foreground py-8">No messages yet</div>
+            )}
+            <ChatStream runId={activeRunId} messages={activeRun?.messages ?? []} />
+            {/** Loading spinner while waiting for backend response */}
+            {isWaitingForResponse && (
+              <div className="flex items-center gap-3 text-muted-foreground animate-fade-in">
+                <Loader2 className="h-5 w-5 animate-spin" />
+                <span className="text-sm">Processing your request...</span>
+              </div>
+            )}
+            {/** Questions are now rendered inline within ChatStream as a message */}
             <div ref={bottomRef} />
           </div>
         </ScrollArea>
@@ -354,18 +963,12 @@ const Index = () => {
         {/* Input Area */}
         <div className="border-t border-border bg-card p-6">
           <div className="max-w-4xl mx-auto">
-            <PromptInput onSubmit={handleNewPrompt} />
+            <PromptInput onSubmit={handleNewPrompt} initialValue={prefill} />
           </div>
         </div>
       </div>
 
-      {isToolsPanelOpen && (
-        <ToolsPanel
-          tools={mockTools}
-          stats={mockStats}
-          onClose={() => setIsToolsPanelOpen(false)}
-        />
-      )}
+    
     </div>
   );
 };

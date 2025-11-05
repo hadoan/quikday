@@ -1,11 +1,11 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { PrismaService } from '@quikday/prisma';
 import { CredentialMissingError, CredentialInvalidError } from '@quikday/types';
-import { TelemetryService } from '../telemetry/telemetry.service';
+import { TelemetryService } from '../telemetry/telemetry.service.js';
 
 export interface CredentialResolutionContext {
   userId: number;
-  teamId: number;
+  teamId: number | null;
   appId: string;
   credentialId?: number; // Explicit override
 }
@@ -280,7 +280,34 @@ export class CredentialService {
     });
   }
 
-  private mapCredential(credential: any, resolvedVia: ResolvedCredential['resolvedVia']): ResolvedCredential {
+  /**
+   * Delete a credential owned by a user (and perform app-specific cleanup).
+   */
+  async deleteCredential(userId: number, credentialId: number): Promise<void> {
+    const credential = await this.prisma.credential.findFirst({
+      where: { id: credentialId, userId },
+      select: { id: true, appId: true },
+    });
+
+    if (!credential) {
+      throw new Error('Credential not found or does not belong to user');
+    }
+
+    // App-specific cleanup: e.g., for zapier remove ApiKeys and webhooks
+    if (credential.appId === 'zapier') {
+      await this.prisma.apiKey.deleteMany({
+        where: { userId, appId: 'zapier' },
+      });
+      // Note: If your project defines webhook or pageInfo models, add cleanup here.
+    }
+
+    await this.prisma.credential.delete({ where: { id: credentialId } });
+  }
+
+  private mapCredential(
+    credential: any,
+    resolvedVia: ResolvedCredential['resolvedVia']
+  ): ResolvedCredential {
     return {
       id: credential.id,
       appId: credential.appId,
@@ -295,11 +322,7 @@ export class CredentialService {
     };
   }
 
-  private async trackResolution(
-    appId: string,
-    via: string,
-    success: boolean
-  ): Promise<void> {
+  private async trackResolution(appId: string, via: string, success: boolean): Promise<void> {
     const eventName = success ? 'credential_resolve_succeeded' : 'credential_resolve_failed';
     await this.telemetry.track(eventName, {
       appId,

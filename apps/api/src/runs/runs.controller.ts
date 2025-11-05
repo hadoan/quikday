@@ -1,10 +1,30 @@
-import { Body, Controller, Get, Param, Post, UseGuards } from '@nestjs/common';
-import { RunsService } from './runs.service';
-import { KindeGuard } from '../auth/kinde.guard';
+import {
+  Body,
+  Controller,
+  Get,
+  Param,
+  Post,
+  UseGuards,
+  Req,
+  BadRequestException,
+  NotFoundException,
+  Logger,
+} from '@nestjs/common';
+import { RunsService } from './runs.service.js';
+import { KindeGuard } from '../auth/kinde.guard.js';
+import { validateAnswers } from '@quikday/agent/validation/answers';
+
+export interface ChatMessageDto {
+  role: 'system' | 'user' | 'assistant' | 'tool';
+  content: string;
+  ts?: string;
+  toolName?: string;
+}
 
 export interface CreateRunDto {
-  prompt: string;
-  mode: 'plan' | 'auto' | 'scheduled';
+  prompt?: string;
+  messages?: ChatMessageDto[];
+  mode: 'preview' | 'approval' | 'auto' | 'scheduled';
   teamId: number;
   scheduledAt?: string;
   channelTargets?: Array<{
@@ -12,21 +32,128 @@ export interface CreateRunDto {
     credentialId?: number;
   }>;
   toolAllowlist?: string[];
+  meta?: Record<string, unknown>;
+}
+
+export interface ConfirmDto {
+  answers?: Record<string, unknown>;
+  approve?: boolean;
 }
 
 @Controller('runs')
 @UseGuards(KindeGuard)
 export class RunsController {
+  private readonly logger = new Logger(RunsController.name);
+
   constructor(private runs: RunsService) {}
 
+  @Get()
+  async list(@Req() _req: any) {
+    // Parse query params; Nest can bind DTO but keep simple here
+    const req: any = _req;
+    const q = req.query?.q as string | undefined;
+    const page = req.query?.page ? Number(req.query.page) : undefined;
+    const pageSize = req.query?.pageSize ? Number(req.query.pageSize) : undefined;
+    const sortBy = (req.query?.sortBy as string | undefined) as any;
+    const sortDir = (req.query?.sortDir as string | undefined) as any;
+    const status = ([] as string[]).concat(req.query?.status ?? []).filter(Boolean);
+    return this.runs.list({ page, pageSize, q, status, sortBy, sortDir });
+  }
+
   @Post()
-  create(@Body() body: CreateRunDto) {
-    return this.runs.createFromPrompt(body);
+  create(@Body() body: CreateRunDto, @Req() req: any) {
+    const claims = req.user || {};
+    return this.runs.createFromPrompt(body, claims);
   }
 
   @Post(':id/confirm')
-  async confirm(@Param('id') id: string) {
-    await this.runs.enqueue(id);
+  async confirm(@Param('id') id: string, @Body() body: ConfirmDto, @Req() req: any) {
+    const who = req?.user ? req.user.email || req.user.sub || 'unknown-user' : 'unauthenticated';
+    this.logger.log(`POST /runs/${id}/confirm requested by ${who}`);
+    this.logger.debug(
+      `Incoming confirm payload: ${JSON.stringify({ answersKeys: Object.keys(body?.answers ?? {}), approve: body?.approve ?? undefined })}`
+    );
+
+    const run = await this.runs.get(id);
+    if (!run) {
+      this.logger.warn(`Run not found for id=${id}`);
+      throw new NotFoundException('Run not found');
+    }
+
+    const questions =
+      (run.output as any)?.awaiting?.questions ?? (run.output as any)?.diff?.questions ?? [];
+
+    this.logger.debug(`Validating answers for run=${id}. expectedQuestions=${questions.length}`);
+    const { ok, errors, normalized } = validateAnswers(questions, body?.answers ?? {});
+
+    if (!ok) {
+      this.logger.warn(`Validation failed for run=${id}. errors=${JSON.stringify(errors)}`);
+      // Persist UI mirror errors + audit and respond with structured errors
+      await this.runs.persistValidationErrors(id, body?.answers ?? {}, errors);
+      throw new BadRequestException({ message: 'Validation failed', validationErrors: errors });
+    }
+
+    this.logger.debug(
+      `Applying validated answers for run=${id}. normalizedKeys=${Object.keys(normalized || {})}`
+    );
+    await this.runs.applyUserAnswers(id, normalized);
+
+    this.logger.log(`Enqueuing run re-execution for id=${id}`);
+    await this.runs.enqueue(id); // re-run with answers
+    this.logger.log(`Confirm completed for run=${id}`);
+    return { ok: true };
+  }
+
+  @Post(':id/answers')
+  async submitAnswers(@Param('id') id: string, @Body() body: { answers: Record<string, unknown> }, @Req() req: any) {
+    const who = req?.user ? req.user.email || req.user.sub || 'unknown-user' : 'unauthenticated';
+    this.logger.log(`POST /runs/${id}/answers requested by ${who}`);
+    this.logger.debug(
+      `Incoming answers payload: ${JSON.stringify({ answersKeys: Object.keys(body?.answers ?? {}) })}`
+    );
+
+    const run = await this.runs.get(id);
+    if (!run) {
+      this.logger.warn(`Run not found for id=${id}`);
+      throw new NotFoundException('Run not found');
+    }
+
+    // Get missing fields from the run
+    const missing = Array.isArray(run.missing) ? run.missing : [];
+    
+    if (missing.length === 0) {
+      this.logger.warn(`No missing fields for run=${id}`);
+      throw new BadRequestException('No missing fields to answer');
+    }
+
+    this.logger.debug(`Validating answers for run=${id}. expectedFields=${missing.length}`);
+    
+    // Validate that all required missing fields have answers
+    const requiredMissing = missing.filter((m: any) => m.required !== false);
+    const providedKeys = Object.keys(body?.answers ?? {});
+    const missingRequired = requiredMissing.filter((m: any) => !providedKeys.includes(m.key));
+    
+    if (missingRequired.length > 0) {
+      const missingKeys = missingRequired.map((m: any) => m.key);
+      this.logger.warn(`Missing required fields for run=${id}: ${missingKeys.join(', ')}`);
+      throw new BadRequestException({ 
+        message: 'Missing required fields', 
+        missingFields: missingKeys 
+      });
+    }
+
+    this.logger.debug(
+      `Storing answers for run=${id}. answersKeys=${providedKeys.join(', ')}`
+    );
+    
+    // Store answers in the answers field
+    await this.runs.storeAnswers(id, body.answers);
+    
+    // Execute the plan with the provided answers
+    this.logger.log(`Executing plan for run=${id} with provided answers`);
+    await this.runs.executePlanWithAnswers(id);
+    
+    this.logger.log(`Submit answers completed for run=${id}`);
     return { ok: true };
   }
 
@@ -42,8 +169,20 @@ export class RunsController {
     return { ok: true };
   }
 
+  @Post(':id/cancel')
+  async cancel(@Param('id') id: string) {
+    await this.runs.cancel(id);
+    return { ok: true };
+  }
+
   @Get(':id')
   get(@Param('id') id: string) {
     return this.runs.get(id);
+  }
+
+  @Post(':id/refresh-credentials')
+  async refreshCredentials(@Param('id') id: string) {
+    const result = await this.runs.refreshRunCredentials(id);
+    return { ok: true, ...result };
   }
 }

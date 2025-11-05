@@ -44,7 +44,7 @@ class Logger {
   private formatMessage(level: string, message: string, context?: LogContext): void {
     const timestamp = new Date().toISOString();
     const prefix = `[${timestamp}] [${level}] [${this.context}]`;
-    
+
     if (context && Object.keys(context).length > 0) {
       console.log(`${prefix} ${message}`, context);
     } else {
@@ -55,7 +55,7 @@ class Logger {
   private formatError(level: string, message: string, error?: Error, context?: LogContext): void {
     const timestamp = new Date().toISOString();
     const prefix = `[${timestamp}] [${level}] [${this.context}]`;
-    
+
     const errorContext = {
       ...context,
       error: error?.message,

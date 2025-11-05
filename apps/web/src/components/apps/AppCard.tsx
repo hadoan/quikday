@@ -1,4 +1,5 @@
 import InstallApp from '@/components/apps/InstallApp';
+import type { InstallMethod } from '@/components/apps/InstallApp';
 import type { FC } from 'react';
 
 export type AppCardInstallProps = {
@@ -6,6 +7,7 @@ export type AppCardInstallProps = {
   slug: string;
   variant: string;
   allowedMultipleInstalls: boolean;
+  installMethod?: InstallMethod;
 };
 
 export type AppCardProps = {
@@ -29,6 +31,7 @@ const AppCard: FC<AppCardProps> = ({ title, description, logoSrc, installProps }
           slug={installProps.slug}
           variant={installProps.variant}
           allowedMultipleInstalls={installProps.allowedMultipleInstalls}
+          installMethod={installProps.installMethod}
         />
       </div>
     </div>

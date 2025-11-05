@@ -1,6 +1,6 @@
-import { useState, useEffect } from "react";
-import { Button } from "@/components/ui/button";
-import { Moon, Sun, Menu, X, Github } from "lucide-react";
+import { useState, useEffect } from 'react';
+import { Button } from '@/components/ui/button';
+import { Moon, Sun, Menu, X, Github } from 'lucide-react';
 
 export const Navbar = () => {
   const [isDark, setIsDark] = useState(true);
@@ -10,11 +10,11 @@ export const Navbar = () => {
   useEffect(() => {
     // Set dark mode by default
     document.documentElement.classList.add('dark');
-    
+
     const handleScroll = () => {
       setIsScrolled(window.scrollY > 20);
     };
-    
+
     window.addEventListener('scroll', handleScroll);
     return () => window.removeEventListener('scroll', handleScroll);
   }, []);
@@ -25,18 +25,18 @@ export const Navbar = () => {
   };
 
   const navLinks = [
-    { label: "How it works", href: "#how-it-works" },
-    { label: "Use cases", href: "#use-cases" },
-    { label: "Integrations", href: "#integrations" },
-    { label: "Pricing", href: "#pricing" },
-    { label: "Lifetime Deal (€29)", href: "#pricing-ltd" },
+    { label: 'How it works', href: '#how-it-works' },
+    { label: 'Use cases', href: '#use-cases' },
+    { label: 'Integrations', href: '#integrations' },
+    { label: 'Pricing', href: '#pricing' },
+    { label: 'Lifetime Deal (€29)', href: '#pricing-ltd' },
   ];
 
   return (
-    <nav 
+    <nav
       className={`sticky top-0 z-50 w-full transition-all duration-300 ${
-        isScrolled 
-          ? 'bg-background/80 backdrop-blur-lg border-b border-border shadow-md' 
+        isScrolled
+          ? 'bg-background/80 backdrop-blur-lg border-b border-border shadow-md'
           : 'bg-background/50 backdrop-blur-sm'
       }`}
     >
@@ -72,15 +72,10 @@ export const Navbar = () => {
 
           {/* Desktop Actions */}
           <div className="hidden lg:flex items-center space-x-3">
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={toggleTheme}
-              aria-label="Toggle theme"
-            >
+            <Button variant="ghost" size="icon" onClick={toggleTheme} aria-label="Toggle theme">
               {isDark ? <Sun className="h-5 w-5" /> : <Moon className="h-5 w-5" />}
             </Button>
-            
+
             <Button variant="secondary" size="sm" asChild>
               <a href="https://github.com/hadoan/quikday" target="_blank" rel="noopener noreferrer">
                 <Github className="h-4 w-4" />
@@ -119,13 +114,19 @@ export const Navbar = () => {
               ))}
               <div className="pt-4 flex flex-col space-y-2 px-4">
                 <Button variant="secondary" size="sm" asChild className="w-full">
-                  <a href="https://github.com/hadoan/quikday" target="_blank" rel="noopener noreferrer">
+                  <a
+                    href="https://github.com/hadoan/quikday"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                  >
                     <Github className="h-4 w-4" />
                     GitHub
                   </a>
                 </Button>
                 <Button variant="hero" size="sm" className="w-full" asChild>
-                  <a href="#join-beta" onClick={() => setIsMenuOpen(false)}>Join Beta</a>
+                  <a href="#join-beta" onClick={() => setIsMenuOpen(false)}>
+                    Join Beta
+                  </a>
                 </Button>
               </div>
             </div>

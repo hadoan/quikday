@@ -1,9 +1,13 @@
 import { Module, OnModuleInit } from '@nestjs/common';
-import { IntegrationsController } from './integrations.controller';
-import { AppStoreRegistry } from './appstore.registry';
+import { IntegrationsController } from './integrations.controller.js';
+import { AppStoreRegistry } from './appstore.registry.js';
 import { PrismaService } from '@quikday/prisma';
+import { AuthModule } from '../auth/auth.module.js';
+import { ConfigModule } from '../config/config.module.js';
+import { createSignedState, validateSignedState } from '../auth/oauth-state.util.js';
 
 @Module({
+  imports: [AuthModule, ConfigModule],
   controllers: [IntegrationsController],
   providers: [AppStoreRegistry, PrismaService],
   exports: [AppStoreRegistry],
@@ -15,6 +19,10 @@ export class IntegrationsModule implements OnModuleInit {
   ) {}
 
   async onModuleInit() {
-    await this.store.init({ prisma: this.prisma });
+    await this.store.init({
+      prisma: this.prisma,
+      createSignedState,
+      validateSignedState,
+    });
   }
 }

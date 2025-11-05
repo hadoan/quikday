@@ -1,10 +1,10 @@
 export const GovernanceStrip = () => {
   const items = [
-    "Plan & Diff preview",
-    "Approval policies",
-    "Least-privilege tokens",
-    "One-click Undo",
-    "Full audit trail",
+    'Plan & Diff preview',
+    'Approval policies',
+    'Least-privilege tokens',
+    'One-click Undo',
+    'Full audit trail',
   ];
 
   return (
@@ -24,4 +24,3 @@ export const GovernanceStrip = () => {
     </section>
   );
 };
-

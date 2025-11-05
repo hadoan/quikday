@@ -1,444 +1,708 @@
+// apps/api/src/queue/run.processor.ts
 import { Processor, WorkerHost } from '@nestjs/bullmq';
 import { Job } from 'bullmq';
-import { Logger } from '@nestjs/common';
-import { RunsService } from '../runs/runs.service';
-import { CredentialService } from '../credentials/credential.service';
-import { buildSocialGraph } from '@quikday/agent';
-import { TelemetryService } from '../telemetry/telemetry.service';
-import { getToolMetadata } from '@quikday/appstore';
-import { CredentialMissingError, CredentialInvalidError, ErrorCode } from '@quikday/types';
-import { randomUUID } from 'crypto';
+import { Inject, Logger } from '@nestjs/common';
+import { RunsService } from '../runs/runs.service.js';
+import { StepsService } from '../runs/steps.service.js';
+import { TelemetryService } from '../telemetry/telemetry.service.js';
+import { ErrorCode } from '@quikday/types';
+import type { RunState, RunMode } from '@quikday/agent/state/types';
+import type { Run } from '@prisma/client';
+import { subscribeToRunEvents } from '@quikday/agent/observability/events';
+import { CHANNEL_WORKER, CHANNEL_WEBSOCKET } from '@quikday/libs';
+import type { RunEvent as UiRunEvent } from '@quikday/libs/redis/RunEvent';
+import { AgentService } from '../agent/index.js';
+import type { RunEventBus } from '@quikday/libs/pubsub/event-bus';
+import { createGraphEventHandler } from './create-graph-event-handler.js';
+import { RunOutcome } from '@quikday/agent/runtime/graph';
+
+import { runWithCurrentUser } from '@quikday/libs';
+import type { CurrentUserContext } from '@quikday/types/auth/current-user.types';
+
+const GRAPH_HALT_AWAITING_APPROVAL = 'GRAPH_HALT_AWAITING_APPROVAL';
+
+type RunJobData = {
+  runId: string;
+  mode?: string;
+  input?: RunState['input'];
+  scopes?: string[];
+  token?: string;
+  meta?: Record<string, unknown>;
+  policy?: Record<string, unknown> | null;
+  scratch?: Record<string, unknown> | undefined;
+  __ctx?: CurrentUserContext; // <<< ALS context carrier
+};
+
+type StepLogEntry = {
+  tool: string;
+  action: string;
+  status: 'started' | 'succeeded' | 'failed';
+  request?: unknown;
+  result?: unknown;
+  errorCode?: string;
+  errorMessage?: string;
+  startedAt: string;
+  completedAt?: string;
+  ms?: number;
+};
 
 @Processor('runs')
 export class RunProcessor extends WorkerHost {
   private readonly logger = new Logger(RunProcessor.name);
 
+  /**
+   * Map frontend mode strings to backend RunMode format
+   */
+  private mapRunMode(mode?: string): RunMode {
+    const normalized = mode?.toLowerCase();
+    switch (normalized) {
+      case 'preview':
+      case 'plan':
+        return 'PREVIEW';
+      case 'approval':
+        return 'APPROVAL';
+      case 'auto':
+        return 'AUTO';
+      default:
+        return 'APPROVAL'; // Default to approval mode for safety
+    }
+  }
+
   constructor(
     private runs: RunsService,
-    private credentials: CredentialService,
-    private telemetry: TelemetryService
+    private stepsService: StepsService,
+    private telemetry: TelemetryService,
+    private agent: AgentService,
+    @Inject('RunEventBus') private eventBus: RunEventBus
   ) {
     super();
   }
 
-  async process(job: Job<{ runId: string }>) {
+  // Lightweight indicator that the worker is registered
+  onModuleInit() {
+    this.logger.log('🧵 RunProcessor initialized and awaiting jobs on queue "runs"');
+  }
+
+  async process(job: Job<RunJobData>) {
+    const jobRunId = job.data?.runId;
+    if (!jobRunId) {
+      this.logger.error('❌ Job missing runId', { jobId: job.id, attemptsMade: job.attemptsMade });
+      return;
+    }
+
     this.logger.log('🎬 Job picked up from queue', {
       timestamp: new Date().toISOString(),
       jobId: job.id,
-      runId: job.data.runId,
+      runId: jobRunId,
       attemptsMade: job.attemptsMade,
       processedOn: job.processedOn,
     });
 
-    this.logger.log('📖 Fetching run details from database', {
-      timestamp: new Date().toISOString(),
-      runId: job.data.runId,
-    });
+    const run = await this.runs.get(jobRunId);
 
-    const run = await this.runs.get(job.data.runId);
+    // Build/restore ALS context for this execution
+    const fallbackCtx: CurrentUserContext = {
+      userId: String(run.userId),
+      teamId: run.teamId ? String(run.teamId) : null,
+      scopes: Array.isArray(job.data.scopes) ? job.data.scopes : [],
+      traceId:
+        typeof job.data?.meta?.['traceId'] === 'string' &&
+        (job.data.meta!['traceId'] as string).trim()
+          ? (job.data.meta!['traceId'] as string)
+          : `run:${run.id}`,
+      tz:
+        (typeof job.data?.meta?.['tz'] === 'string' && (job.data.meta!['tz'] as string).trim()
+          ? (job.data.meta!['tz'] as string)
+          : 'Europe/Berlin') ?? 'Europe/Berlin',
+      runId: String(run.id),
+    };
+    const ctx: CurrentUserContext = job.data.__ctx ?? fallbackCtx;
 
-    this.logger.log('🔄 Updating run status to "running"', {
-      timestamp: new Date().toISOString(),
-      runId: run.id,
-      previousStatus: run.status,
-    });
+    return runWithCurrentUser(ctx, async () => {
+      // mark running and notify
+      await this.runs.updateStatus(run.id, 'running');
+      await this.eventBus.publish(
+        run.id,
+        { type: 'run_status', payload: { status: 'running' } },
+        CHANNEL_WEBSOCKET
+      );
 
-    await this.runs.updateStatus(run.id, 'running');
-
-    this.logger.log('▶️ Starting run execution', {
-      timestamp: new Date().toISOString(),
-      runId: run.id,
-      prompt: run.prompt.substring(0, 50) + (run.prompt.length > 50 ? '...' : ''),
-      mode: run.mode,
-      userId: run.userId,
-      teamId: run.teamId,
-    });
-
-    try {
-      this.logger.log('🏗️ Building execution context', {
+      this.logger.log('▶️ Starting run execution', {
         timestamp: new Date().toISOString(),
         runId: run.id,
-      });
-
-      // Build execution context with credential resolver
-      const executionContext = {
+        prompt: run.prompt.substring(0, 50) + (run.prompt.length > 50 ? '...' : ''),
+        mode: run.mode,
         userId: run.userId,
         teamId: run.teamId,
-        runId: run.id,
-        channelTargets: (run.config as any)?.channelTargets || [],
-      };
-
-      this.logger.log('🔧 Execution context built', {
-        timestamp: new Date().toISOString(),
-        runId: run.id,
-        channelTargetsCount: executionContext.channelTargets.length,
       });
 
-      // Create a credential-aware tool executor
-      const toolExecutor = async (toolName: string, input: any) => {
-        this.logger.log('🔨 Executing tool', {
-          timestamp: new Date().toISOString(),
-          runId: executionContext.runId,
-          toolName,
-          inputKeys: Object.keys(input || {}),
-        });
+      // Build runtime input + ctx
+      const { initialState, publishRunEvent, safePublish } = this.buildInputAndCtx(run, job);
 
-        const toolMeta = getToolMetadata(toolName);
-        if (!toolMeta) {
-          this.logger.error('❌ Unknown tool requested', {
-            timestamp: new Date().toISOString(),
-            toolName,
-          });
-          throw new Error(`Unknown tool: ${toolName}`);
-        }
+      // prepare runtime graph
+      const graph = this.agent.createGraph();
 
-        this.logger.debug('📋 Tool metadata retrieved', {
-          toolName,
-          appId: toolMeta.appId,
-          requiresCredential: toolMeta.requiresCredential,
-          effectful: toolMeta.effectful,
-        });
+      const stepLogs: StepLogEntry[] = [];
 
-        const stepStartedAt = new Date();
-        let credential: any = null;
+      // helpers
+      const applyDelta = this.applyDelta.bind(this);
+      const markStep = (
+        tool: string,
+        status: 'succeeded' | 'failed',
+        updater?: (entry: StepLogEntry) => void
+      ) => this.markStep(stepLogs, tool, status, updater);
+      const formatLogsForPersistence = () => this.formatLogsForPersistence(stepLogs);
 
-        // Resolve credential if required
-        if (toolMeta.requiresCredential) {
-          this.logger.log('🔐 Resolving credential', {
-            timestamp: new Date().toISOString(),
-            runId: executionContext.runId,
-            appId: toolMeta.appId,
-          });
+      // mutable state mirror for event handlers
+      let liveState: RunState = structuredClone(initialState);
+      let graphEmittedRunCompleted = false;
 
+      const handleGraphEvent = createGraphEventHandler({
+        run,
+        liveStateRef: { get: () => liveState, set: (s: RunState) => (liveState = s) },
+        markStep,
+        applyDelta,
+        safePublish,
+        stepLogs,
+        setGraphEmitted: (v: boolean) => (graphEmittedRunCompleted = v),
+        logger: this.logger,
+        telemetry: this.telemetry,
+        persistPlanSteps: async (plan: any[], diff: any) => {
           try {
-            // Check if explicit credentialId provided for this app
-            const channelTarget = executionContext.channelTargets.find(
-              (t: any) => t.appId === toolMeta.appId
-            );
-
-            credential = await this.credentials.resolveCredential({
-              userId: executionContext.userId,
-              teamId: executionContext.teamId,
-              appId: toolMeta.appId,
-              credentialId: channelTarget?.credentialId,
-            });
-
-            this.logger.log('✅ Credential resolved', {
-              timestamp: new Date().toISOString(),
-              credentialId: credential.id,
-              appId: toolMeta.appId,
-            });
-
-            this.logger.log('🔍 Validating credential', {
-              timestamp: new Date().toISOString(),
-              credentialId: credential.id,
-            });
-
-            // Validate credential
-            const isValid = await this.credentials.validateCredential(credential.id);
-            if (!isValid) {
-              this.logger.error('❌ Credential validation failed', {
-                timestamp: new Date().toISOString(),
-                credentialId: credential.id,
-                appId: toolMeta.appId,
-              });
-              throw new CredentialInvalidError(toolMeta.appId, credential.id);
-            }
-
-            this.logger.log('✅ Credential validated', {
-              timestamp: new Date().toISOString(),
-              credentialId: credential.id,
-            });
-          } catch (error: any) {
-            this.logger.error('❌ Credential resolution/validation failed', {
-              timestamp: new Date().toISOString(),
-              error: error.message,
-              errorCode: error.code || ErrorCode.E_CREDENTIAL_MISSING,
-            });
-
-            // Track failure
-            await this.telemetry.track('step_failed', {
-              runId: executionContext.runId,
-              tool: toolName,
-              appId: toolMeta.appId,
-              errorCode: error.code || ErrorCode.E_CREDENTIAL_MISSING,
-            });
-
-            throw error;
-          }
-        }
-
-        // Execute the tool with credential
-        let result: any;
-        let errorCode: string | undefined;
-
-        try {
-          this.logger.log('⚡ Executing tool with credential', {
-            timestamp: new Date().toISOString(),
-            toolName,
-            hasCredential: !!credential,
-          });
-
-          // TODO: Actual tool execution with credential.key
-          result = await this.executeTool(toolName, input, credential?.key);
-
-          this.logger.log('✅ Tool execution completed successfully', {
-            timestamp: new Date().toISOString(),
-            toolName,
-            hasResult: !!result,
-          });
-
-          // Track success
-          await this.telemetry.track('step_succeeded', {
-            runId: executionContext.runId,
-            tool: toolName,
-            appId: toolMeta.appId,
-          });
-
-          // Record effect if effectful
-          if (toolMeta.effectful) {
-            this.logger.log('💾 Recording effect', {
-              timestamp: new Date().toISOString(),
-              toolName,
-              appId: toolMeta.appId,
-              canUndo: toolMeta.undoStrategy !== 'none',
-            });
-
-            await this.recordEffect({
-              runId: executionContext.runId,
-              appId: toolMeta.appId,
-              credentialId: credential?.id,
-              action: toolName,
-              externalRef: result.id || result.url,
-              idempotencyKey: randomUUID(),
-              undoStrategy: toolMeta.undoStrategy || 'none',
-              canUndo: toolMeta.undoStrategy !== 'none',
-              metadata: result,
-            });
-
-            this.logger.log('✅ Effect recorded', {
-              timestamp: new Date().toISOString(),
+            await this.runs.persistPlan(run.id, plan, diff);
+          } catch (e) {
+            this.logger.error('? Failed to persist plan', {
+              runId: run.id,
+              error: (e as any)?.message ?? String(e),
             });
           }
-        } catch (error: any) {
-          this.logger.error('❌ Tool execution failed', {
-            timestamp: new Date().toISOString(),
-            toolName,
-            error: error.message,
-            status: error.status,
-          });
-
-          // Check if vendor returned 401/403 - mark credential invalid
-          if (error.status === 401 || error.status === 403) {
-            if (credential) {
-              this.logger.warn('⚠️ Marking credential as invalid due to auth error', {
-                timestamp: new Date().toISOString(),
-                credentialId: credential.id,
-                status: error.status,
-              });
-
-              await this.credentials.markInvalid(
-                credential.id,
-                `Vendor returned ${error.status}`
-              );
-            }
-            throw new CredentialInvalidError(toolMeta.appId, credential?.id);
+        },
+        enrichPlanWithCredentials: async (plan: any[]) => {
+          try {
+            return await this.stepsService.enrichPlanWithCredentials(plan, run.userId);
+          } catch (e) {
+            this.logger.error('? Failed to enrich plan with credentials', {
+              runId: run.id,
+              error: (e as any)?.message ?? String(e),
+            });
+            return plan; // Return original plan as fallback
           }
+        },
+      });
 
-          errorCode = ErrorCode.E_STEP_FAILED;
-          await this.telemetry.track('step_failed', {
-            runId: executionContext.runId,
-            tool: toolName,
-            appId: toolMeta.appId,
-            errorCode,
-          });
-
-          throw error;
-        }
-
-        const stepResult = {
-          tool: toolName,
-          action: toolMeta.description,
-          appId: toolMeta.appId,
-          credentialId: credential?.id,
-          request: input,
-          result,
-          errorCode,
-          ts: stepStartedAt.toISOString(),
-        };
-
-        this.logger.log('✅ Tool execution step completed', {
+      try {
+        this.logger.log('🧠 Initialising graph run state', {
           timestamp: new Date().toISOString(),
-          toolName,
-          duration: Date.now() - stepStartedAt.getTime(),
+          runId: run.id,
         });
 
-        return stepResult;
-      };
+        const unsubscribe = subscribeToRunEvents(
+          run.id,
+          handleGraphEvent,
+          this.eventBus,
+          CHANNEL_WORKER,
+          'worker'
+        );
 
-      this.logger.log('🕸️ Building execution graph', {
-        timestamp: new Date().toISOString(),
-        runId: run.id,
-      });
-
-      // Execute the graph with messages (like index.ts pattern)
-      const graph = buildSocialGraph();
-
-      this.logger.log('🚀 Invoking graph execution', {
-        timestamp: new Date().toISOString(),
-        runId: run.id,
-      });
-
-      // Invoke with messages array containing the user prompt
-      const result = await graph.invoke({
-        messages: [{ role: 'user', content: run.prompt }],
-      });
-
-      this.logger.log('✅ Graph execution completed', {
-        timestamp: new Date().toISOString(),
-        runId: run.id,
-        messagesCount: result.messages?.length || 0,
-      });
-
-      // Log all messages for debugging
-      this.logger.log('📨 Messages from graph:', {
-        timestamp: new Date().toISOString(),
-        messages: result.messages?.map((m: any, idx: number) => ({
-          index: idx,
-          role: m.role || m._getType?.() || 'unknown',
-          contentPreview: typeof m.content === 'string' 
-            ? m.content.substring(0, 100) + (m.content.length > 100 ? '...' : '')
-            : JSON.stringify(m.content).substring(0, 100),
-          hasToolCalls: !!m.tool_calls?.length,
-        })),
-      });
-
-      // Extract logs and output from messages
-      const logs: any[] = [];
-      let output: any = null;
-
-      // Process messages to extract structured data
-      if (result.messages && Array.isArray(result.messages)) {
-        result.messages.forEach((msg: any, idx: number) => {
-          if (msg.content) {
-            try {
-              // Try to parse as JSON (for structured messages)
-              const parsed = JSON.parse(msg.content);
-              if (parsed.tool || parsed.action) {
-                logs.push({
-                  ts: parsed.ts || new Date().toISOString(),
-                  tool: parsed.tool || 'unknown',
-                  action: parsed.action || 'processed',
-                  result: parsed,
-                });
-              }
-              // Last message with 'ok' is the output
-              if (parsed.ok !== undefined) {
-                output = parsed;
-              }
-            } catch {
-              // Not JSON, treat as regular log
-              logs.push({
-                ts: new Date().toISOString(),
-                message: msg.content,
-                role: msg.role || 'assistant',
-              });
-            }
+        let final: RunState;
+        try {
+          // Check if we're resuming from a specific node (e.g., after approval or answers submission)
+          const config = run.config as any;
+          const resumeFrom = config?.resumeFrom as string | undefined;
+          
+          if (resumeFrom === 'executor') {
+            // Resume execution from executor node after approval or answers submission
+            const reason = run.status === 'approved' 
+              ? 'approval' 
+              : run.status === 'pending' && run.answers 
+                ? 'answers submission'
+                : 'unknown';
+                
+            this.logger.log('▶️ Resuming from executor', {
+              runId: run.id,
+              reason,
+              status: run.status,
+              hasAnswers: !!run.answers,
+              approvedSteps: config?.approvedSteps?.length || 0,
+            });
+            
+            console.log('[run.processor] Initial state scratch keys:', Object.keys(initialState.scratch || {}));
+            console.log('[run.processor] Has plan?', !!initialState.scratch?.plan);
+            console.log('[run.processor] Plan length:', initialState.scratch?.plan?.length || 0);
+            console.log('[run.processor] Has answers?', !!initialState.scratch?.answers);
+            console.log('[run.processor] Answers keys:', Object.keys(initialState.scratch?.answers || {}));
+            
+            this.logger.debug('Resuming execution with state:', {
+              scratchKeys: Object.keys(initialState.scratch || {}),
+              hasPlan: !!initialState.scratch?.plan,
+              planLength: initialState.scratch?.plan?.length || 0,
+              hasAnswers: !!initialState.scratch?.answers,
+              answersKeys: Object.keys(initialState.scratch?.answers || {}),
+              answersValues: initialState.scratch?.answers,
+            });
+            
+            // Run from executor directly, bypassing planner
+            final = await graph.run('executor', initialState, this.eventBus);
+          } else {
+            // Normal flow: start from extractGoal (goal-oriented flow)
+            final = await graph.run('extractGoal', initialState, this.eventBus);
           }
+        } finally {
+          unsubscribe();
+        }
+        liveState = final;
+
+        const awaiting = final?.scratch?.awaiting as any;
+        if (
+          ((awaiting?.type === 'input') as boolean) &&
+          Array.isArray(awaiting?.questions) &&
+          awaiting.questions.length > 0
+        ) {
+          const questions = awaiting.questions ?? (final.output?.diff as any)?.questions ?? [];
+          const askedAt = awaiting?.askedAt || new Date().toISOString();
+
+          // Persist awaiting to output (both UI-friendly and runtime-friendly)
+          await this.runs.persistResult(run.id, {
+            output: {
+              ...(final.output ?? {}),
+              diff: {
+                ...(final.output?.diff ?? {}),
+                questions,
+                summary:
+                  final.output?.diff?.summary ??
+                  `Missing information needed: ${questions.map((q: any) => q.key).join(', ')}`,
+              },
+              awaiting: { type: 'input', questions },
+              scratch: {
+                ...((final.output as any)?.scratch ?? {}),
+                awaiting: { type: 'input', questions, askedAt },
+              },
+              audit: {
+                ...(final.output as any)?.audit,
+                qna: [
+                  ...(((final.output as any)?.audit ?? {}).qna ?? []),
+                  { ts: askedAt, runId: run.id, phase: 'asked', questions } as any,
+                ],
+              },
+            } as any,
+            logs: formatLogsForPersistence(),
+          });
+
+          await this.runs.updateStatus(run.id, 'awaiting_input');
+
+          await this.eventBus.publish(
+            run.id,
+            { type: 'run_status', payload: { status: 'awaiting_input', questions } },
+            CHANNEL_WEBSOCKET
+          );
+          return;
+        }
+
+        // Check if approval is required (AUTO mode halted after planning)
+        const requiresApproval = (final?.scratch as any)?.requiresApproval === true;
+        const plan = (final?.scratch?.plan ?? []) as Array<{ id: string; tool: string }>;
+        const hasExecutableSteps = plan.length > 0 && 
+          !plan.every((st) => st.tool === 'chat.respond');
+
+        if (requiresApproval && hasExecutableSteps) {
+          // Persist plan and diff for UI display
+          await this.runs.persistResult(run.id, {
+            output: final.output,
+            logs: formatLogsForPersistence(),
+          });
+
+          // Set status to awaiting_approval
+          await this.runs.updateStatus(run.id, 'awaiting_approval');
+
+          // Notify UI of awaiting_approval status
+          // Note: plan_generated event was already emitted by graph during execution
+          await this.eventBus.publish(
+            run.id,
+            { 
+              type: 'run_status', 
+              payload: { 
+                status: 'awaiting_approval',
+                plan: plan.map(s => ({ id: s.id, tool: s.tool }))
+              } 
+            },
+            CHANNEL_WEBSOCKET
+          );
+
+          this.logger.log('⏸️ Run awaiting approval', {
+            runId: run.id,
+            stepsCount: plan.length,
+          });
+
+          return;
+        }
+
+        // Check if PREVIEW mode (just showing plan, not executing)
+        if ((run.mode === 'preview' || run.mode === 'plan') && hasExecutableSteps) {
+          // Persist plan and diff for UI display
+          await this.runs.persistResult(run.id, {
+            output: final.output,
+            logs: formatLogsForPersistence(),
+          });
+
+          // Set status to done (plan shown, no execution)
+          await this.runs.updateStatus(run.id, 'done');
+
+          // Notify UI that preview mode is completed
+          // Note: plan_generated event was already emitted by graph during execution
+          await this.eventBus.publish(
+            run.id,
+            { 
+              type: 'run_completed', 
+              payload: { 
+                status: 'done',
+                output: final.output ?? {},
+                plan: plan.map(s => ({ id: s.id, tool: s.tool }))
+              } 
+            },
+            CHANNEL_WEBSOCKET
+          );
+
+          this.logger.log('✅ Preview mode completed (plan shown)', {
+            runId: run.id,
+            stepsCount: plan.length,
+            mode: run.mode,
+          });
+
+          await this.telemetry.track('run_completed', { runId: run.id, status: 'done', mode: run.mode });
+
+          return;
+        }
+
+        // Normal finalize
+        await this.runs.persistResult(run.id, {
+          output: final.output,
+          logs: formatLogsForPersistence(),
+        });
+        await this.runs.updateStatus(run.id, 'done');
+
+        // Emit run_completed with lastAssistant for UI
+        const commits = Array.isArray(final?.output?.commits) ? final.output.commits : [];
+        let lastAssistant: string | null = null;
+        const commitWithMessage =
+          ([...commits]
+            .reverse()
+            .find(
+              (c: any) => c?.stepId && c?.result && typeof (c?.result as any)?.message === 'string'
+            ) as any) || null;
+        if (commitWithMessage) {
+          lastAssistant = (commitWithMessage.result as any).message as string;
+        } else if (final?.output && typeof final.output?.summary === 'string') {
+          lastAssistant = final.output.summary as string;
+        } else {
+          lastAssistant = null;
+        }
+
+        if (!graphEmittedRunCompleted) {
+          await publishRunEvent('run_completed', {
+            status: 'done',
+            output: final.output ?? {},
+            lastAssistant,
+          });
+        }
+
+        this.logger.log('✅ Job completed successfully', {
+          timestamp: new Date().toISOString(),
+          jobId: job.id,
+          runId: run.id,
+          totalDuration: Date.now() - (job.processedOn || Date.now()),
+        });
+
+        await this.telemetry.track('run_completed', { runId: run.id, status: 'done' });
+      } catch (err: any) {
+        await this.handleExecutionError({
+          err,
+          run,
+          liveState,
+          formatLogsForPersistence,
+          job,
+          publishRunEvent: publishRunEvent.bind(this),
         });
       }
+    });
+  }
 
-      this.logger.log('💾 Persisting execution results', {
-        timestamp: new Date().toISOString(),
-        runId: run.id,
-        logsCount: logs.length,
-        hasOutput: !!output,
-      });
+  private buildInputAndCtx(run: Run & Record<string, any>, job: Job<RunJobData>) {
+    const config: Record<string, unknown> =
+      run.config && typeof run.config === 'object'
+        ? { ...(run.config as Record<string, unknown>) }
+        : {};
+    const configInput = (config.input as RunState['input']) ?? undefined;
+    const jobInput = (job.data.input ?? {}) as Partial<RunState['input']>;
 
-      this.logger.debug('📋 Extracted logs:', { logs });
-      this.logger.debug('📤 Extracted output:', { output });
+    const input: RunState['input'] = {
+      prompt:
+        typeof jobInput.prompt === 'string' && jobInput.prompt.trim().length > 0
+          ? jobInput.prompt
+          : typeof configInput?.prompt === 'string' && configInput.prompt.trim().length > 0
+            ? configInput.prompt
+            : run.prompt,
+      messages: jobInput.messages ?? configInput?.messages ?? undefined,
+      attachments: (jobInput as any)?.attachments ?? (configInput as any)?.attachments ?? undefined,
+    };
 
-      await this.runs.persistResult(run.id, { logs, output });
+    const scopes = new Set<string>(['runs:execute']);
+    if (Array.isArray(job.data.scopes)) {
+      job.data.scopes
+        .filter((scope): scope is string => typeof scope === 'string')
+        .forEach((scope: string) => scopes.add(scope));
+    }
+    const runAny = run as any;
+    if (Array.isArray(runAny?.scopes)) {
+      runAny.scopes
+        .filter((scope: unknown): scope is string => typeof scope === 'string')
+        .forEach((scope: string) => scopes.add(scope));
+    }
+    if (Array.isArray(runAny?.RunScopedKeys)) {
+      for (const scopedKey of runAny.RunScopedKeys) {
+        if (scopedKey?.scope) scopes.add(String(scopedKey.scope));
+      }
+    }
 
-      this.logger.log('🎉 Updating run status to "done"', {
-        timestamp: new Date().toISOString(),
-        runId: run.id,
-      });
+    const meta = {
+      ...(config.meta && typeof config.meta === 'object'
+        ? (config.meta as Record<string, unknown>)
+        : {}),
+      ...(job.data.meta ?? {}),
+    };
 
-      await this.runs.updateStatus(run.id, 'done');
+    if (Array.isArray(config.approvedSteps) && !Array.isArray(meta.approvedSteps)) {
+      (meta as any).approvedSteps = config.approvedSteps;
+    }
+    if (!(meta as any).channelTargets && (config as any).channelTargets) {
+      (meta as any).channelTargets = (config as any).channelTargets;
+    }
+    if (!(meta as any).policy) {
+      (meta as any).policy = job.data.policy ?? run.policySnapshot ?? undefined;
+    }
+    if (job.data.token) {
+      (meta as any).runToken = job.data.token;
+    }
 
-      this.logger.log('✅ Job completed successfully', {
-        timestamp: new Date().toISOString(),
-        jobId: job.id,
-        runId: run.id,
-        totalDuration: Date.now() - (job.processedOn || Date.now()),
-      });
-      await this.telemetry.track('run_completed', { runId: run.id, status: 'done' });
-    } catch (err: any) {
-      this.logger.error('❌ Job execution failed', {
-        timestamp: new Date().toISOString(),
-        jobId: job.id,
-        runId: run.id,
-        error: err?.message,
-        errorCode: err?.code,
-      });
+    const tz =
+      (typeof (meta as any).tz === 'string' && (meta as any).tz.trim().length > 0
+        ? ((meta as any).tz as string)
+        : typeof (meta as any).timezone === 'string' && (meta as any).timezone.trim().length > 0
+          ? ((meta as any).timezone as string)
+          : 'Europe/Berlin') ?? 'Europe/Berlin';
+    (meta as any).tz = tz;
+    (meta as any).jobId = job.id;
 
-      const errorPayload = err instanceof CredentialMissingError || err instanceof CredentialInvalidError
-        ? err.toJSON()
-        : { message: err?.message, code: ErrorCode.E_PLAN_FAILED };
+    const ctx: RunState['ctx'] & { meta: Record<string, unknown> } = {
+      runId: run.id,
+      userId: String(run.userId),
+      teamId: run.teamId ? String(run.teamId) : undefined,
+      scopes: Array.from(scopes),
+      traceId:
+        typeof (meta as any).traceId === 'string' && (meta as any).traceId.trim().length > 0
+          ? ((meta as any).traceId as string)
+          : `run:${run.id}`,
+      tz,
+      now: new Date(),
+      meta,
+    };
 
-      this.logger.log('💾 Persisting error result', {
-        timestamp: new Date().toISOString(),
-        runId: run.id,
-        errorCode: errorPayload.code,
-      });
+    const rawOut = (run?.output ?? {}) as Record<string, any>;
+    const persistedScratch =
+      rawOut.scratch && typeof rawOut.scratch === 'object'
+        ? (rawOut.scratch as Record<string, unknown>)
+        : {};
+    const { scratch: _drop, ...restOutput } = rawOut;
 
-      await this.runs.persistResult(run.id, { error: errorPayload });
-      await this.runs.updateStatus(run.id, 'failed');
-      await this.telemetry.track('run_completed', {
-        runId: run.id,
-        status: 'failed',
-        errorCode: errorPayload.code,
-      });
+    // Load answers from Run.answers field if available
+    const runAnswers = run.answers && typeof run.answers === 'object'
+      ? (run.answers as Record<string, unknown>)
+      : {};
 
-      this.logger.error('🔴 Job marked as failed', {
-        timestamp: new Date().toISOString(),
-        jobId: job.id,
-        runId: run.id,
-      });
+    // Load goal and plan from Run fields if available (for plan runs)
+    const runGoal = run.goal && typeof run.goal === 'object' ? run.goal : undefined;
+    const runPlan = Array.isArray(run.plan) ? run.plan : undefined;
 
-      throw err;
+    const initialState: RunState = {
+      input,
+      mode: this.mapRunMode(job.data.mode ?? run.mode),
+      ctx,
+      scratch: {
+        ...(persistedScratch as any),
+        ...structuredClone((job.data as any)?.scratch ?? {}),
+        // Merge answers from Run.answers field
+        answers: {
+          ...(persistedScratch.answers as Record<string, unknown> || {}),
+          ...runAnswers,
+          ...(((job.data as any)?.scratch?.answers as Record<string, unknown>) || {}),
+        },
+        // Include goal and plan if they exist on the run
+        ...(runGoal ? { goal: runGoal } : {}),
+        ...(runPlan ? { plan: runPlan } : {}),
+      },
+      output: restOutput as RunState['output'],
+    };
+
+    const publishRunEvent = (type: UiRunEvent['type'], payload: UiRunEvent['payload']) =>
+      this.eventBus.publish(run.id, { type, payload }, CHANNEL_WEBSOCKET);
+
+    const safePublish = (type: UiRunEvent['type'], payload: UiRunEvent['payload']) =>
+      void publishRunEvent(type, payload).catch((publishErr) =>
+        this.logger.error('❌ Failed to publish run event', {
+          runId: run.id,
+          type,
+          error: publishErr?.message ?? publishErr,
+        })
+      );
+
+    return { initialState, publishRunEvent, safePublish };
+  }
+
+  private applyDelta(target: any, delta: any) {
+    if (!delta || typeof delta !== 'object') return;
+    for (const [key, value] of Object.entries(delta)) {
+      if (Array.isArray(value)) {
+        target[key] = value.map((item) =>
+          typeof item === 'object' && item !== null ? structuredClone(item) : item
+        );
+        continue;
+      }
+      if (value && typeof value === 'object') {
+        if (!target[key] || typeof target[key] !== 'object') {
+          target[key] = {};
+        }
+        this.applyDelta(target[key], value);
+        continue;
+      }
+      target[key] = value;
     }
   }
 
-  private async executeTool(toolName: string, input: any, credentialKey?: any): Promise<any> {
-    // TODO: Implement actual tool execution
-    // This would call the appropriate app integration with the credential
-    return {
-      success: true,
-      id: 'mock-id',
-      url: 'https://example.com/mock',
-      data: input,
-    };
+  private markStep(
+    stepLogs: StepLogEntry[],
+    tool: string,
+    status: 'succeeded' | 'failed',
+    updater?: (entry: StepLogEntry) => void
+  ) {
+    for (let i = stepLogs.length - 1; i >= 0; i--) {
+      const entry = stepLogs[i];
+      if (entry.tool === tool && entry.status === 'started') {
+        entry.status = status;
+        entry.completedAt = new Date().toISOString();
+        updater?.(entry);
+        return;
+      }
+    }
   }
 
-  private async recordEffect(effect: {
-    runId: string;
-    appId: string;
-    credentialId: number;
-    action: string;
-    externalRef?: string;
-    idempotencyKey: string;
-    undoStrategy: string;
-    canUndo: boolean;
-    metadata: any;
-  }): Promise<void> {
-    // TODO: Record to RunEffect table once Prisma client is regenerated
-    await this.telemetry.track('effect_recorded', {
-      runId: effect.runId,
-      appId: effect.appId,
-      action: effect.action,
-      canUndo: effect.canUndo,
+  private formatLogsForPersistence(stepLogs: StepLogEntry[]) {
+    return stepLogs.map((entry) => ({
+      tool: entry.tool,
+      action: entry.action,
+      request: entry.request,
+      result: entry.result,
+      errorCode:
+        entry.status === 'failed' ? (entry.errorCode ?? ErrorCode.E_STEP_FAILED) : entry.errorCode,
+      errorMessage: entry.errorMessage,
+      status: entry.status,
+      ts: entry.startedAt,
+      startedAt: entry.startedAt,
+      completedAt: entry.completedAt,
+      ms: entry.ms,
+    }));
+  }
+
+  private async handleExecutionError(opts: {
+    err: any;
+    run: any;
+    liveState: RunState;
+    formatLogsForPersistence: () => any[];
+    job: Job<RunJobData>;
+    publishRunEvent: (type: UiRunEvent['type'], payload: UiRunEvent['payload']) => Promise<void>;
+  }) {
+    const { err, run, liveState, formatLogsForPersistence, job, publishRunEvent } = opts;
+    this.logger.error('❌ Job execution failed', {
+      timestamp: new Date().toISOString(),
+      jobId: job.id,
+      runId: run.id,
+      error: err?.message,
+      errorCode: err?.code,
     });
+
+    const isApprovalHalt =
+      err?.code === GRAPH_HALT_AWAITING_APPROVAL ||
+      err?.name === GRAPH_HALT_AWAITING_APPROVAL ||
+      err?.message === GRAPH_HALT_AWAITING_APPROVAL;
+
+    if (isApprovalHalt) {
+      const approvalId =
+        err?.approvalId ?? err?.payload?.approvalId ?? err?.data?.approvalId ?? undefined;
+      
+      console.log('[run.processor] Approval halt - liveState keys:', Object.keys(liveState));
+      console.log('[run.processor] liveState.scratch keys:', Object.keys(liveState.scratch || {}));
+      console.log('[run.processor] liveState.output keys:', Object.keys(liveState.output || {}));
+      console.log('[run.processor] Has plan in liveState.scratch?', !!liveState.scratch?.plan);
+      console.log('[run.processor] Plan length:', Array.isArray(liveState.scratch?.plan) ? liveState.scratch.plan.length : 0);
+      
+      // Persist output with scratch containing the plan
+      const outputToPersist = {
+        ...liveState.output,
+        scratch: liveState.scratch,
+      };
+      
+      await this.runs.persistResult(run.id, {
+        output: outputToPersist,
+        logs: formatLogsForPersistence(),
+      });
+      await this.runs.updateStatus(run.id, 'awaiting_approval');
+      this.logger.log(
+        '⏸️ Run awaiting approval',
+        approvalId ? { runId: run.id, approvalId } : { runId: run.id }
+      );
+      await this.eventBus.publish(
+        run.id,
+        {
+          type: 'run_status',
+          payload: approvalId
+            ? { status: 'awaiting_approval', approvalId }
+            : { status: 'awaiting_approval' },
+        },
+        CHANNEL_WEBSOCKET
+      );
+      return;
+    }
+
+    const errorPayload = {
+      message: err?.message ?? 'run failed',
+      code: err?.code ?? ErrorCode.E_PLAN_FAILED,
+    };
+    this.logger.log('💾 Persisting error result', {
+      timestamp: new Date().toISOString(),
+      runId: run.id,
+      errorCode: errorPayload.code,
+    });
+    await this.runs.persistResult(run.id, {
+      error: errorPayload,
+      logs: formatLogsForPersistence(),
+    });
+    await this.runs.updateStatus(run.id, 'failed');
+    await this.eventBus.publish(
+      run.id,
+      {
+        type: 'run_status',
+        payload: { status: 'failed', error: errorPayload },
+      },
+      CHANNEL_WEBSOCKET
+    );
+    await this.telemetry.track('run_completed', {
+      runId: run.id,
+      status: 'failed',
+      errorCode: errorPayload.code,
+    });
+    this.logger.error('🔴 Job marked as failed', {
+      timestamp: new Date().toISOString(),
+      jobId: job.id,
+      runId: run.id,
+    });
+    throw err;
   }
 }

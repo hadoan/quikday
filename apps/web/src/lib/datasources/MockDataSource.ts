@@ -1,6 +1,6 @@
 /**
  * MockDataSource.ts
- * 
+ *
  * Wraps existing mock data to implement the DataSource interface.
  * NO UI CHANGES - returns data in the exact format components already expect.
  * Uses existing mockRuns.ts as the source of truth.
@@ -27,17 +27,25 @@ export class MockDataSource implements DataSource {
     const newId = `R-${Date.now()}`;
     const timestamp = new Date().toISOString();
 
+    const baseMessages =
+      params.messages?.map((msg) => ({
+        role: msg.role,
+        content: msg.content,
+      })) || [];
+
+    if (!baseMessages.length && params.prompt) {
+      baseMessages.push({
+        role: 'user' as const,
+        content: params.prompt,
+      });
+    }
+
     const newRun = {
       id: newId,
       prompt: params.prompt,
       timestamp,
       status: 'running' as const,
-      messages: [
-        {
-          role: 'user' as const,
-          content: params.prompt,
-        },
-      ],
+      messages: baseMessages,
     };
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -81,7 +89,7 @@ export class MockDataSource implements DataSource {
     events: UiEvent[];
   }> {
     const mockRun = this.mockRunsState.find((r) => r.id === runId);
-    
+
     if (!mockRun) {
       throw new Error(`Run ${runId} not found`);
     }
@@ -89,7 +97,7 @@ export class MockDataSource implements DataSource {
     // Extract steps from messages
     const steps: UiPlanStep[] = [];
     const logMessage = mockRun.messages?.find((m) => m.type === 'log');
-    
+
     if (logMessage?.data && Array.isArray(logMessage.data)) {
       logMessage.data.forEach((entry, idx) => {
         if (entry && typeof entry === 'object' && 'tool' in entry) {
@@ -138,7 +146,7 @@ export class MockDataSource implements DataSource {
     if (!this.eventListeners.has(runId)) {
       this.eventListeners.set(runId, []);
     }
-    
+
     this.eventListeners.get(runId)!.push(onEvent);
 
     // Simulate initial connection event
@@ -169,7 +177,7 @@ export class MockDataSource implements DataSource {
   // -------------------------------------------------------------------------
   async approve(runId: string, approvedSteps: string[]): Promise<{ ok: true }> {
     console.log('[MockDataSource] Approved run:', runId, 'steps:', approvedSteps);
-    
+
     // Simulate execution start
     setTimeout(() => {
       this.emitEvent(runId, {
@@ -184,7 +192,7 @@ export class MockDataSource implements DataSource {
 
   async cancel(runId: string): Promise<{ ok: true }> {
     console.log('[MockDataSource] Cancelled run:', runId);
-    
+
     this.emitEvent(runId, {
       type: 'run_failed',
       payload: { reason: 'cancelled_by_user' },
@@ -200,11 +208,47 @@ export class MockDataSource implements DataSource {
   }
 
   // -------------------------------------------------------------------------
+  // Answers + Confirm (awaiting_input flow)
+  // -------------------------------------------------------------------------
+  async applyAnswers(runId: string, answers: Record<string, unknown>): Promise<{ ok: true }> {
+    console.log('[MockDataSource] applyAnswers', runId, answers);
+    const mr = this.mockRunsState.find((r) => r.id === runId) as any;
+    if (mr) {
+      mr.awaitingAnswers = answers;
+    }
+    return { ok: true };
+  }
+
+  async confirm(runId: string): Promise<{ ok: true }> {
+    console.log('[MockDataSource] confirm', runId);
+    // Simulate the run resuming and completing
+    setTimeout(() => {
+      this.emitEvent(runId, {
+        type: 'run_status',
+        payload: { status: 'running' },
+        ts: new Date().toISOString(),
+        runId,
+      });
+
+      setTimeout(() => {
+        this.emitEvent(runId, {
+          type: 'run_completed',
+          payload: { status: 'succeeded', summary: 'Completed after user input' },
+          ts: new Date().toISOString(),
+          runId,
+        });
+      }, 800);
+    }, 200);
+
+    return { ok: true };
+  }
+
+  // -------------------------------------------------------------------------
   // Credentials (return mock credentials)
   // -------------------------------------------------------------------------
   async listCredentials(appId: string, owner: 'user' | 'team'): Promise<UiCredential[]> {
     const tool = mockTools.find((t) => t.name.toLowerCase() === appId.toLowerCase());
-    
+
     if (!tool) {
       return [];
     }
@@ -229,11 +273,7 @@ export class MockDataSource implements DataSource {
   // -------------------------------------------------------------------------
   // Optional: List runs
   // -------------------------------------------------------------------------
-  async listRuns(params?: {
-    status?: string[];
-    limit?: number;
-    cursor?: string;
-  }): Promise<{
+  async listRuns(params?: { status?: string[]; limit?: number; cursor?: string }): Promise<{
     runs: UiRunSummary[];
     nextCursor?: string;
   }> {

@@ -2,18 +2,64 @@
   "name": "@quikday/appstore",
   "version": "0.0.1",
   "private": true,
+  "type": "module",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "require": "./dist/index.js",
+      "default": "./dist/index.js"
+    },
+    "./email/*": {
+      "types": "./dist/email/*.d.ts",
+      "import": "./dist/email/*.js",
+      "require": "./dist/email/*.js",
+      "default": "./dist/email/*.js"
+    },
+    "./calendar/*": {
+      "types": "./dist/calendar/*.d.ts",
+      "import": "./dist/calendar/*.js",
+      "require": "./dist/calendar/*.js",
+      "default": "./dist/calendar/*.js"
+    },
+    "./*": "./*"
+  },
+  "typesVersions": {
+    "*": {
+      "email/*": [
+        "dist/email/*"
+      ],
+      "calendar/*": [
+        "dist/calendar/*"
+      ],
+      "*": [
+        "dist/*"
+      ]
+    }
+  },
   "scripts": {
     "build": "tsc -p tsconfig.json",
+    "dev": "tsc -w -p tsconfig.json",
     "watch": "tsc -w -p tsconfig.json",
-    "lint": "eslint src --ext .ts,.tsx"
-  },
-  "devDependencies": {
-    "tslib": "^2.5.0",
-    "typescript": "^4.9.0"
+    "lint": "eslint ./*.ts --ext .ts,.tsx",
+    "seed-app-store": "tsx ./seed-app-store.ts"
   },
   "dependencies": {
+    "@nestjs/common": "^10.4.20",
+    "@quikday/prisma": "workspace:*",
+    "@quikday/types": "workspace:*",
+    "@quikday/libs": "workspace:*",
+    "googleapis": "^144.0.0",
     "zod": "^3.22.0"
+  },
+  "devDependencies": {
+    "@prisma/client": "^5.18.0",
+    "@quikday/tsconfig": "workspace:*",
+    "tslib": "^2.5.0",
+    "typescript": "^4.9.0",
+    "ts-node": "^10.9.2",
+    "tsx": "^4.7.0"
   }
 }

@@ -1,27 +1,80 @@
-/* NOTE: This file contains structure only. Implement provider logic separately. */
-import type { AppMeta } from '@quikday/types/App';
-import { BaseApp } from '../../../../apps/api/src/integrations/app.base';
-import type { AppDeps } from '../../../../apps/api/src/integrations/app.types';
+/* Gmail Email Integration */
+import type { AppMeta } from '@quikday/types';
+import { resolveGmailAuthUrl } from './add.js';
+import { callback as gmailCallback } from './callback.js';
+import { PrismaService } from '@quikday/prisma';
 
-export default function createApp(meta: AppMeta, deps: AppDeps) {
-  return new (class MyApp extends BaseApp {
-    constructor() {
-      super(meta);
-    }
+// Export Nest module and service for EmailModule compatibility (used by apps/api AppModule)
+export { GmailEmailModule } from './gmail-email.module.js';
+export { GmailEmailService } from './gmail-email.service.js';
 
+/**
+ * Default factory consumed by the API AppStoreRegistry.
+ * Must export a default function(meta, deps) that returns an object
+ * implementing { add(req,res), callback(req,res), post?(req,res) }.
+ */
+export default function createApp(meta: AppMeta, deps: any) {
+  return {
+    /**
+     * Initiate Gmail OAuth flow
+     * Route: GET /integrations/gmail-email/add
+     */
     async add(req: any, res: any) {
-      // TODO: build provider auth URL, redirect
-      res.redirect('/TODO-auth-url');
-    }
+      const prisma: PrismaService | undefined = deps?.prisma;
+      try {
+        // Build signed OAuth state when available
+        let signedState: string | undefined;
+        if (typeof deps?.createSignedState === 'function') {
+          try {
+            const userId = req?.user?.id || req?.user?.sub;
+            if (userId) {
+              signedState = deps.createSignedState({
+                userId,
+                timestamp: Date.now(),
+                returnTo: req.query?.returnTo as string | undefined,
+              });
+            }
+          } catch {
+            // Fallback to unsigned state inside helper
+          }
+        }
 
+        const { url } = await resolveGmailAuthUrl({
+          req,
+          meta,
+          signedState,
+          prisma: prisma as any,
+        });
+
+        const acceptsJson =
+          (req.headers['accept'] || '').includes('application/json') ||
+          req.query?.format === 'json';
+        if (acceptsJson) return res.status(200).json({ url });
+
+        return res.redirect(url);
+      } catch (error) {
+        const message = error instanceof Error ? error.message : 'Unknown error';
+        return res.status(500).json({ error: 'Failed to initiate OAuth flow', message });
+      }
+    },
+
+    /**
+     * Handle Gmail OAuth callback
+     * Route: GET /integrations/gmail-email/callback
+     */
     async callback(req: any, res: any) {
-      // TODO: exchange code, upsert credential, labels, etc.
-      res.redirect(`/apps/${meta.variant}/${meta.slug}`);
-    }
+      try {
+        const { redirectTo } = await gmailCallback({ req, meta, prisma: deps?.prisma });
+        return res.redirect(redirectTo);
+      } catch (error) {
+        const message = error instanceof Error ? error.message : 'Unknown error';
+        return res.status(500).json({ error: 'Failed to complete OAuth callback', message });
+      }
+    },
 
-    async post(req: any, res: any) {
-      // TODO: action (e.g., send email)
-      res.status(501).json({ message: 'Not implemented' });
-    }
-  })();
+    // Optional POST endpoint not used yet
+    async post(_req: any, res: any) {
+      return res.status(404).json({ message: 'Not implemented' });
+    },
+  };
 }

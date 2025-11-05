@@ -7,16 +7,41 @@ datasource db {
     url      = env("DATABASE_URL")
 }
 
+enum Plan {
+    FREE
+    PRO
+}
+
 model User {
-    id          Int          @id @default(autoincrement())
-    sub         String       @unique
-    email       String?      @unique
-    displayName String?
-    teams       TeamMember[]
-    runs        Run[]
-    createdAt   DateTime     @default(now())
-    Credential  Credential[]
-    ApiKey      ApiKey[]
+    id           Int          @id @default(autoincrement())
+    sub          String       @unique
+    email        String?      @unique
+    displayName  String?
+    avatar       String?
+    timeZone     String?      @default("Europe/Berlin")
+    plan         Plan         @default(PRO)
+    lastLoginAt  DateTime?
+    createdAt    DateTime     @default(now())
+    // updatedAt intentionally omitted to allow non-destructive db push in dev
+    teams        TeamMember[]
+    runs         Run[]
+    workspace    Workspace?
+    Credential   Credential[]
+    ApiKey       ApiKey[]
+    LLMLogs      LLMLog[]
+    chats        Chat[]       @relation("UserChats")
+    chatItems    ChatItem[]   @relation("UserChatItems")
+}
+
+model Workspace {
+    id           Int       @id @default(autoincrement())
+    name         String
+    slug         String    @unique
+    plan         Plan      @default(PRO)
+    ownerUserId  Int       @unique
+    owner        User      @relation(fields: [ownerUserId], references: [id])
+    createdAt    DateTime  @default(now())
+    updatedAt    DateTime  @updatedAt
 }
 
 model Team {
@@ -28,6 +53,9 @@ model Team {
     runs         Run[]
     createdAt    DateTime      @default(now())
     Credential   Credential[]
+    LLMLogs      LLMLog[]
+    chats        Chat[]       @relation("TeamChats")
+    chatItems    ChatItem[]   @relation("TeamChatItems")
 }
 
 model TeamMember {
@@ -62,12 +90,20 @@ model Integration {
 
 model Run {
     id            String         @id @default(cuid())
-    teamId        Int
+    teamId        Int?
     userId        Int
     prompt        String
     mode          String
     status        String
     intent        Json?
+    // Goal extracted from the prompt (structured)
+    goal          Json?
+    // Planned steps for this run (structured array)
+    plan          Json?
+    // Missing fields required from the user (structured array)
+    missing       Json?
+    // User-provided answers to missing fields
+    answers       Json?
     config        Json?
     output        Json?
     error         Json?
@@ -79,8 +115,48 @@ model Run {
     steps         Step[]
     effects       RunEffect[]
     RunScopedKeys RunScopedKey[]
-    Team          Team           @relation(fields: [teamId], references: [id])
+    Team          Team?          @relation(fields: [teamId], references: [id])
     User          User           @relation(fields: [userId], references: [id])
+    chat          Chat?          @relation("RunChat")
+    chatItems     ChatItem[]     @relation("RunChatItems")
+}
+
+model Chat {
+    id        String   @id @default(cuid())
+    runId     String   @unique
+    userId    Int
+    teamId    Int?
+    title     String?
+    createdAt DateTime @default(now())
+    updatedAt DateTime @updatedAt
+
+    Run   Run   @relation("RunChat", fields: [runId], references: [id], onDelete: Cascade)
+    User  User  @relation("UserChats", fields: [userId], references: [id])
+    Team  Team? @relation("TeamChats", fields: [teamId], references: [id])
+    items ChatItem[]
+
+    @@index([userId, createdAt])
+    @@index([teamId, createdAt])
+}
+
+model ChatItem {
+    id        String   @id @default(cuid())
+    chatId    String
+    type      String
+    role      String?
+    content   Json?
+    runId     String?
+    userId    Int?
+    teamId    Int?
+    createdAt DateTime @default(now())
+
+    Chat Chat @relation(fields: [chatId], references: [id], onDelete: Cascade)
+    Run  Run? @relation("RunChatItems", fields: [runId], references: [id])
+    User User? @relation("UserChatItems", fields: [userId], references: [id])
+    Team Team? @relation("TeamChatItems", fields: [teamId], references: [id])
+
+    @@index([chatId, createdAt])
+    @@index([runId, createdAt])
 }
 
 model Step {
@@ -93,6 +169,10 @@ model Step {
     request      Json?
     response     Json?
     errorCode    String?
+    // The planner/executor step id (e.g., "step-02-0") to correlate with plan
+    planStepId   String?
+    // Whether this step was waiting for explicit confirmation before execution
+    waitingConfirm Boolean @default(false)
     startedAt    DateTime  @default(now())
     endedAt      DateTime?
     Run          Run       @relation(fields: [runId], references: [id])
@@ -126,6 +206,29 @@ model RunEffect {
 
     @@index([runId])
     @@index([idempotencyKey])
+}
+
+model LLMLog {
+    id               Int      @id @default(autoincrement())
+    userId           Int
+    user             User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+    teamId           Int?
+    team             Team?    @relation(fields: [teamId], references: [id], onDelete: Cascade)
+    prompt           String   @db.Text
+    result           String   @db.Text
+    promptTokens     Int      @default(0)
+    completionTokens Int      @default(0)
+    totalTokens      Int      @default(0)
+    requestType      String
+    apiEndpoint      String?
+    model            String   @default("gpt-4o-mini")
+    createdAt        DateTime @default(now())
+    updatedAt        DateTime @updatedAt
+
+    @@index([userId])
+    @@index([teamId])
+    @@index([createdAt])
+    @@index([userId, createdAt])
 }
 
 model Credential {
@@ -170,6 +273,10 @@ enum AppCategories {
     social
     cloudstorage
     ai
+    docs
+    data
+    devtools
+    finance
 }
 
 model App {
@@ -213,4 +320,40 @@ model Waitlist {
     teamSize  String?
     useCase   String?
     createdAt DateTime @default(now())
+}
+
+// Templates for dashboard/chat prefills
+model Template {
+    id           String   @id @default(uuid())
+    kind         String
+    label        String
+    sampleText   String
+    icon         String?  // SVG icon as string
+    category     String?  // e.g., "triage", "follow-ups", "meeting-prep", etc.
+    variables    Json?
+    locale       String   @default("en")
+    isDefault    Boolean  @default(false)
+    isUserCustom Boolean  @default(false)
+    createdBy    String?
+    createdAt    DateTime @default(now())
+    updatedAt    DateTime @updatedAt
+}
+
+// Email actions for undo capability (60-minute window)
+model EmailAction {
+    id             Int       @id @default(autoincrement())
+    userId         String
+    runId          String
+    messageId      String
+    threadId       String
+    action         String    // 'SENT', 'UNDONE'
+    canUndo        Boolean   @default(true)
+    undoExpiresAt  DateTime?
+    undoneAt       DateTime?
+    createdAt      DateTime  @default(now())
+
+    @@index([messageId])
+    @@index([userId])
+    @@index([runId])
+    @@index([undoExpiresAt])
 }

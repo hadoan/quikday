@@ -1,34 +1,43 @@
 {
   "name": "quikday",
   "private": true,
-  "packageManager": "pnpm@10.17.0",
+  "packageManager": "pnpm@9.12.3",
   "scripts": {
     "dev": "dotenv -e .env -- turbo run dev",
-    "dev:api": "dotenv -e .env -- pnpm --filter @quikday/api dev",
+    "dev:api": "dotenv -e .env -- turbo run dev --filter=@quikday/api...",
     "dev:web": "dotenv -e .env -- pnpm --filter ./apps/web dev",
     "dev:landing": "dotenv -e .env -- pnpm --filter ./apps/landing dev",
+    "dev:agent": "pnpm --filter @quikday/agent build --watch",
     "build": "turbo run build",
     "build:landing": "pnpm --filter ./apps/landing build",
     "lint": "turbo run lint",
     "format": "prettier --write \"**/*.{js,ts,tsx,json,md,css,scss,html,prisma}\"",
     "db:push": "dotenv -e .env -- pnpm --filter @quikday/prisma exec prisma db push",
+    "db:generate": "dotenv -e .env -- pnpm --filter @quikday/prisma exec prisma generate",
     "db:migrate": "dotenv -e .env -- pnpm --filter @quikday/prisma exec prisma migrate dev",
     "db:migrate:create": "dotenv -e .env -- pnpm --filter @quikday/prisma exec prisma migrate dev --create-only",
     "seed": "dotenv -e .env -- pnpm --filter @quikday/prisma run seed",
+    "seed:appstore": "dotenv -e .env -- pnpm --filter @quikday/appstore run seed-app-store",
     "db:reset": "bash ./scripts/db-reset.sh",
     "db:studio": "dotenv -e .env -- pnpm --filter @quikday/prisma exec prisma studio",
+    "clean": "rm -rf node_modules packages/*/node_modules apps/*/node_modules packages/appstore/*/node_modules .pnpm-store dist build",
+    "clean:cache": "pnpm store prune && rm -rf .turbo",
+    "clean:all": "pnpm run clean && pnpm run clean:cache",
     "up": "docker compose up -d db redis && pnpm -w dev"
   },
   "dependencies": {
-    "pg": "^8.13.1"
+    "pg": "^8.16.3",
+    "ws": "^8.18.3"
   },
   "devDependencies": {
-    "@types/pg": "^8.11.10",
-    "@vercel/node": "^5.4.0",
+    "@quikday/tsconfig": "workspace:*",
+    "@types/pg": "^8.15.6",
+    "@vercel/node": "^5.5.3",
     "dotenv-cli": "^7.4.4",
+    "prettier": "^3.6.2",
+    "tsx": "^4.7.0",
     "turbo": "^2.5.8",
-    "typescript": "5.6.3",
-    "prettier": "^3.6.2"
+    "typescript": "5.6.3"
   },
   "workspaces": [
     "apps/*",

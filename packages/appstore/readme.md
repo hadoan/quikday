@@ -61,7 +61,7 @@ Run generators:
 - Retrieve keys by slug: `getAppKeysFromSlug(slug)` reads `prisma.app.findUnique({ where: { slug } })?.keys`.
 - Validate keys with per‑app `appKeysSchema` (see TRPC handler `viewer/apps/listLocal`).
 - Frontend payloads hide keys (`getAppWithMetadata` drops `key` from response).
-- You can seed initial app rows using `packages/prisma/seed-app-store.ts` (deprecated; used for E2E) or manage via admin flows.
+- You can seed initial app rows using `packages/appstore/seed-app-store.ts` (deprecated; used for E2E) or manage via admin flows.
 
 **UI Integration**
 

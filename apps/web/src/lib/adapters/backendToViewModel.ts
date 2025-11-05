@@ -1,9 +1,9 @@
 /**
  * backendToViewModel.ts
- * 
+ *
  * Pure adapter functions to convert backend API responses to UI view models.
  * These functions are unit-testable and preserve unknown fields for debugging.
- * 
+ *
  * RULES:
  * - Never throw; return safe defaults if shape is unexpected
  * - Preserve unknown fields in payload._raw for debugging
@@ -19,6 +19,7 @@ import type {
   UiCredential,
   UiRunStatus,
   UiStepStatus,
+  UiRunData,
 } from '../datasources/DataSource';
 
 // ============================================================================
@@ -30,6 +31,7 @@ const RUN_STATUS_MAP: Record<string, UiRunStatus> = {
   queued: 'queued',
   planning: 'planning',
   planned: 'awaiting_approval',
+  awaiting_approval: 'awaiting_approval', // Approval required
   executing: 'executing',
   scheduled: 'scheduled',
   succeeded: 'succeeded',
@@ -37,7 +39,11 @@ const RUN_STATUS_MAP: Record<string, UiRunStatus> = {
   failed: 'failed',
   partial: 'partial',
   cancelled: 'failed',
-  
+  fallback: 'partial',
+
+  // Awaiting user-provided input
+  awaiting_input: 'awaiting_input',
+
   // Legacy support
   running: 'executing',
   done: 'succeeded',
@@ -114,6 +120,7 @@ export interface BackendStep {
   id?: string;
   tool?: string;
   appId?: string;
+  credentialId?: number | null;
   action?: string;
   status?: string;
   request?: unknown;
@@ -135,11 +142,12 @@ export function adaptStepBackendToUi(backend: BackendStep, index = 0): UiPlanSte
     id: backend.id || `step-${index}`,
     tool: backend.tool || 'unknown',
     appId: backend.appId,
+    credentialId: backend.credentialId,
     action: backend.action,
     status: mapStepStatus(backend.status),
-    inputsPreview: stringifyPreview(backend.request),
+    inputsPreview: stringifyPreview((backend as any).request ?? (backend as any).args),
     outputsPreview: stringifyPreview(backend.response),
-    request: backend.request,
+    request: (backend as any).request ?? (backend as any).args,
     response: backend.response,
     errorCode: backend.errorCode,
     errorMessage: backend.errorMessage,
@@ -183,7 +191,7 @@ export interface BackendWsMessage {
 export function adaptWsEventToUi(message: BackendWsMessage): UiEvent {
   const eventType = message.type || message.event || 'run_status';
   const payload = (message.data || message.payload || {}) as Record<string, unknown>;
-  
+
   // Preserve raw message for debugging
   payload._raw = message;
 
@@ -259,37 +267,43 @@ function mapStepStatus(status?: string): UiStepStatus {
 
 function mapEventType(type: string): UiEvent['type'] {
   const typeMap: Record<string, UiEvent['type']> = {
+    connection_established: 'connection_established',
+    connected: 'connection_established', // alias
+
     plan_generated: 'plan_generated',
     plan: 'plan_generated', // alias
-    
+
     step_started: 'step_started',
     step_start: 'step_started', // alias
-    
+
     step_output: 'step_output',
     step_result: 'step_output', // alias
-    
+
     step_succeeded: 'step_succeeded',
     step_success: 'step_succeeded', // alias
     step_completed: 'step_succeeded', // alias
-    
+
     step_failed: 'step_failed',
     step_error: 'step_failed', // alias
-    
+
     awaiting_approval: 'awaiting_approval',
     approval_required: 'awaiting_approval', // alias
-    
+
     scheduled: 'scheduled',
-    
+
     run_completed: 'run_completed',
     run_succeeded: 'run_completed', // alias
     completed: 'run_completed', // alias
-    
+
     run_failed: 'run_failed',
     failed: 'run_failed', // alias
     error: 'run_failed', // alias
-    
+
     run_status: 'run_status',
     status: 'run_status', // alias
+    'assistant.delta': 'assistant.delta',
+    'assistant.final': 'assistant.final',
+    run_snapshot: 'run_snapshot',
   };
 
   return typeMap[type.toLowerCase()] || 'run_status';
@@ -297,7 +311,7 @@ function mapEventType(type: string): UiEvent['type'] {
 
 function stringifyPreview(data: unknown, maxLength = 100): string | undefined {
   if (data === null || data === undefined) return undefined;
-  
+
   try {
     const str = typeof data === 'string' ? data : JSON.stringify(data);
     return str.length > maxLength ? `${str.substring(0, maxLength)}...` : str;
@@ -315,6 +329,8 @@ export function buildPlanMessage(data: {
   tools?: string[];
   actions?: string[];
   steps?: BackendStep[];
+  awaitingApproval?: boolean;
+  mode?: 'plan' | 'approval';
 }): UiMessage {
   return {
     role: 'assistant',
@@ -323,7 +339,8 @@ export function buildPlanMessage(data: {
       intent: data.intent || 'Processing request',
       tools: data.tools || [],
       actions: data.actions || [],
-      mode: 'plan',
+      mode: data.mode || 'plan',
+      awaitingApproval: data.awaitingApproval === true,
       steps: data.steps ? adaptStepsBackendToUi(data.steps) : undefined,
     },
   };
@@ -334,16 +351,26 @@ export function buildRunMessage(data: {
   started_at?: string;
   completed_at?: string;
   progress?: number;
+  // optional awaiting questions (passed through from backend WS payload)
+  questions?: unknown[];
 }): UiMessage {
+  // Include any awaiting-input questions directly on the run data so
+  // UI components can render an inline form when needed.
+  const runData: Record<string, unknown> = {
+    status: mapRunStatus(data.status),
+    started_at: data.started_at,
+    completed_at: data.completed_at,
+    progress: data.progress,
+  };
+
+  if (Array.isArray(data.questions) && data.questions.length > 0) {
+    runData.awaitingQuestions = data.questions;
+  }
+
   return {
     role: 'assistant',
     type: 'run',
-    data: {
-      status: mapRunStatus(data.status),
-      started_at: data.started_at,
-      completed_at: data.completed_at,
-      progress: data.progress,
-    },
+    data: runData as unknown as UiRunData & { awaitingQuestions?: unknown[] },
   };
 }
 

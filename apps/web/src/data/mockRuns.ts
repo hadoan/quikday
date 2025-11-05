@@ -54,54 +54,48 @@ export const mockRuns = [
     id: 'R-1002',
     prompt: 'Schedule a 15-min sync with Sara at 10am and DM her the link',
     timestamp: '2025-10-17T08:01:00Z',
-    status: 'completed' as const,
+    status: 'awaiting_approval' as const,
     messages: [
       {
         role: 'user' as const,
-        content: 'Schedule a 15-min sync with Sara at 10am tomorrow and DM her the link',
+        content: 'Schedule a 15-min sync with ha.doanmanh@gmail.com at 10am tomorrow',
       },
       {
         role: 'assistant' as const,
         type: 'plan',
         data: {
           intent: 'Schedule meeting and send invitation',
-          tools: ['Google Calendar', 'Slack'],
-          actions: ['Create 15-min event at 10:00', 'Send DM with calendar link to Sara'],
-          mode: 'plan' as const,
-        },
-      },
-      {
-        role: 'assistant' as const,
-        type: 'run',
-        data: {
-          status: 'success' as const,
-          started_at: '2025-10-17T08:01:00Z',
-          completed_at: '2025-10-17T08:01:05Z',
-        },
-      },
-      {
-        role: 'assistant' as const,
-        type: 'log',
-        data: [
-          {
-            tool: 'Calendar',
-            action: "Event created: 'Sync with Sara'",
-            time: '08:01:02',
-            status: 'success' as const,
-          },
-          {
-            tool: 'Slack',
-            action: 'DM sent to @sara',
-            time: '08:01:04',
-            status: 'success' as const,
-          },
-        ],
-      },
-      {
-        role: 'assistant' as const,
-        type: 'undo',
-        data: {
-          available: true,
+          tools: ['google-calendar', 'slack-messaging'],
+          actions: ['Create 15-min event at 10:00 tomorrow', 'Send DM with calendar link'],
+          mode: 'approval' as const,
+          steps: [
+            {
+              id: 'step-1',
+              tool: 'calendar.createEvent',
+              appId: 'google-calendar',
+              credentialId: null, // Missing credential - needs installation
+              action: 'Create calendar event',
+              status: 'pending' as const,
+              request: {
+                summary: 'Sync with ha.doanmanh@gmail.com',
+                start: '2025-11-03T10:00:00Z',
+                end: '2025-11-03T10:15:00Z',
+                attendees: ['ha.doanmanh@gmail.com'],
+              },
+            },
+            {
+              id: 'step-2',
+              tool: 'slack.postMessage',
+              appId: 'slack-messaging',
+              credentialId: null, // Missing credential - needs installation
+              action: 'Send Slack message',
+              status: 'pending' as const,
+              request: {
+                channel: '@ha.doanmanh',
+                text: 'Calendar invite sent for 10am tomorrow',
+              },
+            },
+          ],
         },
       },
     ],

@@ -1,0 +1,55 @@
+{
+  "name": "@quikday/libs",
+  "version": "0.0.0",
+  "type": "module",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "license": "AGPL-3.0",
+  "private": true,
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "default": "./dist/index.js"
+    },
+    "./redis/*": {
+      "types": "./dist/redis/*.d.ts",
+      "import": "./dist/redis/*.js",
+      "default": "./dist/redis/*.js"
+    },
+    "./pubsub/*": {
+      "types": "./dist/pubsub/*.d.ts",
+      "import": "./dist/pubsub/*.js",
+      "default": "./dist/pubsub/*.js"
+    },
+    "./auth/*": {
+      "types": "./dist/auth/*.d.ts",
+      "import": "./dist/auth/*.js",
+      "default": "./dist/auth/*.js"
+    }
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "dev": "tsc -w -p tsconfig.build.json"
+  },
+  "dependencies": {
+    "ioredis": "^5.8.1",
+    "lru-cache": "^11.2.2",
+    "uuid": "^13.0.0",
+    "express": "^4.19.2",
+    "rxjs": "^7.8.1"
+  },
+  "peerDependencies": {
+    "@nestjs/common": "^10.0.0",
+    "ioredis": "^5.0.0"
+  },
+  "devDependencies": {
+    "@quikday/tsconfig": "workspace:*",
+    "@quikday/types": "workspace:*",
+    "rxjs": "^7.8.1",
+    "@types/lru-cache": "^7.10.10",
+    "@types/node": "^22.16.5",
+    "@types/uuid": "^11.0.0",
+    "typescript": "^5.6.3"
+  }
+}

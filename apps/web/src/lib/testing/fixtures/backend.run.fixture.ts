@@ -1,6 +1,6 @@
 /**
  * backend.run.fixture.ts
- * 
+ *
  * Golden fixture representing what the backend returns.
  * Used for adapter testing to ensure consistent transformation to UI view models.
  */

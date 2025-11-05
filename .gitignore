@@ -22,6 +22,8 @@ dist-ssr
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json
+!.vscode/launch.json
+!.vscode/tasks.json
 .idea
 .DS_Store
 *.suo
@@ -38,3 +40,4 @@ dist-ssr
 
 # If you want to ignore compiled JS next to TS sources, uncomment the following line:
 # **/*.js
+apps/web/vite.config.ts.timestamp-1762114314206-58cb4f5ad02f68.mjs

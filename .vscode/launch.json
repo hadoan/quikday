@@ -1,0 +1,95 @@
+{
+  // VS Code debug configurations for the monorepo
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "Dev: API (start + attach)",
+      "type": "node",
+      "request": "attach",
+      "port": 9229,
+      "restart": true,
+      "localRoot": "${workspaceFolder}",
+      "remoteRoot": "${workspaceFolder}",
+      "sourceMaps": true,
+      "outFiles": [
+        "${workspaceFolder}/packages/**/dist/**/*.js",
+        "${workspaceFolder}/apps/**/dist/**/*.js"
+      ],
+      "preLaunchTask": "dev:api"
+    },
+    {
+      "name": "Attach to Nest (9229)",
+      "type": "node",
+      "request": "attach",
+      "port": 9229,
+      "restart": true,
+      "localRoot": "${workspaceFolder}",
+      "remoteRoot": "${workspaceFolder}",
+      "sourceMaps": true,
+      "outFiles": [
+        "${workspaceFolder}/packages/**/dist/**/*.js",
+        "${workspaceFolder}/apps/**/dist/**/*.js"
+      ]
+    },
+    {
+      "name": "Launch API (dist/main.js)",
+      "type": "node",
+      "request": "launch",
+      "program": "${workspaceFolder}/apps/api/dist/main.js",
+      "cwd": "${workspaceFolder}/apps/api",
+      "console": "integratedTerminal",
+      "envFile": "${workspaceFolder}/.env",
+      "preLaunchTask": "build:agent",
+      "sourceMaps": true,
+      "outFiles": [
+        "${workspaceFolder}/packages/**/dist/**/*.js",
+        "${workspaceFolder}/apps/**/dist/**/*.js"
+      ]
+    },
+    {
+      "name": "Vitest: Agent (all)",
+      "type": "node",
+      "request": "launch",
+      "cwd": "${workspaceFolder}/packages/agent",
+      "runtimeExecutable": "node",
+      "program": "${workspaceFolder}/packages/agent/node_modules/vitest/vitest.mjs",
+      "args": ["run", "--inspect-brk"],
+      "envFile": "${workspaceFolder}/.env",
+      "console": "integratedTerminal"
+    },
+    {
+      "name": "TSX: Agent modular-prompt-demo.ts",
+      "type": "node",
+      "request": "launch",
+      "cwd": "${workspaceFolder}",
+      "runtimeExecutable": "node",
+      "program": "${workspaceFolder}/node_modules/tsx/dist/cli.mjs",
+      "args": [
+        "packages/agent/examples/modular-prompt-demo.ts"
+      ],
+      "envFile": "${workspaceFolder}/.env",
+      "console": "integratedTerminal"
+    },
+    {
+      "name": "Launch Chrome (Vite)",
+      "type": "chrome",
+      "request": "launch",
+      "url": "http://localhost:8000",
+      "webRoot": "${workspaceFolder}"
+    },
+    {
+      "name": "Launch Web (start Vite)",
+      "type": "chrome",
+      "request": "launch",
+      "url": "http://localhost:8000",
+      "webRoot": "${workspaceFolder}",
+      "preLaunchTask": "dev:web"
+    }
+  ],
+  "compounds": [
+    {
+      "name": "API + Web (dev)",
+      "configurations": ["Dev: API (start + attach)", "Launch Web (start Vite)"]
+    }
+  ]
+}

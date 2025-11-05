@@ -1,5 +1,15 @@
 {
-  "extends": "../../tsconfig.base.json",
-  "compilerOptions": { "rootDir": "src", "outDir": "dist" },
-  "include": ["src"]
+  "extends": "@quikday/tsconfig/base.json",
+  "compilerOptions": {
+    "rootDir": ".",
+    "outDir": "dist",
+    "ignoreDeprecations": "5.0",
+    "types": ["node"],
+    "declaration": true,
+    "module": "Node16",
+    "target": "ES2022",
+    "moduleResolution": "Node16"
+  },
+  "include": ["*.ts", "*.d.ts", "**/*.ts", "**/*.d.ts"],
+  "exclude": ["dist", "node_modules"]
 }

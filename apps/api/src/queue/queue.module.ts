@@ -1,11 +1,14 @@
 import { Module, forwardRef } from '@nestjs/common';
 import { BullModule } from '@nestjs/bullmq';
-import { ConfigModule } from '../config/config.module';
-import { ConfigService } from '../config/config.service';
-import { RunProcessor } from './run.processor';
-import { RunsModule } from '../runs/runs.module';
-import { TelemetryModule } from '../telemetry/telemetry.module';
-import { CredentialsModule } from '../credentials/credentials.module';
+import { ConfigModule } from '../config/config.module.js';
+import { ConfigService } from '../config/config.service.js';
+import { RunProcessor } from './run.processor.js';
+import { StepRunProcessor } from './step-run.processor.js';
+import { RunsModule } from '../runs/runs.module.js';
+import { TelemetryModule } from '../telemetry/telemetry.module.js';
+import { CredentialsModule } from '../credentials/credentials.module.js';
+import { RedisModule, PubSubModule } from '@quikday/libs';
+import { AgentModule } from '../agent/index.js';
 
 @Module({
   imports: [
@@ -13,6 +16,9 @@ import { CredentialsModule } from '../credentials/credentials.module';
     forwardRef(() => RunsModule),
     ConfigModule,
     CredentialsModule,
+    RedisModule,
+    PubSubModule,
+    AgentModule.forRoot(),
     BullModule.forRootAsync({
       imports: [ConfigModule],
       useFactory: (config: ConfigService) => ({
@@ -21,10 +27,10 @@ import { CredentialsModule } from '../credentials/credentials.module';
       inject: [ConfigService],
     }),
     BullModule.registerQueue({ name: 'runs' }),
+    BullModule.registerQueue({ name: 'steps' }),
     TelemetryModule,
   ],
-  providers: [RunProcessor],
+  providers: [RunProcessor, StepRunProcessor],
   exports: [BullModule],
 })
 export class QueueModule {}
-

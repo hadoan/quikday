@@ -1,9 +1,17 @@
 {
-  "extends": "../../tsconfig.base.json",
+  "extends": "@quikday/tsconfig/base.json",
   "compilerOptions": {
+    "module": "Node16",
+    "moduleResolution": "Node16",
+    "allowJs": false,
+    "declaration": true,
+    "declarationMap": true,
     "outDir": "dist",
-    "rootDir": "src",
-    "composite": false
+    "rootDir": ".",
+    "composite": false,
+    "experimentalDecorators": true,
+    "emitDecoratorMetadata": true
   },
-  "include": ["src"]
+  "include": ["*.ts", "email/**/*.ts", "calendar/**/*.ts"],
+  "exclude": ["dist", "node_modules"]
 }

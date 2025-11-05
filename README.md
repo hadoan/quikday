@@ -67,6 +67,11 @@ Quik.day is an AI-powered execution assistant for founders and small teams. You 
 
 - Copy `.env.example` to `.env` and fill values. For local dev, `KINDE_BYPASS=true` lets you skip JWT validation.
 - Postgres and Redis run via Docker Compose.
+- New control-plane settings:
+  - `RUN_TOKEN_SECRET` — signing key for per-run JWTs (defaults to `dev-run-token-secret` if omitted).
+  - `RUN_TOKEN_ISSUER` — issuer string for scoped run tokens (defaults to `runfast-control-plane`).
+  - `RUN_TOKEN_TTL_SEC` — base expiry in seconds for run tokens (default 900 seconds; delays are added automatically).
+- Frontend: set `VITE_DATA_SOURCE=live` to stream real runs from the API/WebSocket instead of mock data.
 
 **Quick Start (Docker Compose + Local Dev)**
 
@@ -140,6 +145,15 @@ With `KINDE_BYPASS=true`, you can use any bearer token locally:
 - `pnpm dev` — Run dev tasks across workspaces via Turbo
 - `pnpm build` — Build all packages/apps
 - `pnpm up` — `docker compose up -d db redis` then run dev
+
+**Running Tests**
+
+- Install deps once with `pnpm install` (already required for dev).
+- Agent package unit tests: `pnpm --filter @quikday/agent test`
+- Real LLM validation (requires `OPENAI_API_KEY`): `OPENAI_API_KEY=... pnpm --filter @quikday/agent test -- agent.module.real-llm.spec.ts`
+- API worker integration tests (focused suite): `pnpm --filter @quikday/api test -- run.processor.spec.ts`
+- To exercise the real OpenAI LLM path, set `OPENAI_API_KEY` and rerun the agent tests (the suite skips this check if the key is missing).
+- Add `--watch` to either command while iterating locally.
 
 **What’s Implemented**
 

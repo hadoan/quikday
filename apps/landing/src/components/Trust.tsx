@@ -22,7 +22,10 @@ export const Trust = () => {
         </div>
         <div className="max-w-3xl mx-auto grid gap-3">
           {bullets.map((b) => (
-            <div key={b} className="gradient-card rounded-xl border border-border p-4 text-sm text-left">
+            <div
+              key={b}
+              className="gradient-card rounded-xl border border-border p-4 text-sm text-left"
+            >
               {b}
             </div>
           ))}
@@ -42,9 +45,15 @@ export const Trust = () => {
         </div>
 
         <div className="text-center mt-6 text-sm">
-          <a href="#privacy" className="underline underline-offset-4 mr-4">Privacy</a>
-          <a href="#security" className="underline underline-offset-4 mr-4">Security</a>
-          <a href="#terms" className="underline underline-offset-4">Terms</a>
+          <a href="#privacy" className="underline underline-offset-4 mr-4">
+            Privacy
+          </a>
+          <a href="#security" className="underline underline-offset-4 mr-4">
+            Security
+          </a>
+          <a href="#terms" className="underline underline-offset-4">
+            Terms
+          </a>
         </div>
       </div>
     </section>
