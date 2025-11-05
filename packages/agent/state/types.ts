@@ -12,6 +12,8 @@ export interface RunCtx {
   tz: string; // "Europe/Berlin"
   now: Date;
   budgetCents?: number;
+  // Optional bag for request-scoped metadata passed through the graph
+  meta?: Record<string, unknown>;
 }
 export interface PlanStep {
   id: string;
