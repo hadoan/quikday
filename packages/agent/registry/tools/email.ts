@@ -10,4 +10,5 @@ export * from './emails/snooze.js';
 export * from './emails/searchNoReply.js';
 export * from './emails/generateFollowup.js';
 export * from './emails/sendFollowup.js';
+export * from './emails/setOutOfOffice.js';
 export * from './emails/utils.js';

@@ -30,6 +30,7 @@ import {
   emailSearchNoReply,
   emailGenerateFollowup,
   emailSendFollowup,
+  emailSetOutOfOffice,
 } from './tools/email.js';
 import { ModuleRef } from '@nestjs/core';
 
@@ -152,6 +153,7 @@ export function registerToolsWithLLM(llm: LLM, moduleRef: ModuleRef) {
   registry.register(emailSearchNoReply(moduleRef));
   registry.register(emailGenerateFollowup(moduleRef, llm));
   registry.register(emailSendFollowup(moduleRef));
+  registry.register(emailSetOutOfOffice(moduleRef));
 
   //Calendar tools
   registry.register(calendarCheckAvailability(moduleRef));

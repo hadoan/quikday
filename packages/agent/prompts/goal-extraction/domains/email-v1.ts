@@ -8,6 +8,7 @@ export const EMAIL_DOMAIN_RULES_V1 = [
   '- For email triage/filtering: may involve time_window_minutes, max_results, priority_criteria (keywords, senders, urgency markers)',
   '- For draft creation: may involve reply_tone (tone of voice), max_length, context_requirements',
   '- For sending emails: recipients should be captured if provided (to/cc/bcc)',
+  '- For out-of-office/vacation responder: requires start_date, end_date (YYYY-MM-DD format), and message',
   '- Email addresses should be validated in format (regex in code will enforce)',
   '- Common field names: time_window_minutes (numeric), max_results (numeric), priority_criteria (text), reply_tone (select)',
 ].join('\n');

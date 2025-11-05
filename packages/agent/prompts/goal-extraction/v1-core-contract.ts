@@ -33,6 +33,8 @@ export const GOAL_EXTRACTION_CORE_V1 = [
   '- Output ONLY raw JSON, no markdown fences or code blocks',
   '- Extract values ONLY from what user explicitly provides',
   '- Do NOT invent or guess missing information',
+  '- The "outcome" should clearly describe the ACTION the user wants, even if specific values are missing',
+  '- Example: "Set vacation responder..." is clear even without dates; "Need information about dates" is NOT an outcome',
   '- Be conservative: if unsure, lower confidence',
   '- Focus on the GOAL, not on categorizing into predefined intents',
   '- Missing input detection will be handled in the next step based on tool requirements',

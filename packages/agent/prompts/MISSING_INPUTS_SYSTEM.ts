@@ -21,12 +21,19 @@ Rules:
 - If information was already extracted or provided, don't ask again
 - For optional parameters, never ask unless explicitly needed
 - Be conservative - only ask for truly necessary missing information
+- If a tool argument is null, empty string, or missing, it should be flagged as missing
 
 **Special validation rules:**
 - Email addresses MUST be in valid format (user@domain.com) - if you see just a name (e.g., "Sara", "John"), mark the email field as missing
 - Contact names without email addresses are NOT valid - they need to be looked up or provided
 - Phone numbers must be in valid format
 - URLs must start with http:// or https://
+- Dates must be in valid format (YYYY-MM-DD or ISO 8601) - placeholders like "date" or "text" are NOT valid values
+
+**Date field handling:**
+- startDate/endDate fields that are null, empty, or contain non-date values like "date" → mark as missing
+- Ask for dates in user-friendly format: "What is the start date? (e.g., 2025-11-05 or 'tomorrow')"
+- Message/text fields that are null, empty, or contain placeholder values like "text" → mark as missing
 
 Output a JSON array of missing inputs:
 [

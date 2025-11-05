@@ -301,6 +301,64 @@ export class GmailEmailService implements EmailService {
     await this.changeLabels(target, { add: ['SNOOZED'], remove: ['INBOX'] });
   }
 
+  /**
+   * Set vacation responder (out-of-office auto-reply)
+   * @param startDate - Start date for vacation responder (epoch milliseconds)
+   * @param endDate - End date for vacation responder (epoch milliseconds)
+   * @param message - Auto-reply message
+   * @param subject - Optional subject line for the auto-reply
+   */
+  async setVacationResponder(
+    startDate: number,
+    endDate: number,
+    message: string,
+    subject?: string,
+  ): Promise<void> {
+    this.logger.log(
+      this.formatMeta({
+        op: 'setVacationResponder',
+        startDate: new Date(startDate).toISOString(),
+        endDate: new Date(endDate).toISOString(),
+      }),
+    );
+
+    const { gmail } = await this.getGmailClient();
+
+    // Update vacation settings
+    await gmail.users.settings.updateVacation({
+      userId: 'me',
+      requestBody: {
+        enableAutoReply: true,
+        responseSubject: subject,
+        responseBodyHtml: message,
+        restrictToContacts: false,
+        restrictToDomain: false,
+        startTime: startDate.toString(),
+        endTime: endDate.toString(),
+      },
+    });
+
+    this.logger.log(this.formatMeta({ op: 'setVacationResponder.done' }));
+  }
+
+  /**
+   * Disable vacation responder
+   */
+  async disableVacationResponder(): Promise<void> {
+    this.logger.log(this.formatMeta({ op: 'disableVacationResponder' }));
+
+    const { gmail } = await this.getGmailClient();
+
+    await gmail.users.settings.updateVacation({
+      userId: 'me',
+      requestBody: {
+        enableAutoReply: false,
+      },
+    });
+
+    this.logger.log(this.formatMeta({ op: 'disableVacationResponder.done' }));
+  }
+
   // ===== Helpers (ported from GmailManager) =====
   private mapAddresses(addrs: EmailAddress[]): string[] {
     return (addrs ?? [])

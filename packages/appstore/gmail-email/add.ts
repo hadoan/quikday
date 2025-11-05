@@ -9,11 +9,13 @@ import { PrismaService } from '@quikday/prisma';
 // - gmail.send: Send messages
 // - gmail.compose: Create/send drafts, read messages
 // - gmail.modify: Modify labels (archive, snooze, categorize)
+// - gmail.settings.basic: Manage vacation responder (out-of-office auto-reply)
 // - openid/email/profile: obtain basic profile info (id_token) for display
 const GMAIL_SCOPES = [
   'https://www.googleapis.com/auth/gmail.send',
   'https://www.googleapis.com/auth/gmail.compose',
   'https://www.googleapis.com/auth/gmail.modify',
+  'https://www.googleapis.com/auth/gmail.settings.basic',
   'openid',
   'email',
   'profile',
