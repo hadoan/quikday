@@ -21,7 +21,7 @@ export const INTEGRATION_SLUGS = [
   'gmail-email',
   'google-calendar',
   'slack-messaging',
-  // 'notion-docs',
+  // 'notion-productivity',
   // 'github-devtools',
   // 'jira-devtools',
   'hubspot-crm',

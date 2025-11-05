@@ -277,6 +277,7 @@ enum AppCategories {
     data
     devtools
     finance
+    productivity
 }
 
 model App {

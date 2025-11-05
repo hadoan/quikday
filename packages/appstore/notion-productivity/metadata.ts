@@ -11,8 +11,8 @@ export const metadata: AppMeta = {
   category: 'docs',
   logo: '/logo/notion.svg',
   publisher: 'Notion',
-  slug: 'notion-docs',
+  slug: 'notion-productivity',
   url: 'https://developers.notion.com/',
   email: 'support@example.com',
-  dirName: 'notion-docs',
+  dirName: 'notion-productivity',
 };

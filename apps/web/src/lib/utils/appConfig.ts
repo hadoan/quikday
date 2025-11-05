@@ -20,7 +20,7 @@ const APP_CONFIGS: Record<string, Omit<InstallAppProps, 'type' | 'slug'>> = {
     allowedMultipleInstalls: false,
     installMethod: 'oauth',
   },
-  'notion-docs': {
+  'notion-productivity': {
     variant: 'docs',
     allowedMultipleInstalls: false,
     installMethod: 'oauth',
