@@ -39,6 +39,7 @@ import {
   hubspotCreateMeeting,
   hubspotUpdateMeeting,
 } from './tools/hubspot.js';
+import { notionUpsert, notionTodoAdd, notionTodoList, notionTodoToggle, notionTodoUpdate } from './tools/notion.js';
 
 export class ToolRegistry {
   private tools = new Map<string, Tool<any, any>>();
@@ -177,4 +178,11 @@ export function registerToolsWithLLM(llm: LLM, moduleRef: ModuleRef) {
   // Slack tools requiring Prisma via ModuleRef
   registry.register(slackChannelsList(moduleRef));
   registry.register(slackPostMessage(moduleRef));
+
+  // Notion tools
+  registry.register(notionUpsert(moduleRef));
+  registry.register(notionTodoAdd(moduleRef));
+  registry.register(notionTodoList(moduleRef));
+  registry.register(notionTodoToggle(moduleRef));
+  registry.register(notionTodoUpdate(moduleRef));
 }

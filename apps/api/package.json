@@ -23,6 +23,7 @@
     "@quikday/appstore": "workspace:*",
     "@quikday/appstore-gmail-email": "workspace:*",
     "@quikday/appstore-google-calendar": "workspace:*",
+    "@quikday/appstore-notion-productivity": "workspace:*",
     "@quikday/appstore-hubspot-crm": "workspace:*",
     "@quikday/appstore-slack-messaging": "workspace:*",
     "@quikday/crypto": "workspace:*",
