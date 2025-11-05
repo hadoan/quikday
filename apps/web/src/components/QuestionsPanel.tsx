@@ -265,7 +265,7 @@ export function QuestionsPanel({
                 ? `${window.location.protocol}//${window.location.hostname}:3000`
                 : 'http://localhost:3000');
 
-            const res = await dsAny.fetch(`${apiBase}/runs/${runId}/confirm`, {
+            const res = await dsAny.fetch(`${apiBase}/runs/${runId}/answers`, {
               method: 'POST',
               body: JSON.stringify({ answers: payloadAnswers }),
             });
@@ -284,7 +284,7 @@ export function QuestionsPanel({
               }
             }
           } else {
-            const res = await fetch(`/runs/${runId}/confirm`, {
+            const res = await fetch(`/runs/${runId}/answers`, {
               method: 'POST',
               headers: { 'content-type': 'application/json' },
               body: JSON.stringify({ answers: payloadAnswers }),

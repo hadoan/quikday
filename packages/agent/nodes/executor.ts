@@ -409,10 +409,22 @@ export const executor: Node<RunState, RunEventBus> = async (s, eventBus) => {
 
     // Resolve placeholders in args
     const { resolved: resolvedArgs } = resolvePlaceholders(currentStep.args, stepResults);
+    
+    // Merge answers from scratch into resolved args
+    // This ensures user-provided answers (e.g., "to" for email recipient) are included
+    const answers = (s.scratch?.answers ?? {}) as Record<string, unknown>;
+    const argsWithAnswers = { ...resolvedArgs, ...answers };
+    
+    console.log(`[executor] Step ${currentStep.id} args resolution:`, {
+      originalArgs: currentStep.args,
+      resolvedArgs,
+      answers,
+      argsWithAnswers,
+    });
 
     // Implicit fan-out: if args still reference a base step id (e.g., "$step-02.*")
     // and only child commits like step-02-0/1 exist, expand one send per child.
-    const bases = collectBasePlaceholders(currentStep.args);
+    const bases = collectBasePlaceholders(argsWithAnswers);
     const unresolvedBases = Array.from(bases).filter((baseId) => !stepResults.has(baseId) && getChildResults(stepResults, baseId).length > 0);
     if (unresolvedBases.length === 1) {
       const baseId = unresolvedBases[0];
@@ -436,7 +448,7 @@ export const executor: Node<RunState, RunEventBus> = async (s, eventBus) => {
       if (v && typeof v === 'object') return Object.values(v).some(containsUnresolved);
       return false;
     };
-    if (containsUnresolved(resolvedArgs)) {
+    if (containsUnresolved(argsWithAnswers)) {
       const err: any = new Error(`Unresolved placeholders in arguments for ${currentStep.tool}`);
       err.code = 'E_ARGS_UNRESOLVED';
       events.toolFailed(s, eventBus, currentStep.tool, { code: err.code, message: err.message }, currentStep.id);
@@ -445,12 +457,12 @@ export const executor: Node<RunState, RunEventBus> = async (s, eventBus) => {
     }
 
     // Parse args
-    let args: any = resolvedArgs ?? {};
+    let args: any = argsWithAnswers ?? {};
     if (isChat) {
       // Try tool schema if available; otherwise accept as-is for resilience
       try {
         if (tool?.in) {
-          const parsed = tool.in.safeParse(resolvedArgs);
+          const parsed = tool.in.safeParse(argsWithAnswers);
           if (parsed.success) args = parsed.data;
         }
       } catch {
@@ -458,7 +470,7 @@ export const executor: Node<RunState, RunEventBus> = async (s, eventBus) => {
       }
     } else {
       // Strict for non-chat tools
-      const parsed = tool.in.safeParse(resolvedArgs);
+      const parsed = tool.in.safeParse(argsWithAnswers);
       if (!parsed.success) {
         const zerr = parsed.error?.flatten?.() ?? parsed.error;
         const err: any = new Error(`Invalid args for ${currentStep.tool}`);
