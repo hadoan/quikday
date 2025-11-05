@@ -81,6 +81,9 @@ importers:
       '@quikday/appstore-hubspot-crm':
         specifier: workspace:*
         version: link:../../packages/appstore/hubspot-crm
+      '@quikday/appstore-slack-messaging':
+        specifier: workspace:*
+        version: link:../../packages/appstore/slack-messaging
       '@quikday/crypto':
         specifier: workspace:*
         version: link:../../packages/crypto
@@ -627,6 +630,9 @@ importers:
       '@quikday/appstore-google-calendar':
         specifier: workspace:*
         version: link:../appstore/google-calendar
+      '@quikday/appstore-slack-messaging':
+        specifier: workspace:*
+        version: link:../appstore/slack-messaging
       '@quikday/libs':
         specifier: workspace:*
         version: link:../libs

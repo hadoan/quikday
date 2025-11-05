@@ -5,6 +5,24 @@
   "type": "module",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "require": "./dist/index.js",
+      "default": "./dist/index.js"
+    },
+    "./index": {
+      "types": "./dist/index.d.ts",
+      "require": "./dist/index.js",
+      "default": "./dist/index.js"
+    },
+    "./metadata": {
+      "types": "./dist/metadata.d.ts",
+      "require": "./dist/metadata.js",
+      "default": "./dist/metadata.js"
+    },
+    "./dist/*": "./dist/*"
+  },
   "dependencies": {
     "@nestjs/common": "^10.0.0",
     "@quikday/appstore": "workspace:*",
