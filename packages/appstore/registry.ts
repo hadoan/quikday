@@ -20,7 +20,7 @@ export const INTEGRATION_SLUGS = [
   // 'linkedin-social',
   'gmail-email',
   'google-calendar',
-  // 'slack-messaging',
+  'slack-messaging',
   // 'notion-docs',
   // 'github-devtools',
   // 'jira-devtools',
