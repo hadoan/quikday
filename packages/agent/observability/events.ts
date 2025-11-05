@@ -16,6 +16,7 @@ export type RunEventType =
   | 'step_started'
   | 'step_succeeded'
   | 'step_failed'
+  | 'step.executed'
   | 'plan_generated'
   | 'connection_established'
   | 'node.enter'
@@ -175,6 +176,12 @@ export const events = {
   ) => _emit('tool.succeeded', s, eventBus, { name, result, ms, stepId }),
   toolFailed: (s: RunState, eventBus: RunEventBus, name: string, error: any, stepId?: string) =>
     _emit('tool.failed', s, eventBus, { name, error, stepId }),
+  // New event for full step execution details (for persistence)
+  stepExecuted: (
+    s: RunState,
+    eventBus: RunEventBus,
+    step: { id: string; tool: string; args: any; result: any; startedAt: Date; endedAt: Date },
+  ) => _emit('step.executed', s, eventBus, step),
   approvalAwaiting: (s: RunState, eventBus: RunEventBus, steps: any[]) =>
     _emit('approval.awaiting', s, eventBus, { steps }),
   undoEnqueued: (s: RunState, eventBus: RunEventBus, actions: any[]) =>

@@ -475,11 +475,30 @@ export const executor: Node<RunState, RunEventBus> = async (s, eventBus) => {
       throw err;
     }
 
-    // Parse args - Remove undefined values to avoid validation errors
+    // Parse args - Remove undefined values and expansion markers to avoid validation errors
     // When placeholders resolve to empty arrays or missing fields, we get undefined values
+    // or expansion marker objects like { $expand: "step-01", arrayField: "messages" }
     // which cause Zod validation to fail. Filter them out before validation.
     const cleanArgs = Object.fromEntries(
-      Object.entries(argsWithAnswers ?? {}).filter(([_, v]) => v !== undefined)
+      Object.entries(argsWithAnswers ?? {})
+        .map(([k, v]) => {
+          // Remove expansion markers (objects with $expand property)
+          // These remain when array expansion fails due to empty arrays
+          if (v && typeof v === 'object' && '$expand' in v) {
+            console.warn(`[executor] Removing unresolved expansion marker from field "${k}":`, v);
+            return [k, undefined];
+          }
+          
+          // Remove strings that contain unresolved array expansion placeholders
+          // e.g., "Re: $step-01.messages[*].subject" should be removed entirely
+          if (typeof v === 'string' && v.includes('[*]')) {
+            console.warn(`[executor] Removing field "${k}" with unresolved array placeholder: "${v}"`);
+            return [k, undefined];
+          }
+          
+          return [k, v];
+        })
+        .filter(([_, v]) => v !== undefined) // Remove undefined values
     );
     
     let args: any = cleanArgs;
@@ -575,9 +594,21 @@ export const executor: Node<RunState, RunEventBus> = async (s, eventBus) => {
       const duration = (globalThis.performance?.now?.() ?? Date.now()) - t0;
 
       // Emit success (suppress for chat.respond to avoid Execution Log)
+      // The tool.succeeded event includes the result which can be persisted by subscribers
       if (!isChat) {
         const safeResult = redactForLog(result as any);
         events.toolSucceeded(s, eventBus, currentStep.tool, safeResult, duration, currentStep.id);
+        
+        // Emit step.executed event with full details for persistence
+        // Subscribers (like run processor) can listen to this to save to DB
+        events.stepExecuted(s, eventBus, {
+          id: currentStep.id,
+          tool: currentStep.tool,
+          args,
+          result,
+          startedAt: new Date(t0),
+          endedAt: new Date(),
+        });
       }
 
       // Persist commit

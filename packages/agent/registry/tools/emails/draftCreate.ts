@@ -10,6 +10,7 @@ export const EmailDraftCreateIn = z.object({
   cc: z.string().optional(),
   bcc: z.string().optional(),
   isHtml: z.boolean().optional().default(false),
+  replyToMessageId: z.string().optional(),
 });
 export const EmailDraftCreateOut = z.object({
   ok: z.boolean(),
@@ -23,7 +24,7 @@ export type EmailDraftCreateResult = z.infer<typeof EmailDraftCreateOut>;
 export function emailDraftCreate(moduleRef: ModuleRef): Tool<EmailDraftCreateArgs, EmailDraftCreateResult> {
   return {
     name: 'email.draft.create',
-    description: 'Create an email draft (not sent). Required: to, subject, body. Optional: cc, bcc, html.',
+    description: 'Create an email draft (not sent). Required: to, subject, body. Optional: cc, bcc, html, replyToMessageId (for replies).',
     in: EmailDraftCreateIn,
     out: EmailDraftCreateOut,
     apps: ['gmail-email'],
@@ -44,6 +45,7 @@ export function emailDraftCreate(moduleRef: ModuleRef): Tool<EmailDraftCreateArg
         bcc: bcc.length ? bcc : undefined,
         html: parsed.isHtml ? formatEmailBody(parsed.body) : undefined,
         text: !parsed.isHtml ? parsed.body : undefined,
+        replyToMessageId: parsed.replyToMessageId,
       } as any;
       const res = await svc.createDraft(draft);
       return EmailDraftCreateOut.parse({ ok: true, draftId: res.draftId, threadId: res.threadId });

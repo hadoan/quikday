@@ -188,6 +188,27 @@ export class RunProcessor extends WorkerHost {
             return plan; // Return original plan as fallback
           }
         },
+        persistStepOutput: async (step) => {
+          try {
+            await this.stepsService.createStep({
+              runId: run.id,
+              tool: step.tool,
+              action: step.tool.split('.').pop() || 'execute',
+              request: step.args,
+              response: step.result,
+              planStepId: step.id,
+              startedAt: step.startedAt,
+              endedAt: step.endedAt,
+            }, run.userId);
+          } catch (e) {
+            this.logger.error('❌ Failed to persist step output', {
+              runId: run.id,
+              stepId: step.id,
+              tool: step.tool,
+              error: (e as any)?.message ?? String(e),
+            });
+          }
+        },
       });
 
       try {

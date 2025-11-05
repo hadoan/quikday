@@ -36,6 +36,7 @@ export function createGraphEventHandler(opts: {
   telemetry: TelemetryService;
   persistPlanSteps?: (plan: any[], diff: any) => Promise<void>;
   enrichPlanWithCredentials?: (plan: any[]) => Promise<any[]>;
+  persistStepOutput?: (step: { id: string; tool: string; args: any; result: any; startedAt: Date; endedAt: Date }) => Promise<void>;
 }) {
   const {
     run,
@@ -49,6 +50,7 @@ export function createGraphEventHandler(opts: {
     telemetry,
     persistPlanSteps,
     enrichPlanWithCredentials,
+    persistStepOutput,
   } = opts;
 
   return (evt: GraphRunEvent) => {
@@ -232,6 +234,20 @@ export function createGraphEventHandler(opts: {
           const questions = (evt.payload as any)?.questions ?? [];
           logger.log('⏸️ Awaiting user input', { runId: run.id, questions });
           safePublish('run_status', { status: 'awaiting_input', questions });
+          break;
+        }
+        case 'step.executed': {
+          const step = evt.payload as { id: string; tool: string; args: any; result: any; startedAt: Date; endedAt: Date };
+          if (persistStepOutput) {
+            void persistStepOutput(step).catch((err) =>
+              logger.error('❌ Failed to persist step output', {
+                runId: run.id,
+                stepId: step.id,
+                tool: step.tool,
+                error: err?.message || String(err),
+              })
+            );
+          }
           break;
         }
         default:
