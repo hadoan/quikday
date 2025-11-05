@@ -283,13 +283,31 @@ export async function callback(params: {
       const sub = (req?.user?.sub ??
         (typeof state?.userId === 'string' ? state.userId : undefined)) as string | undefined;
       const email = (req?.user?.email as string | undefined) || undefined;
-      const displayName = (req?.user?.name as string | undefined) || undefined;
+      const rawName = (req?.user?.name as string | undefined) || undefined;
+
+      const inferredName = (() => {
+        if (rawName && rawName.trim()) return rawName.trim();
+        if (email) {
+          const local = email.split('@')[0] ?? '';
+          const tokens = local
+            .replace(/[._-]+/g, ' ')
+            .replace(/\s+/g, ' ')
+            .trim()
+            .split(' ')
+            .filter(Boolean)
+            .slice(0, 4);
+          if (tokens.length > 0) {
+            return tokens.map((w) => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase()).join(' ');
+          }
+        }
+        return undefined;
+      })();
 
       if (sub) {
         const user = await prisma.user.upsert({
           where: { sub },
           update: {},
-          create: { sub, email: email || null, displayName: displayName || null },
+          create: { sub, email: email || null, displayName: inferredName || null },
         });
         numericUserId = user.id;
       } else if (email) {

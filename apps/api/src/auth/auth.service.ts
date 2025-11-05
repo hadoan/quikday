@@ -18,14 +18,33 @@ export class AuthService {
   constructor(private prisma: PrismaService) {}
 
   private computeNameFromClaims(claims: JwtClaims): string {
-    // Prefer full name, then construct from parts, then fallback to email
+    // Prefer full name, then construct from parts, then fallback to a
+    // humanized version of the email local-part (before @)
     if (claims.name?.trim()) return claims.name.trim();
 
-    const parts = [claims.given_name, claims.family_name].filter(Boolean);
+    const parts = [claims.given_name, claims.family_name]
+      .map((s) => (typeof s === 'string' ? s.trim() : undefined))
+      .filter(Boolean) as string[];
     if (parts.length > 0) return parts.join(' ');
 
     const emailLocal = claims.email?.split('@')[0];
-    return emailLocal && emailLocal.length > 0 ? emailLocal : 'User';
+    if (emailLocal && emailLocal.length > 0) {
+      // Replace common separators with spaces and Title-Case each token
+      const tokens = emailLocal
+        .replace(/[._-]+/g, ' ')
+        .replace(/\s+/g, ' ')
+        .trim()
+        .split(' ')
+        .filter(Boolean)
+        .slice(0, 4);
+      if (tokens.length > 0) {
+        const humanized = tokens
+          .map((w) => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase())
+          .join(' ');
+        return humanized;
+      }
+    }
+    return 'User';
   }
 
   private fallbackEmailFromSub(sub: string): string {

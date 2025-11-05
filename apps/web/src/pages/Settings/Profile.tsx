@@ -122,7 +122,7 @@ export default function ProfileSettingsPage() {
                 </AvatarFallback>
               </Avatar>
               <div>
-                <div className="font-medium">{me?.name || me?.email || 'User'}</div>
+                <div className="font-medium">{me?.name ?? 'User'}</div>
                 <div className="text-xs text-muted-foreground">{me?.email}</div>
               </div>
             </div>

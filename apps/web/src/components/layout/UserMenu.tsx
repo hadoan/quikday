@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
 import { User, Settings, LogOut, ChevronDown } from 'lucide-react';
 import {
@@ -13,6 +14,7 @@ import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { useToast } from '@/hooks/use-toast';
 import { useKindeAuth } from '@kinde-oss/kinde-auth-react';
+import { fetchUserMe } from '@/apis/users';
 
 interface UserMenuProps {
   user?: {
@@ -32,6 +34,9 @@ export const UserMenu = ({ user, onViewProfile, onEditProfile, onLogout }: UserM
 
   const [profile, setProfile] = useState<any | null>(authUser ?? null);
 
+  // Fetch backend user to get displayName/email as the source of truth
+  const { data: me } = useQuery({ queryKey: ['user.me'], queryFn: fetchUserMe });
+
   useEffect(() => {
     let cancelled = false;
     (async () => {
@@ -49,11 +54,15 @@ export const UserMenu = ({ user, onViewProfile, onEditProfile, onLogout }: UserM
 
   const computed = useMemo(() => {
     const src = user ?? profile ?? {};
-    const name =
+    const providerName =
       (src as any).name ||
       [(src as any).given_name, (src as any).family_name].filter(Boolean).join(' ');
-    const email = (src as any).email || '';
+    const providerEmail = (src as any).email || '';
     const picture = (src as any).picture as string | undefined;
+
+    // Prefer API profile for display name and email; do NOT fall back to email for the name line
+    const name = (me?.name && me.name.trim()) || (providerName && providerName.trim()) || 'User';
+    const email = me?.email || providerEmail;
 
     const initials = (() => {
       const base = (user?.initials || '').trim();
@@ -70,8 +79,8 @@ export const UserMenu = ({ user, onViewProfile, onEditProfile, onLogout }: UserM
       return 'U';
     })();
 
-    return { name: name || email || 'User', email, picture, initials };
-  }, [user, profile]);
+    return { name, email, picture, initials };
+  }, [user, profile, me]);
 
   const handleLogout = () => {
     if (onLogout) {
