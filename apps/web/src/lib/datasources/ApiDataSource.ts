@@ -245,8 +245,8 @@ export class ApiDataSource implements DataSource {
   // Answers + Confirm (awaiting_input flow)
   // -------------------------------------------------------------------------
   async applyAnswers(runId: string, answers: Record<string, unknown>): Promise<{ ok: true }> {
-    // Backend expects answers via /confirm endpoint payload
-    const url = `${this.config.apiBaseUrl}/runs/${runId}/confirm`;
+    // Submit answers when there are missing inputs to continue the run
+    const url = `${this.config.apiBaseUrl}/runs/${runId}/continueWithAnswers`;
 
     await this.fetch(url, {
       method: 'POST',

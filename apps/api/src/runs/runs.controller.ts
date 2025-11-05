@@ -104,10 +104,14 @@ export class RunsController {
     return { ok: true };
   }
 
-  @Post(':id/answers')
-  async submitAnswers(@Param('id') id: string, @Body() body: { answers: Record<string, unknown> }, @Req() req: any) {
+  @Post(':id/continueWithAnswers')
+  async continueWithAnswers(
+    @Param('id') id: string,
+    @Body() body: { answers?: Record<string, unknown> | null },
+    @Req() req: any
+  ) {
     const who = req?.user ? req.user.email || req.user.sub || 'unknown-user' : 'unauthenticated';
-    this.logger.log(`POST /runs/${id}/answers requested by ${who}`);
+    this.logger.log(`POST /runs/${id}/continueWithAnswers requested by ${who}`);
     this.logger.debug(
       `Incoming answers payload: ${JSON.stringify({ answersKeys: Object.keys(body?.answers ?? {}) })}`
     );
@@ -121,39 +125,60 @@ export class RunsController {
     // Get missing fields from the run
     const missing = Array.isArray(run.missing) ? run.missing : [];
     
-    if (missing.length === 0) {
-      this.logger.warn(`No missing fields for run=${id}`);
-      throw new BadRequestException('No missing fields to answer');
-    }
-
     this.logger.debug(`Validating answers for run=${id}. expectedFields=${missing.length}`);
     
-    // Validate that all required missing fields have answers
-    const requiredMissing = missing.filter((m: any) => m.required !== false);
-    const providedKeys = Object.keys(body?.answers ?? {});
-    const missingRequired = requiredMissing.filter((m: any) => !providedKeys.includes(m.key));
-    
-    if (missingRequired.length > 0) {
-      const missingKeys = missingRequired.map((m: any) => m.key);
-      this.logger.warn(`Missing required fields for run=${id}: ${missingKeys.join(', ')}`);
-      throw new BadRequestException({ 
-        message: 'Missing required fields', 
-        missingFields: missingKeys 
+    // If no answers were provided (null/undefined/empty), skip saving and
+    // skip the "missing required fields" validation. This allows callers to
+    // call this endpoint without answers when they simply want to continue
+    // execution. If answers are present, validate that required missing
+    // keys are included (we do NOT validate non-empty values).
+    const providedAnswers = body?.answers ?? null;
+    const providedKeys = providedAnswers && typeof providedAnswers === 'object' ? Object.keys(providedAnswers) : [];
+
+    if (!providedAnswers || providedKeys.length === 0) {
+      this.logger.debug(`No answers provided for run=${id}; skipping save and validation.`);
+    } else {
+      // Validate that all required missing fields have answers (presence only)
+      const requiredMissing = missing.filter((m: any) => m.required !== false);
+      const missingRequired = requiredMissing.filter((m: any) => !providedKeys.includes(m.key));
+
+      if (missingRequired.length > 0) {
+        const missingKeys = missingRequired.map((m: any) => m.key);
+        this.logger.warn(`Missing required fields for run=${id}: ${missingKeys.join(', ')}`);
+        throw new BadRequestException({
+          message: 'Missing required fields',
+          missingFields: missingKeys,
+        });
+      }
+
+      // Validate that required fields do not have blank/empty values
+      const requiredKeys = requiredMissing.map((m: any) => m.key);
+      const blankRequired = requiredKeys.filter((key: string) => {
+        const value = providedAnswers[key];
+        // Treat null, undefined, empty string, or whitespace-only string as blank
+        if (value == null) return true;
+        if (typeof value === 'string' && value.trim() === '') return true;
+        return false;
       });
+
+      if (blankRequired.length > 0) {
+        this.logger.warn(`Blank values for required fields in run=${id}: ${blankRequired.join(', ')}`);
+        throw new BadRequestException({
+          message: 'Required fields cannot be blank',
+          blankFields: blankRequired,
+        });
+      }
+
+      this.logger.debug(`Storing answers for run=${id}. answersKeys=${providedKeys.join(', ')}`);
+      // Store answers in the answers field
+      await this.runs.storeAnswers(id, providedAnswers as Record<string, unknown>);
     }
 
-    this.logger.debug(
-      `Storing answers for run=${id}. answersKeys=${providedKeys.join(', ')}`
-    );
-    
-    // Store answers in the answers field
-    await this.runs.storeAnswers(id, body.answers);
-    
-    // Execute the plan with the provided answers
-    this.logger.log(`Executing plan for run=${id} with provided answers`);
+    // Execute the plan (with or without new answers)
+    this.logger.log(`Executing plan for run=${id}${providedKeys.length ? ' with provided answers' : ''}`);
     await this.runs.executePlanWithAnswers(id);
     
-    this.logger.log(`Submit answers completed for run=${id}`);
+    this.logger.log(`Submit continueWithAnswers completed for run=${id}`);
     return { ok: true };
   }
 

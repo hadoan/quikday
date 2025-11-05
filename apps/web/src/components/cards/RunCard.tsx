@@ -59,7 +59,7 @@ export const RunCard = ({ data, runId }: RunCardProps) => {
         await dsAny.applyAnswers(runId, answers);
       } else {
         // Fallback to native fetch
-        await fetch(`/runs/${runId}/answers`, {
+        await fetch(`/runs/${runId}/continueWithAnswers`, {
           method: 'POST',
           headers: { 'content-type': 'application/json' },
           body: JSON.stringify({ answers }),

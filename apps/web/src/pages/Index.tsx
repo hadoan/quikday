@@ -780,16 +780,30 @@ const Index = () => {
                 questions: missing,
               } satisfies UiQuestionsData,
             });
-          }
-          
-          // If no missing inputs and we have a plan, show assistant response
-          if ((!missing || missing.length === 0) && plan && plan.length > 0) {
-            const goalData = goal as Record<string, unknown> | null;
-            const goalText = (goalData?.intent as string) || (goalData?.summary as string) || 'Plan generated';
+          } else {
+            // No missing inputs: still render a Continue panel which will submit
+            // blank answers to proceed execution.
+            const questionsRunId = runId || activeRunId;
             newMessages.push({
               role: 'assistant',
-              content: goalText,
+              type: 'questions',
+              data: {
+                runId: questionsRunId,
+                questions: [],
+              } satisfies UiQuestionsData,
             });
+          }
+          
+          // If no missing inputs and we have a plan, optionally show assistant response
+          if ((!missing || missing.length === 0) && plan && plan.length > 0) {
+            const goalData = goal as Record<string, unknown> | null;
+            const goalText = (goalData?.intent as string) || (goalData?.summary as string) || '';
+            if (goalText && goalText.trim().length > 0) {
+              newMessages.push({
+                role: 'assistant',
+                content: goalText,
+              });
+            }
           }
           
           return {

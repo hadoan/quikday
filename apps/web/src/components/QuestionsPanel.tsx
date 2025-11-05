@@ -258,6 +258,7 @@ export function QuestionsPanel({
             config?: { apiBaseUrl?: string };
           };
 
+          const hasQuestions = Array.isArray(questions) && questions.length > 0;
           if (dsAny.fetch && typeof dsAny.fetch === 'function') {
             const apiBase =
               dsAny.config?.apiBaseUrl ??
@@ -265,9 +266,13 @@ export function QuestionsPanel({
                 ? `${window.location.protocol}//${window.location.hostname}:3000`
                 : 'http://localhost:3000');
 
-            const res = await dsAny.fetch(`${apiBase}/runs/${runId}/answers`, {
+            // Always use continueWithAnswers; send empty answers when none are required
+            const url = `${apiBase}/runs/${runId}/continueWithAnswers`;
+            const body = JSON.stringify({ answers: payloadAnswers || {} });
+
+            const res = await dsAny.fetch(url, {
               method: 'POST',
-              body: JSON.stringify({ answers: payloadAnswers }),
+              body,
             });
 
             if (!res.ok) {
@@ -284,11 +289,14 @@ export function QuestionsPanel({
               }
             }
           } else {
-            const res = await fetch(`/runs/${runId}/answers`, {
+            // Fallback to native fetch — always use continueWithAnswers
+            const url = `/runs/${runId}/continueWithAnswers`;
+            const init: RequestInit = {
               method: 'POST',
               headers: { 'content-type': 'application/json' },
-              body: JSON.stringify({ answers: payloadAnswers }),
-            });
+              body: JSON.stringify({ answers: payloadAnswers || {} }),
+            };
+            const res = await fetch(url, init);
             if (!res.ok) {
               const txt = await res.text();
               try {
@@ -317,12 +325,18 @@ export function QuestionsPanel({
       }}
     >
       <h4 className="font-medium">
-        {submitted ? 'Details Submitted' : 'Missing details'}
+        {submitted
+          ? 'Details Submitted'
+          : (Array.isArray(questions) && questions.length === 0)
+            ? 'Ready to continue'
+            : 'Missing details'}
       </h4>
       <p className="text-sm text-muted-foreground">
         {submitted
           ? 'Your information has been submitted. The run will continue automatically.'
-          : 'Please provide the requested information to continue the run.'}
+          : (Array.isArray(questions) && questions.length === 0)
+            ? 'No additional details are required. Click Continue to proceed.'
+            : 'Please provide the requested information to continue the run.'}
       </p>
 
       <div className="grid gap-3 mt-2">
