@@ -53,6 +53,8 @@ export class AgentService {
     tz?: string;
     userId: string;
     teamId?: string;
+    userName?: string;
+    userEmail?: string;
   }) {
     // Ensure tools are registered for planner schemas
     registerToolsWithLLM(this.llm, this.moduleRef);
@@ -71,6 +73,11 @@ export class AgentService {
         traceId,
         tz: args.tz || 'UTC',
         now: new Date(),
+        // Carry lightweight meta so prompts can include user info
+        meta: {
+          ...(args.userName ? { userName: args.userName } : {}),
+          ...(args.userEmail ? { userEmail: args.userEmail } : {}),
+        } as any,
       },
       scratch: {
         answers: args.answers || {},

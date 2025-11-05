@@ -105,6 +105,7 @@ async function testGoalGeneration(utterance: typeof GOLDEN_UTTERANCES[0]): Promi
     const userPrompt = compileGoalUserPrompt(utterance.input, {}, {
       timezone: 'Europe/Berlin',
       todayISO: new Date().toISOString(),
+      user: { id: 'test-user', name: 'Test User', email: 'test@example.com' },
     });
     
     // Call ChatGPT API

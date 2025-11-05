@@ -106,6 +106,22 @@ export class RunsService {
 
     const policySnapshot = await this.buildPolicySnapshot(team?.id ?? null, toolAllowlist);
 
+    const humanize = (local: string) =>
+      local
+        .replace(/[._-]+/g, ' ')
+        .replace(/\s+/g, ' ')
+        .trim()
+        .split(' ')
+        .filter(Boolean)
+        .slice(0, 4)
+        .map((w) => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase())
+        .join(' ');
+
+    const userName =
+      (user.displayName as string | null) ||
+      (user.email ? humanize(String(user.email).split('@')[0] ?? '') : '') ||
+      undefined;
+
     const configPayload: Record<string, unknown> = {
       channelTargets: channelTargets ?? [],
       input: {
@@ -115,9 +131,12 @@ export class RunsService {
       approvedSteps: [],
     };
 
-    if (meta && Object.keys(meta).length > 0) {
-      configPayload.meta = meta;
-    }
+    // Always attach user meta so prompts can include user info
+    configPayload.meta = {
+      ...(meta && Object.keys(meta).length > 0 ? meta : {}),
+      ...(userName ? { userName } : {}),
+      ...(user.email ? { userEmail: user.email } : {}),
+    };
 
     this.logger.log('💾 Persisting run to database', {
       timestamp: new Date().toISOString(),
@@ -1107,5 +1126,4 @@ export class RunsService {
     this.logger.log('✅ Plan execution enqueued with resumeFrom=executor', { runId });
   }
 }
-
 

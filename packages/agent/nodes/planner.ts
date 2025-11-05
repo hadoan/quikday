@@ -166,6 +166,9 @@ function buildSystemPrompt(tools: Array<{ name: string; description: string; arg
 function buildUserPrompt(s: RunState) {
   const todayISO = (s.ctx.now instanceof Date ? s.ctx.now : new Date()).toISOString();
   const timezone = s.ctx.tz || 'UTC';
+  const meta: any = (s.ctx as any)?.meta || {};
+  const userName = (meta.userName as string | undefined) || undefined;
+  const userEmail = (meta.userEmail as string | undefined) || undefined;
 
   // Extract goal information
   const goal = s.scratch?.goal || {};
@@ -180,7 +183,15 @@ function buildUserPrompt(s: RunState) {
       context,
       provided,
     },
-    meta: { todayISO, timezone },
+    meta: {
+      todayISO,
+      timezone,
+      user: {
+        id: s.ctx.userId,
+        ...(userName ? { name: userName } : {}),
+        ...(userEmail ? { email: userEmail } : {}),
+      },
+    },
   };
   return JSON.stringify(payload, null, 2);
 }

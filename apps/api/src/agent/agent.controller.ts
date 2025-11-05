@@ -65,12 +65,23 @@ export class AgentController {
       },
     ];
 
+    // Compute user display name and email for prompt context
+    const displayName: string | undefined =
+      (dbUser?.displayName as string | undefined) ||
+      (typeof user?.name === 'string' ? user.name : undefined) ||
+      (typeof user?.given_name === 'string' || typeof user?.family_name === 'string'
+        ? [user?.given_name, user?.family_name].filter(Boolean).join(' ')
+        : undefined);
+    const email: string | undefined = (dbUser?.email as string | undefined) || user?.email;
+
     const result = await this.agent.planOnly({
       prompt: prompt,
       messages,
       tz,
       userId,
       teamId,
+      userName: displayName,
+      userEmail: email,
     });
 
     // Save to database using RunsService
@@ -115,4 +126,3 @@ export class AgentController {
     }
   }
 }
-

@@ -1,6 +1,5 @@
 type Answers = Record<string, unknown>;
 
-import { INTENTS } from '../nodes/intents.js';
 
 export function buildClassifyUserPrompt(
   text: string,

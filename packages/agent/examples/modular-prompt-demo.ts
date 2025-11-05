@@ -59,6 +59,7 @@ console.log(`System Prompt Length: ${systemPrompt.length} chars (~${Math.ceil(sy
 const userPrompt = compileGoalUserPrompt(userInput, {}, {
   timezone: 'America/New_York',
   todayISO: new Date().toISOString(),
+  user: { id: 'demo-user', name: 'Demo User', email: 'demo@example.com' },
 });
 
 console.log(`User Prompt Length: ${userPrompt.length} chars\n`);

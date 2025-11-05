@@ -98,7 +98,7 @@ function getDomainRules(domains: string[]): string[] {
 export function compileGoalUserPrompt(
   userInput: string,
   answers: Record<string, unknown>,
-  meta: { timezone: string; todayISO: string }
+  meta: { timezone: string; todayISO: string; user?: { id?: string; name?: string; email?: string } }
 ): string {
   const parts = [
     '**User request:**',
@@ -107,6 +107,15 @@ export function compileGoalUserPrompt(
     '**Context:**',
     `- Current time: ${meta.todayISO}`,
     `- Timezone: ${meta.timezone}`,
+    ...(meta.user?.name || meta.user?.email || meta.user?.id
+      ? [
+          `- User: ${
+            [meta.user?.name, meta.user?.email]
+              .filter((v) => typeof v === 'string' && v.trim().length > 0)
+              .join(' <') + (meta.user?.email ? '>' : '') || meta.user?.id || 'unknown'
+          }`,
+        ]
+      : []),
   ];
 
   if (Object.keys(answers).length > 0) {

@@ -53,7 +53,16 @@ export const makeExtractGoal = (llm: LLM): Node<RunState> => {
       includeExamples: true,
     });
     
-    const user = compileGoalUserPrompt(userPrompt, answers, { timezone: tz, todayISO });
+    const meta = (s.ctx as any)?.meta || {};
+    const user = compileGoalUserPrompt(userPrompt, answers, {
+      timezone: tz,
+      todayISO,
+      user: {
+        id: s.ctx.userId,
+        name: (meta.userName as string | undefined) || undefined,
+        email: (meta.userEmail as string | undefined) || undefined,
+      },
+    });
 
     try {
       const raw = await llm.text({

@@ -64,11 +64,14 @@ export function emailGenerateFollowup(
       }
 
       // Generate contextual follow-up using LLM
+      const userMeta = (ctx as any)?.meta || {};
       const userPrompt = FOLLOWUP_EMAIL_USER_PROMPT({
         tone: parsed.tone,
         originalSubject: parsed.originalSubject,
         recipient: parsed.recipient,
         threadContext: threadContext.substring(0, 500),
+        senderName: (userMeta.userName as string | undefined) || undefined,
+        senderEmail: (userMeta.userEmail as string | undefined) || undefined,
       });
 
       const draftBody = await llm.text({
