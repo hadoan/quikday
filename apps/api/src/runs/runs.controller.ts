@@ -104,6 +104,59 @@ export class RunsController {
     return { ok: true };
   }
 
+  @Post(':id/answers')
+  async submitAnswers(@Param('id') id: string, @Body() body: { answers: Record<string, unknown> }, @Req() req: any) {
+    const who = req?.user ? req.user.email || req.user.sub || 'unknown-user' : 'unauthenticated';
+    this.logger.log(`POST /runs/${id}/answers requested by ${who}`);
+    this.logger.debug(
+      `Incoming answers payload: ${JSON.stringify({ answersKeys: Object.keys(body?.answers ?? {}) })}`
+    );
+
+    const run = await this.runs.get(id);
+    if (!run) {
+      this.logger.warn(`Run not found for id=${id}`);
+      throw new NotFoundException('Run not found');
+    }
+
+    // Get missing fields from the run
+    const missing = Array.isArray(run.missing) ? run.missing : [];
+    
+    if (missing.length === 0) {
+      this.logger.warn(`No missing fields for run=${id}`);
+      throw new BadRequestException('No missing fields to answer');
+    }
+
+    this.logger.debug(`Validating answers for run=${id}. expectedFields=${missing.length}`);
+    
+    // Validate that all required missing fields have answers
+    const requiredMissing = missing.filter((m: any) => m.required !== false);
+    const providedKeys = Object.keys(body?.answers ?? {});
+    const missingRequired = requiredMissing.filter((m: any) => !providedKeys.includes(m.key));
+    
+    if (missingRequired.length > 0) {
+      const missingKeys = missingRequired.map((m: any) => m.key);
+      this.logger.warn(`Missing required fields for run=${id}: ${missingKeys.join(', ')}`);
+      throw new BadRequestException({ 
+        message: 'Missing required fields', 
+        missingFields: missingKeys 
+      });
+    }
+
+    this.logger.debug(
+      `Storing answers for run=${id}. answersKeys=${providedKeys.join(', ')}`
+    );
+    
+    // Store answers in the answers field
+    await this.runs.storeAnswers(id, body.answers);
+    
+    // Execute the plan with the provided answers
+    this.logger.log(`Executing plan for run=${id} with provided answers`);
+    await this.runs.executePlanWithAnswers(id);
+    
+    this.logger.log(`Submit answers completed for run=${id}`);
+    return { ok: true };
+  }
+
   @Post(':id/approve')
   async approve(@Param('id') id: string, @Body() body: { approvedSteps: string[] }) {
     await this.runs.approveSteps(id, body.approvedSteps);

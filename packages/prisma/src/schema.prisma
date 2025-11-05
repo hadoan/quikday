@@ -102,6 +102,8 @@ model Run {
     plan          Json?
     // Missing fields required from the user (structured array)
     missing       Json?
+    // User-provided answers to missing fields
+    answers       Json?
     config        Json?
     output        Json?
     error         Json?

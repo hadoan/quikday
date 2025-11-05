@@ -206,20 +206,31 @@ export class RunProcessor extends WorkerHost {
 
         let final: RunState;
         try {
-          // Check if we're resuming from a specific node (e.g., after approval)
+          // Check if we're resuming from a specific node (e.g., after approval or answers submission)
           const config = run.config as any;
           const resumeFrom = config?.resumeFrom as string | undefined;
           
-          if (resumeFrom === 'executor' && run.status === 'approved') {
-            // Resume execution from executor node after approval
-            this.logger.log('▶️ Resuming from executor after approval', {
+          if (resumeFrom === 'executor') {
+            // Resume execution from executor node after approval or answers submission
+            const reason = run.status === 'approved' 
+              ? 'approval' 
+              : run.status === 'pending' && run.answers 
+                ? 'answers submission'
+                : 'unknown';
+                
+            this.logger.log('▶️ Resuming from executor', {
               runId: run.id,
+              reason,
+              status: run.status,
+              hasAnswers: !!run.answers,
               approvedSteps: config?.approvedSteps?.length || 0,
             });
             
             console.log('[run.processor] Initial state scratch keys:', Object.keys(initialState.scratch || {}));
             console.log('[run.processor] Has plan?', !!initialState.scratch?.plan);
             console.log('[run.processor] Plan length:', initialState.scratch?.plan?.length || 0);
+            console.log('[run.processor] Has answers?', !!initialState.scratch?.answers);
+            console.log('[run.processor] Answers keys:', Object.keys(initialState.scratch?.answers || {}));
             
             // Run from executor directly, bypassing planner
             final = await graph.run('executor', initialState, this.eventBus);
@@ -493,6 +504,15 @@ export class RunProcessor extends WorkerHost {
         : {};
     const { scratch: _drop, ...restOutput } = rawOut;
 
+    // Load answers from Run.answers field if available
+    const runAnswers = run.answers && typeof run.answers === 'object'
+      ? (run.answers as Record<string, unknown>)
+      : {};
+
+    // Load goal and plan from Run fields if available (for plan runs)
+    const runGoal = run.goal && typeof run.goal === 'object' ? run.goal : undefined;
+    const runPlan = Array.isArray(run.plan) ? run.plan : undefined;
+
     const initialState: RunState = {
       input,
       mode: this.mapRunMode(job.data.mode ?? run.mode),
@@ -500,6 +520,15 @@ export class RunProcessor extends WorkerHost {
       scratch: {
         ...(persistedScratch as any),
         ...structuredClone((job.data as any)?.scratch ?? {}),
+        // Merge answers from Run.answers field
+        answers: {
+          ...(persistedScratch.answers as Record<string, unknown> || {}),
+          ...runAnswers,
+          ...(((job.data as any)?.scratch?.answers as Record<string, unknown>) || {}),
+        },
+        // Include goal and plan if they exist on the run
+        ...(runGoal ? { goal: runGoal } : {}),
+        ...(runPlan ? { plan: runPlan } : {}),
       },
       output: restOutput as RunState['output'],
     };

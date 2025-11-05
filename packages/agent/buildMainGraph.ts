@@ -45,9 +45,13 @@ export const buildMainGraph = ({ llm, eventBus, moduleRef }: BuildMainGraphOptio
         const missing = (goal?.missing ?? []) as Array<{ key: string; required?: boolean }>;
         const requiredMissing = missing.filter((m) => m.required !== false);
         
+        // Check if we have answers provided (from Run.answers field)
+        const answers = s.scratch?.answers || {};
+        const hasAnswers = Object.keys(answers).length > 0;
+        
         // First priority: Check if we have missing required inputs
-        if (requiredMissing.length > 0) {
-          // We have missing inputs - go to ensure_inputs to handle them
+        if (requiredMissing.length > 0 && !hasAnswers) {
+          // We have missing inputs and no answers yet - go to ensure_inputs to handle them
           return 'ensure_inputs';
         }
         

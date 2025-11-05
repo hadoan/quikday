@@ -18,7 +18,7 @@ export const ensureInputs: Node<RunState, RunEventBus> = async (s, eventBus) => 
       return { scratch: { ...s.scratch, awaiting: null } };
     }
 
-    // Already provided answers or goal-extracted provided values
+    // Get answers from scratch (which should now be populated from Run.answers field)
     const providedAnswers: Record<string, unknown> = { ...(s.scratch?.answers ?? {}) };
     const provided: Record<string, unknown> = goal?.provided ?? {};
 

@@ -1017,5 +1017,95 @@ export class RunsService {
 
     return run;
   }
+
+  /**
+   * Store user-provided answers to missing input fields in the answers column
+   */
+  async storeAnswers(runId: string, answers: Record<string, unknown>) {
+    const run = await this.prisma.run.findUnique({ where: { id: runId } });
+    if (!run) throw new NotFoundException('Run not found');
+
+    // Merge with existing answers if any
+    const existingAnswers = run.answers && typeof run.answers === 'object' 
+      ? (run.answers as Record<string, unknown>) 
+      : {};
+    
+    const mergedAnswers = { ...existingAnswers, ...answers };
+
+    this.logger.log('💾 Storing answers', {
+      runId,
+      answerKeys: Object.keys(answers),
+      totalAnswers: Object.keys(mergedAnswers).length,
+    });
+
+    await this.prisma.run.update({
+      where: { id: runId },
+      data: { 
+        answers: mergedAnswers as any,
+        status: 'pending', // Ready to execute
+      },
+    });
+
+    return mergedAnswers;
+  }
+
+  /**
+   * Execute the plan with provided answers by reconstructing state and running from executor node
+   */
+  async executePlanWithAnswers(runId: string) {
+    const run = await this.prisma.run.findUnique({ 
+      where: { id: runId },
+      include: { steps: true },
+    });
+    
+    if (!run) throw new NotFoundException('Run not found');
+
+    const goal = run.goal && typeof run.goal === 'object' ? run.goal : null;
+    const plan = Array.isArray(run.plan) ? run.plan : [];
+    const answers = run.answers && typeof run.answers === 'object' 
+      ? (run.answers as Record<string, unknown>) 
+      : {};
+    
+    this.logger.log('🚀 Executing plan with answers', {
+      runId,
+      planSteps: plan.length,
+      answerKeys: Object.keys(answers),
+    });
+
+    // Get user for timezone
+    const user = await this.prisma.user.findUnique({ where: { id: run.userId } });
+    const tz = user?.timeZone || 'UTC';
+
+    // Reconstruct the run state with answers
+    const scratch = {
+      goal,
+      plan,
+      answers,
+      awaiting: null, // Clear awaiting state
+    };
+
+    // Update config to signal resume from executor
+    const existingConfig = run.config && typeof run.config === 'object' 
+      ? (run.config as Record<string, unknown>) 
+      : {};
+    
+    await this.prisma.run.update({
+      where: { id: runId },
+      data: {
+        status: 'pending',
+        config: {
+          ...existingConfig,
+          resumeFrom: 'executor', // Signal to processor to resume from executor
+          tz,
+        } as any,
+      },
+    });
+
+    // Enqueue the run for execution with the reconstructed scratch state
+    await this.enqueue(runId, { scratch });
+    
+    this.logger.log('✅ Plan execution enqueued with resumeFrom=executor', { runId });
+  }
 }
+
 
