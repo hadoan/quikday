@@ -5,10 +5,14 @@ import { GmailAuthConfig } from './GmailAuthConfig.js';
 import { GmailAuthUrlResult } from './GmailAuthUrlResult.js';
 import { PrismaService } from '@quikday/prisma';
 
-// Scopes needed for sending and reading email
+// Scopes needed for full Gmail integration functionality
+// - gmail.send: Send messages
+// - gmail.compose: Create/send drafts, read messages
+// - gmail.modify: Modify labels (archive, snooze, categorize)
 const GMAIL_SCOPES = [
   'https://www.googleapis.com/auth/gmail.send',
-  'https://www.googleapis.com/auth/gmail.readonly',
+  'https://www.googleapis.com/auth/gmail.compose',
+  'https://www.googleapis.com/auth/gmail.modify',
 ];
 
 export function generateGmailAuthUrl(config: GmailAuthConfig): GmailAuthUrlResult {

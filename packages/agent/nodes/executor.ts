@@ -121,7 +121,33 @@ function resolvePlaceholders(
             val = val?.[field];
             if (val === undefined) break;
           }
-          resolved[key] = val;
+          
+          // Safety check: If the resolved value is an array or complex object,
+          // and it wasn't explicitly meant for expansion (no [*] marker),
+          // convert it to a string representation or undefined to prevent
+          // type mismatches (e.g., passing [] to a string field).
+          if (val !== undefined && val !== null) {
+            if (Array.isArray(val)) {
+              if (val.length === 0) {
+                // Empty arrays resolve to undefined to avoid passing [] to string fields
+                console.warn(`[executor] Placeholder ${value} resolved to empty array; setting to undefined to avoid type errors`);
+                resolved[key] = undefined;
+              } else {
+                // Non-empty arrays might be legitimate for array-typed fields,
+                // but warn if this seems like a mistake
+                console.warn(`[executor] Placeholder ${value} resolved to array with ${val.length} items:`, val);
+                resolved[key] = val;
+              }
+            } else if (typeof val === 'object' && Object.keys(val).length > 0) {
+              // Complex objects (not primitive) might indicate a planning error
+              console.warn(`[executor] Placeholder ${value} resolved to object:`, val);
+              resolved[key] = val;
+            } else {
+              resolved[key] = val;
+            }
+          } else {
+            resolved[key] = val;
+          }
         } else {
           resolved[key] = value; // Keep placeholder if step not executed yet
         }
@@ -449,13 +475,19 @@ export const executor: Node<RunState, RunEventBus> = async (s, eventBus) => {
       throw err;
     }
 
-    // Parse args
-    let args: any = argsWithAnswers ?? {};
+    // Parse args - Remove undefined values to avoid validation errors
+    // When placeholders resolve to empty arrays or missing fields, we get undefined values
+    // which cause Zod validation to fail. Filter them out before validation.
+    const cleanArgs = Object.fromEntries(
+      Object.entries(argsWithAnswers ?? {}).filter(([_, v]) => v !== undefined)
+    );
+    
+    let args: any = cleanArgs;
     if (isChat) {
       // Try tool schema if available; otherwise accept as-is for resilience
       try {
         if (tool?.in) {
-          const parsed = tool.in.safeParse(argsWithAnswers);
+          const parsed = tool.in.safeParse(cleanArgs);
           if (parsed.success) args = parsed.data;
         }
       } catch {
@@ -463,7 +495,7 @@ export const executor: Node<RunState, RunEventBus> = async (s, eventBus) => {
       }
     } else {
       // Strict for non-chat tools
-      const parsed = tool.in.safeParse(argsWithAnswers);
+      const parsed = tool.in.safeParse(cleanArgs);
       if (!parsed.success) {
         const zerr = parsed.error?.flatten?.() ?? parsed.error;
         const err: any = new Error(`Invalid args for ${currentStep.tool}`);

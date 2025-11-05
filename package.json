@@ -7,7 +7,7 @@
     "dev:api": "dotenv -e .env -- turbo run dev --filter=@quikday/api...",
     "dev:web": "dotenv -e .env -- pnpm --filter ./apps/web dev",
     "dev:landing": "dotenv -e .env -- pnpm --filter ./apps/landing dev",
-    "dev:agent": "pnpm --filter @quikday/agent build --watch",
+    "dev:agent": "pnpm --filter @quikday/agent dev",
     "build": "turbo run build",
     "build:landing": "pnpm --filter ./apps/landing build",
     "lint": "turbo run lint",

@@ -3,7 +3,7 @@
   "version": "0.0.1",
   "type": "module",
   "scripts": {
-    "dev": "nodemon --watch src --watch ../../packages/*/dist --ext js,ts,json --exec \"nest build && node --inspect=9229 --enable-source-maps dist/main.js\"",
+    "dev": "nodemon --watch src --watch ../../packages/agent/dist --watch ../../packages/libs/dist --watch ../../packages/appstore --ext js,ts,json --delay 500ms --exec \"nest build && node --inspect=9229 --enable-source-maps dist/main.js\"",
     "dev:nest": "nest start --watch --debug 9229 --preserveWatchOutput",
     "build": "nest build",
     "start": "node dist/main.js",
