@@ -33,6 +33,7 @@ This document explains how the executor runs planned steps: placeholder resoluti
 
 - Emit events
   - `tool.called` (args), `tool.succeeded` (result, ms), `tool.failed` (error), plus `step.executed` for persistence; all include `stepId` for correlation.
+  - Before executing each non-chat tool, emits an `assistant.delta` with a simple markdown table of the input parameters so the UI shows inputs pre-execution.
   - chat.respond also emits websocket `assistant.final` so the UI can stream the message.
 
 - Persist results

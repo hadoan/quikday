@@ -327,8 +327,31 @@ const Index = () => {
               break;
             }
             case 'step_started': {
-              // Show step starting (optional - could show loading state)
-              console.log('[Index] Step started:', event.payload.tool, event.payload.action);
+              // Render a Params card showing the input request for this step
+              try {
+                const tool = (event.payload.tool as string) || 'unknown';
+                const req = event.payload.request as Record<string, unknown> | undefined;
+                const mkStr = (v: unknown) => {
+                  if (v === null || v === undefined) return '';
+                  if (typeof v === 'string') return v.length > 200 ? v.slice(0, 197) + '…' : v;
+                  try {
+                    const s = JSON.stringify(v);
+                    return s.length > 200 ? s.slice(0, 197) + '…' : s;
+                  } catch {
+                    return String(v);
+                  }
+                };
+                const items: Array<{ key: string; value: string }> = req
+                  ? Object.entries(req).map(([k, v]) => ({ key: k, value: mkStr(v) }))
+                  : [];
+                newMessages.push({
+                  role: 'assistant',
+                  type: 'params',
+                  data: { title: `Inputs for ${tool}`, items },
+                });
+              } catch (e) {
+                console.warn('[Index] Failed to render step_started params', e);
+              }
               break;
             }
             case 'run_status':
@@ -582,7 +605,13 @@ const Index = () => {
                   (payloadRec?.message as string) ||
                   (resp?.message as string) ||
                   '';
-                if (typeof text === 'string' && text.trim().length > 0) {
+                // Ignore executor's param preview (we render ParamsCard from step_started)
+                const isParamPreview =
+                  event.type === 'assistant.delta' &&
+                  typeof text === 'string' &&
+                  text.includes('with inputs:') &&
+                  text.includes('| Field | Value |');
+                if (!isParamPreview && typeof text === 'string' && text.trim().length > 0) {
                   const last = newMessages[newMessages.length - 1];
                   if (!(last && last.role === 'assistant' && last.content === text)) {
                     newMessages.push({ role: 'assistant', content: text });

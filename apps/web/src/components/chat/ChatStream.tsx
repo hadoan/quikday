@@ -15,6 +15,7 @@ import { PlanCard } from '@/components/cards/PlanCard';
 import { RunCard } from '@/components/cards/RunCard';
 import { LogCard } from '@/components/cards/LogCard';
 import { OutputCard } from '@/components/cards/OutputCard';
+import { ParamsCard } from '@/components/cards/ParamsCard';
 import { UndoCard } from '@/components/cards/UndoCard';
 import { getDataSource, getFeatureFlags } from '@/lib/flags/featureFlags';
 import QuestionsPanel from '@/components/QuestionsPanel';
@@ -233,6 +234,17 @@ export function ChatStream({
                 content={String(od?.content || '')}
                 type={type}
               />
+            </ChatMessage>
+          );
+        }
+
+        if (m.type === 'params') {
+          const data = (m.data as any) || {};
+          const items = Array.isArray(data.items) ? data.items : [];
+          const title = typeof data.title === 'string' ? data.title : 'Inputs';
+          return (
+            <ChatMessage key={i} role="assistant">
+              <ParamsCard title={title} items={items} />
             </ChatMessage>
           );
         }

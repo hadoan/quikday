@@ -11,6 +11,28 @@ import { Queue, QueueEvents, JobsOptions } from 'bullmq';
 
 type Json = string | number | boolean | null | Json[] | { [k: string]: Json };
 
+/** Render a simple Markdown table for top-level key/value pairs. */
+function toSimpleTable(args: Record<string, any>): string {
+  try {
+    const entries = Object.entries(args ?? {});
+    if (entries.length === 0) return 'No inputs';
+    const shorten = (v: any) => {
+      if (v === null || v === undefined) return '';
+      if (typeof v === 'string') return v.length > 200 ? v.slice(0, 197) + '…' : v;
+      try {
+        const s = JSON.stringify(v);
+        return s.length > 200 ? s.slice(0, 197) + '…' : s;
+      } catch {
+        return String(v);
+      }
+    };
+    const rows = entries.map(([k, v]) => `| ${k} | ${shorten(v)} |`).join('\n');
+    return ['| Field | Value |', '| --- | --- |', rows].join('\n');
+  } catch {
+    return 'No inputs';
+  }
+}
+
 /** Safe JSON clone for event payloads (drops functions/undefined/cycles). */
 function toJson(value: unknown): Json {
   try {
@@ -570,6 +592,25 @@ export const executor: Node<RunState, RunEventBus> = async (s, eventBus) => {
     if (!isChat) {
       const safeArgs = redactForLog(args);
       events.toolCalled(s, eventBus, currentStep.tool, safeArgs, currentStep.id);
+
+      // Also emit a lightweight UI message showing input params as a table
+      try {
+        const table = toSimpleTable(safeArgs as any);
+        await eventBus.publish(
+          s.ctx.runId,
+          {
+            type: 'assistant.delta',
+            payload: {
+              stepId: currentStep.id,
+              text: `Executing ${currentStep.tool} with inputs:\n\n${table}`,
+              ts: new Date().toISOString(),
+            },
+          },
+          CHANNEL_WEBSOCKET,
+        );
+      } catch {
+        // non-fatal
+      }
     }
 
     const t0 = globalThis.performance?.now?.() ?? Date.now();
