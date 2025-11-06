@@ -16,14 +16,33 @@ function computeHasOutput(result: any): boolean {
   if (typeof result === 'number' || typeof result === 'boolean') return true;
   if (Array.isArray(result)) return result.length > 0;
   if (typeof result === 'object') {
-    // Common list-returning patterns: if these arrays are present but empty → no output
-    const listFields = ['messages', 'threads', 'items', 'results'];
-    for (const f of listFields) {
-      if (Array.isArray((result as any)[f])) {
-        if (((result as any)[f] as any[]).length === 0) return false;
-        // Any non-empty list counts as output
-        if (((result as any)[f] as any[]).length > 0) return true;
+    // Generic array/object heuristic (no hardcoded keys):
+    // - If any top-level array property is non-empty → has output
+    // - If there are array properties but all are empty AND there are no other meaningful fields → no output
+    // - Otherwise continue to other checks
+    const entries = Object.entries(result as any);
+    let sawArray = false;
+    let anyArrayNonEmpty = false;
+    let hasOtherMeaningful = false;
+    for (const [, v] of entries) {
+      if (Array.isArray(v)) {
+        sawArray = true;
+        if (v.length > 0) anyArrayNonEmpty = true;
+      } else if (v !== null && v !== undefined) {
+        if (typeof v === 'string') {
+          if (v.trim().length > 0) hasOtherMeaningful = true;
+        } else if (typeof v === 'number' || typeof v === 'boolean') {
+          hasOtherMeaningful = true;
+        } else if (typeof v === 'object') {
+          if (Object.keys(v).length > 0) hasOtherMeaningful = true;
+        }
       }
+    }
+    if (sawArray) {
+      if (anyArrayNonEmpty) return true;
+      // If we saw array fields and all are empty, treat as no output
+      // even if flags like { ok: true } are present.
+      return false;
     }
     // If a numeric count is present and zero and no other fields, treat as no output
     if ('count' in (result as any) && Number((result as any).count) === 0) {
