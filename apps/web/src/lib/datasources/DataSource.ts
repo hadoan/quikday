@@ -129,7 +129,7 @@ export interface UiOutputData {
 
 export interface UiParamsData {
   title?: string;
-  items: Array<{ key: string; value: string }>;
+  items: Array<{ key: string; value: string; full?: unknown }>;
 }
 
 export interface UiUndoData {

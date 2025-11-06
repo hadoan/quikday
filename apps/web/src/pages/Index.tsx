@@ -341,8 +341,8 @@ const Index = () => {
                     return String(v);
                   }
                 };
-                const items: Array<{ key: string; value: string }> = req
-                  ? Object.entries(req).map(([k, v]) => ({ key: k, value: mkStr(v) }))
+                const items: Array<{ key: string; value: string; full?: unknown }> = req
+                  ? Object.entries(req).map(([k, v]) => ({ key: k, value: mkStr(v), full: v }))
                   : [];
                 newMessages.push({
                   role: 'assistant',
@@ -592,9 +592,42 @@ const Index = () => {
                     return String(v);
                   }
                 };
-                const items: Array<{ key: string; value: string }> = resp
-                  ? Object.entries(resp).map(([k, v]) => ({ key: k, value: mkStr(v) }))
+                const items: Array<{ key: string; value: string; full?: unknown }> = resp
+                  ? Object.entries(resp).map(([k, v]) => ({ key: k, value: mkStr(v), full: v }))
                   : [];
+                // Best-effort links for Gmail drafts/threads
+                if (tool === 'email.draft.create' && resp) {
+                  const draftId = (resp['draftId'] as string | undefined) || undefined;
+                  const draftMessageId = (resp['messageId'] as string | undefined) || undefined;
+                  const threadId = (resp['threadId'] as string | undefined) || undefined;
+                  // Best-effort direct draft link: Gmail supports #drafts?compose=<draftId>
+                  if (draftMessageId && typeof draftMessageId === 'string' && draftMessageId.trim().length > 0) {
+                    const draftUrl = `https://mail.google.com/mail/u/0/#drafts?compose=${encodeURIComponent(draftMessageId)}`;
+                    items.push({ key: 'openDraft', value: draftUrl, full: draftUrl });
+                  } else {
+                    // Fallback: drafts list
+                    const listUrl = 'https://mail.google.com/mail/u/0/#drafts';
+                    items.push({ key: 'openDrafts', value: listUrl, full: listUrl });
+                  }
+                  // Intentionally omit thread deep-link; keep draft link only
+                }
+
+                // Add quick link to the actual sent conversation for sent-email tools
+                if (tool === 'email.send' || tool === 'email.draft.send' || tool === 'email.sendFollowup') {
+                  const threadId = (resp?.['threadId'] as string | undefined) || undefined;
+                  // Gmail internal message id (not RFC822 Message-ID header)
+                  const messageId = ((resp?.['id'] as string | undefined) || (resp?.['messageId'] as string | undefined)) || undefined;
+                  if (typeof threadId === 'string' && threadId.trim().length > 0) {
+                    const url = `https://mail.google.com/mail/u/0/#all/${encodeURIComponent(threadId)}`;
+                    items.push({ key: 'openThread', value: url, full: url });
+                  } else if (typeof messageId === 'string' && messageId.trim().length > 0) {
+                    const url = `https://mail.google.com/mail/u/0/#all/${encodeURIComponent(messageId)}`;
+                    items.push({ key: 'openThread', value: url, full: url });
+                  } else {
+                    const sentUrl = 'https://mail.google.com/mail/u/0/#sent';
+                    items.push({ key: 'openSent', value: sentUrl, full: sentUrl });
+                  }
+                }
                 newMessages.push({
                   role: 'assistant',
                   type: 'params',
