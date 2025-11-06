@@ -18,6 +18,7 @@ import { RunOutcome } from '@quikday/agent/runtime/graph';
 
 import { runWithCurrentUser } from '@quikday/libs';
 import type { CurrentUserContext } from '@quikday/types/auth/current-user.types';
+import { CurrentUserService } from '@quikday/libs';
 
 const GRAPH_HALT_AWAITING_APPROVAL = 'GRAPH_HALT_AWAITING_APPROVAL';
 
@@ -73,7 +74,8 @@ export class RunProcessor extends WorkerHost {
     private stepsService: StepsService,
     private telemetry: TelemetryService,
     private agent: AgentService,
-    @Inject('RunEventBus') private eventBus: RunEventBus
+    @Inject('RunEventBus') private eventBus: RunEventBus,
+    private readonly currentUser: CurrentUserService,
   ) {
     super();
   }
@@ -137,7 +139,7 @@ export class RunProcessor extends WorkerHost {
       });
 
       // Build runtime input + ctx
-      const { initialState, publishRunEvent, safePublish } = this.buildInputAndCtx(run, job);
+      const { initialState, publishRunEvent, safePublish } = await this.buildInputAndCtx(run, job);
 
       // prepare runtime graph
       const graph = this.agent.createGraph();
@@ -447,7 +449,7 @@ export class RunProcessor extends WorkerHost {
     });
   }
 
-  private buildInputAndCtx(run: Run & Record<string, any>, job: Job<RunJobData>) {
+  private async buildInputAndCtx(run: Run & Record<string, any>, job: Job<RunJobData>) {
     const config: Record<string, unknown> =
       run.config && typeof run.config === 'object'
         ? { ...(run.config as Record<string, unknown>) }
@@ -490,6 +492,17 @@ export class RunProcessor extends WorkerHost {
         : {}),
       ...(job.data.meta ?? {}),
     };
+
+    // Backfill sender identity if missing (so email tools can personalize drafts)
+    if (!(meta as any).userName || !(meta as any).userEmail) {
+      try {
+        const ident = await this.currentUser.getUserIdentity();
+        if (ident.userName && !(meta as any).userName) (meta as any).userName = ident.userName;
+        if (ident.userEmail && !(meta as any).userEmail) (meta as any).userEmail = ident.userEmail;
+      } catch {
+        // non-fatal
+      }
+    }
 
     if (Array.isArray(config.approvedSteps) && !Array.isArray(meta.approvedSteps)) {
       (meta as any).approvedSteps = config.approvedSteps;

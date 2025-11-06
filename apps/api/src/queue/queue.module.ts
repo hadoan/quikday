@@ -7,7 +7,7 @@ import { StepRunProcessor } from './step-run.processor.js';
 import { RunsModule } from '../runs/runs.module.js';
 import { TelemetryModule } from '../telemetry/telemetry.module.js';
 import { CredentialsModule } from '../credentials/credentials.module.js';
-import { RedisModule, PubSubModule } from '@quikday/libs';
+import { RedisModule, PubSubModule, CurrentUserModule } from '@quikday/libs';
 import { AgentModule } from '../agent/index.js';
 
 @Module({
@@ -18,6 +18,7 @@ import { AgentModule } from '../agent/index.js';
     CredentialsModule,
     RedisModule,
     PubSubModule,
+    CurrentUserModule,
     AgentModule.forRoot(),
     BullModule.forRootAsync({
       imports: [ConfigModule],

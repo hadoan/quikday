@@ -8,6 +8,9 @@ export interface LlmCallMetadata {
   requestType?: string;
   apiEndpoint?: string;
   runId?: string;
+  // Optional user identity hints for prompts/observability
+  senderName?: string;
+  senderEmail?: string;
 }
 
 export interface LLM {

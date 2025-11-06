@@ -589,6 +589,8 @@ export class RunsService {
     }
   }
 
+  // getUserIdentity moved to CurrentUserService; use that instead.
+
   private asRecord(value: unknown): Record<string, unknown> {
     if (!value || typeof value !== 'object' || Array.isArray(value)) {
       return {};
@@ -1126,4 +1128,3 @@ export class RunsService {
     this.logger.log('✅ Plan execution enqueued with resumeFrom=executor', { runId });
   }
 }
-
