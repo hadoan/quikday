@@ -46,7 +46,8 @@ export const LogCard = ({ logs }: LogCardProps) => {
         {logs.map((log, idx) => {
           const { formatted, isJson } = log.output ? formatOutput(log.output) : { formatted: '', isJson: false };
           const isExpanded = expandedItems[idx] ?? false;
-          const hasOutput = !!log.output;
+          // Hide output in Execution Log; outputs are shown via dedicated Output cards
+          const hasOutput = false;
 
           return (
             <div

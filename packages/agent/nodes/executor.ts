@@ -9,6 +9,42 @@ import { events } from '../observability/events.js';
 import { redactForLog } from '../guards/redaction.js';
 import { Queue, QueueEvents, JobsOptions } from 'bullmq';
 
+/** Generic heuristic to determine if a tool result has meaningful output. */
+function computeHasOutput(result: any): boolean {
+  if (result === null || result === undefined) return false;
+  if (typeof result === 'string') return result.trim().length > 0;
+  if (typeof result === 'number' || typeof result === 'boolean') return true;
+  if (Array.isArray(result)) return result.length > 0;
+  if (typeof result === 'object') {
+    // Common list-returning patterns: if these arrays are present but empty → no output
+    const listFields = ['messages', 'threads', 'items', 'results'];
+    for (const f of listFields) {
+      if (Array.isArray((result as any)[f])) {
+        if (((result as any)[f] as any[]).length === 0) return false;
+        // Any non-empty list counts as output
+        if (((result as any)[f] as any[]).length > 0) return true;
+      }
+    }
+    // If a numeric count is present and zero and no other fields, treat as no output
+    if ('count' in (result as any) && Number((result as any).count) === 0) {
+      // Check if there are any other meaningful fields besides count
+      const keys = Object.keys(result as any).filter((k) => k !== 'count');
+      const hasOtherMeaningful = keys.some((k) => {
+        const v = (result as any)[k];
+        if (v === null || v === undefined) return false;
+        if (typeof v === 'string') return v.trim().length > 0;
+        if (typeof v === 'number' || typeof v === 'boolean') return true;
+        if (Array.isArray(v)) return v.length > 0;
+        if (typeof v === 'object') return Object.keys(v).length > 0;
+        return Boolean(v);
+      });
+      if (!hasOtherMeaningful) return false;
+    }
+    return Object.keys(result).length > 0;
+  }
+  return Boolean(result);
+}
+
 type Json = string | number | boolean | null | Json[] | { [k: string]: Json };
 
 /** Render a simple Markdown table for top-level key/value pairs. */
@@ -455,6 +491,24 @@ export const executor: Node<RunState, RunEventBus> = async (s, eventBus) => {
     // Take the first (and only) expanded step
     const currentStep = expanded[0] || step;
 
+    // Dependency gating: skip this step if any of its dependencies had no output
+    try {
+      const baseId = (currentStep.id.match(/^step-\d+/) || [currentStep.id])[0];
+      const planArr = Array.isArray(s.scratch?.plan) ? (s.scratch!.plan as any[]) : [];
+      const planEntry = planArr.find((p) => p && p.id === baseId);
+      const deps: string[] = Array.isArray(planEntry?.dependsOn) ? planEntry.dependsOn : [];
+      const blocked = deps.some((depId) => {
+        const dep = planArr.find((p) => p && p.id === depId);
+        return dep?.hasOutput === false;
+      });
+      if (blocked) {
+        console.log(`[executor] Skipping ${currentStep.id} due to dependency without output`);
+        processedStepIds.add(currentStep.id);
+        commits.push({ stepId: currentStep.id, result: { skipped: true, reason: 'dependency_no_output' } });
+        continue;
+      }
+    } catch {}
+
     // Resolve placeholders in args
     const { resolved: resolvedArgs } = resolvePlaceholders(currentStep.args, stepResults);
     
@@ -657,6 +711,18 @@ export const executor: Node<RunState, RunEventBus> = async (s, eventBus) => {
 
       // Store result for subsequent placeholder resolution
       stepResults.set(currentStep.id, result);
+
+      // Update hasOutput on the base plan step for dependency gating
+      try {
+        const baseId = (currentStep.id.match(/^step-\d+/) || [currentStep.id])[0];
+        const planArr = Array.isArray(s.scratch?.plan) ? (s.scratch!.plan as any[]) : [];
+        const idx = planArr.findIndex((p) => p && p.id === baseId);
+        if (idx >= 0) {
+          const updated = { ...planArr[idx], hasOutput: computeHasOutput(result) };
+          planArr[idx] = updated;
+          s.scratch = { ...(s.scratch || {}), plan: planArr } as any;
+        }
+      } catch {}
 
       // For chat.respond, send assistant message to UI
       if (

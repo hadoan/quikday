@@ -578,6 +578,32 @@ const Index = () => {
               };
               newMessages.push(buildLogMessage([entry] as any));
 
+              // Also show a structured Output card (similar to Inputs) for better readability
+              try {
+                const tool = (event.payload.tool as string) || 'unknown';
+                const resp = event.payload.response as Record<string, unknown> | undefined;
+                const mkStr = (v: unknown) => {
+                  if (v === null || v === undefined) return '';
+                  if (typeof v === 'string') return v.length > 200 ? v.slice(0, 197) + '…' : v;
+                  try {
+                    const s = JSON.stringify(v);
+                    return s.length > 200 ? s.slice(0, 197) + '…' : s;
+                  } catch {
+                    return String(v);
+                  }
+                };
+                const items: Array<{ key: string; value: string }> = resp
+                  ? Object.entries(resp).map(([k, v]) => ({ key: k, value: mkStr(v) }))
+                  : [];
+                newMessages.push({
+                  role: 'assistant',
+                  type: 'params',
+                  data: { title: `Output from ${tool}`, items },
+                });
+              } catch (e) {
+                console.warn('[Index] Failed to render output params card', e);
+              }
+
               // Also render plain text output if provided in the event
               try {
                 const payload = event.payload as Record<string, unknown>;
