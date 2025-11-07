@@ -40,11 +40,13 @@ export class GmailEmailService implements EmailService {
     const messages: any[] = Array.isArray(data?.messages) ? data.messages : [];
     const mapped = messages.map((m) => this.mapGmailMessageToEmailMessage(m));
     try {
-      this.logger.log(this.formatMeta({
-        op: 'getThread.summary',
-        threadId,
-        messages: mapped.length,
-      }));
+      this.logger.log(
+        this.formatMeta({
+          op: 'getThread.summary',
+          threadId,
+          messages: mapped.length,
+        }),
+      );
     } catch {}
     return mapped;
   }
@@ -79,10 +81,6 @@ export class GmailEmailService implements EmailService {
     params.append('metadataHeaders', 'To');
     params.append('metadataHeaders', 'Date');
 
-    try {
-      this.logger.log(this.formatMeta({ op: 'search.queryString', q: query }));
-    } catch {}
-
     const resp = await gmail.users.messages.list({
       userId: 'me',
       q: query || undefined,
@@ -91,13 +89,6 @@ export class GmailEmailService implements EmailService {
     });
     const listing: any = resp.data;
     const items: any[] = Array.isArray(listing?.messages) ? listing.messages : [];
-    try {
-      this.logger.log(this.formatMeta({
-        op: 'search.listed',
-        count: items.length,
-        hasNext: typeof listing?.nextPageToken === 'string',
-      }));
-    } catch {}
 
     // Fetch details for each message in parallel (metadata is sometimes enough, but we map uniformly)
     const results: EmailMessage[] = await Promise.all(
@@ -111,9 +102,6 @@ export class GmailEmailService implements EmailService {
         }
       }),
     ).then((arr) => arr.filter((x): x is EmailMessage => !!x));
-    try {
-      this.logger.log(this.formatMeta({ op: 'search.hydrated', messages: results.length }));
-    } catch {}
 
     return {
       messages: results,
@@ -241,7 +229,9 @@ export class GmailEmailService implements EmailService {
       replyToMessageId: draft.replyToMessageId,
     });
 
-    const res = await this.sendEmailViaGmailApi('me', rawMessage, accessToken, { threadId: opts?.threadId });
+    const res = await this.sendEmailViaGmailApi('me', rawMessage, accessToken, {
+      threadId: opts?.threadId,
+    });
     return { messageId: res.messageId ?? '', threadId: res.threadId ?? '' };
   }
 
@@ -641,7 +631,9 @@ export class GmailEmailService implements EmailService {
     const { gmail } = await this.getGmailClient();
     const resp = await gmail.users.messages.send({
       userId: 'me',
-      requestBody: opts?.threadId ? { raw: rawMessage, threadId: opts.threadId } : { raw: rawMessage },
+      requestBody: opts?.threadId
+        ? { raw: rawMessage, threadId: opts.threadId }
+        : { raw: rawMessage },
     });
     const payload: any = resp.data;
     const messageId = (typeof payload?.id === 'string' ? payload.id : undefined) ?? '';

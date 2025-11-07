@@ -4,6 +4,7 @@ import { EMAIL_FACTORY } from '@quikday/appstore/email/email.tokens';
 import type { EmailFactory } from '@quikday/appstore/email/email.factory';
 import { CurrentUserService } from '@quikday/libs';
 import { PrismaService } from '@quikday/prisma';
+import { GmailEmailService } from '@quikday/appstore-gmail-email';
 
 export async function getEmailUtils() {
   const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/u;
@@ -26,7 +27,7 @@ export async function getEmailUtils() {
   return { parseEmailAddresses, validateEmailAddresses, formatEmailBody, generateEmailSummary };
 }
 
-export async function resolveEmailService(moduleRef: ModuleRef): Promise<any> {
+export async function resolveEmailService(moduleRef: ModuleRef): Promise<GmailEmailService> {
   // Prefer factory to construct provider with proper deps
   const factory = moduleRef.get(EMAIL_FACTORY as any, { strict: false }) as
     | EmailFactory
