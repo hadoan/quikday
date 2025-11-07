@@ -11,7 +11,8 @@ function buildCtxFromRequest(req: Request): CurrentUserContext {
   const hdr = (name: string) => req.header(name) ?? undefined;
 
   return {
-    userId: claims.sub ?? hdr('x-user-id') ?? null,
+    userSub: claims.sub ?? hdr('x-user-id') ?? null,
+    userId: claims.userId ?? (hdr('x-user-db-id') ? parseInt(hdr('x-user-db-id')!, 10) : null),
     teamId: claims.teamId ?? hdr('x-team-id') ?? null,
     scopes: claims.scopes ?? claims.scope?.split(' ') ?? [],
     impersonatorId: claims.impersonatorId ?? hdr('x-impersonator-id') ?? null,

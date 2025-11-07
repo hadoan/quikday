@@ -327,8 +327,31 @@ const Index = () => {
               break;
             }
             case 'step_started': {
-              // Show step starting (optional - could show loading state)
-              console.log('[Index] Step started:', event.payload.tool, event.payload.action);
+              // Render a Params card showing the input request for this step
+              try {
+                const tool = (event.payload.tool as string) || 'unknown';
+                const req = event.payload.request as Record<string, unknown> | undefined;
+                const mkStr = (v: unknown) => {
+                  if (v === null || v === undefined) return '';
+                  if (typeof v === 'string') return v.length > 200 ? v.slice(0, 197) + '…' : v;
+                  try {
+                    const s = JSON.stringify(v);
+                    return s.length > 200 ? s.slice(0, 197) + '…' : s;
+                  } catch {
+                    return String(v);
+                  }
+                };
+                const items: Array<{ key: string; value: string; full?: unknown }> = req
+                  ? Object.entries(req).map(([k, v]) => ({ key: k, value: mkStr(v), full: v }))
+                  : [];
+                newMessages.push({
+                  role: 'assistant',
+                  type: 'params',
+                  data: { title: `Inputs for ${tool}`, items },
+                });
+              } catch (e) {
+                console.warn('[Index] Failed to render step_started params', e);
+              }
               break;
             }
             case 'run_status':
@@ -555,6 +578,65 @@ const Index = () => {
               };
               newMessages.push(buildLogMessage([entry] as any));
 
+              // Also show a structured Output card (similar to Inputs) for better readability
+              try {
+                const tool = (event.payload.tool as string) || 'unknown';
+                const resp = event.payload.response as Record<string, unknown> | undefined;
+                const mkStr = (v: unknown) => {
+                  if (v === null || v === undefined) return '';
+                  if (typeof v === 'string') return v.length > 200 ? v.slice(0, 197) + '…' : v;
+                  try {
+                    const s = JSON.stringify(v);
+                    return s.length > 200 ? s.slice(0, 197) + '…' : s;
+                  } catch {
+                    return String(v);
+                  }
+                };
+                const items: Array<{ key: string; value: string; full?: unknown }> = resp
+                  ? Object.entries(resp).map(([k, v]) => ({ key: k, value: mkStr(v), full: v }))
+                  : [];
+                // Best-effort links for Gmail drafts/threads
+                if (tool === 'email.draft.create' && resp) {
+                  const draftId = (resp['draftId'] as string | undefined) || undefined;
+                  const draftMessageId = (resp['messageId'] as string | undefined) || undefined;
+                  const threadId = (resp['threadId'] as string | undefined) || undefined;
+                  // Best-effort direct draft link: Gmail supports #drafts?compose=<draftId>
+                  if (draftMessageId && typeof draftMessageId === 'string' && draftMessageId.trim().length > 0) {
+                    const draftUrl = `https://mail.google.com/mail/u/0/#drafts?compose=${encodeURIComponent(draftMessageId)}`;
+                    items.push({ key: 'openDraft', value: draftUrl, full: draftUrl });
+                  } else {
+                    // Fallback: drafts list
+                    const listUrl = 'https://mail.google.com/mail/u/0/#drafts';
+                    items.push({ key: 'openDrafts', value: listUrl, full: listUrl });
+                  }
+                  // Intentionally omit thread deep-link; keep draft link only
+                }
+
+                // Add quick link to the actual sent conversation for sent-email tools
+                if (tool === 'email.send' || tool === 'email.draft.send' || tool === 'email.sendFollowup') {
+                  const threadId = (resp?.['threadId'] as string | undefined) || undefined;
+                  // Gmail internal message id (not RFC822 Message-ID header)
+                  const messageId = ((resp?.['id'] as string | undefined) || (resp?.['messageId'] as string | undefined)) || undefined;
+                  if (typeof threadId === 'string' && threadId.trim().length > 0) {
+                    const url = `https://mail.google.com/mail/u/0/#all/${encodeURIComponent(threadId)}`;
+                    items.push({ key: 'openThread', value: url, full: url });
+                  } else if (typeof messageId === 'string' && messageId.trim().length > 0) {
+                    const url = `https://mail.google.com/mail/u/0/#all/${encodeURIComponent(messageId)}`;
+                    items.push({ key: 'openThread', value: url, full: url });
+                  } else {
+                    const sentUrl = 'https://mail.google.com/mail/u/0/#sent';
+                    items.push({ key: 'openSent', value: sentUrl, full: sentUrl });
+                  }
+                }
+                newMessages.push({
+                  role: 'assistant',
+                  type: 'params',
+                  data: { title: `Output from ${tool}`, items },
+                });
+              } catch (e) {
+                console.warn('[Index] Failed to render output params card', e);
+              }
+
               // Also render plain text output if provided in the event
               try {
                 const payload = event.payload as Record<string, unknown>;
@@ -582,7 +664,13 @@ const Index = () => {
                   (payloadRec?.message as string) ||
                   (resp?.message as string) ||
                   '';
-                if (typeof text === 'string' && text.trim().length > 0) {
+                // Ignore executor's param preview (we render ParamsCard from step_started)
+                const isParamPreview =
+                  event.type === 'assistant.delta' &&
+                  typeof text === 'string' &&
+                  text.includes('with inputs:') &&
+                  text.includes('| Field | Value |');
+                if (!isParamPreview && typeof text === 'string' && text.trim().length > 0) {
                   const last = newMessages[newMessages.length - 1];
                   if (!(last && last.role === 'assistant' && last.content === text)) {
                     newMessages.push({ role: 'assistant', content: text });

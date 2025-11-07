@@ -36,6 +36,7 @@ export type UiMessageType =
   | 'undo'
   | 'config'
   | 'error'
+  | 'params'
   | 'questions';
 
 // ============================================================================
@@ -93,6 +94,7 @@ export type UiMessageData =
   | UiUndoData
   | UiConfigData
   | UiQuestionsData
+  | UiParamsData
   | UiErrorData;
 
 export interface UiPlanData {
@@ -123,6 +125,11 @@ export interface UiOutputData {
   content: string;
   type: 'text' | 'summary' | 'markdown' | 'json';
   data?: unknown;
+}
+
+export interface UiParamsData {
+  title?: string;
+  items: Array<{ key: string; value: string; full?: unknown }>;
 }
 
 export interface UiUndoData {

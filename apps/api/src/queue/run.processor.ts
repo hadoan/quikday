@@ -18,6 +18,7 @@ import { RunOutcome } from '@quikday/agent/runtime/graph';
 
 import { runWithCurrentUser } from '@quikday/libs';
 import type { CurrentUserContext } from '@quikday/types/auth/current-user.types';
+import { CurrentUserService } from '@quikday/libs';
 
 const GRAPH_HALT_AWAITING_APPROVAL = 'GRAPH_HALT_AWAITING_APPROVAL';
 
@@ -73,7 +74,8 @@ export class RunProcessor extends WorkerHost {
     private stepsService: StepsService,
     private telemetry: TelemetryService,
     private agent: AgentService,
-    @Inject('RunEventBus') private eventBus: RunEventBus
+    @Inject('RunEventBus') private eventBus: RunEventBus,
+    private readonly currentUser: CurrentUserService,
   ) {
     super();
   }
@@ -102,12 +104,13 @@ export class RunProcessor extends WorkerHost {
 
     // Build/restore ALS context for this execution
     const fallbackCtx: CurrentUserContext = {
-      userId: String(run.userId),
-      teamId: run.teamId ? String(run.teamId) : null,
+      userSub: null,
+      userId: run.userId,
+      teamId: run.teamId,
       scopes: Array.isArray(job.data.scopes) ? job.data.scopes : [],
       traceId:
         typeof job.data?.meta?.['traceId'] === 'string' &&
-        (job.data.meta!['traceId'] as string).trim()
+          (job.data.meta!['traceId'] as string).trim()
           ? (job.data.meta!['traceId'] as string)
           : `run:${run.id}`,
       tz:
@@ -137,7 +140,7 @@ export class RunProcessor extends WorkerHost {
       });
 
       // Build runtime input + ctx
-      const { initialState, publishRunEvent, safePublish } = this.buildInputAndCtx(run, job);
+      const { initialState, publishRunEvent, safePublish } = await this.buildInputAndCtx(run, job);
 
       // prepare runtime graph
       const graph = this.agent.createGraph();
@@ -230,15 +233,15 @@ export class RunProcessor extends WorkerHost {
           // Check if we're resuming from a specific node (e.g., after approval or answers submission)
           const config = run.config as any;
           const resumeFrom = config?.resumeFrom as string | undefined;
-          
+
           if (resumeFrom === 'executor') {
             // Resume execution from executor node after approval or answers submission
-            const reason = run.status === 'approved' 
-              ? 'approval' 
-              : run.status === 'pending' && run.answers 
+            const reason = run.status === 'approved'
+              ? 'approval'
+              : run.status === 'pending' && run.answers
                 ? 'answers submission'
                 : 'unknown';
-                
+
             this.logger.log('▶️ Resuming from executor', {
               runId: run.id,
               reason,
@@ -246,13 +249,13 @@ export class RunProcessor extends WorkerHost {
               hasAnswers: !!run.answers,
               approvedSteps: config?.approvedSteps?.length || 0,
             });
-            
+
             console.log('[run.processor] Initial state scratch keys:', Object.keys(initialState.scratch || {}));
             console.log('[run.processor] Has plan?', !!initialState.scratch?.plan);
             console.log('[run.processor] Plan length:', initialState.scratch?.plan?.length || 0);
             console.log('[run.processor] Has answers?', !!initialState.scratch?.answers);
             console.log('[run.processor] Answers keys:', Object.keys(initialState.scratch?.answers || {}));
-            
+
             this.logger.debug('Resuming execution with state:', {
               scratchKeys: Object.keys(initialState.scratch || {}),
               hasPlan: !!initialState.scratch?.plan,
@@ -261,7 +264,7 @@ export class RunProcessor extends WorkerHost {
               answersKeys: Object.keys(initialState.scratch?.answers || {}),
               answersValues: initialState.scratch?.answers,
             });
-            
+
             // Run from executor directly, bypassing planner
             final = await graph.run('executor', initialState, this.eventBus);
           } else {
@@ -322,7 +325,7 @@ export class RunProcessor extends WorkerHost {
         // Check if approval is required (AUTO mode halted after planning)
         const requiresApproval = (final?.scratch as any)?.requiresApproval === true;
         const plan = (final?.scratch?.plan ?? []) as Array<{ id: string; tool: string }>;
-        const hasExecutableSteps = plan.length > 0 && 
+        const hasExecutableSteps = plan.length > 0 &&
           !plan.every((st) => st.tool === 'chat.respond');
 
         if (requiresApproval && hasExecutableSteps) {
@@ -339,12 +342,12 @@ export class RunProcessor extends WorkerHost {
           // Note: plan_generated event was already emitted by graph during execution
           await this.eventBus.publish(
             run.id,
-            { 
-              type: 'run_status', 
-              payload: { 
+            {
+              type: 'run_status',
+              payload: {
                 status: 'awaiting_approval',
                 plan: plan.map(s => ({ id: s.id, tool: s.tool }))
-              } 
+              }
             },
             CHANNEL_WEBSOCKET
           );
@@ -372,13 +375,13 @@ export class RunProcessor extends WorkerHost {
           // Note: plan_generated event was already emitted by graph during execution
           await this.eventBus.publish(
             run.id,
-            { 
-              type: 'run_completed', 
-              payload: { 
+            {
+              type: 'run_completed',
+              payload: {
                 status: 'done',
                 output: final.output ?? {},
                 plan: plan.map(s => ({ id: s.id, tool: s.tool }))
-              } 
+              }
             },
             CHANNEL_WEBSOCKET
           );
@@ -447,7 +450,7 @@ export class RunProcessor extends WorkerHost {
     });
   }
 
-  private buildInputAndCtx(run: Run & Record<string, any>, job: Job<RunJobData>) {
+  private async buildInputAndCtx(run: Run & Record<string, any>, job: Job<RunJobData>) {
     const config: Record<string, unknown> =
       run.config && typeof run.config === 'object'
         ? { ...(run.config as Record<string, unknown>) }
@@ -491,6 +494,17 @@ export class RunProcessor extends WorkerHost {
       ...(job.data.meta ?? {}),
     };
 
+    // Backfill sender identity if missing (so email tools can personalize drafts)
+    if (!(meta as any).userName || !(meta as any).userEmail) {
+      try {
+        const ident = await this.currentUser.getUserIdentity();
+        if (ident.userName && !(meta as any).userName) (meta as any).userName = ident.userName;
+        if (ident.userEmail && !(meta as any).userEmail) (meta as any).userEmail = ident.userEmail;
+      } catch {
+        // non-fatal
+      }
+    }
+
     if (Array.isArray(config.approvedSteps) && !Array.isArray(meta.approvedSteps)) {
       (meta as any).approvedSteps = config.approvedSteps;
     }
@@ -515,8 +529,8 @@ export class RunProcessor extends WorkerHost {
 
     const ctx: RunState['ctx'] & { meta: Record<string, unknown> } = {
       runId: run.id,
-      userId: String(run.userId),
-      teamId: run.teamId ? String(run.teamId) : undefined,
+      userId: run.userId,
+      teamId: run.teamId ?? undefined,
       scopes: Array.from(scopes),
       traceId:
         typeof (meta as any).traceId === 'string' && (meta as any).traceId.trim().length > 0
@@ -657,19 +671,19 @@ export class RunProcessor extends WorkerHost {
     if (isApprovalHalt) {
       const approvalId =
         err?.approvalId ?? err?.payload?.approvalId ?? err?.data?.approvalId ?? undefined;
-      
+
       console.log('[run.processor] Approval halt - liveState keys:', Object.keys(liveState));
       console.log('[run.processor] liveState.scratch keys:', Object.keys(liveState.scratch || {}));
       console.log('[run.processor] liveState.output keys:', Object.keys(liveState.output || {}));
       console.log('[run.processor] Has plan in liveState.scratch?', !!liveState.scratch?.plan);
       console.log('[run.processor] Plan length:', Array.isArray(liveState.scratch?.plan) ? liveState.scratch.plan.length : 0);
-      
+
       // Persist output with scratch containing the plan
       const outputToPersist = {
         ...liveState.output,
         scratch: liveState.scratch,
       };
-      
+
       await this.runs.persistResult(run.id, {
         output: outputToPersist,
         logs: formatLogsForPersistence(),

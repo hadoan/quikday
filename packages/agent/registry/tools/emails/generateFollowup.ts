@@ -80,18 +80,21 @@ export function emailGenerateFollowup(
         temperature: 0.7,
         maxTokens: 500,
         metadata: {
-          userId: ctx.userId,
+          userId: Number(ctx.userId),
           runId: ctx.runId,
           requestType: 'email-followup-generation',
+          // Surface sender identity for tracing/observability and downstream provider hooks
+          senderName: (userMeta.userName as string | undefined) || undefined,
+          senderEmail: (userMeta.userEmail as string | undefined) || undefined,
         },
       });
 
       const result: EmailGenerateFollowupResult = {
         threadId: parsed.threadId,
         subject: `Re: ${parsed.originalSubject}`,
-        body: draftBody.trim(),
+        body: (draftBody || '').trim(),
         to: parsed.recipient,
-        preview: draftBody.substring(0, 150) + (draftBody.length > 150 ? '...' : ''),
+        preview: (draftBody || '').substring(0, 150) + ((draftBody || '').length > 150 ? '...' : ''),
       };
 
       return EmailGenerateFollowupOut.parse(result);

@@ -15,6 +15,8 @@ export const EmailDraftCreateIn = z.object({
 export const EmailDraftCreateOut = z.object({
   ok: z.boolean(),
   draftId: z.string(),
+  // The Gmail draft message id (used for deep-link in Gmail compose URLs)
+  messageId: z.string().optional(),
   threadId: z.string().optional(),
 });
 
@@ -48,7 +50,7 @@ export function emailDraftCreate(moduleRef: ModuleRef): Tool<EmailDraftCreateArg
         replyToMessageId: parsed.replyToMessageId,
       } as any;
       const res = await svc.createDraft(draft);
-      return EmailDraftCreateOut.parse({ ok: true, draftId: res.draftId, threadId: res.threadId });
+      return EmailDraftCreateOut.parse({ ok: true, draftId: res.draftId, messageId: (res as any).messageId, threadId: res.threadId });
     },
   };
 }

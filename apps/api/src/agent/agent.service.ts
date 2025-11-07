@@ -62,13 +62,15 @@ export class AgentService {
     const runId = randomUUID();
     const traceId = randomUUID();
 
+    const numericUserId = Number.parseInt(args.userId, 10);
+    const numericTeamId = args.teamId ? Number.parseInt(args.teamId, 10) : undefined;
     const state: RunState = {
       input: { prompt: args.prompt, messages: args.messages },
       mode: 'PREVIEW',
       ctx: {
         runId,
-        userId: args.userId,
-        teamId: args.teamId,
+        userId: Number.isFinite(numericUserId) ? numericUserId : 0,
+        teamId: Number.isFinite(numericTeamId as any) ? (numericTeamId as number) : undefined,
         scopes: [],
         traceId,
         tz: args.tz || 'UTC',
@@ -91,8 +93,8 @@ export class AgentService {
     const s2 = await withLlmContext(
       {
         runId,
-        userId: args.userId,
-        teamId: args.teamId,
+        userId: Number.isFinite(numericUserId) ? numericUserId : 0,
+        teamId: Number.isFinite(numericTeamId as any) ? (numericTeamId as number) : undefined,
         requestType: 'agent_plan_preview',
         apiEndpoint: '/agent/plan',
       },

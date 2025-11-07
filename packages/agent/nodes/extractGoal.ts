@@ -58,7 +58,7 @@ export const makeExtractGoal = (llm: LLM): Node<RunState> => {
       timezone: tz,
       todayISO,
       user: {
-        id: s.ctx.userId,
+        id: String(s.ctx.userId),
         name: (meta.userName as string | undefined) || undefined,
         email: (meta.userEmail as string | undefined) || undefined,
       },

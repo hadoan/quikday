@@ -16,7 +16,7 @@ export class CurrentUserInterceptor implements NestInterceptor {
         : [];
 
     const ctx = {
-      userId: claims.sub ?? hdr('x-user-id') ?? null,
+      userSub: claims.sub ?? hdr('x-user-id') ?? null,
       teamId: claims.teamId ?? hdr('x-team-id') ?? null,
       scopes,
       impersonatorId: claims.impersonatorId ?? hdr('x-impersonator-id') ?? null,

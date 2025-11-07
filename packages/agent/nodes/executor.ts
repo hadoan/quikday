@@ -9,7 +9,84 @@ import { events } from '../observability/events.js';
 import { redactForLog } from '../guards/redaction.js';
 import { Queue, QueueEvents, JobsOptions } from 'bullmq';
 
+/** Generic heuristic to determine if a tool result has meaningful output. */
+function computeHasOutput(result: any): boolean {
+  if (result === null || result === undefined) return false;
+  if (typeof result === 'string') return result.trim().length > 0;
+  if (typeof result === 'number' || typeof result === 'boolean') return true;
+  if (Array.isArray(result)) return result.length > 0;
+  if (typeof result === 'object') {
+    // Generic array/object heuristic (no hardcoded keys):
+    // - If any top-level array property is non-empty → has output
+    // - If there are array properties but all are empty AND there are no other meaningful fields → no output
+    // - Otherwise continue to other checks
+    const entries = Object.entries(result as any);
+    let sawArray = false;
+    let anyArrayNonEmpty = false;
+    let hasOtherMeaningful = false;
+    for (const [, v] of entries) {
+      if (Array.isArray(v)) {
+        sawArray = true;
+        if (v.length > 0) anyArrayNonEmpty = true;
+      } else if (v !== null && v !== undefined) {
+        if (typeof v === 'string') {
+          if (v.trim().length > 0) hasOtherMeaningful = true;
+        } else if (typeof v === 'number' || typeof v === 'boolean') {
+          hasOtherMeaningful = true;
+        } else if (typeof v === 'object') {
+          if (Object.keys(v).length > 0) hasOtherMeaningful = true;
+        }
+      }
+    }
+    if (sawArray) {
+      if (anyArrayNonEmpty) return true;
+      // If we saw array fields and all are empty, treat as no output
+      // even if flags like { ok: true } are present.
+      return false;
+    }
+    // If a numeric count is present and zero and no other fields, treat as no output
+    if ('count' in (result as any) && Number((result as any).count) === 0) {
+      // Check if there are any other meaningful fields besides count
+      const keys = Object.keys(result as any).filter((k) => k !== 'count');
+      const hasOtherMeaningful = keys.some((k) => {
+        const v = (result as any)[k];
+        if (v === null || v === undefined) return false;
+        if (typeof v === 'string') return v.trim().length > 0;
+        if (typeof v === 'number' || typeof v === 'boolean') return true;
+        if (Array.isArray(v)) return v.length > 0;
+        if (typeof v === 'object') return Object.keys(v).length > 0;
+        return Boolean(v);
+      });
+      if (!hasOtherMeaningful) return false;
+    }
+    return Object.keys(result).length > 0;
+  }
+  return Boolean(result);
+}
+
 type Json = string | number | boolean | null | Json[] | { [k: string]: Json };
+
+/** Render a simple Markdown table for top-level key/value pairs. */
+function toSimpleTable(args: Record<string, any>): string {
+  try {
+    const entries = Object.entries(args ?? {});
+    if (entries.length === 0) return 'No inputs';
+    const shorten = (v: any) => {
+      if (v === null || v === undefined) return '';
+      if (typeof v === 'string') return v.length > 200 ? v.slice(0, 197) + '…' : v;
+      try {
+        const s = JSON.stringify(v);
+        return s.length > 200 ? s.slice(0, 197) + '…' : s;
+      } catch {
+        return String(v);
+      }
+    };
+    const rows = entries.map(([k, v]) => `| ${k} | ${shorten(v)} |`).join('\n');
+    return ['| Field | Value |', '| --- | --- |', rows].join('\n');
+  } catch {
+    return 'No inputs';
+  }
+}
 
 /** Safe JSON clone for event payloads (drops functions/undefined/cycles). */
 function toJson(value: unknown): Json {
@@ -112,7 +189,7 @@ function resolvePlaceholders(
         const [, stepNum, fieldPath] = simpleMatch;
         const stepId = `step-${stepNum}`;
         const stepResult = stepResults.get(stepId);
-        
+
         if (stepResult) {
           // Navigate the field path (e.g., "threads.0.threadId")
           const fields = fieldPath.split('.');
@@ -121,7 +198,7 @@ function resolvePlaceholders(
             val = val?.[field];
             if (val === undefined) break;
           }
-          
+
           // Safety check: If the resolved value is an array or complex object,
           // and it wasn't explicitly meant for expansion (no [*] marker),
           // convert it to a string representation or undefined to prevent
@@ -258,7 +335,7 @@ function expandStepForArray(
   // Create one step per array item
   const expandedSteps = array.map((item, idx) => {
     const expandedArgs: any = {};
-    
+
     for (const [key, value] of Object.entries(resolved)) {
       if (value && typeof value === 'object' && '$expand' in value) {
         const { subField } = value as any;
@@ -310,7 +387,7 @@ export const executor: Node<RunState, RunEventBus> = async (s, eventBus) => {
   const commits: Array<{ stepId: string; result: unknown }> = [];
   const undo: Array<{ stepId: string; tool: string; args: unknown }> = [];
   const stepResults = new Map<string, any>(); // Store results by step ID
-  
+
   // ──────────────────────────────────────────────────────────────────────────
   // APPROVED STEPS TRACKING
   // ──────────────────────────────────────────────────────────────────────────
@@ -364,7 +441,7 @@ export const executor: Node<RunState, RunEventBus> = async (s, eventBus) => {
     if (!q || !stepQueueEvents) {
       // Fallback to direct call if queue not available
       return runWithCurrentUser(
-        { userId: s.ctx.userId, teamId: s.ctx.teamId ?? null, scopes: s.ctx.scopes },
+        ({ userSub: s.ctx.userId ? String(s.ctx.userId) : null, teamId: s.ctx.teamId ? Number(s.ctx.teamId) : null, scopes: s.ctx.scopes } as any),
         () => registry.call(toolName, args, s.ctx)
       );
     }
@@ -378,8 +455,8 @@ export const executor: Node<RunState, RunEventBus> = async (s, eventBus) => {
       backoff: { type: 'exponential', delay: 1000 },
     };
     const __ctx = {
-      userId: s.ctx.userId,
-      teamId: s.ctx.teamId ?? null,
+      userSub: s.ctx.userId ? String(s.ctx.userId) : null,
+      teamId: s.ctx.teamId ? Number(s.ctx.teamId) : null,
       scopes: s.ctx.scopes,
       traceId: s.ctx.traceId,
       tz: s.ctx.tz,
@@ -407,9 +484,9 @@ export const executor: Node<RunState, RunEventBus> = async (s, eventBus) => {
 
   while (planQueue.length > 0) {
     const step = planQueue.shift()!;
-    
+
     console.log(`[executor] Processing step: ${step.id} (${step.tool}), queue remaining: ${planQueue.length}`);
-    
+
     // Skip if already processed (from expansion)
     if (processedStepIds.has(step.id)) {
       console.log(`[executor] Skipping already processed step: ${step.id}`);
@@ -422,7 +499,7 @@ export const executor: Node<RunState, RunEventBus> = async (s, eventBus) => {
 
     // Check if this step needs array expansion
     const expanded = expandStepForArray(step, stepResults);
-    
+
     if (expanded.length > 1) {
       // Array expansion happened - add all expanded steps to front of queue
       planQueue.unshift(...expanded);
@@ -433,9 +510,27 @@ export const executor: Node<RunState, RunEventBus> = async (s, eventBus) => {
     // Take the first (and only) expanded step
     const currentStep = expanded[0] || step;
 
+    // Dependency gating: skip this step if any of its dependencies had no output
+    try {
+      const baseId = (currentStep.id.match(/^step-\d+/) || [currentStep.id])[0];
+      const planArr = Array.isArray(s.scratch?.plan) ? (s.scratch!.plan as any[]) : [];
+      const planEntry = planArr.find((p) => p && p.id === baseId);
+      const deps: string[] = Array.isArray(planEntry?.dependsOn) ? planEntry.dependsOn : [];
+      const blocked = deps.some((depId) => {
+        const dep = planArr.find((p) => p && p.id === depId);
+        return dep?.hasOutput === false;
+      });
+      if (blocked) {
+        console.log(`[executor] Skipping ${currentStep.id} due to dependency without output`);
+        processedStepIds.add(currentStep.id);
+        commits.push({ stepId: currentStep.id, result: { skipped: true, reason: 'dependency_no_output' } });
+        continue;
+      }
+    } catch { }
+
     // Resolve placeholders in args
     const { resolved: resolvedArgs } = resolvePlaceholders(currentStep.args, stepResults);
-    
+
     // Merge answers from scratch into resolved args
     // This ensures user-provided answers (e.g., "to" for email recipient) are included
     const answers = (s.scratch?.answers ?? {}) as Record<string, unknown>;
@@ -488,19 +583,19 @@ export const executor: Node<RunState, RunEventBus> = async (s, eventBus) => {
             console.warn(`[executor] Removing unresolved expansion marker from field "${k}":`, v);
             return [k, undefined];
           }
-          
+
           // Remove strings that contain unresolved array expansion placeholders
           // e.g., "Re: $step-01.messages[*].subject" should be removed entirely
           if (typeof v === 'string' && v.includes('[*]')) {
             console.warn(`[executor] Removing field "${k}" with unresolved array placeholder: "${v}"`);
             return [k, undefined];
           }
-          
+
           return [k, v];
         })
         .filter(([_, v]) => v !== undefined) // Remove undefined values
     );
-    
+
     let args: any = cleanArgs;
     if (isChat) {
       // Try tool schema if available; otherwise accept as-is for resilience
@@ -545,7 +640,7 @@ export const executor: Node<RunState, RunEventBus> = async (s, eventBus) => {
     // ──────────────────────────────────────────────────────────────────────────
     if (!isChat && isHighRisk && !isApprovedStep(currentStep.id, isHighRisk)) {
       console.log(`[executor] High-risk tool detected: ${currentStep.tool} (step: ${currentStep.id}). Requesting approval...`);
-      
+
       // Surface approval-needed to subscribers with step details
       try {
         events.approvalAwaiting(s, eventBus, [
@@ -555,13 +650,13 @@ export const executor: Node<RunState, RunEventBus> = async (s, eventBus) => {
         // Event emission failure is non-fatal, but log for debugging
         console.warn(`[executor] Failed to emit approval.awaiting event:`, eventErr);
       }
-      
+
       // Halt graph execution and wait for user approval
       const err: any = new Error('GRAPH_HALT_AWAITING_APPROVAL');
       err.code = 'GRAPH_HALT_AWAITING_APPROVAL';
       err.payload = { stepId: currentStep.id, tool: currentStep.tool };
       (s as any).error = { node: 'executor', code: err.code, message: 'awaiting approval' };
-      
+
       console.log(`[executor] Execution halted for approval. Step: ${currentStep.id}`);
       throw err;
     }
@@ -570,6 +665,25 @@ export const executor: Node<RunState, RunEventBus> = async (s, eventBus) => {
     if (!isChat) {
       const safeArgs = redactForLog(args);
       events.toolCalled(s, eventBus, currentStep.tool, safeArgs, currentStep.id);
+
+      // Also emit a lightweight UI message showing input params as a table
+      try {
+        const table = toSimpleTable(safeArgs as any);
+        await eventBus.publish(
+          s.ctx.runId,
+          {
+            type: 'assistant.delta',
+            payload: {
+              stepId: currentStep.id,
+              text: `Executing ${currentStep.tool} with inputs:\n\n${table}`,
+              ts: new Date().toISOString(),
+            },
+          },
+          CHANNEL_WEBSOCKET,
+        );
+      } catch {
+        // non-fatal
+      }
     }
 
     const t0 = globalThis.performance?.now?.() ?? Date.now();
@@ -579,7 +693,7 @@ export const executor: Node<RunState, RunEventBus> = async (s, eventBus) => {
         () =>
           (isChat
             ? runWithCurrentUser(
-                { userId: s.ctx.userId, teamId: s.ctx.teamId ?? null, scopes: s.ctx.scopes },
+                ({ userSub: s.ctx.userId ? String(s.ctx.userId) : null, teamId: s.ctx.teamId ? Number(s.ctx.teamId) : null, scopes: s.ctx.scopes } as any),
                 () => registry.call(currentStep.tool, args, s.ctx),
               )
             : runStepViaQueue(currentStep.id, currentStep.tool, args)
@@ -598,7 +712,7 @@ export const executor: Node<RunState, RunEventBus> = async (s, eventBus) => {
       if (!isChat) {
         const safeResult = redactForLog(result as any);
         events.toolSucceeded(s, eventBus, currentStep.tool, safeResult, duration, currentStep.id);
-        
+
         // Emit step.executed event with full details for persistence
         // Subscribers (like run processor) can listen to this to save to DB
         events.stepExecuted(s, eventBus, {
@@ -616,6 +730,18 @@ export const executor: Node<RunState, RunEventBus> = async (s, eventBus) => {
 
       // Store result for subsequent placeholder resolution
       stepResults.set(currentStep.id, result);
+
+      // Update hasOutput on the base plan step for dependency gating
+      try {
+        const baseId = (currentStep.id.match(/^step-\d+/) || [currentStep.id])[0];
+        const planArr = Array.isArray(s.scratch?.plan) ? (s.scratch!.plan as any[]) : [];
+        const idx = planArr.findIndex((p) => p && p.id === baseId);
+        if (idx >= 0) {
+          const updated = { ...planArr[idx], hasOutput: computeHasOutput(result) };
+          planArr[idx] = updated;
+          s.scratch = { ...(s.scratch || {}), plan: planArr } as any;
+        }
+      } catch { }
 
       // For chat.respond, send assistant message to UI
       if (

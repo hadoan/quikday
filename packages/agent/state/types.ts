@@ -5,8 +5,8 @@ export type Risk = 'low' | 'high';
 
 export interface RunCtx {
   runId: string;
-  userId: string;
-  teamId?: string;
+  userId: number;
+  teamId?: number;
   scopes: string[]; // least-privilege
   traceId: string;
   tz: string; // "Europe/Berlin"
@@ -23,6 +23,10 @@ export interface PlanStep {
   dependsOn?: string[];
   idempotencyKey?: string;
   costEstimateCents?: number;
+  // Execution-time flag set by executor after the step runs
+  // Indicates whether the step produced a meaningful output.
+  // Used by dependency gating to skip downstream steps when upstreams have no output.
+  hasOutput?: boolean;
 }
 // JSON-safe helpers
 type JsonPrimitive = string | number | boolean | null;

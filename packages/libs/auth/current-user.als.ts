@@ -9,5 +9,5 @@ export function runWithCurrentUser<T>(ctx: CurrentUserContext, fn: () => T): T {
 }
 
 export function getCurrentUserCtx(): CurrentUserContext {
-  return CurrentUserALS.getStore() ?? { userId: null, teamId: null, scopes: [] };
+  return CurrentUserALS.getStore() ?? { userSub: null, userId: null, teamId: null, scopes: [] };
 }

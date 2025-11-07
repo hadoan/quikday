@@ -1,6 +1,7 @@
 export type CurrentUserContext = {
-  userId: string | null;
-  teamId: string | null;
+  userSub: string | null;
+  userId: number | null;
+  teamId: number | null;
   scopes: string[];
   impersonatorId?: string | null;
   // Optional correlation fields

@@ -37,16 +37,36 @@ export function calendarSuggestSlots(moduleRef: ModuleRef): Tool<CalendarSuggest
     risk: 'low',
     async call(args) {
       const svc = await resolveGoogleCalendarService(moduleRef);
+      const tz = args.timezone || 'UTC';
       const windowStart = new Date(args.windowStart);
       const windowEnd = new Date(args.windowEnd);
       const durationMs = args.durationMinutes * 60 * 1000;
       const candidates: { start: Date; end: Date }[] = [];
       const stepMs = 30 * 60 * 1000; // 30-min step
-      for (let t = windowStart.getTime(); t + durationMs <= windowEnd.getTime(); t += stepMs) {
+
+      // Adjust for timezone by finding the start of the day in the target timezone
+      const startOfDay = new Date(windowStart);
+      startOfDay.setHours(9, 0, 0, 0);
+
+      for (let t = startOfDay.getTime(); t + durationMs <= windowEnd.getTime(); t += stepMs) {
         const s = new Date(t);
         const e = new Date(t + durationMs);
-        candidates.push({ start: s, end: e });
+
+        // Check if the slot is within working hours (9am-5pm) in the given timezone
+        const slotHour = s.getHours();
+        if (slotHour >= 9 && slotHour < 17) {
+          candidates.push({ start: s, end: e });
+        }
+
+        // Move to the next day if we've passed 5pm
+        if (slotHour >= 17) {
+          const nextDay = new Date(s);
+          nextDay.setDate(nextDay.getDate() + 1);
+          nextDay.setHours(9, 0, 0, 0);
+          t = nextDay.getTime() - stepMs; // Subtract stepMs because it will be added in the loop
+        }
       }
+
       const attendees = Array.isArray(args.attendees)
         ? (args.attendees as string[])
         : typeof args.attendees === 'string'

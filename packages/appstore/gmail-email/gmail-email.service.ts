@@ -160,10 +160,11 @@ export class GmailEmailService implements EmailService {
     });
     const data: any = resp.data;
     const draftId = typeof data?.id === 'string' ? data.id : '';
+    const messageId = typeof data?.message?.id === 'string' ? data.message.id : undefined;
     const threadId =
       typeof data?.message?.threadId === 'string' ? data.message.threadId : undefined;
-    this.logger.log(this.formatMeta({ op: 'createDraft.done', draftId, threadId }));
-    return { draftId, threadId };
+    this.logger.log(this.formatMeta({ op: 'createDraft.done', draftId, messageId, threadId }));
+    return { draftId, messageId, threadId };
   }
 
   async send(draft: DraftInput, opts?: SendOptions) {
