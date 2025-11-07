@@ -5,8 +5,8 @@ export type Risk = 'low' | 'high';
 
 export interface RunCtx {
   runId: string;
-  userId: string;
-  teamId?: string;
+  userId: number;
+  teamId?: number;
   scopes: string[]; // least-privilege
   traceId: string;
   tz: string; // "Europe/Berlin"

@@ -111,8 +111,8 @@ export function hooks(
       ts: new Date().toISOString(),
       payload: payload ? redactForLog(payload, redactionOpts) : undefined,
       traceId: s.ctx.traceId,
-      userId: s.ctx.userId,
-      teamId: s.ctx.teamId,
+      userId: String(s.ctx.userId),
+      teamId: s.ctx.teamId !== undefined ? String(s.ctx.teamId) : undefined,
     };
 
     // Broadcast via Redis pub/sub
@@ -204,8 +204,8 @@ function _emit(type: RunEventType, s: RunState, eventBus: RunEventBus, payload?:
     ts: new Date().toISOString(),
     payload: payload ? (type !== 'awaiting.input' ? redactForLog(payload) : payload) : undefined,
     traceId: s.ctx.traceId,
-    userId: s.ctx.userId,
-    teamId: s.ctx.teamId,
+    userId: String(s.ctx.userId),
+    teamId: s.ctx.teamId !== undefined ? String(s.ctx.teamId) : undefined,
   };
 
   // Convenience emitters publish to the worker channel by default so the

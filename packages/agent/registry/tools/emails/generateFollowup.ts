@@ -80,7 +80,7 @@ export function emailGenerateFollowup(
         temperature: 0.7,
         maxTokens: 500,
         metadata: {
-          userId: ctx.userId,
+          userId: Number(ctx.userId),
           runId: ctx.runId,
           requestType: 'email-followup-generation',
           // Surface sender identity for tracing/observability and downstream provider hooks

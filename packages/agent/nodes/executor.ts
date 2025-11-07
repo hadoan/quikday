@@ -189,7 +189,7 @@ function resolvePlaceholders(
         const [, stepNum, fieldPath] = simpleMatch;
         const stepId = `step-${stepNum}`;
         const stepResult = stepResults.get(stepId);
-        
+
         if (stepResult) {
           // Navigate the field path (e.g., "threads.0.threadId")
           const fields = fieldPath.split('.');
@@ -198,7 +198,7 @@ function resolvePlaceholders(
             val = val?.[field];
             if (val === undefined) break;
           }
-          
+
           // Safety check: If the resolved value is an array or complex object,
           // and it wasn't explicitly meant for expansion (no [*] marker),
           // convert it to a string representation or undefined to prevent
@@ -335,7 +335,7 @@ function expandStepForArray(
   // Create one step per array item
   const expandedSteps = array.map((item, idx) => {
     const expandedArgs: any = {};
-    
+
     for (const [key, value] of Object.entries(resolved)) {
       if (value && typeof value === 'object' && '$expand' in value) {
         const { subField } = value as any;
@@ -387,7 +387,7 @@ export const executor: Node<RunState, RunEventBus> = async (s, eventBus) => {
   const commits: Array<{ stepId: string; result: unknown }> = [];
   const undo: Array<{ stepId: string; tool: string; args: unknown }> = [];
   const stepResults = new Map<string, any>(); // Store results by step ID
-  
+
   // ──────────────────────────────────────────────────────────────────────────
   // APPROVED STEPS TRACKING
   // ──────────────────────────────────────────────────────────────────────────
@@ -441,7 +441,7 @@ export const executor: Node<RunState, RunEventBus> = async (s, eventBus) => {
     if (!q || !stepQueueEvents) {
       // Fallback to direct call if queue not available
       return runWithCurrentUser(
-        { userId: s.ctx.userId, teamId: s.ctx.teamId ?? null, scopes: s.ctx.scopes },
+        ({ userSub: s.ctx.userId ? String(s.ctx.userId) : null, teamId: s.ctx.teamId ? Number(s.ctx.teamId) : null, scopes: s.ctx.scopes } as any),
         () => registry.call(toolName, args, s.ctx)
       );
     }
@@ -455,8 +455,8 @@ export const executor: Node<RunState, RunEventBus> = async (s, eventBus) => {
       backoff: { type: 'exponential', delay: 1000 },
     };
     const __ctx = {
-      userId: s.ctx.userId,
-      teamId: s.ctx.teamId ?? null,
+      userSub: s.ctx.userId ? String(s.ctx.userId) : null,
+      teamId: s.ctx.teamId ? Number(s.ctx.teamId) : null,
       scopes: s.ctx.scopes,
       traceId: s.ctx.traceId,
       tz: s.ctx.tz,
@@ -484,9 +484,9 @@ export const executor: Node<RunState, RunEventBus> = async (s, eventBus) => {
 
   while (planQueue.length > 0) {
     const step = planQueue.shift()!;
-    
+
     console.log(`[executor] Processing step: ${step.id} (${step.tool}), queue remaining: ${planQueue.length}`);
-    
+
     // Skip if already processed (from expansion)
     if (processedStepIds.has(step.id)) {
       console.log(`[executor] Skipping already processed step: ${step.id}`);
@@ -499,7 +499,7 @@ export const executor: Node<RunState, RunEventBus> = async (s, eventBus) => {
 
     // Check if this step needs array expansion
     const expanded = expandStepForArray(step, stepResults);
-    
+
     if (expanded.length > 1) {
       // Array expansion happened - add all expanded steps to front of queue
       planQueue.unshift(...expanded);
@@ -526,11 +526,11 @@ export const executor: Node<RunState, RunEventBus> = async (s, eventBus) => {
         commits.push({ stepId: currentStep.id, result: { skipped: true, reason: 'dependency_no_output' } });
         continue;
       }
-    } catch {}
+    } catch { }
 
     // Resolve placeholders in args
     const { resolved: resolvedArgs } = resolvePlaceholders(currentStep.args, stepResults);
-    
+
     // Merge answers from scratch into resolved args
     // This ensures user-provided answers (e.g., "to" for email recipient) are included
     const answers = (s.scratch?.answers ?? {}) as Record<string, unknown>;
@@ -583,19 +583,19 @@ export const executor: Node<RunState, RunEventBus> = async (s, eventBus) => {
             console.warn(`[executor] Removing unresolved expansion marker from field "${k}":`, v);
             return [k, undefined];
           }
-          
+
           // Remove strings that contain unresolved array expansion placeholders
           // e.g., "Re: $step-01.messages[*].subject" should be removed entirely
           if (typeof v === 'string' && v.includes('[*]')) {
             console.warn(`[executor] Removing field "${k}" with unresolved array placeholder: "${v}"`);
             return [k, undefined];
           }
-          
+
           return [k, v];
         })
         .filter(([_, v]) => v !== undefined) // Remove undefined values
     );
-    
+
     let args: any = cleanArgs;
     if (isChat) {
       // Try tool schema if available; otherwise accept as-is for resilience
@@ -640,7 +640,7 @@ export const executor: Node<RunState, RunEventBus> = async (s, eventBus) => {
     // ──────────────────────────────────────────────────────────────────────────
     if (!isChat && isHighRisk && !isApprovedStep(currentStep.id, isHighRisk)) {
       console.log(`[executor] High-risk tool detected: ${currentStep.tool} (step: ${currentStep.id}). Requesting approval...`);
-      
+
       // Surface approval-needed to subscribers with step details
       try {
         events.approvalAwaiting(s, eventBus, [
@@ -650,13 +650,13 @@ export const executor: Node<RunState, RunEventBus> = async (s, eventBus) => {
         // Event emission failure is non-fatal, but log for debugging
         console.warn(`[executor] Failed to emit approval.awaiting event:`, eventErr);
       }
-      
+
       // Halt graph execution and wait for user approval
       const err: any = new Error('GRAPH_HALT_AWAITING_APPROVAL');
       err.code = 'GRAPH_HALT_AWAITING_APPROVAL';
       err.payload = { stepId: currentStep.id, tool: currentStep.tool };
       (s as any).error = { node: 'executor', code: err.code, message: 'awaiting approval' };
-      
+
       console.log(`[executor] Execution halted for approval. Step: ${currentStep.id}`);
       throw err;
     }
@@ -693,7 +693,7 @@ export const executor: Node<RunState, RunEventBus> = async (s, eventBus) => {
         () =>
           (isChat
             ? runWithCurrentUser(
-                { userId: s.ctx.userId, teamId: s.ctx.teamId ?? null, scopes: s.ctx.scopes },
+                ({ userSub: s.ctx.userId ? String(s.ctx.userId) : null, teamId: s.ctx.teamId ? Number(s.ctx.teamId) : null, scopes: s.ctx.scopes } as any),
                 () => registry.call(currentStep.tool, args, s.ctx),
               )
             : runStepViaQueue(currentStep.id, currentStep.tool, args)
@@ -712,7 +712,7 @@ export const executor: Node<RunState, RunEventBus> = async (s, eventBus) => {
       if (!isChat) {
         const safeResult = redactForLog(result as any);
         events.toolSucceeded(s, eventBus, currentStep.tool, safeResult, duration, currentStep.id);
-        
+
         // Emit step.executed event with full details for persistence
         // Subscribers (like run processor) can listen to this to save to DB
         events.stepExecuted(s, eventBus, {
@@ -741,7 +741,7 @@ export const executor: Node<RunState, RunEventBus> = async (s, eventBus) => {
           planArr[idx] = updated;
           s.scratch = { ...(s.scratch || {}), plan: planArr } as any;
         }
-      } catch {}
+      } catch { }
 
       // For chat.respond, send assistant message to UI
       if (

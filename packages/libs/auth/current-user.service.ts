@@ -10,16 +10,16 @@ export class CurrentUserService implements ICurrentUserService {
     private readonly prisma: { user: { findUnique: (q: any) => Promise<{ displayName?: string | null; email?: string | null } | null> } },
   ) {}
   getCurrentUserSub(): string | null {
-    return getCurrentUserCtx().userId;
+    return getCurrentUserCtx().userSub;
   }
-  getCurrentTeamId(): string | null {
+  getCurrentTeamId(): number | null {
     return getCurrentUserCtx().teamId;
   }
   getScopes(): string[] {
     return getCurrentUserCtx().scopes ?? [];
   }
   isAuthenticated(): boolean {
-    return !!getCurrentUserCtx().userId;
+    return !!getCurrentUserCtx().userSub;
   }
 
   /**

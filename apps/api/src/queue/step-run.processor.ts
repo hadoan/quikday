@@ -32,7 +32,7 @@ export class StepRunProcessor extends WorkerHost {
       const result = await runWithCurrentUser(__ctx, async () => {
         return registry.call(tool, args, {
           runId: runId,
-          userId: String(__ctx.userId),
+          userId: String((__ctx as any).userSub ?? ''),
           teamId: __ctx.teamId ?? undefined,
           scopes: __ctx.scopes ?? [],
           traceId: __ctx.traceId ?? `run:${runId}`,
@@ -51,4 +51,3 @@ export class StepRunProcessor extends WorkerHost {
     }
   }
 }
-

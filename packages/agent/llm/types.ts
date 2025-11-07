@@ -1,8 +1,8 @@
 export type Json = string | number | boolean | null | Json[] | { [k: string]: Json };
 
 export interface LlmCallMetadata {
-  userId: number | string;
-  teamId?: number | string | null;
+  userId: number;
+  teamId?: number | null;
   // Optional model override for this call (e.g., 'gpt-4o')
   model?: string;
   requestType?: string;
