@@ -1,6 +1,7 @@
 // packages/agent/nodes/planner.ts
 import type { Node } from '../runtime/graph.js';
 import type { RunState, PlanStep } from '../state/types.js';
+import { normalizePlanToExplicitExpansion } from './executor/planNormalize.js';
 import { events } from '../observability/events.js';
 import { z } from 'zod';
 import type { RunEventBus } from '@quikday/libs';
@@ -38,6 +39,10 @@ type AllowedTool = string;
 const StepInSchema = z.object({
   tool: z.string().refine((v) => getToolWhitelist().includes(v), { message: 'Tool not allowed' }),
   args: z.record(z.string(), z.any()).default({}),
+  // Optional map/vars extensions
+  expandOn: z.string().optional(),
+  expandKey: z.string().optional(),
+  binds: z.record(z.string(), z.string()).optional(),
 });
 
 // Planner LLM returns only steps
@@ -246,7 +251,10 @@ function patchAndHardenPlan(
   // Use validated steps
   steps = validatedSteps;
 
-  return { steps: finalizeSteps(steps as any) };
+  // Assign ids/dependsOn/risk
+  const finalized = finalizeSteps(steps as any);
+  const normalized = normalizePlanToExplicitExpansion(finalized);
+  return { steps: normalized };
 }
 
 /* ------------------ Preview Steps Generator ------------------ */

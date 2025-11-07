@@ -23,6 +23,14 @@ export interface PlanStep {
   dependsOn?: string[];
   idempotencyKey?: string;
   costEstimateCents?: number;
+  // Map-style expansion (AWS Step Functions Map semantics)
+  // expandOn: selector that resolves to an array (e.g., '$var.messages' or '$step-01.messages')
+  expandOn?: string;
+  // Optional stable key selector evaluated per item (e.g., '$each.id')
+  expandKey?: string;
+  // Bind parts of this step's result into named variables in scratch.vars
+  // Example: { messages: '$.messages' }
+  binds?: Record<string, string>;
   // Execution-time flag set by executor after the step runs
   // Indicates whether the step produced a meaningful output.
   // Used by dependency gating to skip downstream steps when upstreams have no output.
@@ -122,6 +130,10 @@ export interface RunState {
       context?: string; // contextual message explaining why we need this info
       goalDesc?: string; // the goal we're trying to achieve
     } | null;
+
+    // Named variables bound from previous step outputs (working memory)
+    // Example: { messages: EmailMessage[] }
+    vars?: Record<string, unknown>;
   };
   output?: {
     summary?: string;

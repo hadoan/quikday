@@ -588,14 +588,14 @@ export class GmailEmailService implements EmailService {
 
   private createRawMimeMessage(params: RawMimeParams): string {
     const { from, to, subject, htmlBody, cc = [], bcc = [], fromName, replyToMessageId } = params;
-    const fromHeader = fromName ? `${fromName} <${from}>` : from;
+    const fromHeader = fromName ? `${this.encodeHeaderWord(fromName)} <${from}>` : from;
     const lines: string[] = [];
 
     lines.push(`From: ${fromHeader}`);
     lines.push(`To: ${to.join(', ')}`);
     if (cc.length > 0) lines.push(`Cc: ${cc.join(', ')}`);
     if (bcc.length > 0) lines.push(`Bcc: ${bcc.join(', ')}`);
-    lines.push(`Subject: ${subject}`);
+    lines.push(`Subject: ${this.encodeHeaderWord(subject)}`);
     lines.push(`Date: ${new Date().toUTCString()}`);
     lines.push(`Message-ID: <${randomUUID()}@gmail.com>`);
 
@@ -646,6 +646,14 @@ export class GmailEmailService implements EmailService {
     const padding = base64.length % 4;
     const padded = padding > 0 ? base64.padEnd(base64.length + (4 - padding), '=') : base64;
     return Buffer.from(padded, 'base64').toString('utf8');
+  }
+  
+  // RFC 2047 encoded-word for non-ASCII header values (Subject, display names)
+  private encodeHeaderWord(value: string | undefined | null): string {
+    if (!value) return '';
+    if (/^[\x00-\x7F]*$/.test(value)) return value; // ASCII only
+    const b64 = Buffer.from(value, 'utf8').toString('base64');
+    return `=?UTF-8?B?${b64}?=`;
   }
 
   private parseAddressList(value?: string): EmailAddress[] {
