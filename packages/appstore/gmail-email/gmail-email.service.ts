@@ -588,14 +588,14 @@ export class GmailEmailService implements EmailService {
 
   private createRawMimeMessage(params: RawMimeParams): string {
     const { from, to, subject, htmlBody, cc = [], bcc = [], fromName, replyToMessageId } = params;
-    const fromHeader = fromName ? `${fromName} <${from}>` : from;
+    const fromHeader = fromName ? `${this.encodeHeaderWord(fromName)} <${from}>` : from;
     const lines: string[] = [];
 
     lines.push(`From: ${fromHeader}`);
     lines.push(`To: ${to.join(', ')}`);
     if (cc.length > 0) lines.push(`Cc: ${cc.join(', ')}`);
     if (bcc.length > 0) lines.push(`Bcc: ${bcc.join(', ')}`);
-    lines.push(`Subject: ${subject}`);
+    lines.push(`Subject: ${this.encodeHeaderWord(subject)}`);
     lines.push(`Date: ${new Date().toUTCString()}`);
     lines.push(`Message-ID: <${randomUUID()}@gmail.com>`);
 
