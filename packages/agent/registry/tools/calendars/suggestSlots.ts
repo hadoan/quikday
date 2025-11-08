@@ -95,15 +95,20 @@ export function calendarSuggestSlots(
       }
 
       // Check availability with optional buffers
+      // Prefer at most one slot per calendar day (spread across different dates)
       const out: { start: string; end: string }[] = [];
+      const selectedDates = new Set<string>(); // YYYY-MM-DD (UTC)
       for (const cand of candidates) {
         if (out.length >= (args.count ?? 5)) break;
+        const dayKey = cand.start.toISOString().slice(0, 10);
+        if (selectedDates.has(dayKey)) continue; // already picked a slot for this date
         const checkStart = new Date(cand.start.getTime() - bufBefore);
         const checkEnd = new Date(cand.end.getTime() + bufAfter);
         try {
           const res = await svc.checkAvailability({ start: checkStart, end: checkEnd, attendees });
           if (res?.available) {
             out.push({ start: cand.start.toISOString(), end: cand.end.toISOString() });
+            selectedDates.add(dayKey);
           }
         } catch (err) {
           console.warn('[calendar.suggestSlots] availability check failed for candidate', {
