@@ -295,17 +295,18 @@ export const executor: Node<RunState, RunEventBus> = async (s, eventBus) => {
         if (binds && typeof binds === 'object') {
           const prevVars = (s.scratch?.vars ?? {}) as Record<string, unknown>;
           const nextVars: Record<string, unknown> = { ...prevVars };
+          const normalize = (p: string) => p.replace(/\[(\d+)\]/g, '.$1');
           const sel = (expr: string) => {
             if (expr === '$') return result;
             if (expr.startsWith('$.'))
-              return expr
-                .slice(2)
+              return normalize(expr.slice(2))
                 .split('.')
+                .filter(Boolean)
                 .reduce((acc: any, k) => (acc == null ? undefined : acc[k]), result);
             if (expr.startsWith('$var.'))
-              return expr
-                .slice(5)
+              return normalize(expr.slice(5))
                 .split('.')
+                .filter(Boolean)
                 .reduce((acc: any, k) => (acc == null ? undefined : acc[k]), prevVars);
             if (expr.startsWith('$step-')) {
               const err: any = new Error('Step placeholders are not supported in binds. Use $ or $var.*');
