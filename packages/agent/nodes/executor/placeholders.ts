@@ -120,9 +120,22 @@ export function resolvePlaceholders(
           arr.forEach((item, idx) => {
             const a = item?.[startKey];
             const b = item?.[endKey];
-            const left = fmt(a, tzArg || tz, true);
-            const right = fmt(b, tzArg || tz, true);
-            lines.push(`${idx + 1}. ${left} → ${right}`);
+            // Format: "Nov 11, 2025, 9:00 AM → 9:30 AM"
+            // Show date + start time, then just end time (same day assumed)
+            const startDate = typeof a === 'string' || typeof a === 'number' ? new Date(a) : a;
+            const endDate = typeof b === 'string' || typeof b === 'number' ? new Date(b) : b;
+            if (!startDate || isNaN(startDate.valueOf()) || !endDate || isNaN(endDate.valueOf())) {
+              const left = fmt(a, tzArg || tz, false);
+              const right = fmt(b, tzArg || tz, false);
+              lines.push(`${idx + 1}. ${left} → ${right}`);
+              return;
+            }
+            const dateOpts: Intl.DateTimeFormatOptions = { dateStyle: 'medium', timeZone: tzArg || tz };
+            const timeOpts: Intl.DateTimeFormatOptions = { timeStyle: 'short', timeZone: tzArg || tz };
+            const datePart = new Intl.DateTimeFormat(undefined, dateOpts).format(startDate);
+            const startTime = new Intl.DateTimeFormat(undefined, timeOpts).format(startDate);
+            const endTime = new Intl.DateTimeFormat(undefined, timeOpts).format(endDate);
+            lines.push(`${idx + 1}. ${datePart}, ${startTime} → ${endTime}`);
           });
           return lines.join('\n');
         } catch {
