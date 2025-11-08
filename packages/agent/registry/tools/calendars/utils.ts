@@ -3,10 +3,11 @@ import { CALENDAR_FACTORY } from '@quikday/appstore/calendar/calendar.tokens';
 import type { CalendarFactory } from '@quikday/appstore/calendar/calendar.factory';
 import { CurrentUserService } from '@quikday/libs';
 import { PrismaService } from '@quikday/prisma';
+import { GoogleCalendarProviderService } from '@quikday/appstore-google-calendar';
 
 export const iso = (s: string) => s; // lightweight placeholder for shared ISO string shape
 
-export async function resolveGoogleCalendarService(moduleRef: ModuleRef): Promise<any> {
+export async function resolveGoogleCalendarService(moduleRef: ModuleRef): Promise<GoogleCalendarProviderService> {
   // Prefer factory so services get constructed with proper dependencies
   const factory = moduleRef.get(CALENDAR_FACTORY as any, { strict: false }) as
     | CalendarFactory

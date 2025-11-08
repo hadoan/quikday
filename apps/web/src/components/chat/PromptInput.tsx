@@ -60,7 +60,7 @@ export const PromptInput = ({
       {/* Mode Selector */}
       <div className="flex items-center justify-between">
         <div className="inline-flex items-center rounded-lg bg-muted p-1">
-          <button
+          {/* <button
             type="button"
             onClick={() => setMode('preview')}
             className={cn(
@@ -101,7 +101,7 @@ export const PromptInput = ({
           >
             <Zap className="h-3.5 w-3.5" />
             Auto
-          </button>
+          </button> */}
         </div>
         <p className="text-xs text-muted-foreground">
           Press ⌘+Enter to run
