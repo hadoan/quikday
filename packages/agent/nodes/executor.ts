@@ -2,7 +2,7 @@
 import type { Node } from '../runtime/graph.js';
 import type { RunState } from '../state/types.js';
 import type { RunEventBus } from '@quikday/libs';
-import { runWithCurrentUser } from '@quikday/libs';
+import { runWithCurrentUser, getCurrentUserCtx } from '@quikday/libs';
 import { CHANNEL_WEBSOCKET } from '@quikday/libs';
 import { registry } from '../registry/registry.js';
 import { events } from '../observability/events.js';
@@ -244,7 +244,7 @@ export const executor: Node<RunState, RunEventBus> = async (s, eventBus) => {
         () =>
           (isChat
             ? runWithCurrentUser(
-                ({ userSub: s.ctx.userId ? String(s.ctx.userId) : null, teamId: s.ctx.teamId ? Number(s.ctx.teamId) : null, scopes: s.ctx.scopes } as any),
+                getCurrentUserCtx(),
                 () => registry.call(currentStep.tool, args, s.ctx),
               )
             : runStepViaQueue(currentStep.id, currentStep.tool, args)

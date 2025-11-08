@@ -4,10 +4,11 @@ import type { CalendarFactory } from '@quikday/appstore/calendar/calendar.factor
 import { CurrentUserService } from '@quikday/libs';
 import { PrismaService } from '@quikday/prisma';
 import { GoogleCalendarProviderService } from '@quikday/appstore-google-calendar';
+import type { CalendarService } from '@quikday/appstore/calendar/calendar.service';
 
 export const iso = (s: string) => s; // lightweight placeholder for shared ISO string shape
 
-export async function resolveGoogleCalendarService(moduleRef: ModuleRef): Promise<GoogleCalendarProviderService> {
+export async function resolveGoogleCalendarService(moduleRef: ModuleRef): Promise<CalendarService> {
   // Prefer factory so services get constructed with proper dependencies
   const factory = moduleRef.get(CALENDAR_FACTORY as any, { strict: false }) as
     | CalendarFactory
@@ -16,7 +17,7 @@ export async function resolveGoogleCalendarService(moduleRef: ModuleRef): Promis
     const currentUser = moduleRef.get(CurrentUserService, { strict: false });
     const prisma = moduleRef.get(PrismaService, { strict: false });
     if (!currentUser || !prisma) throw new Error('Missing CurrentUserService or PrismaService');
-    return (factory as any).create('google', { currentUser, prisma });
+    return (factory as any).create('google', { currentUser, prisma }) as unknown as CalendarService;
   }
 
   // Fallback: resolve concrete service directly for compatibility
@@ -28,7 +29,7 @@ export async function resolveGoogleCalendarService(moduleRef: ModuleRef): Promis
       'GoogleCalendarProviderService not found in Nest container. Ensure GoogleCalendarModule is imported into the worker module so DI can provide it.',
     );
   }
-  return svc as any;
+  return (svc as unknown) as CalendarService;
 }
 
 export function normalizeAttendees(attendees?: string | string[]) {
