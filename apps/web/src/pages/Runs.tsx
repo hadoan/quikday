@@ -12,6 +12,7 @@ import { createRunListSocket } from '@/lib/ws/RunListSocket';
 import { mockRuns, mockTools, mockStats } from '@/data/mockRuns';
 import { useNavigate } from 'react-router-dom';
 import RunDetailDrawer from '@/components/runs/RunDetailDrawer';
+import { formatDateTime } from '@/lib/datetime/format';
 
 const STATUS_OPTIONS = [
   'queued',
@@ -154,8 +155,8 @@ export default function RunsPage() {
                       <td className="p-2"><span className="inline-flex items-center gap-1"><span className="h-2 w-2 rounded-full bg-emerald-500" />{r.status}</span></td>
                       <td className="p-2">{r.stepCount}</td>
                       <td className="p-2">{r.createdBy?.name || '—'}</td>
-                      <td className="p-2">{new Date(r.createdAt).toLocaleString()}</td>
-                      <td className="p-2">{new Date(r.lastEventAt).toLocaleString()}</td>
+                      <td className="p-2">{formatDateTime(r.createdAt)}</td>
+                      <td className="p-2">{formatDateTime(r.lastEventAt)}</td>
                     </tr>
                   ))}
                 </tbody>

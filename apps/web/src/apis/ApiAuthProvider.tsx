@@ -1,6 +1,8 @@
 import { useEffect, useRef } from 'react';
 import { useKindeAuth } from '@kinde-oss/kinde-auth-react';
 import { setAccessTokenProvider } from './client';
+import { fetchUserMe } from './users';
+import { setUserTimeZone } from '@/lib/datetime/format';
 
 export default function ApiAuthProvider() {
   const { getAccessToken, login } = useKindeAuth();
@@ -49,6 +51,18 @@ export default function ApiAuthProvider() {
     // Run once on mount to ensure audience alignment
     void checkAudience();
   }, [getAccessToken, login]);
+
+  // Fetch user profile to capture preferred timezone and cache it for formatting
+  useEffect(() => {
+    void (async () => {
+      try {
+        const me = await fetchUserMe();
+        if (me?.timeZone) setUserTimeZone(me.timeZone);
+      } catch {
+        // non-fatal; fallback to browser timezone
+      }
+    })();
+  }, []);
 
   // (User sync is triggered directly from KindeProvider onEvent in App.tsx)
 

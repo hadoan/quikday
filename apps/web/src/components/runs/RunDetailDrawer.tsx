@@ -8,6 +8,7 @@ import { getAppInstallProps } from '@/lib/utils/appConfig';
 import type { UiEvent, UiPlanStep, UiRunSummary } from '@/lib/datasources/DataSource';
 import { getDataSource } from '@/lib/flags/featureFlags';
 import { getAccessTokenProvider } from '@/apis/client';
+import { formatDateTime, formatTime } from '@/lib/datetime/format';
 
 interface Props {
   runId?: string;
@@ -93,6 +94,16 @@ export default function RunDetailDrawer({ runId, open, onClose }: Props) {
         obj,
         (key, value) => {
           if (key === '_raw') return '[omitted]';
+          // Localize common datetime fields for readability
+          if (
+            (key === 'start' || key === 'end' || key.endsWith('At') || key.endsWith('_at')) &&
+            typeof value === 'string'
+          ) {
+            const d = new Date(value);
+            if (!Number.isNaN(d.valueOf())) {
+              try { return formatDateTime(d); } catch {}
+            }
+          }
           if (typeof value === 'object' && value !== null) {
             if (seen.has(value as object)) return '[Circular]';
             seen.add(value as object);
@@ -134,7 +145,7 @@ export default function RunDetailDrawer({ runId, open, onClose }: Props) {
                 {loading && <div className="text-sm text-muted-foreground">Loading…</div>}
                 <div className="grid grid-cols-2 gap-3 text-sm">
                   <div><div className="text-muted-foreground">Status</div><div className="font-medium">{run?.status}</div></div>
-                  <div><div className="text-muted-foreground">Created</div><div className="font-medium">{run?.createdAt ? new Date(run.createdAt).toLocaleString() : '—'}</div></div>
+                  <div><div className="text-muted-foreground">Created</div><div className="font-medium">{run?.createdAt ? formatDateTime(run.createdAt) : '—'}</div></div>
                   <div><div className="text-muted-foreground">Mode</div><div className="font-medium">{run?.mode || 'auto'}</div></div>
                   <div><div className="text-muted-foreground">ID</div><div className="font-mono text-xs">{runId}</div></div>
                 </div>
@@ -231,7 +242,7 @@ export default function RunDetailDrawer({ runId, open, onClose }: Props) {
                   <div key={`${e.ts}-${i}`} className="border rounded p-2 text-xs">
                     <div className="flex items-center justify-between">
                       <div className="font-medium">{e.type}</div>
-                      <div className="text-muted-foreground">{new Date(e.ts).toLocaleTimeString()}</div>
+                      <div className="text-muted-foreground">{formatTime(e.ts)}</div>
                     </div>
                     {e.payload && (
                       <pre className="mt-1 whitespace-pre-wrap break-words">{safeStringify(e.payload)}</pre>

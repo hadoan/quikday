@@ -39,6 +39,7 @@ import type {
 import type { BackendStep } from '@/lib/adapters/backendToViewModel';
 import { trackDataSourceActive, trackChatSent, trackRunQueued } from '@/lib/telemetry/telemetry';
 import api from '@/apis/client';
+import { formatDateTime, formatTime } from '@/lib/datetime/format';
 
 const logger = createLogger('Index');
 
@@ -535,6 +536,30 @@ const Index = () => {
                       }),
                     );
                   }
+
+                  // Generic: surface any commit results that include presentation hints
+                  try {
+                    const commits = Array.isArray(output?.commits) ? output.commits : [];
+                    for (const c of commits) {
+                      const result: any = (c as any)?.result;
+                      const presentation = result?.presentation;
+                      if (presentation && typeof presentation === 'object') {
+                        const title = c?.stepId ? `Result • ${c.stepId}` : 'Result';
+                        const content = (() => {
+                          try { return JSON.stringify(result, null, 2); } catch { return '[unserializable]'; }
+                        })();
+                        newMessages.push(
+                          buildOutputMessage({
+                            title,
+                            content,
+                            type: 'json',
+                            data: result,
+                            presentation,
+                          }),
+                        );
+                      }
+                    }
+                  } catch {}
 
                   if (Array.isArray(output?.undo) && output.undo.length > 0) {
                     newMessages.push(buildUndoMessage(true));

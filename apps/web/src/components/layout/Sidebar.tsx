@@ -3,6 +3,7 @@ import { useNavigate, Link } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { cn } from '@/lib/utils';
+import { formatTime } from '@/lib/datetime/format';
 
 interface Run {
   id: string;
@@ -152,9 +153,7 @@ export const Sidebar = ({
                       )}
                     />
                   </div>
-                  <p className="text-xs text-sidebar-foreground/60">
-                    {new Date(run.timestamp).toLocaleTimeString()}
-                  </p>
+                  <p className="text-xs text-sidebar-foreground/60">{formatTime(run.timestamp)}</p>
                 </button>
               ))}
             </div>

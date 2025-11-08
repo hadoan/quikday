@@ -120,11 +120,19 @@ export interface UiLogData {
   length?: number;
 }
 
+export interface UiOutputDataPresentation {
+  type: 'slots' | 'table' | 'text' | 'json';
+  tz?: string; // 'user' | IANA tz
+  datetimePaths?: string[]; // JSONPath-lite like 'slots[*].start'
+  // Future: columns for 'table' type, currency, etc.
+}
+
 export interface UiOutputData {
   title: string;
   content: string;
   type: 'text' | 'summary' | 'markdown' | 'json';
   data?: unknown;
+  presentation?: UiOutputDataPresentation;
 }
 
 export interface UiParamsData {

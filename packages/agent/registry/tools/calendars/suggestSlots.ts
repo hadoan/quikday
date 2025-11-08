@@ -29,6 +29,14 @@ export const CalendarSuggestIn = z.object({
 export const CalendarSuggestOut = z.object({
   ok: z.boolean(),
   slots: z.array(z.object({ start: z.string(), end: z.string() })),
+  // Optional UI hints so frontends can render without hardcoding
+  presentation: z
+    .object({
+      type: z.enum(['slots', 'table', 'text']).default('slots'),
+      tz: z.string().optional(),
+      datetimePaths: z.array(z.string()).optional(),
+    })
+    .optional(),
 });
 export type CalendarSuggestArgs = z.infer<typeof CalendarSuggestIn>;
 export type CalendarSuggestResult = z.infer<typeof CalendarSuggestOut>;
@@ -119,7 +127,15 @@ export function calendarSuggestSlots(
         }
       }
 
-      return CalendarSuggestOut.parse({ ok: true, slots: out });
+      return CalendarSuggestOut.parse({
+        ok: true,
+        slots: out,
+        presentation: {
+          type: 'slots',
+          tz: args.timezone || 'user',
+          datetimePaths: ['slots[*].start', 'slots[*].end'],
+        },
+      });
     },
   };
 }

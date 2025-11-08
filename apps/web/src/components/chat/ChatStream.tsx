@@ -233,6 +233,8 @@ export function ChatStream({
                 title={od?.title || 'Output'}
                 content={String(od?.content || '')}
                 type={type}
+                data={od?.data}
+                presentation={(od as any)?.presentation}
               />
             </ChatMessage>
           );
