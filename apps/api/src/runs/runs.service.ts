@@ -683,6 +683,28 @@ export class RunsService {
       }
     }
     
+    // Enrich the plan with credential information from steps
+    if (run.plan && Array.isArray(run.plan) && run.steps && run.steps.length > 0) {
+      const enrichedPlan = (run.plan as any[]).map((planStep: any) => {
+        // Find matching step by planStepId or tool name
+        const matchingStep = run.steps.find(
+          (s) => s.planStepId === planStep.id || s.tool === planStep.tool
+        );
+        
+        if (matchingStep) {
+          return {
+            ...planStep,
+            appId: matchingStep.appId || undefined,
+            credentialId: matchingStep.credentialId || undefined,
+          };
+        }
+        
+        return planStep;
+      });
+      
+      return { ...run, plan: enrichedPlan };
+    }
+    
     return run;
   }
 

@@ -38,6 +38,9 @@ import type {
   UiMessage,
 } from '@/lib/datasources/DataSource';
 import type { BackendStep } from '@/lib/adapters/backendToViewModel';
+
+// Initialize data source at the top to avoid ReferenceError
+const dataSource = getDataSource();
 import { trackDataSourceActive, trackChatSent, trackRunQueued } from '@/lib/telemetry/telemetry';
 import api from '@/apis/client';
 import { formatDateTime, formatTime } from '@/lib/datetime/format';
@@ -94,6 +97,113 @@ const Chat = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const [prefill, setPrefill] = useState<string | undefined>(undefined);
+  
+  // Handle OAuth redirect with runId parameter (after app installation)
+  useEffect(() => {
+    const sp = new URLSearchParams(location.search);
+    const runIdParam = sp.get('runId');
+    
+    if (runIdParam) {
+      console.log('[Chat] OAuth redirect detected with runId:', runIdParam);
+      
+      // Clean up the URL (remove query params) first
+      navigate('/chat', { replace: true });
+      
+      // Check if there's pending install data in localStorage
+      (async () => {
+        try {
+          const pendingStr = localStorage.getItem('qd.pendingInstall');
+          if (pendingStr) {
+            const pending = JSON.parse(pendingStr);
+            console.log('[Chat] Found pending install data:', pending);
+            localStorage.removeItem('qd.pendingInstall');
+            
+            // Fetch the run from backend to get updated plan with credentials
+            const { run } = await dataSource.getRun(runIdParam);
+            console.log('[Chat] Loaded run after OAuth:', { 
+              runId: run.id, 
+              status: run.status,
+              hasGoal: !!run.goal,
+              hasPlan: Array.isArray(run.plan) && run.plan.length > 0,
+            });
+            
+            // Set this as the active run
+            setActiveRunId(run.id);
+            
+            // Update runs state with the fetched run showing plan + questions
+            setRuns((prev) => {
+              const idx = prev.findIndex((r) => r.id === run.id);
+              
+              // Build messages from the run data
+              const newMessages: UiRunSummary['messages'] = [];
+              
+              // Add user prompt
+              if (run.prompt) {
+                newMessages.push({
+                  role: 'user',
+                  content: run.prompt,
+                });
+              }
+              
+              // Add plan card if we have a plan
+              if (run.plan && Array.isArray(run.plan) && run.plan.length > 0) {
+                const goalData = run.goal as Record<string, unknown> | null;
+                const planData: UiPlanData = {
+                  intent: (goalData?.outcome as string) || 'Process request',
+                  tools: run.plan.map((s: any) => s.tool),
+                  actions: run.plan.map((s: any) => `Execute ${s.tool}`),
+                  mode: 'plan',
+                  steps: run.plan.map((step: any, idx: number) => ({
+                    id: step.id || `step-${idx}`,
+                    tool: step.tool || 'unknown',
+                    action: step.action as string | undefined,
+                    status: 'pending' as const,
+                    appId: step.appId,
+                    credentialId: step.credentialId,
+                  })),
+                };
+                newMessages.push({
+                  role: 'assistant',
+                  type: 'plan',
+                  data: planData,
+                });
+              }
+              
+              // Add questions panel (empty questions = "Ready to continue" if credentials are OK)
+              const missing = run.missing || [];
+              newMessages.push({
+                role: 'assistant',
+                type: 'questions',
+                data: {
+                  runId: run.id,
+                  questions: missing,
+                  steps: run.plan as any,
+                } satisfies UiQuestionsData,
+              });
+              
+              const updatedRun = {
+                ...run,
+                messages: newMessages,
+              };
+              
+              if (idx === -1) {
+                return [updatedRun, ...prev];
+              } else {
+                const next = [...prev];
+                next[idx] = updatedRun;
+                return next;
+              }
+            });
+          }
+        } catch (e) {
+          console.warn('[Chat] Failed to handle OAuth redirect:', e);
+          // Fallback: just set the runId and let normal loading happen
+          setActiveRunId(runIdParam);
+        }
+      })();
+    }
+  }, [location.search, navigate, dataSource]);
+  
   // Default to the most recent run if none selected,
   // unless a startNew query param is present (which triggers a fresh run).
   useEffect(() => {
@@ -120,8 +230,6 @@ const Chat = () => {
     return 'text';
   };
 
-  // Initialize data source
-  const dataSource = getDataSource();
   const { toast } = useToast();
   
   // Determine if navigation should be blocked based on active run state
@@ -205,6 +313,12 @@ const Chat = () => {
   // or if we only have a minimal stub without messages yet.
   useEffect(() => {
     if (!activeRunId) return;
+    
+    // Don't fetch temporary client-generated IDs (e.g., R-1234567890)
+    if (/^R-\d+$/.test(activeRunId)) {
+      console.log('[Chat] Skipping fetch for temporary runId:', activeRunId);
+      return;
+    }
 
     const existing = runs.find((r) => r.id === activeRunId);
     const hasMessages = Array.isArray(existing?.messages) && existing!.messages!.length > 0;

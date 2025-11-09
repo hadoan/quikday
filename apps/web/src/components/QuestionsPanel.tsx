@@ -423,6 +423,7 @@ export function QuestionsPanel({
                 <div className="shrink-0">
                   <InstallApp
                     {...getAppInstallProps(step.appId!)}
+                    returnTo={runId ? `${window.location.origin}/chat?runId=${runId}` : undefined}
                     onBeforeInstall={() => {
                       try {
                         if (runId) {
