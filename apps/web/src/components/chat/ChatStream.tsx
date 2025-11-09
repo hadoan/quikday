@@ -209,7 +209,8 @@ export function ChatStream({
 
           return (
             <ChatMessage key={i} role="assistant">
-              <LogCard logs={logs} />
+              {/* <LogCard logs={logs} /> */}
+              <></>
             </ChatMessage>
           );
         }
