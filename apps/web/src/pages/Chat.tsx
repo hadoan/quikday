@@ -14,6 +14,7 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { Button } from '@/components/ui/button';
 // Removed mockRuns usage to avoid seeding mock data
 import { Plug2, Plus, Loader2 } from 'lucide-react';
+import { useSidebarRuns } from '@/hooks/useSidebarRuns';
 import { useKindeAuth } from '@kinde-oss/kinde-auth-react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { getDataSource, getFeatureFlags } from '@/lib/flags/featureFlags';
@@ -47,6 +48,7 @@ const logger = createLogger('Chat');
 const Chat = () => {
   const [runs, setRuns] = useState<UiRunSummary[]>([]);
   const [activeRunId, setActiveRunId] = useState<string | undefined>(undefined);
+  const { runs: sidebarRuns } = useSidebarRuns(5);
   const [isToolsPanelOpen, setIsToolsPanelOpen] = useState(true);
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
   const [questions, setQuestions] = useState<Question[]>([]);
@@ -56,6 +58,10 @@ const Chat = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const [prefill, setPrefill] = useState<string | undefined>(undefined);
+  // Default to the most recent run if none selected
+  useEffect(() => {
+    if (!activeRunId && sidebarRuns.length > 0) setActiveRunId(sidebarRuns[0].id);
+  }, [activeRunId, sidebarRuns.length]);
 
   // Normalize question type from backend string to QuestionsPanel Question type
   const normalizeQuestionType = (t?: string): Question['type'] => {
@@ -153,6 +159,21 @@ const Chat = () => {
       })();
     }
   }, []);
+
+  // Ensure selecting a sidebar run loads its details if not present locally
+  useEffect(() => {
+    if (!activeRunId) return;
+    const exists = runs.some((r) => r.id === activeRunId);
+    if (exists) return;
+    (async () => {
+      try {
+        const { run } = await dataSource.getRun(activeRunId);
+        setRuns((prev) => [run, ...prev]);
+      } catch (e) {
+        // best-effort; real-time stream may still populate
+      }
+    })();
+  }, [activeRunId]);
 
   // Connect to WebSocket for real-time updates (if live mode)
   useEffect(() => {
@@ -1086,8 +1107,7 @@ const Chat = () => {
 
       <div className="flex h-screen w-full bg-background">
         <Sidebar
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          runs={runs as any}
+          runs={sidebarRuns}
           activeRunId={activeRunId}
           onSelectRun={handleSelectRun}
           collapsed={isSidebarCollapsed}

@@ -124,7 +124,7 @@ export default function RunDetailDrawer({ runId, open, onClose }: Props) {
         <div className="flex items-center justify-between p-4 border-b">
           <div>
             <div className="text-sm text-muted-foreground">Run Detail</div>
-            <div className="text-lg font-semibold">{run?.prompt || run?.summaryText || runId}</div>
+            <div className="text-lg">{run?.prompt || run?.summaryText || runId}</div>
           </div>
           <Button variant="ghost" size="icon" onClick={onClose} aria-label="Close">
             <X className="h-5 w-5" />

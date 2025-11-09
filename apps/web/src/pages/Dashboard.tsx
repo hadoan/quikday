@@ -11,7 +11,8 @@ import { ThemeToggle } from '@/components/theme/ThemeToggle';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Button } from '@/components/ui/button';
 import { Plug2 } from 'lucide-react';
-// Removed mockRuns usage to avoid seeding mock data
+import { useSidebarRuns } from '@/hooks/useSidebarRuns';
+import RunDetailDrawer from '@/components/runs/RunDetailDrawer';
 
 const stripControls = (s: string) => s.replace(/[\u0000-\u001F\u007F]/g, '');
 
@@ -20,6 +21,9 @@ export default function DashboardPage() {
   const [activeRunId, setActiveRunId] = useState<string | undefined>(undefined);
   const [isToolsPanelOpen, setIsToolsPanelOpen] = useState(false);
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
+  // Fetch latest 5 runs (same data as Runs page)
+  const { runs: sidebarRuns } = useSidebarRuns(5);
+  const [hasAutoSelected, setHasAutoSelected] = useState(false);
   const navigate = useNavigate();
   const { logout } = useKindeAuth();
 
@@ -28,6 +32,14 @@ export default function DashboardPage() {
       .then(setTemplates)
       .catch(() => setTemplates([]));
   }, []);
+
+  // Set default active run once on initial data load
+  useEffect(() => {
+    if (!hasAutoSelected && !activeRunId && sidebarRuns.length > 0) {
+      setActiveRunId(sidebarRuns[0].id);
+      setHasAutoSelected(true);
+    }
+  }, [hasAutoSelected, activeRunId, sidebarRuns.length]);
 
   // Auto-collapse sidebar on small screens
   useEffect(() => {
@@ -77,7 +89,7 @@ export default function DashboardPage() {
   return (
     <div className="flex h-screen w-full bg-background">
       <Sidebar
-        runs={[]}
+        runs={sidebarRuns}
         activeRunId={activeRunId}
         onSelectRun={setActiveRunId}
         collapsed={isSidebarCollapsed}
@@ -134,7 +146,7 @@ export default function DashboardPage() {
         </ScrollArea>
       </div>
 
-    
+      <RunDetailDrawer runId={activeRunId} open={!!activeRunId} onClose={() => setActiveRunId(undefined)} />
     </div>
   );
 }

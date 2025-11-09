@@ -9,12 +9,14 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { Button } from '@/components/ui/button';
 // Removed mockRuns usage to avoid seeding mock data
 import { Plug2, Search } from 'lucide-react';
+import { useSidebarRuns } from '@/hooks/useSidebarRuns';
 import { useKindeAuth } from '@kinde-oss/kinde-auth-react';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useNavigate } from 'react-router-dom';
 import api from '@/apis/client';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
+import RunDetailDrawer from '@/components/runs/RunDetailDrawer';
 
 type AppListItem = {
   title: string;
@@ -132,10 +134,20 @@ const Apps = () => {
     }
   };
   const [isToolsPanelOpen, setIsToolsPanelOpen] = useState(false);
+  const { runs: sidebarRuns } = useSidebarRuns(5);
+  const [hasAutoSelected, setHasAutoSelected] = useState(false);
   const navigate = useNavigate();
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
   const [category, setCategory] = useState<string>('All');
   const [query, setQuery] = useState('');
+
+  // Set default active run once on initial data load
+  useEffect(() => {
+    if (!hasAutoSelected && !activeRunId && sidebarRuns.length > 0) {
+      setActiveRunId(sidebarRuns[0].id);
+      setHasAutoSelected(true);
+    }
+  }, [hasAutoSelected, activeRunId, sidebarRuns.length]);
 
   // Collapse sidebar on small screens automatically
   useEffect(() => {
@@ -207,7 +219,7 @@ const Apps = () => {
   return (
     <div className="flex h-screen w-full bg-background">
       <Sidebar
-        runs={[]}
+        runs={sidebarRuns}
         activeRunId={activeRunId}
         onSelectRun={setActiveRunId}
         collapsed={isSidebarCollapsed}
@@ -297,7 +309,7 @@ const Apps = () => {
         </ScrollArea>
       </div>
 
-      
+      <RunDetailDrawer runId={activeRunId} open={!!activeRunId} onClose={() => setActiveRunId(undefined)} />
     </div>
   );
 };
