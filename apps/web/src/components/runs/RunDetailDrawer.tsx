@@ -23,6 +23,13 @@ export default function RunDetailDrawer({ runId, open, onClose }: Props) {
   const [events, setEvents] = useState<UiEvent[]>([]);
   const [parsed, setParsed] = useState<any | null>(null);
 
+  // Log when the drawer is opened for a given run
+  useEffect(() => {
+    if (open) {
+      console.log('[RunDetailDrawer] Opened', { runId });
+    }
+  }, [open, runId]);
+
   useEffect(() => {
     if (!open || !runId) return;
     const ds = getDataSource();
