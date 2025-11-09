@@ -4,6 +4,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Button } from '@/components/ui/button';
 import InstallApp from '@/components/apps/InstallApp';
+import MarkdownView from '@/components/common/MarkdownView';
 import { getAppInstallProps } from '@/lib/utils/appConfig';
 import type { UiEvent, UiPlanStep, UiRunSummary } from '@/lib/datasources/DataSource';
 import { getDataSource } from '@/lib/flags/featureFlags';
@@ -203,28 +204,30 @@ export default function RunDetailDrawer({ runId, open, onClose }: Props) {
                 </div>
                 {summaries.length > 0 && (
                   <div className="text-sm">
-                    <div className="text-muted-foreground">Summaries</div>
+                    <div className="text-muted-foreground mb-2">Summaries</div>
                     {summaries.length === 1 ? (
-                      <div className="font-medium whitespace-pre-wrap break-words">{summaries[0]}</div>
+                      <MarkdownView content={summaries[0]} />
                     ) : (
-                      <ul className="list-disc ml-5 space-y-1">
+                      <div className="space-y-3">
                         {summaries.map((s, i) => (
-                          <li key={i} className="font-medium whitespace-pre-wrap break-words">{s}</li>
+                          <div key={i} className="border-l-2 border-gray-300 dark:border-gray-700 pl-3">
+                            <MarkdownView content={s} />
+                          </div>
                         ))}
-                      </ul>
+                      </div>
                     )}
                   </div>
                 )}
                 {parsed?.diff?.summary && (
                   <div className="text-sm">
-                    <div className="text-muted-foreground">Plan Summary</div>
-                    <div className="font-medium">{parsed.diff.summary}</div>
+                    <div className="text-muted-foreground mb-2">Plan Summary</div>
+                    <MarkdownView content={parsed.diff.summary} />
                   </div>
                 )}
                 {parsed?.summary && (
                   <div className="text-sm">
-                    <div className="text-muted-foreground">Result</div>
-                    <div className="font-medium whitespace-pre-wrap break-words">{parsed.summary}</div>
+                    <div className="text-muted-foreground mb-2">Result</div>
+                    <MarkdownView content={parsed.summary} />
                   </div>
                 )}
               </div>

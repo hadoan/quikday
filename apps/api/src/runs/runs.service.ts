@@ -235,6 +235,7 @@ export class RunsService {
   // List Runs (list projection + filters/sort/pagination)
   // ----------------------------------------------------------------------------
   async list(params: {
+    userId?: string;
     page?: number;
     pageSize?: number;
     status?: string[];
@@ -243,7 +244,7 @@ export class RunsService {
     sortDir?: 'asc' | 'desc';
   }) {
     const teamId = this.current.getCurrentTeamId();
-    const userSub = this.current.getCurrentUserSub(); // This is the Kinde sub ID (string)
+    const userSub = params.userId || this.current.getCurrentUserSub(); // This is the Kinde sub ID (string)
     if (!userSub) throw new UnauthorizedException('Not authenticated');
     
     // Look up the user by their Kinde sub to get the numeric database ID
@@ -255,7 +256,7 @@ export class RunsService {
 
     const page = Math.max(1, Number(params.page ?? 1));
     const pageSize = Math.min(100, Math.max(1, Number(params.pageSize ?? 25)));
-    const where: any = {};
+    const where: any = { userId: numericUserId }; // CRITICAL: Filter by userId to prevent cross-user data access
     if (teamId) where.teamId = Number(teamId);
     if (params.status && params.status.length) where.status = { in: params.status };
     if (params.q && params.q.trim()) {
@@ -657,15 +658,31 @@ export class RunsService {
     return Array.from(scopes);
   }
 
-  async get(id: string) {
+  async get(id: string, userSub?: string) {
     const run = await this.prisma.run.findUnique({
       where: { id },
       include: {
         steps: true,
         effects: true,
+        User: true, // Include user to verify ownership
       },
     });
     if (!run) throw new NotFoundException('Run not found');
+    
+    // If userSub is provided, verify ownership
+    if (userSub) {
+      // Look up the user by their Kinde sub to get the numeric database ID
+      const user = await this.prisma.user.findUnique({ where: { sub: userSub } });
+      if (!user) {
+        throw new UnauthorizedException('User not found in database. Please ensure user sync completed.');
+      }
+      
+      // Verify the run belongs to this user
+      if (run.userId !== user.id) {
+        throw new NotFoundException('Run not found'); // Don't reveal existence to unauthorized users
+      }
+    }
+    
     return run;
   }
 

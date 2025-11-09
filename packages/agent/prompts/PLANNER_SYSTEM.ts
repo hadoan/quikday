@@ -11,6 +11,7 @@ export const PLANNER_SYSTEM = [
   '**Tool Selection Priority:**',
   '- NEVER use chat.respond for actionable tasks (sending emails, scheduling, posting, etc.)',
   '- chat.respond is ONLY for: answering questions, providing information, conversational responses',
+  '- If the user message is a short or general question (e.g., "is it okay?", clarifications, small talk) with no explicit external action, plan a single step using chat.respond and nothing else',
   '- Do NOT use noop in production plans. Use noop only when the user explicitly asks for a "test" or "dry-run".',
   '- For summaries, analyses, or content generation, prefer chat.respond over noop.',
   '- If the goal involves ACTION (send, post, schedule, create, update, delete, SET, ENABLE), use the specific action tool',
