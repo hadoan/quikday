@@ -158,6 +158,7 @@ export interface UiQuestionItem {
 export interface UiQuestionsData {
   runId?: string;
   questions: UiQuestionItem[];
+  steps?: UiPlanStep[];
 }
 
 export interface UiConfigData {

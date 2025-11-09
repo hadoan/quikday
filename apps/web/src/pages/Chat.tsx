@@ -125,15 +125,14 @@ const Chat = () => {
   const { toast } = useToast();
   
   // Determine if navigation should be blocked based on active run state
+  // Don't block on 'planning' status since user may need to install apps
   const hasActiveWork = Boolean(
     activeRun && 
     (activeRun.status === 'executing' || 
-     activeRun.status === 'planning' || 
      activeRun.status === 'scheduled' ||
      activeRun.status === 'awaiting_approval' ||
      activeRun.status === 'awaiting_input' ||
-     isWaitingForResponse ||
-     questions.length > 0)
+     isWaitingForResponse)
   );
 
   // Debug log
@@ -361,12 +360,12 @@ const Chat = () => {
                       (m) => m && m.type === 'questions' && (m.data as any)?.runId === activeRunId,
                     );
                     if (!hasQuestionsCard) {
-                      console.log('[Index] 📝 Missing inputs detected in planner step; showing questions only');
+                      console.log('[Index] 📝 Missing inputs detected in planner step; showing questions only with', stepsPayload.length, 'steps');
                     if (missingFields.length > 0) {
                       const qMsg: UiMessage = {
                         role: 'assistant',
                         type: 'questions',
-                        data: { runId: activeRunId, questions: missingFields } satisfies UiQuestionsData,
+                        data: { runId: activeRunId, questions: missingFields, steps: stepsPayload as any } satisfies UiQuestionsData,
                       };
                       newMessages.push(qMsg);
                     }
@@ -594,9 +593,12 @@ const Chat = () => {
                   event.runId === activeRunId
                 ) {
                   const qs = (payload.questions as UiQuestionItem[]) || [];
+                  const steps = (payload.steps as any[]) || [];
                   console.log('[Index] 💭 Processing awaiting_input with questions:', {
                     questionsCount: qs.length,
                     questions: qs,
+                    stepsCount: steps.length,
+                    steps,
                   });
                   
                   // Check if questions card already exists (e.g., from plan_generated event)
@@ -610,12 +612,12 @@ const Chat = () => {
                   });
                   
                   if (!hasQuestionsCard) {
-                    console.log('[Index] ✅ Creating questions card with', qs.length, 'questions');
+                    console.log('[Index] ✅ Creating questions card with', qs.length, 'questions and', steps.length, 'steps');
                     // Persist questions as an inline chat message so it stays in place
                     const qMsg: UiMessage = {
                       role: 'assistant',
                       type: 'questions',
-                      data: { runId: activeRunId, questions: qs } satisfies UiQuestionsData,
+                      data: { runId: activeRunId, questions: qs, steps } satisfies UiQuestionsData,
                     };
                     newMessages.push(qMsg);
                   } else {
@@ -1021,6 +1023,7 @@ const Chat = () => {
               data: {
                 runId: questionsRunId,
                 questions: missing,
+                steps: plan as any, // Include plan steps for credential checking
               } satisfies UiQuestionsData,
             });
           } else if (!onlyChatRespond) {
@@ -1032,6 +1035,7 @@ const Chat = () => {
               data: {
                 runId: questionsRunId,
                 questions: [],
+                steps: plan as any, // Include plan steps for credential checking
               } satisfies UiQuestionsData,
             });
           }

@@ -1,5 +1,9 @@
 import * as React from 'react';
 import { getDataSource } from '@/lib/flags/featureFlags';
+import { AlertCircle } from 'lucide-react';
+import InstallApp from '@/components/apps/InstallApp';
+import { getAppInstallProps } from '@/lib/utils/appConfig';
+import api from '@/apis/client';
 
 export type Question = {
   key: string;
@@ -20,6 +24,14 @@ export type Question = {
   required?: boolean; // default true
   placeholder?: string;
   defaultValue?: string | string[] | number;
+};
+
+export type StepInfo = {
+  id: string;
+  tool: string;
+  appId?: string;
+  credentialId?: number | null;
+  action?: string;
 };
 
 // NOTE: This component implements the UI contract for rendering a set of
@@ -77,10 +89,12 @@ function EmailListInput({
 export function QuestionsPanel({
   runId,
   questions,
+  steps,
   onSubmitted,
 }: {
   runId: string;
   questions: Question[];
+  steps?: StepInfo[];
   onSubmitted?: () => void;
 }) {
   const [answers, setAnswers] = React.useState<Record<string, unknown>>({});
@@ -88,6 +102,31 @@ export function QuestionsPanel({
   const [submitted, setSubmitted] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
   const [fieldErrors, setFieldErrors] = React.useState<Record<string, string | null>>({});
+
+  // Check if any steps are missing credentials
+  const stepsNeedingInstall = React.useMemo(() => {
+    if (!Array.isArray(steps)) {
+      console.log('[QuestionsPanel] No steps array provided:', steps);
+      return [];
+    }
+    console.log('[QuestionsPanel] Checking steps for missing credentials:', steps);
+    const missing = steps.filter(
+      (step) => step.appId && (step.credentialId === null || step.credentialId === undefined)
+    );
+    console.log('[QuestionsPanel] Steps needing install:', missing);
+    return missing;
+  }, [steps]);
+
+  const hasMissingCredentials = stepsNeedingInstall.length > 0;
+  
+  React.useEffect(() => {
+    console.log('[QuestionsPanel] State update:', {
+      questionsCount: questions.length,
+      stepsCount: steps?.length || 0,
+      stepsNeedingInstallCount: stepsNeedingInstall.length,
+      hasMissingCredentials,
+    });
+  }, [questions, steps, stepsNeedingInstall, hasMissingCredentials]);
 
   // Source options from backend; no hardcoded defaults
   const getOptionsForQuestion = React.useCallback((q: Question): string[] => {
@@ -206,6 +245,21 @@ export function QuestionsPanel({
       className="space-y-3 border rounded p-3 sm:p-4 max-w-4xl mx-auto bg-card"
       onSubmit={async (e) => {
         e.preventDefault();
+        
+        console.log('[QuestionsPanel] Form submit attempted:', {
+          hasMissingCredentials,
+          stepsNeedingInstallCount: stepsNeedingInstall.length,
+          stepsNeedingInstall,
+        });
+        
+        // Block submission if credentials are missing
+        if (hasMissingCredentials) {
+          console.log('[QuestionsPanel] BLOCKED: Missing credentials!');
+          setError('Please install all required apps before continuing.');
+          return;
+        }
+        
+        console.log('[QuestionsPanel] Proceeding with submission...');
         setLoading(true);
         setError(null);
         // Validate all fields up front and block submit when invalid
@@ -327,17 +381,76 @@ export function QuestionsPanel({
       <h4 className="font-medium">
         {submitted
           ? 'Details Submitted'
-          : (Array.isArray(questions) && questions.length === 0)
-            ? 'Ready to continue'
-            : 'Missing details'}
+          : hasMissingCredentials
+            ? 'Apps Need Installation'
+            : (Array.isArray(questions) && questions.length === 0)
+              ? 'Ready to continue'
+              : 'Missing details'}
       </h4>
       <p className="text-sm text-muted-foreground">
         {submitted
           ? 'Your information has been submitted. The run will continue automatically.'
-          : (Array.isArray(questions) && questions.length === 0)
-            ? 'No additional details are required. Click Continue to proceed.'
-            : 'Please provide the requested information to continue the run.'}
+          : hasMissingCredentials
+            ? 'Please install the required apps below before continuing.'
+            : (Array.isArray(questions) && questions.length === 0)
+              ? 'No additional details are required. Click Continue to proceed.'
+              : 'Please provide the requested information to continue the run.'}
       </p>
+
+      {/* Show steps that need credentials installed - BEFORE questions */}
+      {hasMissingCredentials && (
+        <div className="space-y-2 pt-2 border-t mt-3">
+          <div className="flex items-center gap-2">
+            <AlertCircle className="h-4 w-4 text-amber-500" />
+            <p className="text-xs font-medium text-amber-600 dark:text-amber-400 uppercase tracking-wide">
+              Required Apps
+            </p>
+          </div>
+          <div className="space-y-2">
+            {stepsNeedingInstall.map((step) => (
+              <div
+                key={step.id}
+                className="flex items-center justify-between gap-3 p-3 bg-amber-50 dark:bg-amber-900/10 border border-amber-200 dark:border-amber-800 rounded"
+              >
+                <div className="flex-1 min-w-0">
+                  <div className="text-sm font-medium text-foreground truncate">
+                    {step.tool}
+                  </div>
+                  <div className="text-xs text-muted-foreground">
+                    Connect {step.appId} to continue
+                  </div>
+                </div>
+                <div className="shrink-0">
+                  <InstallApp
+                    {...getAppInstallProps(step.appId!)}
+                    onBeforeInstall={() => {
+                      try {
+                        if (runId) {
+                          const payload = { runId, appId: step.appId, ts: Date.now() };
+                          localStorage.setItem('qd.pendingInstall', JSON.stringify(payload));
+                        }
+                      } catch {
+                        // ignore
+                      }
+                    }}
+                    onInstalled={async () => {
+                      try {
+                        if (runId) {
+                          await api.post(`/runs/${runId}/refresh-credentials`);
+                          // Reload the page or trigger a refresh to update the UI
+                          window.location.reload();
+                        }
+                      } catch (e) {
+                        console.warn('Failed to refresh credentials after install', e);
+                      }
+                    }}
+                  />
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       <div className="grid gap-3 mt-2">
         {questions.map((q) => {
@@ -544,11 +657,17 @@ export function QuestionsPanel({
         <div className="mt-4">
           <button
             type="submit"
-            className="px-3 py-1 rounded bg-black text-white hover:bg-black/90 transition-colors disabled:opacity-50"
-            disabled={loading || !allValid}
+            className="px-3 py-1 rounded bg-black text-white hover:bg-black/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            disabled={loading || !allValid || hasMissingCredentials}
+            title={hasMissingCredentials ? 'Install required apps first' : undefined}
           >
             {loading ? 'Submitting…' : 'Continue'}
           </button>
+          {hasMissingCredentials && (
+            <p className="text-xs text-amber-600 dark:text-amber-400 mt-2">
+              ⚠️ Please install the required apps above before continuing.
+            </p>
+          )}
         </div>
       )}
 

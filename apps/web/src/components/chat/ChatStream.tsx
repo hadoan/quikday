@@ -217,11 +217,13 @@ export function ChatStream({
         if (m.type === 'questions') {
           const qd = (m.data as UiQuestionsData) || ({} as UiQuestionsData);
           const qs: UiQuestionItem[] = Array.isArray(qd?.questions) ? qd.questions : [];
+          const steps = Array.isArray(qd?.steps) ? qd.steps : [];
           return (
             <ChatMessage key={i} role="assistant">
               <QuestionsPanel
                 runId={runId || ''}
-                questions={qs}
+                questions={qs as any}
+                steps={steps as any}
                 onSubmitted={() => {}}
               />
             </ChatMessage>
