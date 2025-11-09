@@ -11,6 +11,10 @@ import type {
   UiQuestionItem,
 } from '@/lib/datasources/DataSource';
 import { ChatMessage } from './ChatMessage';
+import MarkdownView from '@/components/common/MarkdownView';
+import { Button } from '@/components/ui/button';
+import { Copy } from 'lucide-react';
+import { useToast } from '@/hooks/use-toast';
 import { PlanCard } from '@/components/cards/PlanCard';
 import { RunCard } from '@/components/cards/RunCard';
 import { LogCard } from '@/components/cards/LogCard';
@@ -27,6 +31,7 @@ export function ChatStream({
   runId?: string;
   messages: UiRunSummary['messages'];
 }) {
+  const { toast } = useToast();
   const flags = getFeatureFlags();
   const dataSource = getDataSource();
 
@@ -264,8 +269,22 @@ export function ChatStream({
         return (
           <ChatMessage key={i} role="assistant">
             {m.content && (
-              <div className="inline-block max-w-[85%] bg-muted/60 rounded-xl px-5 py-3">
-                <p className="text-sm whitespace-pre-wrap">{m.content}</p>
+              <div className="inline-block max-w-[85%] bg-muted/60 rounded-xl px-5 py-4 relative">
+                <div className="absolute top-2 right-2">
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-7 w-7"
+                    onClick={() => {
+                      navigator.clipboard.writeText(String(m.content || ''));
+                      toast({ title: 'Copied', description: 'Response copied to clipboard' });
+                    }}
+                    aria-label="Copy response"
+                  >
+                    <Copy className="h-4 w-4" />
+                  </Button>
+                </div>
+                <MarkdownView content={String(m.content || '')} />
               </div>
             )}
           </ChatMessage>

@@ -18,7 +18,10 @@ function getToolWhitelist(): string[] {
   try {
     const names = registry.names();
     // Optionally filter internal tools if needed
-    return names.filter((n) => n && typeof n === 'string');
+    const allowNoop = String(process.env.PLANNER_ALLOW_NOOP || '').toLowerCase() === 'true';
+    return names
+      .filter((n) => n && typeof n === 'string')
+      .filter((n) => (allowNoop ? true : n !== 'noop'));
   } catch {
     // Fallback minimal set if registry not ready
     return ['chat.respond'];
@@ -27,7 +30,10 @@ function getToolWhitelist(): string[] {
 
 function getToolSchemas(): Array<{ name: string; description: string; args: any }> {
   try {
-    return registry.getSchemas();
+    const allowNoop = String(process.env.PLANNER_ALLOW_NOOP || '').toLowerCase() === 'true';
+    return registry
+      .getSchemas()
+      .filter((t) => (allowNoop ? true : t.name !== 'noop'));
   } catch {
     return [{ name: 'chat.respond', description: 'Generate a response', args: {} }];
   }

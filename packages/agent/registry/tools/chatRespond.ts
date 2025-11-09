@@ -8,6 +8,9 @@ import { DEFAULT_ASSISTANT_SYSTEM } from '../../prompts/DEFAULT_ASSISTANT_SYSTEM
 export const ChatRespondIn = z.object({
   prompt: z.string().optional(),
   system: z.string().optional(),
+  // Optional advanced controls; safe defaults if omitted
+  timeoutMs: z.number().optional(),
+  maxTokens: z.number().optional(),
 });
 export const ChatRespondOut = z.object({ message: z.string() });
 export type ChatRespondArgs = z.infer<typeof ChatRespondIn>;
@@ -28,12 +31,25 @@ export function chatRespondTool(
     risk: 'low',
 
     async call(args) {
+      const envTimeout = Number.parseInt(process.env.CHAT_RESPOND_TIMEOUT_MS || '', 10);
+      const envMaxTokens = Number.parseInt(process.env.CHAT_RESPOND_MAX_TOKENS || '', 10);
+      const timeoutMs = Number.isFinite(args.timeoutMs) && (args.timeoutMs as number) > 0
+        ? (args.timeoutMs as number)
+        : Number.isFinite(envTimeout) && envTimeout > 0
+        ? envTimeout
+        : 45_000; // sensible default to avoid premature aborts
+      const maxTokens = Number.isFinite(args.maxTokens) && (args.maxTokens as number) > 0
+        ? (args.maxTokens as number)
+        : Number.isFinite(envMaxTokens) && envMaxTokens > 0
+        ? envMaxTokens
+        : 1000;
+
       const text = await llm.text({
         system: args.system ?? DEFAULT_ASSISTANT_SYSTEM,
         user: args.prompt ?? '',
         temperature: 0.3,
-        maxTokens: 500,
-        timeoutMs: 15_000,
+        maxTokens,
+        timeoutMs,
       });
       const msg = (text ?? '').trim();
       return { message: msg.length ? msg : 'Okay.' };

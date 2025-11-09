@@ -44,7 +44,7 @@ export function emailSend(moduleRef: ModuleRef): Tool<EmailSendArgs, EmailSendRe
     apps: ['gmail-email'],
     scopes: [],
     rate: '60/m',
-    risk: 'low',
+    risk: 'high',
     async call(args, ctx: RunCtx) {
       const parsed = EmailSendIn.parse(args);
       const { parseEmailAddresses, validateEmailAddresses, formatEmailBody } = await getEmailUtils();
