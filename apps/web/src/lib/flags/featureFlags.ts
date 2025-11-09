@@ -6,7 +6,6 @@
  */
 
 import type { DataSource, DataSourceConfig } from '../datasources/DataSource';
-import { MockDataSource } from '../datasources/MockDataSource';
 import { ApiDataSource } from '../datasources/ApiDataSource';
 
 // ============================================================================
@@ -33,7 +32,7 @@ export interface FeatureFlags {
 // ============================================================================
 
 const DEFAULT_FLAGS: FeatureFlags = {
-  dataSource: 'mock',
+  dataSource: 'live',
   liveApprovals: true, // Enable by default for approval feature development
   liveUndo: false,
   liveCredentials: false,
@@ -51,7 +50,7 @@ function getEnvDataSource(): DataSourceType {
     return 'live';
   }
 
-  return 'mock';
+  return 'live';
 }
 
 function getQueryParam(name: string): string | null {
@@ -127,24 +126,15 @@ let dataSourceInstance: DataSource | null = null;
 export function getDataSource(config?: DataSourceConfig): DataSource {
   const flags = getFeatureFlags();
 
-  // Return cached instance if exists and same type
+  // Return cached instance if exists
   if (dataSourceInstance) {
-    const isMock = dataSourceInstance instanceof MockDataSource;
-    const shouldBeMock = flags.dataSource === 'mock';
-
-    if (isMock === shouldBeMock) {
-      return dataSourceInstance;
-    }
+    return dataSourceInstance;
   }
 
-  // Create new instance
-  if (flags.dataSource === 'live') {
-    console.log('[FeatureFlags] Using ApiDataSource (live)');
-    dataSourceInstance = new ApiDataSource(config);
-  } else {
-    console.log('[FeatureFlags] Using MockDataSource (mock)');
-    dataSourceInstance = new MockDataSource();
-  }
+  // Always use ApiDataSource
+  const mode = flags.dataSource;
+  console.log(`[FeatureFlags] Using ApiDataSource (${mode})`);
+  dataSourceInstance = new ApiDataSource(config);
 
   return dataSourceInstance;
 }

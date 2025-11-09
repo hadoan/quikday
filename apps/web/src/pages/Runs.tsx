@@ -9,7 +9,7 @@ import { Input } from '@/components/ui/input';
 import { Select, SelectTrigger, SelectContent, SelectItem, SelectValue } from '@/components/ui/select';
 import { useRunsQuery } from '@/hooks/useRuns';
 import { createRunListSocket } from '@/lib/ws/RunListSocket';
-import { mockRuns, mockTools, mockStats } from '@/data/mockRuns';
+import { mockRuns } from '@/data/mockRuns';
 import { useNavigate } from 'react-router-dom';
 import RunDetailDrawer from '@/components/runs/RunDetailDrawer';
 import { formatDateTime } from '@/lib/datetime/format';

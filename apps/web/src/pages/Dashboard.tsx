@@ -11,13 +11,13 @@ import { ThemeToggle } from '@/components/theme/ThemeToggle';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Button } from '@/components/ui/button';
 import { Plug2 } from 'lucide-react';
-import { mockRuns, mockTools, mockStats } from '@/data/mockRuns';
+// Removed mockRuns usage to avoid seeding mock data
 
 const stripControls = (s: string) => s.replace(/[\u0000-\u001F\u007F]/g, '');
 
 export default function DashboardPage() {
   const [templates, setTemplates] = useState<Template[]>([]);
-  const [activeRunId, setActiveRunId] = useState(mockRuns[0].id);
+  const [activeRunId, setActiveRunId] = useState<string | undefined>(undefined);
   const [isToolsPanelOpen, setIsToolsPanelOpen] = useState(false);
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
   const navigate = useNavigate();
@@ -77,7 +77,7 @@ export default function DashboardPage() {
   return (
     <div className="flex h-screen w-full bg-background">
       <Sidebar
-        runs={mockRuns}
+        runs={[]}
         activeRunId={activeRunId}
         onSelectRun={setActiveRunId}
         collapsed={isSidebarCollapsed}

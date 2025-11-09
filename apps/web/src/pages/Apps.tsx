@@ -7,7 +7,7 @@ import { UserMenu } from '@/components/layout/UserMenu';
 import { ThemeToggle } from '@/components/theme/ThemeToggle';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Button } from '@/components/ui/button';
-import { mockRuns, mockTools, mockStats } from '@/data/mockRuns';
+// Removed mockRuns usage to avoid seeding mock data
 import { Plug2, Search } from 'lucide-react';
 import { useKindeAuth } from '@kinde-oss/kinde-auth-react';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -121,7 +121,7 @@ const apps: AppListItem[] = [
 ];
 
 const Apps = () => {
-  const [activeRunId, setActiveRunId] = useState(mockRuns[0].id);
+  const [activeRunId, setActiveRunId] = useState<string | undefined>(undefined);
   const { logout } = useKindeAuth();
   const handleLogout = async () => {
     try {
@@ -207,7 +207,7 @@ const Apps = () => {
   return (
     <div className="flex h-screen w-full bg-background">
       <Sidebar
-        runs={mockRuns}
+        runs={[]}
         activeRunId={activeRunId}
         onSelectRun={setActiveRunId}
         collapsed={isSidebarCollapsed}
