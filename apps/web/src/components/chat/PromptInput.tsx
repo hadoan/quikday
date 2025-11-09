@@ -56,7 +56,7 @@ export const PromptInput = ({
   };
 
   return (
-    <form onSubmit={handleSubmit} className="w-full space-y-3">
+    <form onSubmit={handleSubmit} className="w-full space-y-2 sm:space-y-3">
       {/* Mode Selector */}
       <div className="flex items-center justify-between">
         <div className="inline-flex items-center rounded-lg bg-muted p-1">
@@ -103,13 +103,13 @@ export const PromptInput = ({
             Auto
           </button> */}
         </div>
-        <p className="text-xs text-muted-foreground">
+        <p className="text-xs text-muted-foreground hidden sm:block">
           Press ⌘+Enter to run
         </p>
       </div>
 
       {/* Input Area */}
-      <div className="relative flex items-end gap-3 p-4 bg-card border border-border rounded-xl shadow-sm">
+      <div className="relative flex items-end gap-2 sm:gap-3 p-3 sm:p-4 bg-card border border-border rounded-xl shadow-sm">
         <div className="flex-1">
           <Textarea
             value={prompt}
@@ -118,7 +118,7 @@ export const PromptInput = ({
             placeholder={placeholder}
             disabled={disabled}
             className={cn(
-              'min-h-[60px] resize-none border-0 bg-transparent p-0 focus-visible:ring-0 focus-visible:ring-offset-0',
+              'min-h-[60px] max-h-[200px] resize-none border-0 bg-transparent p-0 focus-visible:ring-0 focus-visible:ring-offset-0 text-sm sm:text-base',
               'placeholder:text-muted-foreground',
             )}
             rows={1}
@@ -128,12 +128,12 @@ export const PromptInput = ({
           type="submit"
           size="icon"
           disabled={!prompt.trim() || disabled}
-          className="h-10 w-10 shrink-0"
+          className="h-9 w-9 sm:h-10 sm:w-10 shrink-0"
         >
           {disabled ? (
-            <Sparkles className="h-5 w-5 animate-pulse-glow" />
+            <Sparkles className="h-4 w-4 sm:h-5 sm:w-5 animate-pulse-glow" />
           ) : (
-            <Send className="h-5 w-5" />
+            <Send className="h-4 w-4 sm:h-5 sm:w-5" />
           )}
         </Button>
       </div>

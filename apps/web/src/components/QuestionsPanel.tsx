@@ -203,7 +203,7 @@ export function QuestionsPanel({
 
   return (
     <form
-      className="space-y-3 border rounded p-3 max-w-4xl mx-auto bg-card"
+      className="space-y-3 border rounded p-3 sm:p-4 max-w-4xl mx-auto bg-card"
       onSubmit={async (e) => {
         e.preventDefault();
         setLoading(true);

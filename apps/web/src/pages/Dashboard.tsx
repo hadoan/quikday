@@ -8,9 +8,8 @@ import { Sidebar } from '@/components/layout/Sidebar';
 import { ToolsPanel } from '@/components/layout/ToolsPanel';
 import { UserMenu } from '@/components/layout/UserMenu';
 import { ThemeToggle } from '@/components/theme/ThemeToggle';
-import { ScrollArea } from '@/components/ui/scroll-area';
 import { Button } from '@/components/ui/button';
-import { Plug2 } from 'lucide-react';
+import { Plug2, Menu } from 'lucide-react';
 import { useSidebarRuns } from '@/hooks/useSidebarRuns';
 import RunDetailDrawer from '@/components/runs/RunDetailDrawer';
 
@@ -81,7 +80,7 @@ export default function DashboardPage() {
   };
 
   return (
-    <div className="flex h-screen w-full bg-background">
+    <div className="flex h-screen w-full bg-background overflow-hidden">
       <Sidebar
         runs={sidebarRuns}
         activeRunId={activeRunId}
@@ -93,29 +92,38 @@ export default function DashboardPage() {
         onToggleCollapse={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
       />
 
-      <div className="flex-1 flex flex-col">
+      <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
         {/* Header */}
-        <header className="border-b border-border bg-card px-4 md:px-8 py-4">
-          <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-            <div>
-              <h1 className="text-2xl font-bold text-foreground flex items-center gap-2">
+        <header className="border-b border-border bg-card px-3 sm:px-4 md:px-6 lg:px-8 py-3 sm:py-4 flex-shrink-0">
+          <div className="flex items-center gap-2 md:gap-3">
+            {/* Mobile menu button */}
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
+              className="md:hidden h-9 w-9"
+            >
+              <Menu className="h-5 w-5" />
+            </Button>
+
+            <div className="flex-1 min-w-0">
+              <h1 className="text-base sm:text-xl md:text-2xl font-bold text-foreground flex items-center gap-2">
                 <img
                   src="/logo/logo-light-bg.svg"
                   alt="Quik.day"
-                  className="h-6 w-auto dark:hidden"
+                  className="h-5 sm:h-6 w-auto dark:hidden"
                 />
                 <img
                   src="/logo/logo-dark-bg.svg"
                   alt="Quik.day"
-                  className="h-6 w-auto hidden dark:block"
+                  className="h-5 sm:h-6 w-auto hidden dark:block"
                 />
-                Dashboard
+                <span className="hidden sm:inline">Dashboard</span>
               </h1>
-              <p className="text-sm text-muted-foreground mt-1">Overview and quick actions</p>
             </div>
-            <div className="w-full md:w-auto flex flex-wrap items-center gap-2 md:gap-3 justify-end">
+
+            <div className="flex items-center gap-2">
               <ThemeToggle />
-             
               <UserMenu
                 onViewProfile={() => {}}
                 onEditProfile={() => navigate('/settings/profile')}
@@ -126,21 +134,21 @@ export default function DashboardPage() {
         </header>
 
         {/* Content */}
-        <ScrollArea className="flex-1">
-          <div className="max-w-4xl mx-auto px-8 py-8 space-y-6">
+        <div className="flex-1 overflow-y-auto">
+          <div className="max-w-4xl mx-auto px-3 sm:px-4 md:px-6 lg:px-8 py-4 sm:py-6 md:py-8 space-y-4 sm:space-y-6">
             <div className="flex items-center justify-between">
-              <h2 className="text-xl font-semibold">Get Started</h2>
+              <h2 className="text-lg sm:text-xl font-semibold">Get Started</h2>
               {/* <Button variant="outline" onClick={onCreateTemplate}>Create Template</Button> */}
             </div>
 
             <ChatBox onContinue={prefillPush} />
 
             <section className="space-y-3">
-              <h2 className="text-xl font-semibold">Templates</h2>
+              <h2 className="text-lg sm:text-xl font-semibold">Templates</h2>
               <TemplatesGrid templates={templates} onPrefill={(text) => prefillPush(text)} />
             </section>
           </div>
-        </ScrollArea>
+        </div>
       </div>
 
       <RunDetailDrawer

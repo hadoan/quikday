@@ -3,7 +3,6 @@ import { ThemeToggle } from '@/components/theme/ThemeToggle';
 import { UserMenu } from '@/components/layout/UserMenu';
 import { Sidebar } from '@/components/layout/Sidebar';
 import { ToolsPanel } from '@/components/layout/ToolsPanel';
-import { ScrollArea } from '@/components/ui/scroll-area';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Select, SelectTrigger, SelectContent, SelectItem, SelectValue } from '@/components/ui/select';
@@ -13,6 +12,7 @@ import { mockRuns } from '@/data/mockRuns';
 import { useNavigate } from 'react-router-dom';
 import RunDetailDrawer from '@/components/runs/RunDetailDrawer';
 import { formatDateTime } from '@/lib/datetime/format';
+import { Menu } from 'lucide-react';
 
 const STATUS_OPTIONS = [
   'queued',
@@ -68,7 +68,7 @@ export default function RunsPage() {
   }, [data]);
 
   return (
-    <div className="flex h-screen w-full bg-background">
+    <div className="flex h-screen w-full bg-background overflow-hidden">
       <Sidebar
         runs={sidebarRuns.length ? sidebarRuns : mockRuns}
         activeRunId={activeRunId}
@@ -77,15 +77,25 @@ export default function RunsPage() {
         onToggleCollapse={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
       />
 
-      <div className="flex-1 flex flex-col">
+      <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
         {/* Header */}
-        <header className="border-b border-border bg-card px-4 md:px-8 py-4">
-          <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-            <div>
-              <h1 className="text-2xl font-bold text-foreground">All Runs</h1>
-              <p className="text-sm text-muted-foreground mt-1">Governed execution with live updates</p>
+        <header className="border-b border-border bg-card px-3 sm:px-4 md:px-6 lg:px-8 py-3 sm:py-4 flex-shrink-0">
+          <div className="flex items-center gap-2 md:gap-3">
+            {/* Mobile menu button */}
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
+              className="md:hidden h-9 w-9"
+            >
+              <Menu className="h-5 w-5" />
+            </Button>
+
+            <div className="flex-1 min-w-0">
+              <h1 className="text-base sm:text-xl md:text-2xl font-bold text-foreground">All Runs</h1>
             </div>
-            <div className="w-full md:w-auto flex flex-wrap items-center gap-2 md:gap-3 justify-end">
+
+            <div className="flex items-center gap-2">
               <ThemeToggle />
               <UserMenu onViewProfile={() => {}} onEditProfile={() => navigate('/settings/profile')} onLogout={() => {}} />
             </div>
@@ -93,7 +103,7 @@ export default function RunsPage() {
         </header>
 
         {/* Content */}
-        <ScrollArea className="flex-1">
+        <div className="flex-1 overflow-y-auto">
           <div className="max-w-6xl mx-auto px-4 md:px-8 py-6 space-y-6">
             {/* Filters */}
             <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
@@ -172,7 +182,7 @@ export default function RunsPage() {
               </div>
             </div>
           </div>
-        </ScrollArea>
+        </div>
       </div>
 
       <RunDetailDrawer runId={activeRunId} open={!!activeRunId} onClose={() => setActiveRunId(undefined)} />

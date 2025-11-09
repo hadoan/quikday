@@ -132,37 +132,37 @@ export default function RunDetailDrawer({ runId, open, onClose }: Props) {
         onMouseDown={(e) => e.stopPropagation()}
       />
       <div
-        className="absolute right-0 top-0 h-full w-full sm:w-[520px] md:w-[640px] bg-background border-l shadow-xl flex flex-col min-h-0 overflow-hidden"
+        className="absolute right-0 top-0 h-full w-full sm:w-[90vw] md:w-[640px] lg:w-[720px] bg-background border-l shadow-xl flex flex-col min-h-0 overflow-hidden"
         onClick={(e) => e.stopPropagation()}
         onMouseDown={(e) => e.stopPropagation()}
       >
-        <div className="flex items-center justify-between p-4 border-b">
-          <div>
-            <div className="text-sm text-muted-foreground">Run Detail</div>
-            <div className="text-lg">{run?.prompt || run?.summaryText || runId}</div>
+        <div className="flex items-center justify-between p-3 sm:p-4 border-b">
+          <div className="flex-1 min-w-0 mr-2">
+            <div className="text-xs sm:text-sm text-muted-foreground">Run Detail</div>
+            <div className="text-base sm:text-lg truncate">{run?.prompt || run?.summaryText || runId}</div>
           </div>
-          <Button variant="ghost" size="icon" onClick={onClose} aria-label="Close">
+          <Button variant="ghost" size="icon" onClick={onClose} aria-label="Close" className="flex-shrink-0">
             <X className="h-5 w-5" />
           </Button>
         </div>
 
         <Tabs defaultValue="overview" className="flex-1 flex flex-col min-h-0">
-          <div className="p-3 border-b">
-            <TabsList>
-              <TabsTrigger value="overview">Overview</TabsTrigger>
-              <TabsTrigger value="steps">Steps & Diff</TabsTrigger>
-              <TabsTrigger value="audit">Audit</TabsTrigger>
+          <div className="p-2 sm:p-3 border-b overflow-x-auto">
+            <TabsList className="w-full sm:w-auto">
+              <TabsTrigger value="overview" className="text-xs sm:text-sm">Overview</TabsTrigger>
+              <TabsTrigger value="steps" className="text-xs sm:text-sm">Steps & Diff</TabsTrigger>
+              <TabsTrigger value="audit" className="text-xs sm:text-sm">Audit</TabsTrigger>
             </TabsList>
           </div>
           <TabsContent value="overview" className="flex-1 min-h-0">
             <ScrollArea className="h-full">
-              <div className="p-4 space-y-3">
+              <div className="p-3 sm:p-4 space-y-3">
                 {loading && <div className="text-sm text-muted-foreground">Loading…</div>}
-                <div className="grid grid-cols-2 gap-3 text-sm">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm">
                   <div><div className="text-muted-foreground">Status</div><div className="font-medium">{run?.status}</div></div>
                   <div><div className="text-muted-foreground">Created</div><div className="font-medium">{run?.createdAt ? formatDateTime(run.createdAt) : '—'}</div></div>
                   <div><div className="text-muted-foreground">Mode</div><div className="font-medium">{run?.mode || 'auto'}</div></div>
-                  <div><div className="text-muted-foreground">ID</div><div className="font-mono text-xs">{runId}</div></div>
+                  <div><div className="text-muted-foreground">ID</div><div className="font-mono text-xs break-all">{runId}</div></div>
                 </div>
                 {parsed?.diff?.summary && (
                   <div className="text-sm">

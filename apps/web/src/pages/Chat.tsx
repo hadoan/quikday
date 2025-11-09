@@ -10,10 +10,9 @@ import { Sidebar } from '@/components/layout/Sidebar';
 import { ToolsPanel } from '@/components/layout/ToolsPanel';
 import { UserMenu } from '@/components/layout/UserMenu';
 import { ThemeToggle } from '@/components/theme/ThemeToggle';
-import { ScrollArea } from '@/components/ui/scroll-area';
 import { Button } from '@/components/ui/button';
 // Removed mockRuns usage to avoid seeding mock data
-import { Plug2, Plus, Loader2 } from 'lucide-react';
+import { Plug2, Plus, Loader2, Menu } from 'lucide-react';
 import { useSidebarRuns } from '@/hooks/useSidebarRuns';
 import { useKindeAuth } from '@kinde-oss/kinde-auth-react';
 import { useLocation, useNavigate } from 'react-router-dom';
@@ -1105,7 +1104,7 @@ const Chat = () => {
       {/* Navigation warning dialog */}
       {navigationWarningDialog}
 
-      <div className="flex h-screen w-full bg-background">
+      <div className="flex h-screen w-full bg-background overflow-hidden">
         <Sidebar
           runs={sidebarRuns}
           activeRunId={activeRunId}
@@ -1114,34 +1113,41 @@ const Chat = () => {
           onToggleCollapse={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
         />
 
-        <div className="flex-1 flex flex-col">
+        <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
           {/* Header */}
-          <header className="border-b border-border bg-card px-4 md:px-8 py-4">
-            <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-              <div>
-                <h1 className="text-2xl font-bold text-foreground flex items-center gap-2">
+          <header className="border-b border-border bg-card px-3 sm:px-4 md:px-6 lg:px-8 py-3 sm:py-4 flex-shrink-0">
+            <div className="flex items-center gap-2 md:gap-3">
+              {/* Mobile menu button */}
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
+                className="md:hidden h-9 w-9"
+              >
+                <Menu className="h-5 w-5" />
+              </Button>
+
+              <div className="flex-1 min-w-0">
+                <h1 className="text-base sm:text-xl md:text-2xl font-bold text-foreground flex items-center gap-2">
                   <img
                     src="/logo/logo-light-bg.svg"
                     alt="Quik.day"
-                    className="h-6 w-auto dark:hidden"
+                    className="h-5 sm:h-6 w-auto dark:hidden flex-shrink-0"
                   />
                   <img
                     src="/logo/logo-dark-bg.svg"
                     alt="Quik.day"
-                    className="h-6 w-auto hidden dark:block"
+                    className="h-5 sm:h-6 w-auto hidden dark:block flex-shrink-0"
                   />
-                  One Prompt. One Run. Done.
+                  <span className="hidden sm:inline truncate">One Prompt. One Run. Done.</span>
                 </h1>
-                <p className="text-sm text-muted-foreground mt-1">
-                  Conversational execution interface for founders and teams
-                </p>
               </div>
-              <div className="w-full md:w-auto flex flex-wrap items-center gap-2 md:gap-3 justify-end">
+
+              <div className="flex items-center gap-2">
                 <ThemeToggle />
-              
-                <Button size="sm" onClick={handleNewTask} className="gap-2">
+                <Button size="sm" onClick={handleNewTask} className="gap-2 h-9">
                   <Plus className="h-4 w-4" />
-                  New Task
+                  <span className="hidden sm:inline">New Task</span>
                 </Button>
                 <UserMenu
                   onViewProfile={handleViewProfile}
@@ -1153,8 +1159,8 @@ const Chat = () => {
           </header>
 
           {/* Chat Area */}
-          <ScrollArea className="flex-1">
-            <div className="max-w-4xl mx-auto px-8 py-8 space-y-6">
+          <div className="flex-1 overflow-y-auto">
+            <div className="max-w-4xl mx-auto px-3 sm:px-4 md:px-6 lg:px-8 py-4 sm:py-6 md:py-8 space-y-4 sm:space-y-6">
               {!activeRun && (
                 <div className="text-center text-muted-foreground py-8">No active run selected</div>
               )}
@@ -1172,10 +1178,10 @@ const Chat = () => {
               {/** Questions are now rendered inline within ChatStream as a message */}
               <div ref={bottomRef} />
             </div>
-          </ScrollArea>
+          </div>
 
           {/* Input Area */}
-          <div className="border-t border-border bg-card p-6">
+          <div className="border-t border-border bg-card p-3 sm:p-4 md:p-6 flex-shrink-0">
             <div className="max-w-4xl mx-auto">
               <PromptInput onSubmit={handleNewPrompt} initialValue={prefill} />
             </div>
