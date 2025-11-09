@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Send, Sparkles, Eye, Zap, CheckCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
@@ -16,6 +16,8 @@ interface PromptInputProps {
   initialValue?: string;
   defaultMode?: RunMode;
   autoFocus?: boolean;
+  onChangeText?: (text: string) => void;
+  onStartTyping?: () => void;
 }
 
 export const PromptInput = ({
@@ -25,9 +27,12 @@ export const PromptInput = ({
   initialValue,
   defaultMode = 'preview',
   autoFocus = true,
+  onChangeText,
+  onStartTyping,
 }: PromptInputProps) => {
   const [prompt, setPrompt] = useState(initialValue || '');
   const [mode, setMode] = useState<RunMode>(defaultMode);
+  const startedRef = useRef(false);
 
   useEffect(() => {
     if (typeof initialValue === 'string') {
@@ -115,7 +120,15 @@ export const PromptInput = ({
         <div className="flex-1">
           <Textarea
             value={prompt}
-            onChange={(e) => setPrompt(e.target.value)}
+            onChange={(e) => {
+              const v = e.target.value;
+              setPrompt(v);
+              try { onChangeText?.(v); } catch {}
+              if (!startedRef.current && v.trim().length > 0) {
+                startedRef.current = true;
+                try { onStartTyping?.(); } catch {}
+              }
+            }}
             onKeyDown={handleKeyDown}
             placeholder={placeholder}
             disabled={disabled}

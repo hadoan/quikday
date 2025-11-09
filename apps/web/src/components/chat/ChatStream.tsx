@@ -161,9 +161,13 @@ export function ChatStream({
         }
 
         if (m.type === 'run') {
+          const rd = (m.data as UiRunData) || ({} as UiRunData);
+          const st = String(rd?.status || '').toLowerCase();
+          const isTerminal = ['succeeded', 'failed', 'completed', 'done', 'partial'].includes(st);
+          if (isTerminal) return null; // Hide status card for completed/old runs
           return (
             <ChatMessage key={i} role="assistant">
-              <RunCard data={m.data as UiRunData} runId={runId} />
+              <RunCard data={rd} runId={runId} />
             </ChatMessage>
           );
         }

@@ -23,6 +23,43 @@ export default function RunDetailDrawer({ runId, open, onClose }: Props) {
   const [events, setEvents] = useState<UiEvent[]>([]);
   const [parsed, setParsed] = useState<any | null>(null);
 
+  // Extract human-readable summaries from various sources
+  const summaries = useMemo(() => {
+    const out: string[] = [];
+    const add = (v: unknown) => {
+      if (typeof v === 'string') {
+        const t = v.trim();
+        if (t) out.push(t);
+      }
+    };
+    // Run-level summary (from adapter)
+    add(run?.summaryText);
+    // Output summary from raw payload
+    add(parsed?.summary);
+    // Commit-level summaries/messages (best-effort)
+    try {
+      const commits: any[] = Array.isArray(parsed?.commits) ? parsed!.commits : [];
+      for (const c of commits) {
+        const r = (c && typeof c === 'object') ? (c as any).result : undefined;
+        if (!r || typeof r !== 'object') continue;
+        // Common summary fields in step results
+        add((r as any).summary);
+        add((r as any).message);
+        add((r as any).text);
+        add((r as any).content);
+      }
+    } catch {}
+    // Deduplicate
+    const seen = new Set<string>();
+    const norm = (s: string) => s.replace(/\s+/g, ' ').trim();
+    return out.filter((s) => {
+      const n = norm(s);
+      if (seen.has(n)) return false;
+      seen.add(n);
+      return true;
+    });
+  }, [run?.summaryText, parsed?.summary, parsed?.commits]);
+
   // Log when the drawer is opened for a given run
   useEffect(() => {
     if (open) {
@@ -161,9 +198,23 @@ export default function RunDetailDrawer({ runId, open, onClose }: Props) {
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm">
                   <div><div className="text-muted-foreground">Status</div><div className="font-medium">{run?.status}</div></div>
                   <div><div className="text-muted-foreground">Created</div><div className="font-medium">{run?.createdAt ? formatDateTime(run.createdAt) : '—'}</div></div>
-                  <div><div className="text-muted-foreground">Mode</div><div className="font-medium">{run?.mode || 'auto'}</div></div>
+                  {/* <div><div className="text-muted-foreground">Mode</div><div className="font-medium">{run?.mode || 'auto'}</div></div> */}
                   <div><div className="text-muted-foreground">ID</div><div className="font-mono text-xs break-all">{runId}</div></div>
                 </div>
+                {summaries.length > 0 && (
+                  <div className="text-sm">
+                    <div className="text-muted-foreground">Summaries</div>
+                    {summaries.length === 1 ? (
+                      <div className="font-medium whitespace-pre-wrap break-words">{summaries[0]}</div>
+                    ) : (
+                      <ul className="list-disc ml-5 space-y-1">
+                        {summaries.map((s, i) => (
+                          <li key={i} className="font-medium whitespace-pre-wrap break-words">{s}</li>
+                        ))}
+                      </ul>
+                    )}
+                  </div>
+                )}
                 {parsed?.diff?.summary && (
                   <div className="text-sm">
                     <div className="text-muted-foreground">Plan Summary</div>

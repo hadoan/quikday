@@ -25,6 +25,7 @@ import {
   buildUndoMessage,
 } from '@/lib/adapters/backendToViewModel';
 import ChatStream from '@/components/chat/ChatStream';
+import RunDetailDrawer from '@/components/runs/RunDetailDrawer';
 import QuestionsPanel, { type Question } from '@/components/QuestionsPanel';
 import { createLogger } from '@/lib/utils/logger';
 import { useToast } from '@/hooks/use-toast';
@@ -52,6 +53,42 @@ const Chat = () => {
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
   const [questions, setQuestions] = useState<Question[]>([]);
   const [isWaitingForResponse, setIsWaitingForResponse] = useState(false);
+  const [drawerRunId, setDrawerRunId] = useState<string | undefined>(undefined);
+  const draftIdRef = useRef<string | undefined>(undefined);
+  
+  // Merge server-provided sidebar runs with any local draft/unknown runs so
+  // that a new chat appears in the sidebar as soon as the user starts typing.
+  const sidebarMerged = (() => {
+    try {
+      const server = sidebarRuns || [];
+      const serverIds = new Set(server.map((r) => r.id));
+      const localExtras = runs
+        .filter((r) => !serverIds.has(r.id))
+        .sort((a, b) => (b.timestamp || '').localeCompare(a.timestamp || ''))
+        .map((r) => ({
+          id: r.id,
+          prompt: r.prompt || '',
+          timestamp: r.timestamp || new Date().toISOString(),
+          status:
+            r.status === 'succeeded' || r.status === 'completed' || r.status === 'done'
+              ? ('completed' as const)
+              : r.status === 'failed'
+                ? ('failed' as const)
+                : ('running' as const),
+        }));
+      // Prepend local extras, then server items; de-duplicate by id
+      const combined: typeof server = [] as any;
+      const seen = new Set<string>();
+      for (const item of [...localExtras, ...server]) {
+        if (seen.has(item.id)) continue;
+        seen.add(item.id);
+        combined.push(item);
+      }
+      return combined;
+    } catch {
+      return sidebarRuns;
+    }
+  })();
   const activeRun = runs.find((run) => run.id === activeRunId);
   const bottomRef = useRef<HTMLDivElement | null>(null);
   const navigate = useNavigate();
@@ -166,19 +203,29 @@ const Chat = () => {
   }, []);
 
   // Ensure selecting a sidebar run loads its details if not present locally
+  // or if we only have a minimal stub without messages yet.
   useEffect(() => {
     if (!activeRunId) return;
-    const exists = runs.some((r) => r.id === activeRunId);
-    if (exists) return;
+
+    const existing = runs.find((r) => r.id === activeRunId);
+    const hasMessages = Array.isArray(existing?.messages) && existing!.messages!.length > 0;
+    if (existing && hasMessages) return;
+
     (async () => {
       try {
         const { run } = await dataSource.getRun(activeRunId);
-        setRuns((prev) => [run, ...prev]);
+        setRuns((prev) => {
+          const idx = prev.findIndex((r) => r.id === activeRunId);
+          if (idx === -1) return [run, ...prev];
+          const next = [...prev];
+          next[idx] = { ...next[idx], ...run, messages: run.messages } as UiRunSummary;
+          return next;
+        });
       } catch (e) {
         // best-effort; real-time stream may still populate
       }
     })();
-  }, [activeRunId]);
+  }, [activeRunId, runs]);
 
   // Connect to WebSocket for real-time updates (if live mode)
   useEffect(() => {
@@ -1056,6 +1103,28 @@ const Chat = () => {
     setQuestions([]);
     // Hide loading spinner when starting new task
     setIsWaitingForResponse(false);
+    return newId;
+  };
+
+  // Called on each keystroke: only updates the current draft/run title for sidebar preview
+  const ensureDraftForTyping = (nextText: string) => {
+    const targetId = draftIdRef.current || activeRunId;
+    if (!targetId) return;
+    setRuns((prev) => prev.map((r) => (r.id === targetId ? { ...r, prompt: nextText } : r)));
+  };
+
+  // Called once on the very first keystroke to decide whether to create a new draft run
+  const handleStartTypingOnce = () => {
+    if (draftIdRef.current) return; // already initialized
+    const ar = runs.find((r) => r.id === activeRunId);
+    const hasHistory = !!ar && Array.isArray(ar.messages) && (ar.messages?.length ?? 0) > 0;
+    if (!activeRunId || hasHistory) {
+      const newId = handleNewTask();
+      draftIdRef.current = newId;
+    } else {
+      // Reuse existing empty run
+      draftIdRef.current = activeRunId;
+    }
   };
 
   // If navigated with ?startNew=1 (from Dashboard template 'Try this'), start a
@@ -1098,11 +1167,8 @@ const Chat = () => {
   };
 
   const handleSelectRun = (runId: string) => {
-    setActiveRunId(runId);
-    // Clear questions when switching runs to avoid showing old questions
-    setQuestions([]);
-    // Hide loading spinner when switching runs
-    setIsWaitingForResponse(false);
+    // In Chat screen, clicking a run shows details drawer instead of switching chat
+    setDrawerRunId(runId);
   };
 
   return (
@@ -1112,7 +1178,7 @@ const Chat = () => {
 
       <div className="flex h-screen w-full bg-background overflow-hidden">
         <Sidebar
-          runs={sidebarRuns}
+          runs={sidebarMerged}
           activeRunId={activeRunId}
           onSelectRun={handleSelectRun}
           collapsed={isSidebarCollapsed}
@@ -1189,12 +1255,20 @@ const Chat = () => {
           {/* Input Area */}
           <div className="border-t border-border bg-card p-3 sm:p-4 md:p-6 flex-shrink-0">
             <div className="max-w-4xl mx-auto">
-              <PromptInput onSubmit={handleNewPrompt} initialValue={prefill} autoFocus />
+              <PromptInput
+                onSubmit={handleNewPrompt}
+                initialValue={prefill}
+                autoFocus
+                onChangeText={ensureDraftForTyping}
+                onStartTyping={handleStartTypingOnce}
+              />
             </div>
           </div>
         </div>
 
-      
+        {/* Run details drawer (like Runs screen) */}
+        <RunDetailDrawer runId={drawerRunId} open={!!drawerRunId} onClose={() => setDrawerRunId(undefined)} />
+
       </div>
     </>
   );
