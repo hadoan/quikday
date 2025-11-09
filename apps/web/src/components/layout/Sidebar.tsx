@@ -126,7 +126,7 @@ export const Sidebar = ({
               variant="ghost"
               className="w-full justify-start gap-2"
               size="sm"
-              onClick={() => navigate('/chat')}
+              onClick={() => navigate('/chat?startNew=1')}
             >
               <MessageSquare className="h-4 w-4" />
               Chat
@@ -208,7 +208,7 @@ export const Sidebar = ({
             size="icon"
             className="h-10 w-10"
             title="Chat"
-            onClick={() => navigate('/chat')}
+            onClick={() => navigate('/chat?startNew=1')}
           >
             <MessageSquare className="h-4 w-4" />
           </Button>

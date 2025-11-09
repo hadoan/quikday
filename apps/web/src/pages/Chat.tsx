@@ -57,10 +57,16 @@ const Chat = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const [prefill, setPrefill] = useState<string | undefined>(undefined);
-  // Default to the most recent run if none selected
+  // Default to the most recent run if none selected,
+  // unless a startNew query param is present (which triggers a fresh run).
   useEffect(() => {
+    try {
+      const sp = new URLSearchParams(location.search);
+      const v = sp.get('startNew') || sp.get('startnew');
+      if (v === '1' || v === 'true') return;
+    } catch {}
     if (!activeRunId && sidebarRuns.length > 0) setActiveRunId(sidebarRuns[0].id);
-  }, [activeRunId, sidebarRuns.length]);
+  }, [activeRunId, sidebarRuns.length, location.search]);
 
   // Normalize question type from backend string to QuestionsPanel Question type
   const normalizeQuestionType = (t?: string): Question['type'] => {
@@ -1183,7 +1189,7 @@ const Chat = () => {
           {/* Input Area */}
           <div className="border-t border-border bg-card p-3 sm:p-4 md:p-6 flex-shrink-0">
             <div className="max-w-4xl mx-auto">
-              <PromptInput onSubmit={handleNewPrompt} initialValue={prefill} />
+              <PromptInput onSubmit={handleNewPrompt} initialValue={prefill} autoFocus />
             </div>
           </div>
         </div>

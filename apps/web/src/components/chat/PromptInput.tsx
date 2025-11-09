@@ -15,6 +15,7 @@ interface PromptInputProps {
   placeholder?: string;
   initialValue?: string;
   defaultMode?: RunMode;
+  autoFocus?: boolean;
 }
 
 export const PromptInput = ({
@@ -23,6 +24,7 @@ export const PromptInput = ({
   placeholder = "Type your intent... (e.g., 'Schedule a check-in with Sara tomorrow at 10')",
   initialValue,
   defaultMode = 'preview',
+  autoFocus = true,
 }: PromptInputProps) => {
   const [prompt, setPrompt] = useState(initialValue || '');
   const [mode, setMode] = useState<RunMode>(defaultMode);
@@ -117,6 +119,7 @@ export const PromptInput = ({
             onKeyDown={handleKeyDown}
             placeholder={placeholder}
             disabled={disabled}
+            autoFocus={autoFocus}
             className={cn(
               'min-h-[60px] max-h-[200px] resize-none border-0 bg-transparent p-0 focus-visible:ring-0 focus-visible:ring-offset-0 text-sm sm:text-base',
               'placeholder:text-muted-foreground',
