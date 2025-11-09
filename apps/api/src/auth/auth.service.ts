@@ -153,18 +153,22 @@ export class AuthService {
 
     // Existing user - update their profile info and lastLoginAt
     // IMPORTANT: Never overwrite a user's existing displayName with a fallback like 'User'.
-    // Only update displayName when a real name is present in claims (name/given/family),
-    // otherwise preserve the user's current displayName.
+    // Only update displayName when:
+    // 1. A real name is present in claims (name/given/family), AND
+    // 2. The user's displayName is currently blank/null
+    // This preserves user-set names and prevents overwriting with auto-generated values.
     const hasRealNameInClaims = Boolean(
       (typeof claims.name === 'string' && claims.name.trim()) ||
       (typeof claims.given_name === 'string' && claims.given_name.trim()) ||
       (typeof claims.family_name === 'string' && claims.family_name.trim()),
     );
+    const displayNameIsBlank = !existing.displayName || existing.displayName.trim() === '';
+    
     const updateData: Prisma.UserUpdateInput = {
       avatar: claims.picture || existing.avatar || undefined,
       lastLoginAt: new Date(),
     };
-    if (hasRealNameInClaims) {
+    if (hasRealNameInClaims && displayNameIsBlank) {
       (updateData as any).displayName = name;
     }
     // If we have a normalized email and it's different, attempt to set it
