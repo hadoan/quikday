@@ -118,9 +118,17 @@ export default function RunDetailDrawer({ runId, open, onClose }: Props) {
   };
 
   return (
-    <div className="fixed inset-0 z-50">
-      <div className="absolute inset-0 bg-black/50" onClick={onClose} />
-      <div className="absolute right-0 top-0 h-full w-full sm:w-[520px] md:w-[640px] bg-background border-l shadow-xl flex flex-col min-h-0 overflow-hidden">
+    <div className="fixed inset-0 z-50" onClick={onClose} onMouseDown={(e) => e.stopPropagation()}>
+      <div
+        className="absolute inset-0 bg-black/50"
+        onClick={onClose}
+        onMouseDown={(e) => e.stopPropagation()}
+      />
+      <div
+        className="absolute right-0 top-0 h-full w-full sm:w-[520px] md:w-[640px] bg-background border-l shadow-xl flex flex-col min-h-0 overflow-hidden"
+        onClick={(e) => e.stopPropagation()}
+        onMouseDown={(e) => e.stopPropagation()}
+      >
         <div className="flex items-center justify-between p-4 border-b">
           <div>
             <div className="text-sm text-muted-foreground">Run Detail</div>

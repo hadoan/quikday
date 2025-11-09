@@ -19,11 +19,11 @@ const stripControls = (s: string) => s.replace(/[\u0000-\u001F\u007F]/g, '');
 export default function DashboardPage() {
   const [templates, setTemplates] = useState<Template[]>([]);
   const [activeRunId, setActiveRunId] = useState<string | undefined>(undefined);
+  const [isDrawerOpen, setIsDrawerOpen] = useState(false);
   const [isToolsPanelOpen, setIsToolsPanelOpen] = useState(false);
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
   // Fetch latest 5 runs (same data as Runs page)
   const { runs: sidebarRuns } = useSidebarRuns(5);
-  const [hasAutoSelected, setHasAutoSelected] = useState(false);
   const navigate = useNavigate();
   const { logout } = useKindeAuth();
 
@@ -33,13 +33,7 @@ export default function DashboardPage() {
       .catch(() => setTemplates([]));
   }, []);
 
-  // Set default active run once on initial data load
-  useEffect(() => {
-    if (!hasAutoSelected && !activeRunId && sidebarRuns.length > 0) {
-      setActiveRunId(sidebarRuns[0].id);
-      setHasAutoSelected(true);
-    }
-  }, [hasAutoSelected, activeRunId, sidebarRuns.length]);
+  // Don't auto-open drawer; open only when user selects a run
 
   // Auto-collapse sidebar on small screens
   useEffect(() => {
@@ -91,7 +85,10 @@ export default function DashboardPage() {
       <Sidebar
         runs={sidebarRuns}
         activeRunId={activeRunId}
-        onSelectRun={setActiveRunId}
+        onSelectRun={(id) => {
+          setActiveRunId(id);
+          setIsDrawerOpen(true);
+        }}
         collapsed={isSidebarCollapsed}
         onToggleCollapse={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
       />
@@ -146,7 +143,13 @@ export default function DashboardPage() {
         </ScrollArea>
       </div>
 
-      <RunDetailDrawer runId={activeRunId} open={!!activeRunId} onClose={() => setActiveRunId(undefined)} />
+      <RunDetailDrawer
+        runId={activeRunId}
+        open={isDrawerOpen && !!activeRunId}
+        onClose={() => {
+          setIsDrawerOpen(false);
+        }}
+      />
     </div>
   );
 }

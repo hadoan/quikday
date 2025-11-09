@@ -124,6 +124,7 @@ const apps: AppListItem[] = [
 
 const Apps = () => {
   const [activeRunId, setActiveRunId] = useState<string | undefined>(undefined);
+  const [isDrawerOpen, setIsDrawerOpen] = useState(false);
   const { logout } = useKindeAuth();
   const handleLogout = async () => {
     try {
@@ -135,19 +136,12 @@ const Apps = () => {
   };
   const [isToolsPanelOpen, setIsToolsPanelOpen] = useState(false);
   const { runs: sidebarRuns } = useSidebarRuns(5);
-  const [hasAutoSelected, setHasAutoSelected] = useState(false);
   const navigate = useNavigate();
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
   const [category, setCategory] = useState<string>('All');
   const [query, setQuery] = useState('');
 
-  // Set default active run once on initial data load
-  useEffect(() => {
-    if (!hasAutoSelected && !activeRunId && sidebarRuns.length > 0) {
-      setActiveRunId(sidebarRuns[0].id);
-      setHasAutoSelected(true);
-    }
-  }, [hasAutoSelected, activeRunId, sidebarRuns.length]);
+  // Don't auto-open drawer; open only when user selects a run
 
   // Collapse sidebar on small screens automatically
   useEffect(() => {
@@ -221,7 +215,10 @@ const Apps = () => {
       <Sidebar
         runs={sidebarRuns}
         activeRunId={activeRunId}
-        onSelectRun={setActiveRunId}
+        onSelectRun={(id) => {
+          setActiveRunId(id);
+          setIsDrawerOpen(true);
+        }}
         collapsed={isSidebarCollapsed}
         onToggleCollapse={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
       />
@@ -309,7 +306,13 @@ const Apps = () => {
         </ScrollArea>
       </div>
 
-      <RunDetailDrawer runId={activeRunId} open={!!activeRunId} onClose={() => setActiveRunId(undefined)} />
+      <RunDetailDrawer
+        runId={activeRunId}
+        open={isDrawerOpen && !!activeRunId}
+        onClose={() => {
+          setIsDrawerOpen(false);
+        }}
+      />
     </div>
   );
 };
