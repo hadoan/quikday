@@ -58,22 +58,22 @@ export const PlanCard = ({ data, onConfirm, onReject, runId }: PlanCardProps) =>
   };
 
   return (
-    <div className="rounded-xl border border-primary/20 bg-primary/5 p-6 space-y-4 animate-fade-in">
-      <div className="flex items-start gap-3">
+    <div className="rounded-xl border border-primary/20 bg-primary/5 p-4 sm:p-6 space-y-3 sm:space-y-4 animate-fade-in">
+      <div className="flex items-start gap-2 sm:gap-3">
         <div className="mt-1">
-          <Sparkles className="h-5 w-5 text-primary" />
+          <Sparkles className="h-4 w-4 sm:h-5 sm:w-5 text-primary" />
         </div>
-        <div className="flex-1 space-y-3">
+        <div className="flex-1 space-y-2 sm:space-y-3 min-w-0">
           <div>
-            <h3 className="font-semibold text-foreground mb-1">Plan</h3>
-            <p className="text-sm text-muted-foreground">{data.intent}</p>
+            <h3 className="font-semibold text-sm sm:text-base text-foreground mb-1">Plan</h3>
+            <p className="text-xs sm:text-sm text-muted-foreground">{data.intent}</p>
           </div>
 
           <div className="space-y-2">
             <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
               Tools Required
             </p>
-            <div className="flex flex-wrap gap-2">
+            <div className="flex flex-wrap gap-1.5 sm:gap-2">
               {data.tools.map((tool) => (
                 <ToolBadge key={tool} tool={tool} />
               ))}
@@ -86,9 +86,9 @@ export const PlanCard = ({ data, onConfirm, onReject, runId }: PlanCardProps) =>
             </p>
             <ul className="space-y-1.5">
               {data.actions.map((action, idx) => (
-                <li key={idx} className="flex items-start gap-2 text-sm">
-                  <CheckCircle2 className="h-4 w-4 text-primary mt-0.5 shrink-0" />
-                  <span>{action}</span>
+                <li key={idx} className="flex items-start gap-2 text-xs sm:text-sm">
+                  <CheckCircle2 className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-primary mt-0.5 shrink-0" />
+                  <span className="break-words">{action}</span>
                 </li>
               ))}
             </ul>

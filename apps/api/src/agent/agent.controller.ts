@@ -3,6 +3,7 @@ import { AgentService } from './agent.service.js';
 import { KindeGuard } from '../auth/kinde.guard.js';
 import { PrismaService } from '@quikday/prisma';
 import { RunsService } from '../runs/runs.service.js';
+import { StepsService } from '../runs/steps.service.js';
 
 type ChatMessageDto = {
   role: 'system' | 'user' | 'assistant' | 'tool';
@@ -19,6 +20,7 @@ export class AgentController {
     private readonly agent: AgentService,
     private readonly prisma: PrismaService,
     private readonly runsService: RunsService,
+    private readonly stepsService: StepsService,
   ) {}
 
   /**
@@ -104,8 +106,34 @@ export class AgentController {
         missing: result.missing,
       });
 
+      // Fetch enriched steps from database (they were created with appId and credentialId)
+      const enrichedSteps = await this.stepsService.getStepsByRunId(run.id);
+      const enrichedPlan = enrichedSteps.map(step => {
+        // Find matching original plan step
+        const originalStep = result.plan.find(p => p.id === step.planStepId || p.tool === step.tool);
+        
+        // Build base step
+        const enrichedStep: any = {
+          // Spread original plan fields first
+          ...originalStep,
+          // Override with enriched database fields
+          id: step.planStepId || step.id,
+          tool: step.tool,
+          args: typeof step.request === 'object' && step.request !== null ? step.request : (originalStep?.args || undefined),
+        };
+        
+        // Only include appId and credentialId if the tool uses apps
+        if (step.appId !== null) {
+          enrichedStep.appId = step.appId;
+          enrichedStep.credentialId = step.credentialId ?? null; // Explicitly null if no credential
+        }
+        
+        return enrichedStep;
+      });
+
       const response = {
         ...result,
+        plan: enrichedPlan, // Return enriched plan with credential info
         runId: run.id,
       };
 
@@ -115,6 +143,8 @@ export class AgentController {
         planSteps: response.plan?.length || 0,
         missingCount: response.missing?.length || 0,
         missing: response.missing,
+        stepsWithCredentials: enrichedSteps.filter(s => s.credentialId !== null).length,
+        stepsWithoutCredentials: enrichedSteps.filter(s => s.credentialId === null).length,
       });
 
       // Return the result with the runId included

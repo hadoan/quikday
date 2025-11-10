@@ -2,7 +2,7 @@
 import type { Node } from '../runtime/graph.js';
 import type { RunState } from '../state/types.js';
 import type { RunEventBus } from '@quikday/libs';
-import { runWithCurrentUser } from '@quikday/libs';
+import { runWithCurrentUser, getCurrentUserCtx } from '@quikday/libs';
 import { CHANNEL_WEBSOCKET } from '@quikday/libs';
 import { registry } from '../registry/registry.js';
 import { events } from '../observability/events.js';
@@ -244,7 +244,7 @@ export const executor: Node<RunState, RunEventBus> = async (s, eventBus) => {
         () =>
           (isChat
             ? runWithCurrentUser(
-                ({ userSub: s.ctx.userId ? String(s.ctx.userId) : null, teamId: s.ctx.teamId ? Number(s.ctx.teamId) : null, scopes: s.ctx.scopes } as any),
+                getCurrentUserCtx(),
                 () => registry.call(currentStep.tool, args, s.ctx),
               )
             : runStepViaQueue(currentStep.id, currentStep.tool, args)
@@ -295,17 +295,18 @@ export const executor: Node<RunState, RunEventBus> = async (s, eventBus) => {
         if (binds && typeof binds === 'object') {
           const prevVars = (s.scratch?.vars ?? {}) as Record<string, unknown>;
           const nextVars: Record<string, unknown> = { ...prevVars };
+          const normalize = (p: string) => p.replace(/\[(\d+)\]/g, '.$1');
           const sel = (expr: string) => {
             if (expr === '$') return result;
             if (expr.startsWith('$.'))
-              return expr
-                .slice(2)
+              return normalize(expr.slice(2))
                 .split('.')
+                .filter(Boolean)
                 .reduce((acc: any, k) => (acc == null ? undefined : acc[k]), result);
             if (expr.startsWith('$var.'))
-              return expr
-                .slice(5)
+              return normalize(expr.slice(5))
                 .split('.')
+                .filter(Boolean)
                 .reduce((acc: any, k) => (acc == null ? undefined : acc[k]), prevVars);
             if (expr.startsWith('$step-')) {
               const err: any = new Error('Step placeholders are not supported in binds. Use $ or $var.*');

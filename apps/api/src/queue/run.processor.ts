@@ -285,6 +285,16 @@ export class RunProcessor extends WorkerHost {
           const questions = awaiting.questions ?? (final.output?.diff as any)?.questions ?? [];
           const askedAt = awaiting?.askedAt || new Date().toISOString();
 
+          // Get steps from database to include credential information
+          const dbSteps = await this.stepsService.getStepsByRunId(run.id);
+          const stepsForUI = dbSteps.map(s => ({
+            id: s.id,
+            tool: s.tool,
+            appId: s.appId || undefined,
+            credentialId: s.credentialId || undefined,
+            action: s.action || undefined,
+          }));
+
           // Persist awaiting to output (both UI-friendly and runtime-friendly)
           await this.runs.persistResult(run.id, {
             output: {
@@ -316,7 +326,7 @@ export class RunProcessor extends WorkerHost {
 
           await this.eventBus.publish(
             run.id,
-            { type: 'run_status', payload: { status: 'awaiting_input', questions } },
+            { type: 'run_status', payload: { status: 'awaiting_input', questions, steps: stepsForUI } },
             CHANNEL_WEBSOCKET
           );
           return;

@@ -26,6 +26,7 @@ export class UsersMeController {
       email: user.email || undefined,
       name: user.displayName || undefined,
       avatar: user.avatar || undefined,
+      timeZone: user.timeZone || undefined,
       plan: user.plan,
       createdAt: user.createdAt,
       lastLoginAt: user.lastLoginAt || undefined,

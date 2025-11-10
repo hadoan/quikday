@@ -1,8 +1,10 @@
 import { Clock, Zap, Users, ChevronLeft, ChevronRight, Grid, MessageSquare } from 'lucide-react';
 import { useNavigate, Link } from 'react-router-dom';
+import { useEffect, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { cn } from '@/lib/utils';
+import { formatTime } from '@/lib/datetime/format';
 
 interface Run {
   id: string;
@@ -27,6 +29,16 @@ export const Sidebar = ({
   onToggleCollapse,
 }: SidebarProps) => {
   const navigate = useNavigate();
+  const [isMobile, setIsMobile] = useState(false);
+
+  // Detect mobile viewport and update on resize
+  useEffect(() => {
+    const mq = window.matchMedia('(max-width: 768px)');
+    const update = () => setIsMobile(mq.matches);
+    update();
+    mq.addEventListener('change', update);
+    return () => mq.removeEventListener('change', update);
+  }, []);
   const filters = [
     { label: 'All Runs', icon: Clock },
     // { label: 'My Runs', icon: Zap },
@@ -34,12 +46,31 @@ export const Sidebar = ({
   ];
 
   return (
-    <div
-      className={cn(
-        'border-r border-border bg-sidebar h-screen flex flex-col transition-all duration-300',
-        collapsed ? 'w-16' : 'w-64 md:w-72 lg:w-80',
+    <>
+      {/* Mobile overlay when sidebar is open */}
+      {isMobile && !collapsed && onToggleCollapse && (
+        <div
+          className="fixed inset-0 z-40 bg-black/50 md:hidden"
+          onClick={onToggleCollapse}
+          aria-hidden="true"
+        />
       )}
-    >
+
+      <div
+        className={cn(
+          'bg-sidebar border-r border-border h-screen flex flex-col transition-all duration-300',
+          // Mobile: slide-in drawer
+          'md:relative md:translate-x-0 md:z-auto',
+          isMobile
+            ? cn(
+                'fixed inset-y-0 left-0 z-50 w-64 transform transition-transform',
+                collapsed ? '-translate-x-full' : 'translate-x-0',
+              )
+            : collapsed
+              ? 'w-16'
+              : 'w-64 md:w-72 lg:w-80',
+        )}
+      >
       <div className="p-6 border-b border-sidebar-border flex items-center justify-between">
         {!collapsed && (
           <Link to="/" className="flex items-center gap-3">
@@ -95,7 +126,7 @@ export const Sidebar = ({
               variant="ghost"
               className="w-full justify-start gap-2"
               size="sm"
-              onClick={() => navigate('/chat')}
+              onClick={() => navigate('/chat?startNew=1')}
             >
               <MessageSquare className="h-4 w-4" />
               Chat
@@ -152,9 +183,7 @@ export const Sidebar = ({
                       )}
                     />
                   </div>
-                  <p className="text-xs text-sidebar-foreground/60">
-                    {new Date(run.timestamp).toLocaleTimeString()}
-                  </p>
+                  <p className="text-xs text-sidebar-foreground/60">{formatTime(run.timestamp)}</p>
                 </button>
               ))}
             </div>
@@ -179,7 +208,7 @@ export const Sidebar = ({
             size="icon"
             className="h-10 w-10"
             title="Chat"
-            onClick={() => navigate('/chat')}
+            onClick={() => navigate('/chat?startNew=1')}
           >
             <MessageSquare className="h-4 w-4" />
           </Button>
@@ -210,6 +239,7 @@ export const Sidebar = ({
           ))}
         </div>
       )}
-    </div>
+      </div>
+    </>
   );
 };

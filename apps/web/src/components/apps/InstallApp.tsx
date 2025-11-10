@@ -39,6 +39,8 @@ export type InstallAppProps = {
   isInputDialog?: boolean;
   inputKeys?: { code: string; name: string }[];
   inputDialogTitle?: string;
+  /** Custom return URL after OAuth installation completes */
+  returnTo?: string;
   /** Called right before starting OAuth install (useful to record return context) */
   onBeforeInstall?: (appId: string) => void;
   /** Called after a successful non-OAuth (direct/input) install */
@@ -57,6 +59,7 @@ export default function InstallApp({
   isInputDialog = false,
   inputKeys,
   inputDialogTitle,
+  returnTo,
   onBeforeInstall,
   onInstalled,
 }: InstallAppProps) {
@@ -219,12 +222,13 @@ export default function InstallApp({
         // ignore
       }
       const redirectPath = oauthPath || `/integrations/${slug}/add`;
+      const returnUrl = returnTo || `${getWebBaseUrl()}/apps`;
 
       const fetchAddUrl = async () =>
         api.get<{ url?: string }>(redirectPath, {
           params: {
             format: 'json',
-            returnTo: `${getWebBaseUrl()}/apps`,
+            returnTo: returnUrl,
           },
         });
 

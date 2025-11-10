@@ -1,4 +1,5 @@
 import { Queue, QueueEvents, JobsOptions } from 'bullmq';
+import { getCurrentUserCtx } from '@quikday/libs';
 
 export function createQueueHelpers(s: any) {
   let stepQueue: Queue | null = null;
@@ -30,12 +31,15 @@ export function createQueueHelpers(s: any) {
       removeOnFail: 100,
       backoff: { type: 'exponential', delay: 1000 },
     };
+    // Preserve the authenticated ALS context (sub/team/scopes) set by the run processor
+    const als = getCurrentUserCtx();
     const __ctx = {
-      userSub: s.ctx.userId ? String(s.ctx.userId) : null,
-      teamId: s.ctx.teamId ? Number(s.ctx.teamId) : null,
-      scopes: s.ctx.scopes,
-      traceId: s.ctx.traceId,
-      tz: s.ctx.tz,
+      userSub: als.userSub,
+      userId: als.userId ?? (s.ctx.userId ?? null),
+      teamId: als.teamId ?? (s.ctx.teamId ? Number(s.ctx.teamId) : null),
+      scopes: Array.isArray(als.scopes) && als.scopes.length ? als.scopes : s.ctx.scopes,
+      traceId: als.traceId ?? s.ctx.traceId,
+      tz: als.tz ?? s.ctx.tz,
       runId: s.ctx.runId,
     } as any;
 

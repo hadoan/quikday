@@ -85,6 +85,132 @@ export class GoogleCalendarProviderService implements CalendarService {
     }
   }
 
+  async listEvents(args: {
+    start: Date;
+    end: Date;
+    pageToken?: string;
+    pageSize?: number;
+  }): Promise<{ nextPageToken?: string; items: CalendarEvent[] }> {
+    this.logger.log(
+      this.format({ op: 'listEvents', start: args.start, end: args.end, pageToken: args.pageToken }),
+    );
+    const { calendar, credentialId, oauth2Client } = await this.getGoogleClient(this.prisma, this.currentUser);
+    try {
+      const maxResults = Math.min(Math.max(args.pageSize ?? 50, 1), 250);
+      const resp = await calendar.events.list({
+        calendarId: 'primary',
+        timeMin: args.start.toISOString(),
+        timeMax: args.end.toISOString(),
+        singleEvents: true,
+        orderBy: 'startTime',
+        maxResults,
+        pageToken: args.pageToken,
+      });
+
+      await this.persistTokensIfChanged(credentialId, oauth2Client);
+
+      const items: CalendarEvent[] = (resp.data.items ?? []).map((e) => {
+        const startIso = e.start?.dateTime || e.start?.date || new Date().toISOString();
+        const endIso = e.end?.dateTime || e.end?.date || new Date().toISOString();
+        const attendees = Array.isArray(e.attendees)
+          ? e.attendees
+              .map((a) =>
+                a?.email
+                  ? ({
+                      email: a.email!,
+                      name: a.displayName ?? undefined,
+                      optional: a.optional ?? undefined,
+                      responseStatus: (a.responseStatus as any) ?? undefined,
+                    } as CalendarAttendee)
+                  : null,
+              )
+              .filter((x): x is CalendarAttendee => !!x)
+          : undefined;
+        return {
+          id: e.id || '',
+          title: e.summary || '',
+          description: e.description || undefined,
+          start: new Date(startIso),
+          end: new Date(endIso),
+          timezone: e.start?.timeZone || e.end?.timeZone || undefined,
+          attendees,
+          location: e.location || undefined,
+          htmlLink: e.htmlLink || undefined,
+          organizer: e.organizer?.email || undefined,
+          conference: undefined,
+        } as CalendarEvent;
+      });
+
+      return { nextPageToken: resp.data.nextPageToken ?? undefined, items };
+    } catch (error) {
+      this.logger.warn(this.format({ op: 'listEvents.error', error: this.renderError(error) }));
+      return { items: [] };
+    }
+  }
+
+  async updateEvent(id: string, patch: Partial<CalendarEvent>): Promise<CalendarEvent> {
+    this.logger.log(this.format({ op: 'updateEvent', id }));
+    const { calendar, credentialId, oauth2Client } = await this.getGoogleClient(this.prisma, this.currentUser);
+    try {
+      const requestBody: calendar_v3.Schema$Event = {};
+      if (typeof patch.title === 'string') requestBody.summary = patch.title;
+      if (typeof patch.description === 'string') requestBody.description = patch.description;
+      if (typeof patch.location === 'string') requestBody.location = patch.location;
+      if (patch.start) requestBody.start = { dateTime: patch.start.toISOString(), timeZone: patch.timezone };
+      if (patch.end) requestBody.end = { dateTime: patch.end.toISOString(), timeZone: patch.timezone };
+      if (Array.isArray(patch.attendees)) requestBody.attendees = this.mapAttendees(patch.attendees);
+
+      const resp = await calendar.events.patch({
+        calendarId: 'primary',
+        eventId: id,
+        requestBody,
+      });
+
+      await this.persistTokensIfChanged(credentialId, oauth2Client);
+
+      const data = resp.data;
+      const startIso = data.start?.dateTime || data.start?.date || new Date().toISOString();
+      const endIso = data.end?.dateTime || data.end?.date || new Date().toISOString();
+      const attendees = Array.isArray(data.attendees)
+        ? data.attendees
+            .map((a) =>
+              a?.email
+                ? ({ email: a.email!, name: a.displayName ?? undefined } as CalendarAttendee)
+                : null,
+            )
+            .filter((x): x is CalendarAttendee => !!x)
+        : undefined;
+      return {
+        id: data.id || id,
+        title: data.summary || patch.title || '',
+        description: data.description || patch.description || undefined,
+        start: new Date(startIso),
+        end: new Date(endIso),
+        timezone: data.start?.timeZone || data.end?.timeZone || patch.timezone || undefined,
+        attendees,
+        location: data.location || patch.location || undefined,
+        htmlLink: data.htmlLink || undefined,
+        organizer: data.organizer?.email || undefined,
+        conference: undefined,
+      };
+    } catch (error) {
+      this.logger.error(this.format({ op: 'updateEvent.error', id, error: this.renderError(error) }));
+      throw new Error(error instanceof Error ? error.message : 'Failed to update Google Calendar event');
+    }
+  }
+
+  async deleteEvent(id: string): Promise<void> {
+    this.logger.log(this.format({ op: 'deleteEvent', id }));
+    const { calendar, credentialId, oauth2Client } = await this.getGoogleClient(this.prisma, this.currentUser);
+    try {
+      await calendar.events.delete({ calendarId: 'primary', eventId: id, sendUpdates: 'all' });
+      await this.persistTokensIfChanged(credentialId, oauth2Client);
+    } catch (error) {
+      this.logger.error(this.format({ op: 'deleteEvent.error', id, error: this.renderError(error) }));
+      throw new Error(error instanceof Error ? error.message : 'Failed to delete Google Calendar event');
+    }
+  }
+
   async getEvent(id: string): Promise<CalendarEvent | null> {
     this.logger.log(this.format({ op: 'getEvent', id }));
     const { calendar } = await this.getGoogleClient(this.prisma, this.currentUser);

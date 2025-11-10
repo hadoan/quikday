@@ -5,16 +5,17 @@ import { Sidebar } from '@/components/layout/Sidebar';
 import { ToolsPanel } from '@/components/layout/ToolsPanel';
 import { UserMenu } from '@/components/layout/UserMenu';
 import { ThemeToggle } from '@/components/theme/ThemeToggle';
-import { ScrollArea } from '@/components/ui/scroll-area';
 import { Button } from '@/components/ui/button';
-import { mockRuns, mockTools, mockStats } from '@/data/mockRuns';
-import { Plug2, Search } from 'lucide-react';
+// Removed mockRuns usage to avoid seeding mock data
+import { Plug2, Search, Menu } from 'lucide-react';
+import { useSidebarRuns } from '@/hooks/useSidebarRuns';
 import { useKindeAuth } from '@kinde-oss/kinde-auth-react';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useNavigate } from 'react-router-dom';
 import api from '@/apis/client';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
+import RunDetailDrawer from '@/components/runs/RunDetailDrawer';
 
 type AppListItem = {
   title: string;
@@ -121,7 +122,8 @@ const apps: AppListItem[] = [
 ];
 
 const Apps = () => {
-  const [activeRunId, setActiveRunId] = useState(mockRuns[0].id);
+  const [activeRunId, setActiveRunId] = useState<string | undefined>(undefined);
+  const [isDrawerOpen, setIsDrawerOpen] = useState(false);
   const { logout } = useKindeAuth();
   const handleLogout = async () => {
     try {
@@ -132,10 +134,13 @@ const Apps = () => {
     }
   };
   const [isToolsPanelOpen, setIsToolsPanelOpen] = useState(false);
+  const { runs: sidebarRuns } = useSidebarRuns(5);
   const navigate = useNavigate();
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
   const [category, setCategory] = useState<string>('All');
   const [query, setQuery] = useState('');
+
+  // Don't auto-open drawer; open only when user selects a run
 
   // Collapse sidebar on small screens automatically
   useEffect(() => {
@@ -205,38 +210,50 @@ const Apps = () => {
   }, [navigate]);
 
   return (
-    <div className="flex h-screen w-full bg-background">
+    <div className="flex h-screen w-full bg-background overflow-hidden">
       <Sidebar
-        runs={mockRuns}
+        runs={sidebarRuns}
         activeRunId={activeRunId}
-        onSelectRun={setActiveRunId}
+        onSelectRun={(id) => {
+          setActiveRunId(id);
+          setIsDrawerOpen(true);
+        }}
         collapsed={isSidebarCollapsed}
         onToggleCollapse={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
       />
 
-      <div className="flex-1 flex flex-col">
+      <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
         {/* Header */}
-        <header className="border-b border-border bg-card px-4 md:px-8 py-4">
-          <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-            <div>
-              <h1 className="text-2xl font-bold text-foreground flex items-center gap-2">
+        <header className="border-b border-border bg-card px-3 sm:px-4 md:px-6 lg:px-8 py-3 sm:py-4 flex-shrink-0">
+          <div className="flex items-center gap-2 md:gap-3">
+            {/* Mobile menu button */}
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
+              className="md:hidden h-9 w-9"
+            >
+              <Menu className="h-5 w-5" />
+            </Button>
+
+            <div className="flex-1 min-w-0">
+              <h1 className="text-base sm:text-xl md:text-2xl font-bold text-foreground flex items-center gap-2">
                 <img
                   src="/logo/logo-light-bg.svg"
                   alt="Quik.day"
-                  className="h-6 w-auto dark:hidden"
+                  className="h-5 sm:h-6 w-auto dark:hidden"
                 />
                 <img
                   src="/logo/logo-dark-bg.svg"
                   alt="Quik.day"
-                  className="h-6 w-auto hidden dark:block"
+                  className="h-5 sm:h-6 w-auto hidden dark:block"
                 />
-                Apps
+                <span className="hidden sm:inline">Apps</span>
               </h1>
-              <p className="text-sm text-muted-foreground mt-1">Connect your social accounts</p>
             </div>
-            <div className="w-full md:w-auto flex flex-wrap items-center gap-2 md:gap-3 justify-end">
+
+            <div className="flex items-center gap-2">
               <ThemeToggle />
-              
               <UserMenu
                 onViewProfile={() => {}}
                 onEditProfile={() => navigate('/settings/profile')}
@@ -247,8 +264,8 @@ const Apps = () => {
         </header>
 
         {/* Content */}
-        <ScrollArea className="flex-1">
-          <div className="max-w-4xl mx-auto px-8 py-8 space-y-6">
+        <div className="flex-1 overflow-y-auto">
+          <div className="max-w-4xl mx-auto px-3 sm:px-4 md:px-6 lg:px-8 py-4 sm:py-6 md:py-8 space-y-4 sm:space-y-6">
             {/* Filter bar */}
             <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
               {/* Tabs UI commented out — category selection temporarily disabled */}
@@ -271,18 +288,18 @@ const Apps = () => {
               </Tabs>
               */}
 
-              <div className="relative w-full md:w-64">
+              <div className="relative w-full sm:w-auto sm:min-w-[200px] md:w-64">
                 <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
                 <Input
                   value={query}
                   onChange={(e) => setQuery(e.target.value)}
                   placeholder="Search apps..."
-                  className="pl-9"
+                  className="pl-9 text-sm"
                 />
               </div>
             </div>
 
-            <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-5">
               {filteredApps.map((app) => (
                 <AppCard
                   key={app.installProps.slug}
@@ -294,10 +311,16 @@ const Apps = () => {
               ))}
             </div>
           </div>
-        </ScrollArea>
+        </div>
       </div>
 
-      
+      <RunDetailDrawer
+        runId={activeRunId}
+        open={isDrawerOpen && !!activeRunId}
+        onClose={() => {
+          setIsDrawerOpen(false);
+        }}
+      />
     </div>
   );
 };

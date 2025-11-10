@@ -15,4 +15,12 @@ export interface CalendarService {
   getEvent?(id: string): Promise<CalendarEvent | null>;
   updateEvent?(id: string, patch: Partial<CalendarEvent>): Promise<CalendarEvent>;
   deleteEvent?(id: string): Promise<void>;
+
+  // Optional list method used by some tools
+  listEvents?(args: {
+    start: Date;
+    end: Date;
+    pageToken?: string;
+    pageSize?: number;
+  }): Promise<{ nextPageToken?: string; items: CalendarEvent[] }>;
 }

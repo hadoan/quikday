@@ -21,7 +21,7 @@ export function expandStepForArray(step: any, stepResults: Map<string, any>, s: 
 
   if (typeof step.expandOn === 'string' && step.expandOn.trim().length > 0) {
     const v = tryResolveSelector(step.expandOn);
-    if (Array.isArray(v)) {
+  if (Array.isArray(v)) {
       try {
         if (step.expandOn.startsWith('$var.')) {
           console.log(
@@ -42,7 +42,7 @@ export function expandStepForArray(step: any, stepResults: Map<string, any>, s: 
   }
 
   // Resolve $var/$step in args first (no array detection)
-  const { resolved: baseArgs } = resolvePlaceholders(step.args, stepResults, vars, null);
+  const { resolved: baseArgs } = resolvePlaceholders(step.args, stepResults, vars, null, { tz: s?.ctx?.tz });
 
   // If no explicit expandOn, return single step
   if (!explicitArray) {
@@ -97,7 +97,7 @@ export function expandStepForArray(step: any, stepResults: Map<string, any>, s: 
 
     const withEmbedded = replaceEmbedded(argsCopy);
     // Resolve direct $each.* placeholders now
-    const { resolved: finalArgs } = resolvePlaceholders(withEmbedded, stepResults, vars, { item, index: idx, key: mapKey });
+    const { resolved: finalArgs } = resolvePlaceholders(withEmbedded, stepResults, vars, { item, index: idx, key: mapKey }, { tz: s?.ctx?.tz });
     Object.assign(expandedArgs, finalArgs);
 
     // Return a concrete child step with expansion resolved.

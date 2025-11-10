@@ -8,7 +8,7 @@ import Login from './pages/Auth/Login';
 import Signup from './pages/Auth/Signup';
 import Callback from './pages/Auth/Callback';
 import { ThemeProvider } from '@/components/theme/ThemeProvider';
-import Index from './pages/Index';
+import Chat from './pages/Chat';
 import Dashboard from './pages/Dashboard';
 import Apps from './pages/Apps';
 import RunsPage from './pages/Runs';
@@ -52,7 +52,7 @@ const App = () => (
                 path="/chat"
                 element={
                   <ProtectedRoute>
-                    <Index />
+                    <Chat />
                   </ProtectedRoute>
                 }
               />

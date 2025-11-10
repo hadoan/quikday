@@ -51,13 +51,20 @@ export class RunsController {
   async list(@Req() _req: any) {
     // Parse query params; Nest can bind DTO but keep simple here
     const req: any = _req;
+    const claims = req.user || {};
+    const userId = claims.sub;
+    
+    if (!userId) {
+      throw new BadRequestException('User ID not found in claims');
+    }
+    
     const q = req.query?.q as string | undefined;
     const page = req.query?.page ? Number(req.query.page) : undefined;
     const pageSize = req.query?.pageSize ? Number(req.query.pageSize) : undefined;
     const sortBy = (req.query?.sortBy as string | undefined) as any;
     const sortDir = (req.query?.sortDir as string | undefined) as any;
     const status = ([] as string[]).concat(req.query?.status ?? []).filter(Boolean);
-    return this.runs.list({ page, pageSize, q, status, sortBy, sortDir });
+    return this.runs.list({ userId, page, pageSize, q, status, sortBy, sortDir });
   }
 
   @Post()
@@ -69,12 +76,19 @@ export class RunsController {
   @Post(':id/confirm')
   async confirm(@Param('id') id: string, @Body() body: ConfirmDto, @Req() req: any) {
     const who = req?.user ? req.user.email || req.user.sub || 'unknown-user' : 'unauthenticated';
+    const claims = req.user || {};
+    const userId = claims.sub;
+    
+    if (!userId) {
+      throw new BadRequestException('User ID not found in claims');
+    }
+    
     this.logger.log(`POST /runs/${id}/confirm requested by ${who}`);
     this.logger.debug(
       `Incoming confirm payload: ${JSON.stringify({ answersKeys: Object.keys(body?.answers ?? {}), approve: body?.approve ?? undefined })}`
     );
 
-    const run = await this.runs.get(id);
+    const run = await this.runs.get(id, userId);
     if (!run) {
       this.logger.warn(`Run not found for id=${id}`);
       throw new NotFoundException('Run not found');
@@ -111,12 +125,19 @@ export class RunsController {
     @Req() req: any
   ) {
     const who = req?.user ? req.user.email || req.user.sub || 'unknown-user' : 'unauthenticated';
+    const claims = req.user || {};
+    const userId = claims.sub;
+    
+    if (!userId) {
+      throw new BadRequestException('User ID not found in claims');
+    }
+    
     this.logger.log(`POST /runs/${id}/continueWithAnswers requested by ${who}`);
     this.logger.debug(
       `Incoming answers payload: ${JSON.stringify({ answersKeys: Object.keys(body?.answers ?? {}) })}`
     );
 
-    const run = await this.runs.get(id);
+    const run = await this.runs.get(id, userId);
     if (!run) {
       this.logger.warn(`Run not found for id=${id}`);
       throw new NotFoundException('Run not found');
@@ -183,31 +204,91 @@ export class RunsController {
   }
 
   @Post(':id/approve')
-  async approve(@Param('id') id: string, @Body() body: { approvedSteps: string[] }) {
+  async approve(@Param('id') id: string, @Body() body: { approvedSteps: string[] }, @Req() req: any) {
+    const claims = req.user || {};
+    const userId = claims.sub;
+    
+    if (!userId) {
+      throw new BadRequestException('User ID not found in claims');
+    }
+    
+    // Verify ownership before approving
+    await this.runs.get(id, userId);
     await this.runs.approveSteps(id, body.approvedSteps);
     return { ok: true };
   }
 
   @Post(':id/undo')
-  async undo(@Param('id') id: string) {
+  async undo(@Param('id') id: string, @Req() req: any) {
+    const claims = req.user || {};
+    const userId = claims.sub;
+    
+    if (!userId) {
+      throw new BadRequestException('User ID not found in claims');
+    }
+    
+    // Verify ownership before undoing
+    await this.runs.get(id, userId);
     await this.runs.undoRun(id);
     return { ok: true };
   }
 
   @Post(':id/cancel')
-  async cancel(@Param('id') id: string) {
+  async cancel(@Param('id') id: string, @Req() req: any) {
+    const claims = req.user || {};
+    const userId = claims.sub;
+    
+    if (!userId) {
+      throw new BadRequestException('User ID not found in claims');
+    }
+    
+    // Verify ownership before canceling
+    await this.runs.get(id, userId);
     await this.runs.cancel(id);
     return { ok: true };
   }
 
   @Get(':id')
-  get(@Param('id') id: string) {
-    return this.runs.get(id);
+  async get(@Param('id') id: string, @Req() req: any) {
+    const claims = req.user || {};
+    const userId = claims.sub;
+    
+    if (!userId) {
+      throw new BadRequestException('User ID not found in claims');
+    }
+    
+    return this.runs.get(id, userId);
   }
 
   @Post(':id/refresh-credentials')
-  async refreshCredentials(@Param('id') id: string) {
+  async refreshCredentials(@Param('id') id: string, @Req() req: any) {
+    const claims = req.user || {};
+    const userId = claims.sub;
+    
+    if (!userId) {
+      throw new BadRequestException('User ID not found in claims');
+    }
+    
+    // Verify ownership before refreshing credentials
+    await this.runs.get(id, userId);
     const result = await this.runs.refreshRunCredentials(id);
     return { ok: true, ...result };
+  }
+
+  @Post(':id/set-pending-apps-install')
+  async setPendingAppsInstall(@Param('id') id: string, @Req() req: any) {
+    const claims = req.user || {};
+    const userId = claims.sub;
+
+    if (!userId) {
+      throw new BadRequestException('User ID not found in claims');
+    }
+
+    // Verify ownership
+    await this.runs.get(id, userId);
+
+    await this.runs.updateStatus(id, 'pending_apps_install');
+    this.logger.log(`Run ${id} marked as pending_apps_install by user ${userId}`);
+    return { ok: true };
   }
 }

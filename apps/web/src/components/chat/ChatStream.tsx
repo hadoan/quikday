@@ -11,6 +11,10 @@ import type {
   UiQuestionItem,
 } from '@/lib/datasources/DataSource';
 import { ChatMessage } from './ChatMessage';
+import MarkdownView from '@/components/common/MarkdownView';
+import { Button } from '@/components/ui/button';
+import { Copy } from 'lucide-react';
+import { useToast } from '@/hooks/use-toast';
 import { PlanCard } from '@/components/cards/PlanCard';
 import { RunCard } from '@/components/cards/RunCard';
 import { LogCard } from '@/components/cards/LogCard';
@@ -27,6 +31,7 @@ export function ChatStream({
   runId?: string;
   messages: UiRunSummary['messages'];
 }) {
+  const { toast } = useToast();
   const flags = getFeatureFlags();
   const dataSource = getDataSource();
 
@@ -156,9 +161,13 @@ export function ChatStream({
         }
 
         if (m.type === 'run') {
+          const rd = (m.data as UiRunData) || ({} as UiRunData);
+          const st = String(rd?.status || '').toLowerCase();
+          const isTerminal = ['succeeded', 'failed', 'completed', 'done', 'partial'].includes(st);
+          if (isTerminal) return null; // Hide status card for completed/old runs
           return (
             <ChatMessage key={i} role="assistant">
-              <RunCard data={m.data as UiRunData} runId={runId} />
+              <RunCard data={rd} runId={runId} />
             </ChatMessage>
           );
         }
@@ -200,7 +209,8 @@ export function ChatStream({
 
           return (
             <ChatMessage key={i} role="assistant">
-              <LogCard logs={logs} />
+              {/* <LogCard logs={logs} /> */}
+              <></>
             </ChatMessage>
           );
         }
@@ -208,11 +218,13 @@ export function ChatStream({
         if (m.type === 'questions') {
           const qd = (m.data as UiQuestionsData) || ({} as UiQuestionsData);
           const qs: UiQuestionItem[] = Array.isArray(qd?.questions) ? qd.questions : [];
+          const steps = Array.isArray(qd?.steps) ? qd.steps : [];
           return (
             <ChatMessage key={i} role="assistant">
               <QuestionsPanel
                 runId={runId || ''}
-                questions={qs}
+                questions={qs as any}
+                steps={steps as any}
                 onSubmitted={() => {}}
               />
             </ChatMessage>
@@ -233,6 +245,8 @@ export function ChatStream({
                 title={od?.title || 'Output'}
                 content={String(od?.content || '')}
                 type={type}
+                data={od?.data}
+                presentation={(od as any)?.presentation}
               />
             </ChatMessage>
           );
@@ -262,8 +276,22 @@ export function ChatStream({
         return (
           <ChatMessage key={i} role="assistant">
             {m.content && (
-              <div className="inline-block max-w-[85%] bg-muted/60 rounded-xl px-5 py-3">
-                <p className="text-sm whitespace-pre-wrap">{m.content}</p>
+              <div className="inline-block max-w-[85%] bg-muted/60 rounded-xl px-5 py-4 relative">
+                <div className="absolute top-2 right-2">
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-7 w-7"
+                    onClick={() => {
+                      navigator.clipboard.writeText(String(m.content || ''));
+                      toast({ title: 'Copied', description: 'Response copied to clipboard' });
+                    }}
+                    aria-label="Copy response"
+                  >
+                    <Copy className="h-4 w-4" />
+                  </Button>
+                </div>
+                <MarkdownView content={String(m.content || '')} />
               </div>
             )}
           </ChatMessage>

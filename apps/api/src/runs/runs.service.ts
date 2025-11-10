@@ -235,6 +235,7 @@ export class RunsService {
   // List Runs (list projection + filters/sort/pagination)
   // ----------------------------------------------------------------------------
   async list(params: {
+    userId?: string;
     page?: number;
     pageSize?: number;
     status?: string[];
@@ -243,7 +244,7 @@ export class RunsService {
     sortDir?: 'asc' | 'desc';
   }) {
     const teamId = this.current.getCurrentTeamId();
-    const userSub = this.current.getCurrentUserSub(); // This is the Kinde sub ID (string)
+    const userSub = params.userId || this.current.getCurrentUserSub(); // This is the Kinde sub ID (string)
     if (!userSub) throw new UnauthorizedException('Not authenticated');
     
     // Look up the user by their Kinde sub to get the numeric database ID
@@ -255,7 +256,7 @@ export class RunsService {
 
     const page = Math.max(1, Number(params.page ?? 1));
     const pageSize = Math.min(100, Math.max(1, Number(params.pageSize ?? 25)));
-    const where: any = {};
+    const where: any = { userId: numericUserId }; // CRITICAL: Filter by userId to prevent cross-user data access
     if (teamId) where.teamId = Number(teamId);
     if (params.status && params.status.length) where.status = { in: params.status };
     if (params.q && params.q.trim()) {
@@ -657,15 +658,53 @@ export class RunsService {
     return Array.from(scopes);
   }
 
-  async get(id: string) {
+  async get(id: string, userSub?: string) {
     const run = await this.prisma.run.findUnique({
       where: { id },
       include: {
         steps: true,
         effects: true,
+        User: true, // Include user to verify ownership
       },
     });
     if (!run) throw new NotFoundException('Run not found');
+    
+    // If userSub is provided, verify ownership
+    if (userSub) {
+      // Look up the user by their Kinde sub to get the numeric database ID
+      const user = await this.prisma.user.findUnique({ where: { sub: userSub } });
+      if (!user) {
+        throw new UnauthorizedException('User not found in database. Please ensure user sync completed.');
+      }
+      
+      // Verify the run belongs to this user
+      if (run.userId !== user.id) {
+        throw new NotFoundException('Run not found'); // Don't reveal existence to unauthorized users
+      }
+    }
+    
+    // Enrich the plan with credential information from steps
+    if (run.plan && Array.isArray(run.plan) && run.steps && run.steps.length > 0) {
+      const enrichedPlan = (run.plan as any[]).map((planStep: any) => {
+        // Find matching step by planStepId or tool name
+        const matchingStep = run.steps.find(
+          (s) => s.planStepId === planStep.id || s.tool === planStep.tool
+        );
+        
+        if (matchingStep) {
+          return {
+            ...planStep,
+            appId: matchingStep.appId || undefined,
+            credentialId: matchingStep.credentialId || undefined,
+          };
+        }
+        
+        return planStep;
+      });
+      
+      return { ...run, plan: enrichedPlan };
+    }
+    
     return run;
   }
 
@@ -851,9 +890,62 @@ export class RunsService {
             updated += 1;
           }
         }
-      } catch {
+      } catch (e) {
         // continue others
+        this.logger.debug('Failed to re-resolve credential for step', { stepId: s.id, err: e });
       }
+    }
+
+    // Re-fetch steps to determine whether any planned step still lacks credentials
+    const postSteps = await this.prisma.step.findMany({ where: { runId } });
+    const missingCredSteps = postSteps.filter((st) => st.appId && (st.credentialId === null || st.credentialId === undefined));
+
+    // Update run.plan JSON to reflect the updated credentialIds
+    if (updated > 0) {
+      const currentPlan = run.plan as any[] | null;
+      if (Array.isArray(currentPlan)) {
+        const updatedPlan = currentPlan.map((planStep) => {
+          const matchingStep = postSteps.find((s) => 
+            s.id === planStep.id || 
+            s.planStepId === planStep.id || 
+            s.planStepId === planStep.stepId
+          );
+          if (matchingStep && matchingStep.credentialId) {
+            return { ...planStep, credentialId: matchingStep.credentialId };
+          }
+          return planStep;
+        });
+        await this.prisma.run.update({
+          where: { id: runId },
+          data: { plan: updatedPlan as any }
+        });
+      }
+    }
+
+    // If the run was waiting on app installs (pending_apps_install) and all
+    // required credentials are now present, check if we should resume or transition
+    // to awaiting_input.
+    try {
+      const run = await this.prisma.run.findUnique({ where: { id: runId } });
+      if (run && run.status === 'pending_apps_install' && missingCredSteps.length === 0) {
+        // Credentials are complete. Check if there are still missing inputs (questions).
+        const hasPendingQuestions = run.missing && Array.isArray(run.missing) && run.missing.length > 0;
+        
+        if (hasPendingQuestions) {
+          // Sequential flow: apps installed, now transition to awaiting_input for questions
+          this.logger.log('Apps installed; transitioning to awaiting_input for questions', { runId });
+          await this.prisma.run.update({
+            where: { id: runId },
+            data: { status: 'awaiting_input' }
+          });
+        } else {
+          // No questions remaining - auto-resume execution
+          this.logger.log('All required credentials present; resuming run', { runId });
+          await this.executePlanWithAnswers(runId);
+        }
+      }
+    } catch (e) {
+      this.logger.warn('Failed to auto-resume run after refresh credentials', e as any);
     }
 
     return { updated };
