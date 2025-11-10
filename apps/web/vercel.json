@@ -1,3 +1,6 @@
 {
-  "installCommand": "npx -y pnpm@10.17.0 -v && npx -y pnpm@10.17.0 install"
+  "buildCommand": "cd ../.. && npm install -g pnpm@9.12.3 && pnpm install && pnpm run build --filter=@quikday/web",
+  "installCommand": "npm install -g pnpm@9.12.3",
+  "framework": null,
+  "outputDirectory": "dist"
 }

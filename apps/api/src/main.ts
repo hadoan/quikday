@@ -75,6 +75,7 @@ async function bootstrap() {
   const httpServer = app.getHttpServer();
   websocketService.initialize(httpServer);
 
-  await app.listen(port);
+  // Listen on 0.0.0.0 for Cloud Run compatibility
+  await app.listen(port, '0.0.0.0');
 }
 bootstrap();

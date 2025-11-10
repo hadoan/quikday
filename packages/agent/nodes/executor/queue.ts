@@ -11,8 +11,17 @@ export function createQueueHelpers(s: any) {
       if (!url) {
         throw Object.assign(new Error('Step queue unavailable: set REDIS_URL to enable queued execution'), { code: 'E_QUEUE_UNAVAILABLE' });
       }
-      stepQueue = new Queue('steps', { connection: { url } as any });
-      stepQueueEvents = new QueueEvents('steps', { connection: { url } as any });
+
+      const connection = {
+        url,
+        // serverless-friendly options
+        maxRetriesPerRequest: null,
+        enableReadyCheck: false,
+        lazyConnect: true,
+      } as any;
+
+      stepQueue = new Queue('steps', { connection });
+      stepQueueEvents = new QueueEvents('steps', { connection });
     }
     return stepQueue;
   };
