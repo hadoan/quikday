@@ -8,7 +8,9 @@ export const CalendarCancelOut = z.object({ ok: z.boolean() });
 export type CalendarCancelArgs = z.infer<typeof CalendarCancelIn>;
 export type CalendarCancelResult = z.infer<typeof CalendarCancelOut>;
 
-export function calendarCancelEvent(moduleRef: ModuleRef): Tool<CalendarCancelArgs, CalendarCancelResult> {
+export function calendarCancelEvent(
+  moduleRef: ModuleRef,
+): Tool<CalendarCancelArgs, CalendarCancelResult> {
   return {
     name: 'calendar.cancelEvent',
     description: 'Cancel (delete) a calendar event. Required: eventId.',

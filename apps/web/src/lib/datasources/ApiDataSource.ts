@@ -59,7 +59,9 @@ export class ApiDataSource implements DataSource {
   // -------------------------------------------------------------------------
   // Create Run
   // -------------------------------------------------------------------------
-  async createRun(params: CreateRunParams): Promise<{ goal: unknown; plan: unknown[]; missing: UiQuestionItem[]; runId?: string }> {
+  async createRun(
+    params: CreateRunParams,
+  ): Promise<{ goal: unknown; plan: unknown[]; missing: UiQuestionItem[]; runId?: string }> {
     const url = `${this.config.apiBaseUrl}/agent/plan`;
 
     const history =
@@ -486,8 +488,7 @@ export class ApiDataSource implements DataSource {
     const messages: UiRunSummary['messages'] = [];
     // Track assistant text we've already included to avoid duplicates
     const seenAssistantTexts = new Set<string>();
-    const norm = (s: unknown) =>
-      typeof s === 'string' ? s.trim().replace(/\s+/g, ' ') : '';
+    const norm = (s: unknown) => (typeof s === 'string' ? s.trim().replace(/\s+/g, ' ') : '');
 
     // User message
     if (run.prompt) {

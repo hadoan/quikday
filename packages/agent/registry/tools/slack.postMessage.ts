@@ -61,7 +61,8 @@ export const slackPostMessage: Tool<
   z.infer<typeof SlackPostMessageOut>
 > = {
   name: 'slack.postMessage',
-  description: 'Post a message to a Slack channel. Required: channel (with or without # prefix), text.',
+  description:
+    'Post a message to a Slack channel. Required: channel (with or without # prefix), text.',
   in: SlackPostMessageIn,
   out: SlackPostMessageOut,
   apps: ['slack-messaging'],

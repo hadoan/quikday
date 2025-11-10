@@ -2,19 +2,17 @@ import type { Node } from '../runtime/graph.js';
 import type { RunState } from '../state/types.js';
 import type { LLM } from '../llm/types.js';
 import { GoalSchema, type GoalExtraction } from '../prompts/goal-extraction/schema.js';
-import { 
-  compileGoalExtractionPrompt, 
+import {
+  compileGoalExtractionPrompt,
   compileGoalUserPrompt,
-  detectDomains 
+  detectDomains,
 } from '../prompts/goal-extraction/compiler.js';
-import { 
-  repairJsonOutput 
-} from '../guards/validators.js';
+import { repairJsonOutput } from '../guards/validators.js';
 
 /**
  * Goal extraction node factory
  * Uses modular prompt system with domain-specific rules
- * 
+ *
  * This node extracts the user's goal, context, and provided values.
  * Missing input detection is handled later by the planner node using tool schemas.
  */
@@ -41,18 +39,18 @@ export const makeExtractGoal = (llm: LLM): Node<RunState> => {
 
     // Detect domains from user input
     const domains = detectDomains(userPrompt);
-    
+
     // Get connected apps from context (if available) - fallback to empty array
     // In production, this would come from the user's connected integrations
     const connectedApps: string[] = [];
-    
+
     // Compile system prompt with only relevant domain rules
     const system = compileGoalExtractionPrompt({
       connectedApps,
       domains,
       includeExamples: true,
     });
-    
+
     const meta = (s.ctx as any)?.meta || {};
     const user = compileGoalUserPrompt(userPrompt, answers, {
       timezone: tz,

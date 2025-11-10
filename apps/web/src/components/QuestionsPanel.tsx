@@ -111,14 +111,14 @@ export function QuestionsPanel({
     }
     console.log('[QuestionsPanel] Checking steps for missing credentials:', steps);
     const missing = steps.filter(
-      (step) => step.appId && (step.credentialId === null || step.credentialId === undefined)
+      (step) => step.appId && (step.credentialId === null || step.credentialId === undefined),
     );
     console.log('[QuestionsPanel] Steps needing install:', missing);
     return missing;
   }, [steps]);
 
   const hasMissingCredentials = stepsNeedingInstall.length > 0;
-  
+
   React.useEffect(() => {
     console.log('[QuestionsPanel] State update:', {
       questionsCount: questions.length,
@@ -245,20 +245,20 @@ export function QuestionsPanel({
       className="space-y-3 border rounded p-3 sm:p-4 max-w-4xl mx-auto bg-card"
       onSubmit={async (e) => {
         e.preventDefault();
-        
+
         console.log('[QuestionsPanel] Form submit attempted:', {
           hasMissingCredentials,
           stepsNeedingInstallCount: stepsNeedingInstall.length,
           stepsNeedingInstall,
         });
-        
+
         // Block submission if credentials are missing
         if (hasMissingCredentials) {
           console.log('[QuestionsPanel] BLOCKED: Missing credentials!');
           setError('Please install all required apps before continuing.');
           return;
         }
-        
+
         console.log('[QuestionsPanel] Proceeding with submission...');
         setLoading(true);
         setError(null);
@@ -383,7 +383,7 @@ export function QuestionsPanel({
           ? 'Details Submitted'
           : hasMissingCredentials
             ? 'Step 1: Install Required Apps'
-            : (Array.isArray(questions) && questions.length === 0)
+            : Array.isArray(questions) && questions.length === 0
               ? 'Ready to continue'
               : hasMissingCredentials
                 ? 'Step 1: Install Required Apps'
@@ -392,11 +392,11 @@ export function QuestionsPanel({
       <p className="text-sm text-muted-foreground">
         {submitted
           ? 'Your information has been submitted. The run will continue automatically.'
-          : hasMissingCredentials && (Array.isArray(questions) && questions.length > 0)
+          : hasMissingCredentials && Array.isArray(questions) && questions.length > 0
             ? 'First, install the required apps below. After installation, you will be prompted to provide additional information.'
             : hasMissingCredentials
               ? 'Please install the required apps below before continuing.'
-              : (Array.isArray(questions) && questions.length === 0)
+              : Array.isArray(questions) && questions.length === 0
                 ? 'No additional details are required. Click Continue to proceed.'
                 : 'Please provide the requested information to continue the run.'}
       </p>
@@ -417,9 +417,7 @@ export function QuestionsPanel({
                 className="flex items-center justify-between gap-3 p-3 bg-amber-50 dark:bg-amber-900/10 border border-amber-200 dark:border-amber-800 rounded"
               >
                 <div className="flex-1 min-w-0">
-                  <div className="text-sm font-medium text-foreground truncate">
-                    {step.tool}
-                  </div>
+                  <div className="text-sm font-medium text-foreground truncate">{step.tool}</div>
                   <div className="text-xs text-muted-foreground">
                     Connect {step.appId} to continue
                   </div>
@@ -431,13 +429,7 @@ export function QuestionsPanel({
                     // pending_credential param so the OAuth callback can return
                     // the user to the chat screen with context about the pending
                     // credential. We use the appId as the pending identifier here.
-                    returnTo={
-                      runId
-                        ? `${getWebBaseUrl()}/chat?runId=${encodeURIComponent(
-                            String(runId),
-                          )}&pending_credential=${encodeURIComponent(String(step.appId))}`
-                        : undefined
-                    }
+                    returnTo={`${getWebBaseUrl()}/chat}`}
                     onBeforeInstall={() => {
                       try {
                         if (runId) {
@@ -449,15 +441,6 @@ export function QuestionsPanel({
                             pendingCredential: step.appId,
                             ts: Date.now(),
                           };
-                          // Mark pending on client so fallback logic can detect
-                          localStorage.setItem('qd.pendingInstall', JSON.stringify(payload));
-
-                          // Also mark run status server-side so backend processing
-                          // knows this run is waiting for app installs. Ignore
-                          // failures here (best-effort).
-                          void api.post(`/runs/${runId}/set-pending-apps-install`).catch((e) =>
-                            console.warn('Failed to mark run as pending_apps_install', e),
-                          );
                         }
                       } catch (e) {
                         // ignore
@@ -465,7 +448,9 @@ export function QuestionsPanel({
                     }}
                     onInstalled={() => {
                       // OAuth redirect will handle the rest - user will be taken to fresh chat
-                      console.log('[QuestionsPanel] App installed, OAuth will redirect to clean chat');
+                      console.log(
+                        '[QuestionsPanel] App installed, OAuth will redirect to clean chat',
+                      );
                     }}
                   />
                 </div>
@@ -479,149 +464,187 @@ export function QuestionsPanel({
       {!hasMissingCredentials && (
         <div className="grid gap-3 mt-2">
           {questions.map((q) => {
-          const t = normalizeType(q.type);
-          const value = answers[q.key];
-          const err = fieldErrors[q.key];
-          const required = q.required !== false;
-          const valueStr = value == null ? '' : String(value);
-          const options = getOptionsForQuestion(q);
-          return (
-            <div key={q.key} className="flex flex-col gap-1">
-              <label className="text-sm font-medium">
-                {q.question}{' '}
-                {required && (
-                  <>
-                    <span aria-hidden className="text-destructive">*</span>
-                    <span className="sr-only"> required</span>
-                  </>
-                )}
-              </label>
-              {q.rationale && <p className="text-xs text-gray-500">{q.rationale}</p>}
-
-              {t === 'textarea' ? (
-                <textarea
-                  rows={4}
-                  className="border rounded px-2 py-1 disabled:bg-muted disabled:cursor-not-allowed disabled:opacity-75"
-                  placeholder={q.placeholder}
-                  value={valueStr}
-                  onChange={(ev) => setFieldValue(q.key, ev.target.value, q)}
-                  disabled={submitted}
-                  readOnly={submitted}
-                  aria-required={required}
-                />
-              ) : t === 'email' ? (
-                <input
-                  type="email"
-                  className="border rounded px-2 py-1 disabled:bg-muted disabled:cursor-not-allowed disabled:opacity-75"
-                  placeholder={q.placeholder}
-                  value={valueStr}
-                  onChange={(ev) => setFieldValue(q.key, ev.target.value, q)}
-                  disabled={submitted}
-                  readOnly={submitted}
-                  aria-required={required}
-                />
-              ) : t === 'email_list' ? (
-                <div>
-                  <div className="flex flex-wrap gap-2 mb-1">
-                    {(Array.isArray(value) ? value : []).map((e: string, idx: number) => (
-                      <span
-                        key={`${q.key}-chip-${idx}`}
-                        className="px-2 py-0.5 bg-gray-200 rounded flex items-center gap-2"
-                      >
-                        <span className="text-sm">{e}</span>
-                        {!submitted && (
-                          <button
-                            type="button"
-                            aria-label={`Remove ${e}`}
-                            onClick={() =>
-                              setFieldValue(
-                                q.key,
-                                (Array.isArray(value)
-                                  ? value.filter((x: string) => x !== e)
-                                  : []
-                                ).slice(),
-                                q,
-                              )
-                            }
-                          >
-                            ×
-                          </button>
-                        )}
+            const t = normalizeType(q.type);
+            const value = answers[q.key];
+            const err = fieldErrors[q.key];
+            const required = q.required !== false;
+            const valueStr = value == null ? '' : String(value);
+            const options = getOptionsForQuestion(q);
+            return (
+              <div key={q.key} className="flex flex-col gap-1">
+                <label className="text-sm font-medium">
+                  {q.question}{' '}
+                  {required && (
+                    <>
+                      <span aria-hidden className="text-destructive">
+                        *
                       </span>
-                    ))}
-                  </div>
-                  {!submitted && (
-                    <EmailListInput
-                      placeholder={q.placeholder}
-                      onAdd={(email) =>
-                        setFieldValue(q.key, [...(Array.isArray(value) ? value : []), email], q)
-                      }
-                    />
+                      <span className="sr-only"> required</span>
+                    </>
                   )}
-                </div>
-              ) : t === 'datetime' ? (
-                <input
-                  type="datetime-local"
-                  className="border rounded px-2 py-1 disabled:bg-muted disabled:cursor-not-allowed disabled:opacity-75"
-                  placeholder={q.placeholder}
-                  value={valueStr}
-                  onChange={(ev) => setFieldValue(q.key, ev.target.value, q)}
-                  disabled={submitted}
-                  readOnly={submitted}
-                  aria-required={required}
-                />
-              ) : t === 'date' ? (
-                <input
-                  type="date"
-                  className="border rounded px-2 py-1 disabled:bg-muted disabled:cursor-not-allowed disabled:opacity-75"
-                  value={valueStr}
-                  onChange={(ev) => setFieldValue(q.key, ev.target.value, q)}
-                  disabled={submitted}
-                  readOnly={submitted}
-                  aria-required={required}
-                />
-              ) : t === 'time' ? (
-                <input
-                  type="time"
-                  className="border rounded px-2 py-1 disabled:bg-muted disabled:cursor-not-allowed disabled:opacity-75"
-                  value={valueStr}
-                  onChange={(ev) => setFieldValue(q.key, ev.target.value, q)}
-                  disabled={submitted}
-                  readOnly={submitted}
-                  aria-required={required}
-                />
-              ) : t === 'number' ? (
-                <input
-                  type="number"
-                  step={1}
-                  className="border rounded px-2 py-1 disabled:bg-muted disabled:cursor-not-allowed disabled:opacity-75"
-                  value={typeof value === 'number' ? value : valueStr}
-                  onChange={(ev) =>
-                    setFieldValue(q.key, ev.target.value === '' ? '' : Number(ev.target.value), q)
-                  }
-                  disabled={submitted}
-                  readOnly={submitted}
-                  aria-required={required}
-                />
-              ) : t === 'select' ? (
-                options.length > 0 ? (
-                  <select
+                </label>
+                {q.rationale && <p className="text-xs text-gray-500">{q.rationale}</p>}
+
+                {t === 'textarea' ? (
+                  <textarea
+                    rows={4}
+                    className="border rounded px-2 py-1 disabled:bg-muted disabled:cursor-not-allowed disabled:opacity-75"
+                    placeholder={q.placeholder}
+                    value={valueStr}
+                    onChange={(ev) => setFieldValue(q.key, ev.target.value, q)}
+                    disabled={submitted}
+                    readOnly={submitted}
+                    aria-required={required}
+                  />
+                ) : t === 'email' ? (
+                  <input
+                    type="email"
+                    className="border rounded px-2 py-1 disabled:bg-muted disabled:cursor-not-allowed disabled:opacity-75"
+                    placeholder={q.placeholder}
+                    value={valueStr}
+                    onChange={(ev) => setFieldValue(q.key, ev.target.value, q)}
+                    disabled={submitted}
+                    readOnly={submitted}
+                    aria-required={required}
+                  />
+                ) : t === 'email_list' ? (
+                  <div>
+                    <div className="flex flex-wrap gap-2 mb-1">
+                      {(Array.isArray(value) ? value : []).map((e: string, idx: number) => (
+                        <span
+                          key={`${q.key}-chip-${idx}`}
+                          className="px-2 py-0.5 bg-gray-200 rounded flex items-center gap-2"
+                        >
+                          <span className="text-sm">{e}</span>
+                          {!submitted && (
+                            <button
+                              type="button"
+                              aria-label={`Remove ${e}`}
+                              onClick={() =>
+                                setFieldValue(
+                                  q.key,
+                                  (Array.isArray(value)
+                                    ? value.filter((x: string) => x !== e)
+                                    : []
+                                  ).slice(),
+                                  q,
+                                )
+                              }
+                            >
+                              ×
+                            </button>
+                          )}
+                        </span>
+                      ))}
+                    </div>
+                    {!submitted && (
+                      <EmailListInput
+                        placeholder={q.placeholder}
+                        onAdd={(email) =>
+                          setFieldValue(q.key, [...(Array.isArray(value) ? value : []), email], q)
+                        }
+                      />
+                    )}
+                  </div>
+                ) : t === 'datetime' ? (
+                  <input
+                    type="datetime-local"
+                    className="border rounded px-2 py-1 disabled:bg-muted disabled:cursor-not-allowed disabled:opacity-75"
+                    placeholder={q.placeholder}
+                    value={valueStr}
+                    onChange={(ev) => setFieldValue(q.key, ev.target.value, q)}
+                    disabled={submitted}
+                    readOnly={submitted}
+                    aria-required={required}
+                  />
+                ) : t === 'date' ? (
+                  <input
+                    type="date"
                     className="border rounded px-2 py-1 disabled:bg-muted disabled:cursor-not-allowed disabled:opacity-75"
                     value={valueStr}
                     onChange={(ev) => setFieldValue(q.key, ev.target.value, q)}
                     disabled={submitted}
+                    readOnly={submitted}
                     aria-required={required}
-                  >
-                    <option value="" disabled>
-                      {required ? 'Select… (required)' : 'Select…'}
-                    </option>
-                    {options.map((opt) => (
-                      <option key={opt} value={opt}>
-                        {opt}
+                  />
+                ) : t === 'time' ? (
+                  <input
+                    type="time"
+                    className="border rounded px-2 py-1 disabled:bg-muted disabled:cursor-not-allowed disabled:opacity-75"
+                    value={valueStr}
+                    onChange={(ev) => setFieldValue(q.key, ev.target.value, q)}
+                    disabled={submitted}
+                    readOnly={submitted}
+                    aria-required={required}
+                  />
+                ) : t === 'number' ? (
+                  <input
+                    type="number"
+                    step={1}
+                    className="border rounded px-2 py-1 disabled:bg-muted disabled:cursor-not-allowed disabled:opacity-75"
+                    value={typeof value === 'number' ? value : valueStr}
+                    onChange={(ev) =>
+                      setFieldValue(q.key, ev.target.value === '' ? '' : Number(ev.target.value), q)
+                    }
+                    disabled={submitted}
+                    readOnly={submitted}
+                    aria-required={required}
+                  />
+                ) : t === 'select' ? (
+                  options.length > 0 ? (
+                    <select
+                      className="border rounded px-2 py-1 disabled:bg-muted disabled:cursor-not-allowed disabled:opacity-75"
+                      value={valueStr}
+                      onChange={(ev) => setFieldValue(q.key, ev.target.value, q)}
+                      disabled={submitted}
+                      aria-required={required}
+                    >
+                      <option value="" disabled>
+                        {required ? 'Select… (required)' : 'Select…'}
                       </option>
+                      {options.map((opt) => (
+                        <option key={opt} value={opt}>
+                          {opt}
+                        </option>
+                      ))}
+                    </select>
+                  ) : (
+                    <input
+                      type="text"
+                      className="border rounded px-2 py-1 disabled:bg-muted disabled:cursor-not-allowed disabled:opacity-75"
+                      placeholder={q.placeholder}
+                      value={valueStr}
+                      onChange={(ev) => setFieldValue(q.key, ev.target.value, q)}
+                      disabled={submitted}
+                      readOnly={submitted}
+                      aria-required={required}
+                    />
+                  )
+                ) : t === 'multiselect' ? (
+                  <div className="flex flex-col gap-1">
+                    {(q.options ?? []).map((opt) => (
+                      <label key={opt} className="inline-flex items-center gap-2">
+                        <input
+                          type="checkbox"
+                          checked={Array.isArray(value) ? (value as string[]).includes(opt) : false}
+                          onChange={(ev) => {
+                            const current = Array.isArray(value) ? [...value] : [];
+                            if (ev.target.checked) current.push(opt);
+                            else {
+                              const idx = current.indexOf(opt);
+                              if (idx >= 0) current.splice(idx, 1);
+                            }
+                            setFieldValue(q.key, current, q);
+                          }}
+                          disabled={submitted}
+                          aria-required={required}
+                        />
+                        <span>{opt}</span>
+                      </label>
                     ))}
-                  </select>
+                  </div>
                 ) : (
+                  // fallback to text
                   <input
                     type="text"
                     className="border rounded px-2 py-1 disabled:bg-muted disabled:cursor-not-allowed disabled:opacity-75"
@@ -632,48 +655,12 @@ export function QuestionsPanel({
                     readOnly={submitted}
                     aria-required={required}
                   />
-                )
-              ) : t === 'multiselect' ? (
-                <div className="flex flex-col gap-1">
-                  {(q.options ?? []).map((opt) => (
-                    <label key={opt} className="inline-flex items-center gap-2">
-                      <input
-                        type="checkbox"
-                        checked={Array.isArray(value) ? (value as string[]).includes(opt) : false}
-                        onChange={(ev) => {
-                          const current = Array.isArray(value) ? [...value] : [];
-                          if (ev.target.checked) current.push(opt);
-                          else {
-                            const idx = current.indexOf(opt);
-                            if (idx >= 0) current.splice(idx, 1);
-                          }
-                          setFieldValue(q.key, current, q);
-                        }}
-                        disabled={submitted}
-                        aria-required={required}
-                      />
-                      <span>{opt}</span>
-                    </label>
-                  ))}
-                </div>
-              ) : (
-                // fallback to text
-                <input
-                  type="text"
-                  className="border rounded px-2 py-1 disabled:bg-muted disabled:cursor-not-allowed disabled:opacity-75"
-                  placeholder={q.placeholder}
-                  value={valueStr}
-                  onChange={(ev) => setFieldValue(q.key, ev.target.value, q)}
-                  disabled={submitted}
-                  readOnly={submitted}
-                  aria-required={required}
-                />
-              )}
+                )}
 
-              {err && <div className="text-sm text-destructive mt-1">{err}</div>}
-            </div>
-          );
-        })}
+                {err && <div className="text-sm text-destructive mt-1">{err}</div>}
+              </div>
+            );
+          })}
         </div>
       )}
 

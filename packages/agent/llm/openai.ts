@@ -24,17 +24,20 @@ const shouldLog = (metadata?: Partial<LlmCallMetadata>) =>
 // Create OpenAI client - supports both Azure OpenAI and regular OpenAI
 const createOpenAIClient = () => {
   const useAzure = process.env.USE_AZURE_OPENAI === 'true';
-  
+
   if (useAzure) {
     const azureApiKey = process.env.AZURE_OPENAI_API_KEY;
     const azureEndpoint = process.env.AZURE_OPENAI_ENDPOINT;
     const apiVersion = process.env.AZURE_OPENAI_API_VERSION || '2024-08-01-preview';
-    const deploymentName = process.env.AZURE_OPENAI_DEPLOYMENT || process.env.OPENAI_MODEL || 'gpt-4o';
-    
+    const deploymentName =
+      process.env.AZURE_OPENAI_DEPLOYMENT || process.env.OPENAI_MODEL || 'gpt-4o';
+
     if (!azureApiKey || !azureEndpoint) {
-      throw new Error('USE_AZURE_OPENAI is true but AZURE_OPENAI_API_KEY or AZURE_OPENAI_ENDPOINT is missing');
+      throw new Error(
+        'USE_AZURE_OPENAI is true but AZURE_OPENAI_API_KEY or AZURE_OPENAI_ENDPOINT is missing',
+      );
     }
-    
+
     return new OpenAI({
       apiKey: azureApiKey,
       baseURL: `${azureEndpoint.replace(/\/$/, '')}/openai/deployments/${deploymentName}`,

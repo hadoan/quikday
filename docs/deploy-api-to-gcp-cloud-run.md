@@ -30,6 +30,7 @@ gcloud services enable run.googleapis.com artifactregistry.googleapis.com secret
 ```
 
 Recommended IAM roles for the account doing the deploy:
+
 - roles/run.admin
 - roles/artifactregistry.writer (or storage.objectAdmin for Container Registry)
 - roles/iam.serviceAccountUser (if using a service account)
@@ -57,6 +58,7 @@ pnpm --filter @quikday/api build
 ```
 
 Notes:
+
 - The project uses `pnpm` and a workspace. The API build output is expected in `apps/api/dist` (or as configured by that package).
 - If you prefer, run any tests before building: `pnpm --filter @quikday/api test`.
 
@@ -88,6 +90,7 @@ CMD ["node", "dist/main.js"]
 ```
 
 If your monorepo layout requires copying shared `node_modules` or more files, adapt the `COPY` lines accordingly. The important points:
+
 - Build locally first, then COPY the build result (`apps/api/dist`) into the image.
 - Do not copy `.env` into the image.
 
@@ -173,6 +176,7 @@ gcloud builds submit --tag ${REGION}-docker.pkg.dev/${PROJECT_ID}/${REPOSITORY}/
 ```
 
 If you prefer Container Registry instead of Artifact Registry (older):
+
 - use `gcr.io/PROJECT_ID/IMAGE:TAG` and `gcloud auth configure-docker gcr.io`.
 
 ## 5) Deploy to Cloud Run
@@ -269,9 +273,11 @@ gcloud run deploy $SERVICE_NAME --image=${REGION}-docker.pkg.dev/${PROJECT_ID}/$
 ---
 
 Completion summary
+
 - This document explains local build, Dockerfile.prod pattern, pushing to Artifact Registry, and deploying to Cloud Run. It includes commands and secure patterns for environment variables.
 
 If you want, I can:
+
 - Add a `Dockerfile.prod` file into the repo at `apps/api/Dockerfile.prod` with repo-specific tweaks.
 - Draft a simple GitHub Actions workflow that builds, pushes, and deploys on `main`.
 - Show how to create per-key Secret Manager secrets from the `.env` you attached.

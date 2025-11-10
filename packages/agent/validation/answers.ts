@@ -80,7 +80,7 @@ export function validateAnswers(
           const s = asString(v);
           if (Array.isArray(q.options) && q.options.length > 0) {
             const canon: Record<string, string> = Object.fromEntries(
-              q.options.map((opt) => [String(opt).toLowerCase(), String(opt)])
+              q.options.map((opt) => [String(opt).toLowerCase(), String(opt)]),
             );
             const hit = canon[s.toLowerCase()];
             if (!hit) throw new Error('Invalid option');
@@ -95,7 +95,7 @@ export function validateAnswers(
           const arr = Array.isArray(v) ? v.map(asString) : [asString(v)];
           if (Array.isArray(q.options) && q.options.length > 0) {
             const canon: Record<string, string> = Object.fromEntries(
-              q.options.map((opt) => [String(opt).toLowerCase(), String(opt)])
+              q.options.map((opt) => [String(opt).toLowerCase(), String(opt)]),
             );
             const mapped = arr.map((x) => {
               const hit = canon[x.toLowerCase()];

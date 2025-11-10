@@ -15,6 +15,7 @@ Set an out-of-office from 2025-11-05 to 2025-11-06 with this message: "I am out 
 Added two new methods to `GmailEmailService`:
 
 #### `setVacationResponder(startDate, endDate, message, subject?)`
+
 - Sets vacation auto-reply using Gmail API
 - Parameters:
   - `startDate`: Start time in epoch milliseconds
@@ -24,12 +25,14 @@ Added two new methods to `GmailEmailService`:
 - Uses `gmail.users.settings.updateVacation` API endpoint
 
 #### `disableVacationResponder()`
+
 - Disables the vacation responder
 - Uses same API endpoint with `enableAutoReply: false`
 
 ### 2. OAuth Scopes (`packages/appstore/gmail-email/add.ts`)
 
 Added required Gmail scope:
+
 - `https://www.googleapis.com/auth/gmail.settings.basic` - Required for vacation responder configuration
 
 **Note**: Existing users will need to reconnect their Gmail account to grant the new scope.
@@ -39,6 +42,7 @@ Added required Gmail scope:
 Created new LangChain tool `email.setOutOfOffice`:
 
 **Input Schema:**
+
 ```typescript
 {
   startDate: string;     // YYYY-MM-DD format
@@ -50,6 +54,7 @@ Created new LangChain tool `email.setOutOfOffice`:
 ```
 
 **Output Schema:**
+
 ```typescript
 {
   ok: boolean;
@@ -61,6 +66,7 @@ Created new LangChain tool `email.setOutOfOffice`:
 ```
 
 **Features:**
+
 - Validates date format (YYYY-MM-DD)
 - Ensures end date is after start date
 - Converts dates to epoch milliseconds for Gmail API
@@ -69,25 +75,32 @@ Created new LangChain tool `email.setOutOfOffice`:
 ### 4. Tool Registration (`packages/agent/registry/registry.ts`)
 
 Registered the new tool in the tool registry:
+
 - Imported `emailSetOutOfOffice` function
 - Registered with `moduleRef` for dependency injection
 
 ### 5. Prompt Updates
 
 #### Email Domain Rules (`packages/agent/prompts/goal-extraction/domains/email-v1.ts`)
+
 Added guidance for out-of-office operations:
+
 ```
 - For out-of-office/vacation responder: requires start_date, end_date (YYYY-MM-DD format), and message
 ```
 
 #### Planner System Prompt (`packages/agent/prompts/PLANNER_SYSTEM.ts`)
+
 Added rule for out-of-office handling:
+
 ```
 - "Set out-of-office" or "vacation responder" → use email.setOutOfOffice with startDate, endDate (YYYY-MM-DD), and message
 ```
 
 #### Goal Extraction Examples (`packages/agent/prompts/goal-extraction/v1-examples.ts`)
+
 Added example for out-of-office requests:
+
 ```typescript
 // User: "Set an out-of-office from 2025-11-05 to 2025-11-06..."
 {
@@ -104,11 +117,13 @@ Added example for out-of-office requests:
 ## API Reference
 
 ### Gmail API Endpoint
+
 ```
 PUT https://gmail.googleapis.com/gmail/v1/users/me/settings/vacation
 ```
 
 ### Request Body
+
 ```json
 {
   "enableAutoReply": true,
@@ -126,23 +141,26 @@ PUT https://gmail.googleapis.com/gmail/v1/users/me/settings/vacation
 ## Usage Examples
 
 ### Basic Out-of-Office
+
 ```
 Set an out-of-office from 2025-11-05 to 2025-11-06 with message: "I am currently out of the office and will return on Nov 7"
 ```
 
 ### With Custom Subject
+
 ```
 Set vacation responder from Dec 20 to Dec 27 with subject "Holiday Break" and message: "Thank you for your email. I am on holiday and will respond when I return."
 ```
 
 ### Disable Out-of-Office
+
 ```
 Turn off my out-of-office auto-reply
 ```
 
 ## Technical Notes
 
-1. **Date Handling**: 
+1. **Date Handling**:
    - Input dates are in YYYY-MM-DD format
    - Converted to epoch milliseconds for Gmail API
    - End time is set to 23:59:59 to cover the entire day
@@ -168,6 +186,7 @@ Turn off my out-of-office auto-reply
 ## Testing
 
 Build verified successfully:
+
 ```bash
 pnpm --filter @quikday/agent build
 ✓ Build completed without errors

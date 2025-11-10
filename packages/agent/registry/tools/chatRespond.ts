@@ -22,7 +22,8 @@ export function chatRespondTool(
 ): Tool<z.infer<typeof ChatRespondIn>, z.infer<typeof ChatRespondOut>> {
   return {
     name: 'chat.respond',
-    description: 'Generate a conversational response using the LLM. Optional: prompt (user message), system (system prompt override).',
+    description:
+      'Generate a conversational response using the LLM. Optional: prompt (user message), system (system prompt override).',
     in: ChatRespondIn,
     out: ChatRespondOut,
     apps: [], // no external app integration - internal LLM tool
@@ -33,16 +34,18 @@ export function chatRespondTool(
     async call(args) {
       const envTimeout = Number.parseInt(process.env.CHAT_RESPOND_TIMEOUT_MS || '', 10);
       const envMaxTokens = Number.parseInt(process.env.CHAT_RESPOND_MAX_TOKENS || '', 10);
-      const timeoutMs = Number.isFinite(args.timeoutMs) && (args.timeoutMs as number) > 0
-        ? (args.timeoutMs as number)
-        : Number.isFinite(envTimeout) && envTimeout > 0
-        ? envTimeout
-        : 45_000; // sensible default to avoid premature aborts
-      const maxTokens = Number.isFinite(args.maxTokens) && (args.maxTokens as number) > 0
-        ? (args.maxTokens as number)
-        : Number.isFinite(envMaxTokens) && envMaxTokens > 0
-        ? envMaxTokens
-        : 1000;
+      const timeoutMs =
+        Number.isFinite(args.timeoutMs) && (args.timeoutMs as number) > 0
+          ? (args.timeoutMs as number)
+          : Number.isFinite(envTimeout) && envTimeout > 0
+            ? envTimeout
+            : 45_000; // sensible default to avoid premature aborts
+      const maxTokens =
+        Number.isFinite(args.maxTokens) && (args.maxTokens as number) > 0
+          ? (args.maxTokens as number)
+          : Number.isFinite(envMaxTokens) && envMaxTokens > 0
+            ? envMaxTokens
+            : 1000;
 
       const text = await llm.text({
         system: args.system ?? DEFAULT_ASSISTANT_SYSTEM,

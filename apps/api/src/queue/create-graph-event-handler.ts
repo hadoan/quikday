@@ -36,7 +36,14 @@ export function createGraphEventHandler(opts: {
   telemetry: TelemetryService;
   persistPlanSteps?: (plan: any[], diff: any) => Promise<void>;
   enrichPlanWithCredentials?: (plan: any[]) => Promise<any[]>;
-  persistStepOutput?: (step: { id: string; tool: string; args: any; result: any; startedAt: Date; endedAt: Date }) => Promise<void>;
+  persistStepOutput?: (step: {
+    id: string;
+    tool: string;
+    args: any;
+    result: any;
+    startedAt: Date;
+    endedAt: Date;
+  }) => Promise<void>;
 }) {
   const {
     run,
@@ -79,38 +86,40 @@ export function createGraphEventHandler(opts: {
             : [];
           const diff = (evt.payload as any)?.diff;
           logger.log('📋 Plan ready', { runId: run.id, steps: plan.length });
-          
+
           // Enrich plan with credential information before publishing
           if (enrichPlanWithCredentials) {
-            void enrichPlanWithCredentials(plan).then((enrichedPlan) => {
-              logger.debug('📋 Plan enriched with credentials', { 
-                runId: run.id, 
-                steps: enrichedPlan.length,
-                missingCredentials: enrichedPlan.filter(s => s.credentialId === null).length
+            void enrichPlanWithCredentials(plan)
+              .then((enrichedPlan) => {
+                logger.debug('📋 Plan enriched with credentials', {
+                  runId: run.id,
+                  steps: enrichedPlan.length,
+                  missingCredentials: enrichedPlan.filter((s) => s.credentialId === null).length,
+                });
+                safePublish('plan_generated', {
+                  intent: liveStateRef.get().scratch?.intent,
+                  plan: enrichedPlan,
+                  tools: enrichedPlan.map((step: any) => step.tool),
+                  actions: enrichedPlan.map((step: any) => `Execute ${step.tool}`),
+                  steps: enrichedPlan,
+                  diff,
+                });
+              })
+              .catch((err) => {
+                logger.error('❌ Failed to enrich plan with credentials', {
+                  runId: run.id,
+                  error: err?.message || String(err),
+                });
+                // Fallback: publish without enrichment
+                safePublish('plan_generated', {
+                  intent: liveStateRef.get().scratch?.intent,
+                  plan,
+                  tools: plan.map((step: any) => step.tool),
+                  actions: plan.map((step: any) => `Execute ${step.tool}`),
+                  steps: plan,
+                  diff,
+                });
               });
-              safePublish('plan_generated', {
-                intent: liveStateRef.get().scratch?.intent,
-                plan: enrichedPlan,
-                tools: enrichedPlan.map((step: any) => step.tool),
-                actions: enrichedPlan.map((step: any) => `Execute ${step.tool}`),
-                steps: enrichedPlan,
-                diff,
-              });
-            }).catch((err) => {
-              logger.error('❌ Failed to enrich plan with credentials', {
-                runId: run.id,
-                error: err?.message || String(err),
-              });
-              // Fallback: publish without enrichment
-              safePublish('plan_generated', {
-                intent: liveStateRef.get().scratch?.intent,
-                plan,
-                tools: plan.map((step: any) => step.tool),
-                actions: plan.map((step: any) => `Execute ${step.tool}`),
-                steps: plan,
-                diff,
-              });
-            });
           } else {
             // No enrichment available, publish as-is
             safePublish('plan_generated', {
@@ -122,7 +131,7 @@ export function createGraphEventHandler(opts: {
               diff,
             });
           }
-          
+
           if (persistPlanSteps) {
             void persistPlanSteps(plan, diff).catch((err) =>
               logger.error('? Failed to persist planned steps', {
@@ -195,17 +204,17 @@ export function createGraphEventHandler(opts: {
           const steps = Array.isArray((evt.payload as any)?.steps)
             ? ((evt.payload as any).steps as any[])
             : [];
-          
+
           // Log high-risk steps requiring approval
-          const highRiskSteps = steps.filter(step => step.risk === 'high');
-          logger.log('⏸️ Awaiting approval for high-risk steps', { 
-            runId: run.id, 
+          const highRiskSteps = steps.filter((step) => step.risk === 'high');
+          logger.log('⏸️ Awaiting approval for high-risk steps', {
+            runId: run.id,
             approvalId,
             stepCount: steps.length,
             highRiskCount: highRiskSteps.length,
-            tools: steps.map(s => s.tool).join(', ')
+            tools: steps.map((s) => s.tool).join(', '),
           });
-          
+
           // Include pending steps so the UI can render an approval CTA with step ids
           safePublish('run_status', { status: 'awaiting_approval', approvalId, steps });
           break;
@@ -237,7 +246,14 @@ export function createGraphEventHandler(opts: {
           break;
         }
         case 'step.executed': {
-          const step = evt.payload as { id: string; tool: string; args: any; result: any; startedAt: Date; endedAt: Date };
+          const step = evt.payload as {
+            id: string;
+            tool: string;
+            args: any;
+            result: any;
+            startedAt: Date;
+            endedAt: Date;
+          };
           if (persistStepOutput) {
             void persistStepOutput(step).catch((err) =>
               logger.error('❌ Failed to persist step output', {

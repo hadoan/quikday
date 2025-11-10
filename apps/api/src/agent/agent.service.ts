@@ -106,7 +106,7 @@ export class AgentService {
         const planner = makePlanner(this.llm);
         const delta2 = await planner(s1 as any, localBus as any);
         return { ...(s1 as any), ...(delta2 || {}) } as RunState;
-      },
+      }
     );
 
     const goal = (s2.scratch as any)?.goal ?? null;

@@ -23,7 +23,10 @@ import { EmailModule } from '@quikday/appstore/email/email.module';
 import { CalendarModule } from '@quikday/appstore/calendar/calendar.module';
 import { GmailEmailService, GmailEmailModule } from '@quikday/appstore-gmail-email';
 import { TemplatesModule } from './templates/templates.module.js';
-import { GoogleCalendarModule, GoogleCalendarProviderService } from '@quikday/appstore-google-calendar';
+import {
+  GoogleCalendarModule,
+  GoogleCalendarProviderService,
+} from '@quikday/appstore-google-calendar';
 import { EmailController } from './email/email.controller.js';
 
 const registry = new Map();

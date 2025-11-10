@@ -26,7 +26,9 @@ export const EmailSendFollowupOut = z.object({
 export type EmailSendFollowupArgs = z.infer<typeof EmailSendFollowupIn>;
 export type EmailSendFollowupResult = z.infer<typeof EmailSendFollowupOut>;
 
-export function emailSendFollowup(moduleRef: ModuleRef): Tool<EmailSendFollowupArgs, EmailSendFollowupResult> {
+export function emailSendFollowup(
+  moduleRef: ModuleRef,
+): Tool<EmailSendFollowupArgs, EmailSendFollowupResult> {
   return {
     name: 'email.sendFollowup',
     description:
@@ -52,7 +54,10 @@ export function emailSendFollowup(moduleRef: ModuleRef): Tool<EmailSendFollowupA
           const thread = await svc.getThread(parsed.threadId);
           if (Array.isArray(thread) && thread.length > 0) {
             const last = thread[thread.length - 1];
-            const msgIdRaw = last?.headers?.['Message-ID'] || last?.headers?.['Message-Id'] || last?.headers?.['MessageId'];
+            const msgIdRaw =
+              last?.headers?.['Message-ID'] ||
+              last?.headers?.['Message-Id'] ||
+              last?.headers?.['MessageId'];
             if (typeof msgIdRaw === 'string' && msgIdRaw.trim().length > 0) {
               // Normalize by stripping any surrounding angle brackets
               replyToMessageId = msgIdRaw.trim().replace(/^<|>$/g, '');

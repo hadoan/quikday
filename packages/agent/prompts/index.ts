@@ -11,12 +11,15 @@ export { FOLLOWUP_EMAIL_USER_PROMPT } from './FOLLOWUP_EMAIL_USER_PROMPT.js';
 
 // Missing inputs detection
 export { MISSING_INPUTS_SYSTEM } from './MISSING_INPUTS_SYSTEM.js';
-export { buildMissingInputsUserPrompt, type ToolRequirement } from './MISSING_INPUTS_USER_PROMPT.js';
+export {
+  buildMissingInputsUserPrompt,
+  type ToolRequirement,
+} from './MISSING_INPUTS_USER_PROMPT.js';
 
 // Goal extraction modular system
 export { GoalSchema, type GoalExtraction } from './goal-extraction/schema.js';
-export { 
-  compileGoalExtractionPrompt, 
+export {
+  compileGoalExtractionPrompt,
   compileGoalUserPrompt,
-  detectDomains 
+  detectDomains,
 } from './goal-extraction/compiler.js';

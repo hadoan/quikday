@@ -16,7 +16,7 @@ export const PLANNER_SYSTEM = [
   '- For summaries, analyses, or content generation, prefer chat.respond over noop.',
   '- If the goal involves ACTION (send, post, schedule, create, update, delete, SET, ENABLE), use the specific action tool',
   '- Plan with the best tool for the goal, even if some args are not provided (missing detection happens separately)',
-  '- Even when required values are missing (null/empty), still plan the ACTION step - don\'t fall back to chat.respond',
+  "- Even when required values are missing (null/empty), still plan the ACTION step - don't fall back to chat.respond",
   '- Example: "Set out-of-office" with missing dates → still use email.setOutOfOffice with null dates, NOT chat.respond',
   '',
   'Contract for output (strict schema):',
@@ -85,7 +85,7 @@ export const PLANNER_SYSTEM = [
   'Planning guidance (goal-oriented approach):',
   '- Respect tool dependencies; order prerequisites before actions.',
   '- Use the minimal number of steps needed to achieve the stated outcome.',
-  '- Interpret the user\'s goal by analyzing the PRIMARY action verb:',
+  "- Interpret the user's goal by analyzing the PRIMARY action verb:",
   '  → Strong ACTION verbs: "sweep", "send", "post", "schedule", "execute" → complete with action step',
   '  → PREPARATION verbs: "draft", "prepare", "generate", "create [drafts/content]" → stop at preparation',
   '  → When BOTH present (e.g., "sweep and create drafts"), prioritize the PRIMARY action verb (usually first)',
@@ -102,7 +102,9 @@ export const PLANNER_SYSTEM = [
   '  - For emails, prefer arrays where applicable (e.g., email.to).',
 ].join('\n');
 
-export function buildPlannerSystemPrompt(tools: Array<{ name: string; description: string; args: any }>): string {
+export function buildPlannerSystemPrompt(
+  tools: Array<{ name: string; description: string; args: any }>,
+): string {
   const allowed = (tools || [])
     .map((t) => {
       const argsStr = JSON.stringify(t.args, null, 2);
@@ -150,7 +152,7 @@ export function buildPlannerSystemPrompt(tools: Array<{ name: string; descriptio
     '    { "tool": "email.send", "args": {',
     '        "to": "recipient@example.com",',
     '        "subject": "Proposed Meeting Slots",',
-    '        "body": "Dear Customer,\n\nPlease find below the proposed meeting slots for next week:\n\n$fmt.listRange($var.slots, \'start\', \'end\', \'Europe/Berlin\')\n\nKindly let us know your preferred slot.\n\nBest regards,\nUser",',
+    "        \"body\": \"Dear Customer,\n\nPlease find below the proposed meeting slots for next week:\n\n$fmt.listRange($var.slots, 'start', 'end', 'Europe/Berlin')\n\nKindly let us know your preferred slot.\n\nBest regards,\nUser\",",
     '        "isHtml": false',
     '    } }',
     '  ]',

@@ -18,7 +18,7 @@ export class EmailController {
 
   constructor(
     private prisma: PrismaService,
-    private moduleRef: ModuleRef,
+    private moduleRef: ModuleRef
   ) {}
 
   @Delete('undo/:messageId')
@@ -42,7 +42,7 @@ export class EmailController {
 
     if (!action) {
       throw new BadRequestException(
-        'Cannot undo: message not found or undo window expired (60 minutes)',
+        'Cannot undo: message not found or undo window expired (60 minutes)'
       );
     }
 
@@ -50,7 +50,7 @@ export class EmailController {
     try {
       // Get the email service dynamically
       const gmailService = this.moduleRef.get('GmailEmailService', { strict: false });
-      
+
       if (gmailService && typeof (gmailService as any).deleteMessage === 'function') {
         await (gmailService as any).deleteMessage(messageId);
         this.logger.log(`Email message ${messageId} moved to trash`);

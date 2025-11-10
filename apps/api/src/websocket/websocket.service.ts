@@ -78,10 +78,17 @@ export class WebSocketService implements OnModuleDestroy {
           const projection = {
             id: run.id,
             title:
-              ((run as any).goal as any)?.title || (run.intent as any)?.title || run.prompt?.slice(0, 80) || 'Run',
+              ((run as any).goal as any)?.title ||
+              (run.intent as any)?.title ||
+              run.prompt?.slice(0, 80) ||
+              'Run',
             status: run.status,
             createdAt: run.createdAt,
-            createdBy: { id: run.userId, name: runAny.User?.displayName || runAny.User?.email || 'User', avatar: runAny.User?.avatar || null },
+            createdBy: {
+              id: run.userId,
+              name: runAny.User?.displayName || runAny.User?.email || 'User',
+              avatar: runAny.User?.avatar || null,
+            },
             kind: 'action',
             source: ((run.config as any)?.meta?.source as string) || 'api',
             stepCount: runAny._count?.steps ?? 0,
@@ -177,7 +184,10 @@ export class WebSocketService implements OnModuleDestroy {
             runId,
           });
         } catch (err) {
-          this.logger.debug('Could not build run_snapshot', { runId, error: (err as any)?.message });
+          this.logger.debug('Could not build run_snapshot', {
+            runId,
+            error: (err as any)?.message,
+          });
         }
       })();
     }

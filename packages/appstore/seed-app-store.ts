@@ -110,7 +110,11 @@ async function seedFromRegistry() {
         if (client_id && client_secret) {
           const base: Record<string, unknown> =
             keys && typeof keys === 'object' && !Array.isArray(keys) ? (keys as any) : {};
-          keys = { ...base, app_id: client_id, app_secret: client_secret } as unknown as Prisma.InputJsonValue;
+          keys = {
+            ...base,
+            app_id: client_id,
+            app_secret: client_secret,
+          } as unknown as Prisma.InputJsonValue;
         }
       }
 

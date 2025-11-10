@@ -78,7 +78,8 @@ export function previewForLog(v: any): string {
   try {
     if (v === null) return 'null';
     if (v === undefined) return 'undefined';
-    if (typeof v === 'string') return v.length > 120 ? JSON.stringify(v.slice(0, 117) + '…') : JSON.stringify(v);
+    if (typeof v === 'string')
+      return v.length > 120 ? JSON.stringify(v.slice(0, 117) + '…') : JSON.stringify(v);
     if (typeof v === 'number' || typeof v === 'boolean') return String(v);
     if (Array.isArray(v)) return `[Array(${v.length})]`;
     if (typeof v === 'object') return `{Object keys=${Object.keys(v).length}}`;
@@ -131,4 +132,3 @@ export async function deriveUndoArgs(tool: any, result: any, args: any) {
   }
   return args;
 }
-

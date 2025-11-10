@@ -1,11 +1,11 @@
-import { 
-  Controller, 
-  Get, 
-  Param, 
-  ParseIntPipe, 
-  UseGuards, 
-  Req, 
-  UnauthorizedException 
+import {
+  Controller,
+  Get,
+  Param,
+  ParseIntPipe,
+  UseGuards,
+  Req,
+  UnauthorizedException,
 } from '@nestjs/common';
 import { PrismaService } from '@quikday/prisma';
 import { KindeGuard } from '../auth/kinde.guard.js';
@@ -22,7 +22,9 @@ export class TeamsController {
     // Look up the user by their Kinde sub to get the numeric database ID
     const user = await this.prisma.user.findUnique({ where: { sub: userSub } });
     if (!user) {
-      throw new UnauthorizedException('User not found in database. Please ensure user sync completed.');
+      throw new UnauthorizedException(
+        'User not found in database. Please ensure user sync completed.'
+      );
     }
 
     // Check if user is a member of this team
@@ -44,14 +46,14 @@ export class TeamsController {
   async getPolicies(@Param('id', ParseIntPipe) id: number, @Req() req: any) {
     const claims = req.user || {};
     const userId = claims.sub;
-    
+
     if (!userId) {
       throw new UnauthorizedException('User ID not found in claims');
     }
-    
+
     // Verify team membership before returning policies
     await this.verifyTeamMembership(id, userId);
-    
+
     return this.prisma.policy.findMany({ where: { teamId: id } });
   }
 
@@ -59,14 +61,14 @@ export class TeamsController {
   async getIntegrations(@Param('id', ParseIntPipe) id: number, @Req() req: any) {
     const claims = req.user || {};
     const userId = claims.sub;
-    
+
     if (!userId) {
       throw new UnauthorizedException('User ID not found in claims');
     }
-    
+
     // Verify team membership before returning integrations
     await this.verifyTeamMembership(id, userId);
-    
+
     return this.prisma.integration.findMany({ where: { teamId: id } });
   }
 }

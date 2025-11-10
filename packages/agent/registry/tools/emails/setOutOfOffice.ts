@@ -6,15 +6,9 @@ import { resolveEmailService } from './utils.js';
 
 // ---------------- email.setOutOfOffice ----------------
 export const EmailSetOutOfOfficeIn = z.object({
-  startDate: z
-    .string()
-    .describe('Start date in YYYY-MM-DD format (e.g., "2025-11-05")'),
-  endDate: z
-    .string()
-    .describe('End date in YYYY-MM-DD format (e.g., "2025-11-06")'),
-  message: z
-    .string()
-    .describe('Auto-reply message content (supports HTML)'),
+  startDate: z.string().describe('Start date in YYYY-MM-DD format (e.g., "2025-11-05")'),
+  endDate: z.string().describe('End date in YYYY-MM-DD format (e.g., "2025-11-06")'),
+  message: z.string().describe('Auto-reply message content (supports HTML)'),
   subject: z
     .string()
     .optional()
@@ -57,7 +51,7 @@ export function emailSetOutOfOffice(
       // To cover the entire end date, set endTime to start of next day
       const startDate = new Date(`${parsed.startDate}T00:00:00`);
       const endDate = new Date(`${parsed.endDate}T23:59:59`);
-      
+
       if (isNaN(startDate.getTime()) || isNaN(endDate.getTime())) {
         throw new Error('Invalid date format. Use YYYY-MM-DD format.');
       }

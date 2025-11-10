@@ -10,7 +10,10 @@ import type { LLM } from '../llm/types.js';
 import { buildPlannerSystemPrompt } from '../prompts/PLANNER_SYSTEM.js';
 import { DEFAULT_ASSISTANT_SYSTEM } from '../prompts/DEFAULT_ASSISTANT_SYSTEM.js';
 import { MISSING_INPUTS_SYSTEM } from '../prompts/MISSING_INPUTS_SYSTEM.js';
-import { buildMissingInputsUserPrompt, type ToolRequirement } from '../prompts/MISSING_INPUTS_USER_PROMPT.js';
+import {
+  buildMissingInputsUserPrompt,
+  type ToolRequirement,
+} from '../prompts/MISSING_INPUTS_USER_PROMPT.js';
 
 /* ------------------ Whitelist & Schemas ------------------ */
 
@@ -31,9 +34,7 @@ function getToolWhitelist(): string[] {
 function getToolSchemas(): Array<{ name: string; description: string; args: any }> {
   try {
     const allowNoop = String(process.env.PLANNER_ALLOW_NOOP || '').toLowerCase() === 'true';
-    return registry
-      .getSchemas()
-      .filter((t) => (allowNoop ? true : t.name !== 'noop'));
+    return registry.getSchemas().filter((t) => (allowNoop ? true : t.name !== 'noop'));
   } catch {
     return [{ name: 'chat.respond', description: 'Generate a response', args: {} }];
   }
@@ -65,7 +66,10 @@ const sid = (n: number) => `step-${String(n).padStart(2, '0')}`;
  * Validate and fix tool arguments using the actual tool schema.
  * If validation fails, attempt to parse the error and provide helpful feedback.
  */
-function validateAndFixToolArgs(toolName: string, args: any): { valid: boolean; args: any; error?: string } {
+function validateAndFixToolArgs(
+  toolName: string,
+  args: any,
+): { valid: boolean; args: any; error?: string } {
   try {
     const tool = registry.get(toolName);
     if (!tool?.in) {
@@ -75,7 +79,7 @@ function validateAndFixToolArgs(toolName: string, args: any): { valid: boolean; 
 
     // Try to parse with the tool's schema
     const result = tool.in.safeParse(args);
-    
+
     if (result.success) {
       // Valid! Return the parsed/coerced args
       return { valid: true, args: result.data };
@@ -84,7 +88,7 @@ function validateAndFixToolArgs(toolName: string, args: any): { valid: boolean; 
     // Validation failed - extract error details
     const zodError = result.error;
     const formatted = zodError.format();
-    
+
     // Build a helpful error message
     const fieldErrors: string[] = [];
     for (const [field, err] of Object.entries(formatted)) {
@@ -95,10 +99,11 @@ function validateAndFixToolArgs(toolName: string, args: any): { valid: boolean; 
         }
       }
     }
-    
-    const errorMsg = fieldErrors.length > 0 
-      ? `Invalid arguments for ${toolName}:\n${fieldErrors.join('\n')}`
-      : `Invalid arguments for ${toolName}`;
+
+    const errorMsg =
+      fieldErrors.length > 0
+        ? `Invalid arguments for ${toolName}:\n${fieldErrors.join('\n')}`
+        : `Invalid arguments for ${toolName}`;
 
     return { valid: false, args, error: errorMsg };
   } catch (err) {
@@ -110,10 +115,9 @@ function validateAndFixToolArgs(toolName: string, args: any): { valid: boolean; 
 const isEmail = (v?: string) =>
   typeof v === 'string' && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v.trim());
 
-
-/** 
+/**
  * Wire ids & naïve linear dependsOn; assign risk from tool registry.
- * 
+ *
  * Risk Level Assignment:
  * - Reads the `risk` property from the tool definition in the registry
  * - Falls back to 'low' if tool not found or risk not defined
@@ -123,7 +127,7 @@ function finalizeSteps(steps: Omit<PlanStep, 'id' | 'risk' | 'dependsOn'>[]): Pl
   return steps.map((st, i) => {
     const id = sid(i + 1);
     const dependsOn = i === 0 ? [] : [sid(i)];
-    
+
     // Get risk level from tool registry instead of hardcoding
     let risk: 'low' | 'high' = 'low'; // default
     try {
@@ -134,7 +138,7 @@ function finalizeSteps(steps: Omit<PlanStep, 'id' | 'risk' | 'dependsOn'>[]): Pl
     } catch (err) {
       console.warn(`[planner] Could not get risk for tool ${st.tool}:`, err);
     }
-    
+
     return { id, dependsOn, risk, ...st };
   });
 }
@@ -229,7 +233,7 @@ function patchAndHardenPlan(
 
   for (const step of steps) {
     const validation = validateAndFixToolArgs(step.tool, step.args);
-    
+
     if (validation.valid) {
       // Use the validated/coerced arguments from Zod
       validatedSteps.push({
@@ -250,7 +254,7 @@ function patchAndHardenPlan(
   if (invalidSteps.length > 0) {
     console.warn(
       `[Planner] Filtered out ${invalidSteps.length} invalid step(s):`,
-      invalidSteps.map(s => `${s.tool}: ${s.error}`).join('; ')
+      invalidSteps.map((s) => `${s.tool}: ${s.error}`).join('; '),
     );
   }
 
@@ -268,13 +272,19 @@ function patchAndHardenPlan(
 /**
  * Generate human-readable preview of what will happen once we have missing info
  */
-type MissingField = { key: string; question: string; type?: string; required?: boolean; options?: string[] };
+type MissingField = {
+  key: string;
+  question: string;
+  type?: string;
+  required?: boolean;
+  options?: string[];
+};
 type SimpleGoal = { outcome?: string; provided?: Record<string, unknown> };
 
 function generatePreviewSteps(goal: SimpleGoal, missing: MissingField[]): string[] {
   const outcome = (goal?.outcome || '').toLowerCase();
   const steps: string[] = [];
-  
+
   // Email triage patterns
   if (outcome.includes('triage') && outcome.includes('email')) {
     const timeWindow = goal?.provided?.time_window_minutes || 'specified';
@@ -283,13 +293,13 @@ function generatePreviewSteps(goal: SimpleGoal, missing: MissingField[]): string
     steps.push(`2. Filter and rank emails based on priority criteria`);
     steps.push(`3. Select up to ${maxResults} emails that need replies`);
   }
-  
+
   // Draft creation patterns
   if (outcome.includes('draft') || outcome.includes('reply') || outcome.includes('quick-reply')) {
     steps.push(`${steps.length + 1}. Generate context-appropriate reply drafts`);
     steps.push(`${steps.length + 1}. Present drafts for your review`);
   }
-  
+
   // Follow-up patterns
   if (outcome.includes('follow-up') || outcome.includes('no-reply')) {
     const days = goal?.provided?.days || goal?.provided?.time_window_days || 'specified';
@@ -297,7 +307,7 @@ function generatePreviewSteps(goal: SimpleGoal, missing: MissingField[]): string
     steps.push(`2. Generate polite follow-up drafts for each thread`);
     steps.push(`3. Present drafts for your review`);
   }
-  
+
   // Calendar patterns
   if (outcome.includes('schedule') || outcome.includes('meeting') || outcome.includes('call')) {
     steps.push(`1. Check calendar availability for requested time`);
@@ -306,26 +316,26 @@ function generatePreviewSteps(goal: SimpleGoal, missing: MissingField[]): string
       steps.push(`3. Send calendar invitations to attendees`);
     }
   }
-  
+
   // Posting patterns
   if (outcome.includes('post') || outcome.includes('publish')) {
     const platform = goal?.provided?.platform || 'the platform';
     steps.push(`1. Format content for ${platform}`);
     steps.push(`2. Post to ${platform}`);
   }
-  
+
   // Generic fallback
   if (steps.length === 0) {
     steps.push(`1. Process your request: ${goal?.outcome || 'complete the task'}`);
     steps.push(`2. Present results for your review`);
   }
-  
+
   // Add missing info indicator
   if (missing.length > 0) {
     steps.push('');
     steps.push(`⏸️ Waiting for: ${missing.map((m) => m.key.replace(/_/g, ' ')).join(', ')}`);
   }
-  
+
   return steps;
 }
 
@@ -341,12 +351,14 @@ async function detectMissingInputsWithLLM(
   userMessage: string,
   provided: Record<string, unknown>,
   answers: Record<string, unknown>,
-  s: RunState
-): Promise<Array<{ key: string; question: string; type?: string; required?: boolean; options?: string[] }>> {
+  s: RunState,
+): Promise<
+  Array<{ key: string; question: string; type?: string; required?: boolean; options?: string[] }>
+> {
   if (steps.length === 0) return [];
 
   const allProvided = { ...provided, ...answers };
-  
+
   // Build a summary of tool requirements
   const toolRequirements: ToolRequirement[] = [];
 
@@ -393,27 +405,39 @@ async function detectMissingInputsWithLLM(
         // Last resort: attempt legacy access
         const maybeLegacy = sch?._def?.shape ?? sch?.shape;
         if (typeof maybeLegacy === 'function') {
-          try { return maybeLegacy(); } catch { return {}; }
+          try {
+            return maybeLegacy();
+          } catch {
+            return {};
+          }
         }
-        return (maybeLegacy && typeof maybeLegacy === 'object') ? (maybeLegacy as Record<string, unknown>) : {};
+        return maybeLegacy && typeof maybeLegacy === 'object'
+          ? (maybeLegacy as Record<string, unknown>)
+          : {};
       };
 
       const shape = getShape(schema);
-      
+
       console.log(`[detectMissingInputsWithLLM] Extracted shape for ${step.tool}:`, {
         shapeKeys: Object.keys(shape),
         currentArgs: step.args,
       });
-      
-      const requiredParams: Array<{ name: string; type: string; description?: string; required: boolean }> = [];
-      
+
+      const requiredParams: Array<{
+        name: string;
+        type: string;
+        description?: string;
+        required: boolean;
+      }> = [];
+
       for (const [key, value] of Object.entries(shape)) {
         if (!value || typeof value !== 'object') continue;
-        
+
         const zodType = (value as any)._def?.typeName || 'unknown';
-        const isOptional = (value as any).isOptional?.() || (value as any)._def?.typeName === 'ZodOptional';
+        const isOptional =
+          (value as any).isOptional?.() || (value as any)._def?.typeName === 'ZodOptional';
         const description = (value as any)._def?.description || (value as any).description;
-        
+
         // Map Zod types to readable types
         let type = 'text';
         if (zodType.includes('String')) type = 'text';
@@ -421,13 +445,18 @@ async function detectMissingInputsWithLLM(
         else if (zodType.includes('Boolean')) type = 'boolean';
         else if (zodType.includes('Date')) type = 'datetime';
         else if (zodType.includes('Array')) type = 'array';
-        
+
         // Check if this field name suggests a specific type
         const keyLower = key.toLowerCase();
         if (keyLower.includes('email')) type = 'email';
-        else if (keyLower.includes('date') || keyLower.includes('time') || keyLower.includes('when')) type = 'datetime';
+        else if (
+          keyLower.includes('date') ||
+          keyLower.includes('time') ||
+          keyLower.includes('when')
+        )
+          type = 'datetime';
         else if (keyLower.includes('channel') || keyLower.includes('room')) type = 'text';
-        
+
         requiredParams.push({
           name: key,
           type,
@@ -435,12 +464,12 @@ async function detectMissingInputsWithLLM(
           required: !isOptional,
         });
       }
-      
+
       console.log(`[detectMissingInputsWithLLM] Required params for ${step.tool}:`, {
         count: requiredParams.length,
         params: requiredParams,
       });
-      
+
       toolRequirements.push({
         tool: step.tool,
         requiredParams,
@@ -458,10 +487,10 @@ async function detectMissingInputsWithLLM(
 
   // Build prompts using the centralized prompt system
   const userPrompt = buildMissingInputsUserPrompt(userMessage, allProvided, toolRequirements);
-  
+
   console.log('[detectMissingInputsWithLLM] Prepared prompt for LLM:', {
     toolRequirementsCount: toolRequirements.length,
-    toolNames: toolRequirements.map(t => t.tool),
+    toolNames: toolRequirements.map((t) => t.tool),
     allProvidedKeys: Object.keys(allProvided),
     userMessagePreview: userMessage.slice(0, 100),
   });
@@ -482,23 +511,23 @@ async function detectMissingInputsWithLLM(
 
     // Extract JSON from response
     const cleaned = extractJsonFromOutput(raw);
-    
+
     console.log('[detectMissingInputsWithLLM] Raw LLM response:', {
       rawLength: raw.length,
       rawPreview: raw.slice(0, 200),
       cleanedLength: cleaned.length,
       cleanedPreview: cleaned.slice(0, 200),
     });
-    
+
     const parsed = JSON.parse(cleaned);
-    
+
     console.log('[detectMissingInputsWithLLM] Parsed JSON:', {
       isArray: Array.isArray(parsed),
       type: typeof parsed,
       length: Array.isArray(parsed) ? parsed.length : 'N/A',
       parsed: parsed,
     });
-    
+
     if (!Array.isArray(parsed)) {
       console.warn('[planner] LLM did not return an array for missing inputs');
       return [];
@@ -519,9 +548,8 @@ async function detectMissingInputsWithLLM(
       count: missingInputs.length,
       missingInputs,
     });
-    
+
     return missingInputs;
-    
   } catch (err) {
     console.warn('[planner] Failed to use LLM for missing input detection:', err);
     // Fallback to simple validation check
@@ -535,9 +563,10 @@ async function detectMissingInputsWithLLM(
  */
 function fallbackMissingInputsDetection(
   steps: PlanStep[],
-  allProvided: Record<string, unknown>
+  allProvided: Record<string, unknown>,
 ): Array<{ key: string; question: string; type?: string; required?: boolean }> {
-  const missingInputs: Array<{ key: string; question: string; type?: string; required?: boolean }> = [];
+  const missingInputs: Array<{ key: string; question: string; type?: string; required?: boolean }> =
+    [];
 
   for (const step of steps) {
     try {
@@ -545,7 +574,7 @@ function fallbackMissingInputsDetection(
       if (!tool?.in) continue;
 
       const result = tool.in.safeParse(step.args);
-      
+
       if (!result.success) {
         const zodError = result.error;
         const issues = zodError.issues;
@@ -553,10 +582,10 @@ function fallbackMissingInputsDetection(
         for (const issue of issues) {
           const fieldPath = issue.path.join('.');
           const fieldName = String(issue.path[issue.path.length - 1] || 'unknown');
-          
+
           if (allProvided[fieldPath] === undefined && allProvided[fieldName] === undefined) {
             const required = issue.code === 'invalid_type' || !issue.message.includes('optional');
-            
+
             missingInputs.push({
               key: fieldPath || fieldName,
               question: `Please provide ${fieldName} for ${step.tool}`,
@@ -612,15 +641,15 @@ export const makePlanner =
     const tools = getToolSchemas();
     const system = buildSystemPrompt(tools);
     const user = buildUserPrompt(s);
-    
+
     console.log('[planner] Calling LLM for planning:', {
       goalOutcome: goal?.outcome,
       goalConfidence: confidence,
       toolsCount: tools.length,
-      toolNames: tools.map(t => t.name),
+      toolNames: tools.map((t) => t.name),
       userPromptPreview: user.slice(0, 200),
     });
-    
+
     const raw = await planWithLLM(llm, s, system, user);
 
     console.log('[planner] LLM raw response:', {
@@ -636,19 +665,19 @@ export const makePlanner =
           cleanedLength: cleaned.length,
           cleanedPreview: cleaned.slice(0, 300),
         });
-        
+
         const parsed = PlanInSchema.parse(JSON.parse(cleaned));
         console.log('[planner] Parsed plan:', {
           stepsCount: parsed.steps.length,
           steps: parsed.steps,
         });
-        
+
         const hardened = patchAndHardenPlan(s, parsed);
         console.log('[planner] Hardened plan:', {
           stepsCount: hardened.steps.length,
-          tools: hardened.steps.map(s => s.tool),
+          tools: hardened.steps.map((s) => s.tool),
         });
-        
+
         steps = hardened.steps;
       } catch (err) {
         console.warn('[planner] Failed to parse LLM plan:', err);
@@ -673,45 +702,45 @@ export const makePlanner =
     // 4) Check for missing inputs using LLM-based intelligent detection
     const provided = (goal?.provided ?? {}) as Record<string, unknown>;
     const answers = (s.scratch?.answers ?? {}) as Record<string, unknown>;
-    
+
     console.log('[planner] Starting missing inputs detection:', {
       provided,
       answers,
       stepsCount: steps.length,
-      stepTools: steps.map(s => s.tool),
+      stepTools: steps.map((s) => s.tool),
     });
-    
+
     const missingFromToolSchemas = await detectMissingInputsWithLLM(
       llm,
       steps,
       userText,
       provided,
       answers,
-      s
+      s,
     );
-    
+
     console.log('[planner] LLM detected missing inputs:', {
       count: missingFromToolSchemas.length,
       missing: missingFromToolSchemas,
     });
-    
+
     // Collect all missing inputs from tool schema validation
     const allMissing = [...missingFromToolSchemas];
-    
+
     // Filter to only required missing inputs
     const requiredMissing = allMissing.filter((m: any) => m.required !== false);
-    
+
     console.log('[planner] Filtered missing inputs:', {
       allMissingCount: allMissing.length,
       requiredMissingCount: requiredMissing.length,
       requiredMissing,
     });
-    
+
     // 5) If there are missing required inputs, pause and return
     if (requiredMissing.length > 0) {
       // Generate preview steps to show what we'll do once we have the info
       const previewSteps = generatePreviewSteps(goal, requiredMissing);
-      
+
       // Return plan with preview and mark awaiting_input so the UI can
       // show the intended plan while also prompting for missing info.
       const diff = safe({
@@ -736,14 +765,17 @@ export const makePlanner =
     }
 
     // 6) Build diff for successful planning
-    const missingFieldsFormatted = allMissing.length > 0 ? allMissing.map((m: MissingField) => ({
-      key: m.key,
-      question: m.question,
-      required: m.required !== false,
-      type: m.type,
-      options: m.options,
-    })) : undefined;
-    
+    const missingFieldsFormatted =
+      allMissing.length > 0
+        ? allMissing.map((m: MissingField) => ({
+            key: m.key,
+            question: m.question,
+            required: m.required !== false,
+            type: m.type,
+            options: m.options,
+          }))
+        : undefined;
+
     console.log('[planner] Building successful diff:', {
       hasSteps: steps && steps.length > 0,
       stepsCount: steps?.length ?? 0,
@@ -751,7 +783,7 @@ export const makePlanner =
       missingFieldsCount: missingFieldsFormatted?.length ?? 0,
       missingFields: missingFieldsFormatted,
     });
-    
+
     const diff = safe({
       summary:
         steps && steps.length > 0
@@ -778,18 +810,18 @@ export const makePlanner =
 // Extract a JSON object if the model wrapped it in ```json fences or extra prose
 function extractJsonFromOutput(output: string): string {
   let s = (output || '').trim();
-  
+
   // Remove markdown code fences if present
   const fence = s.match(/```(?:json)?\s*([\s\S]*?)```/i);
   if (fence && fence[1]) s = fence[1].trim();
-  
+
   // Check if it's an array or object
   const firstBracket = s.indexOf('[');
   const firstBrace = s.indexOf('{');
-  
+
   // Determine if we're dealing with an array or object
   const isArray = firstBracket >= 0 && (firstBrace < 0 || firstBracket < firstBrace);
-  
+
   if (isArray) {
     // Extract array
     const last = s.lastIndexOf(']');
@@ -803,6 +835,6 @@ function extractJsonFromOutput(output: string): string {
       return s.slice(firstBrace, last + 1);
     }
   }
-  
+
   return s;
 }

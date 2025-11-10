@@ -52,11 +52,11 @@ export default function EmailFollowupApproval({
     setError(null);
     try {
       const ds = getDataSource();
-      
+
       // Call the approval endpoint
       const approvedStepIds = Array.from(selectedSteps);
       await ds.approve(runId, approvedStepIds);
-      
+
       onApproved?.();
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to approve run');
@@ -113,9 +113,11 @@ export default function EmailFollowupApproval({
               const stepIndex = steps.indexOf(step).toString();
               const isSelected = selectedSteps.has(stepIndex);
               const request = step.request as Record<string, unknown>;
-              
+
               // Extract email details from request
-              const subject = (request?.subject || request?.originalSubject || '(No Subject)') as string;
+              const subject = (request?.subject ||
+                request?.originalSubject ||
+                '(No Subject)') as string;
               const body = (request?.body || request?.preview || '') as string;
               const recipient = (request?.to || request?.recipient || 'Unknown') as string;
 

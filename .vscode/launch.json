@@ -64,9 +64,7 @@
       "cwd": "${workspaceFolder}",
       "runtimeExecutable": "node",
       "program": "${workspaceFolder}/node_modules/tsx/dist/cli.mjs",
-      "args": [
-        "packages/agent/examples/modular-prompt-demo.ts"
-      ],
+      "args": ["packages/agent/examples/modular-prompt-demo.ts"],
       "envFile": "${workspaceFolder}/.env",
       "console": "integratedTerminal"
     },

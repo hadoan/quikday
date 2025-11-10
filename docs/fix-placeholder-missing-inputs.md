@@ -3,11 +3,13 @@
 ## Problem
 
 When users provided prompts with placeholder syntax like:
+
 ```
 Set an out-of-office from {start=date} to {end=date} with this message: {msg=text}.
 ```
 
 The system was attempting to execute the tool with invalid date values (literally "date" instead of actual dates), causing validation errors:
+
 ```
 "error": "Invalid date format. Use YYYY-MM-DD format."
 ```
@@ -19,13 +21,16 @@ The goal extraction system was treating type placeholders (`{start=date}`, `{msg
 ## Solution
 
 Updated three key prompt files to properly distinguish between:
+
 - **Concrete values**: `{minutes=10}` → extract as provided value
 - **Type placeholders**: `{start=date}` → recognize as missing, don't extract
 
 ### Changes Made
 
 #### 1. Goal Extraction Format Rules (`v1-format-rules.ts`)
+
 Added explicit guidance to NOT extract type placeholders:
+
 ```typescript
 '- When the value is a TYPE PLACEHOLDER (e.g., {start=date}, {end=date}, {msg=text}), DO NOT extract it as a provided value',
 '- Type placeholders indicate MISSING information that needs to be collected from the user',
@@ -33,7 +38,9 @@ Added explicit guidance to NOT extract type placeholders:
 ```
 
 #### 2. Goal Extraction Examples (`v1-examples.ts`)
+
 Added example showing placeholder handling:
+
 ```typescript
 // User: "Set an out-of-office from {start=date} to {end=date} with this message: {msg=text}."
 {
@@ -44,7 +51,9 @@ Added example showing placeholder handling:
 ```
 
 #### 3. Missing Inputs System Prompt (`MISSING_INPUTS_SYSTEM.ts`)
+
 Enhanced validation rules for date fields:
+
 ```typescript
 '**Date field handling:**',
 '- startDate/endDate fields that are null, empty, or contain non-date values like "date" → mark as missing',
@@ -55,6 +64,7 @@ Enhanced validation rules for date fields:
 ## Expected Behavior After Fix
 
 ### Input
+
 ```
 Set an out-of-office from {start=date} to {end=date} with this message: {msg=text}.
 ```
@@ -73,6 +83,7 @@ Set an out-of-office from {start=date} to {end=date} with this message: {msg=tex
 ## Testing
 
 Build verified:
+
 ```bash
 pnpm --filter @quikday/agent build
 ✓ No errors
@@ -88,18 +99,18 @@ pnpm --filter @quikday/agent build
 
 Common placeholder patterns that should trigger missing input detection:
 
-| Placeholder | Type | Example |
-|------------|------|---------|
-| `{key=date}` | Date | `{start=date}`, `{end=date}` |
-| `{key=text}` | Text | `{msg=text}`, `{subject=text}` |
-| `{key=email}` | Email | `{to=email}`, `{from=email}` |
+| Placeholder    | Type   | Example                               |
+| -------------- | ------ | ------------------------------------- |
+| `{key=date}`   | Date   | `{start=date}`, `{end=date}`          |
+| `{key=text}`   | Text   | `{msg=text}`, `{subject=text}`        |
+| `{key=email}`  | Email  | `{to=email}`, `{from=email}`          |
 | `{key=number}` | Number | `{count=number}`, `{duration=number}` |
 
 Concrete values that SHOULD be extracted:
 
-| Syntax | Value Extracted |
-|--------|----------------|
-| `{minutes=10}` | `10` (number) |
-| `{max=8}` | `8` (number) |
+| Syntax               | Value Extracted         |
+| -------------------- | ----------------------- |
+| `{minutes=10}`       | `10` (number)           |
+| `{max=8}`            | `8` (number)            |
 | `{start=2025-11-05}` | `"2025-11-05"` (string) |
-| `{msg="Hello"}` | `"Hello"` (string) |
+| `{msg="Hello"}`      | `"Hello"` (string)      |

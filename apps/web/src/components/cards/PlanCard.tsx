@@ -29,7 +29,7 @@ export const PlanCard = ({ data, onConfirm, onReject, runId }: PlanCardProps) =>
 
   // Check if any steps are missing credentials
   const stepsNeedingInstall = (data.steps || []).filter(
-    (step) => step.appId && (step.credentialId === null || step.credentialId === undefined)
+    (step) => step.appId && (step.credentialId === null || step.credentialId === undefined),
   );
   const hasMissingCredentials = stepsNeedingInstall.length > 0;
 
@@ -95,7 +95,7 @@ export const PlanCard = ({ data, onConfirm, onReject, runId }: PlanCardProps) =>
           </div>
 
           {/* Planned steps detail (if provided) */}
-          {(data.steps && data.steps.length > 0) && (
+          {data.steps && data.steps.length > 0 && (
             <div className="space-y-2">
               <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
                 Planned Steps
@@ -142,16 +142,7 @@ export const PlanCard = ({ data, onConfirm, onReject, runId }: PlanCardProps) =>
                     <div className="shrink-0">
                       <InstallApp
                         {...getAppInstallProps(step.appId!)}
-                        onBeforeInstall={() => {
-                          try {
-                            if (runId) {
-                              const payload = { runId, appId: step.appId, ts: Date.now() };
-                              localStorage.setItem('qd.pendingInstall', JSON.stringify(payload));
-                            }
-                          } catch {
-                            // ignore
-                          }
-                        }}
+                        onBeforeInstall={() => {}}
                         onInstalled={async () => {
                           try {
                             if (runId) {
@@ -177,15 +168,13 @@ export const PlanCard = ({ data, onConfirm, onReject, runId }: PlanCardProps) =>
           {hasMissingCredentials && (
             <div className="mb-2 p-3 bg-amber-50 dark:bg-amber-900/10 border border-amber-200 dark:border-amber-800 rounded-lg">
               <p className="text-sm text-amber-800 dark:text-amber-200">
-                ⚠️ Some apps need to be installed before this plan can be executed.
-                Please install the required apps above.
+                ⚠️ Some apps need to be installed before this plan can be executed. Please install
+                the required apps above.
               </p>
             </div>
           )}
           <div className="flex items-center justify-between gap-2">
-            <p className="text-sm font-medium text-foreground">
-              Review this plan before execution
-            </p>
+            <p className="text-sm font-medium text-foreground">Review this plan before execution</p>
             <Badge variant="outline" className="text-xs">
               Awaiting Approval
             </Badge>

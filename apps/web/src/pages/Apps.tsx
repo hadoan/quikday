@@ -184,7 +184,6 @@ const Apps = () => {
 
   // If an app install was initiated from a specific run, refresh that run's steps and return to chat
   useEffect(() => {
-    const key = 'qd.pendingInstall';
     let payload: any;
     try {
       const raw = localStorage.getItem(key);

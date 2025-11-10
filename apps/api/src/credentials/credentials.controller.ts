@@ -93,7 +93,7 @@ export class CredentialsController {
 
     // Use the user's workspaceId as the team context
     const teamId = me.workspaceId;
-    
+
     if (!teamId) {
       throw new Error('No team context available');
     }

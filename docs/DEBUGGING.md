@@ -18,4 +18,3 @@ Notes
 - API debug port is 9229 (configured by `apps/api` scripts).
 - Tasks are background tasks and will signal “ready” once the service prints its startup line.
 - All launch configs load `${workspaceFolder}/.env` automatically.
-

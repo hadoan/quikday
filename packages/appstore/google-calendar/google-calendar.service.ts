@@ -19,7 +19,7 @@ export class GoogleCalendarProviderService implements CalendarService {
   constructor(
     private currentUser: CurrentUserService,
     private prisma: PrismaService,
-  ) { }
+  ) {}
 
   async checkAvailability(query: AvailabilityQuery): Promise<AvailabilityResult> {
     this.logger.log(this.format({ op: 'checkAvailability', start: query.start, end: query.end }));
@@ -48,7 +48,10 @@ export class GoogleCalendarProviderService implements CalendarService {
     event: Omit<CalendarEvent, 'id'> & { notifyAttendees?: boolean },
   ): Promise<{ id: string; htmlLink?: string; start: Date; end: Date }> {
     this.logger.log(this.format({ op: 'createEvent', title: event.title }));
-    const { calendar, credentialId, oauth2Client } = await this.getGoogleClient(this.prisma, this.currentUser);
+    const { calendar, credentialId, oauth2Client } = await this.getGoogleClient(
+      this.prisma,
+      this.currentUser,
+    );
 
     const attendees = this.mapAttendees(event.attendees ?? []);
     const sendUpdates: 'all' | 'none' = event.notifyAttendees === false ? 'none' : 'all';
@@ -92,9 +95,17 @@ export class GoogleCalendarProviderService implements CalendarService {
     pageSize?: number;
   }): Promise<{ nextPageToken?: string; items: CalendarEvent[] }> {
     this.logger.log(
-      this.format({ op: 'listEvents', start: args.start, end: args.end, pageToken: args.pageToken }),
+      this.format({
+        op: 'listEvents',
+        start: args.start,
+        end: args.end,
+        pageToken: args.pageToken,
+      }),
     );
-    const { calendar, credentialId, oauth2Client } = await this.getGoogleClient(this.prisma, this.currentUser);
+    const { calendar, credentialId, oauth2Client } = await this.getGoogleClient(
+      this.prisma,
+      this.currentUser,
+    );
     try {
       const maxResults = Math.min(Math.max(args.pageSize ?? 50, 1), 250);
       const resp = await calendar.events.list({
@@ -150,15 +161,21 @@ export class GoogleCalendarProviderService implements CalendarService {
 
   async updateEvent(id: string, patch: Partial<CalendarEvent>): Promise<CalendarEvent> {
     this.logger.log(this.format({ op: 'updateEvent', id }));
-    const { calendar, credentialId, oauth2Client } = await this.getGoogleClient(this.prisma, this.currentUser);
+    const { calendar, credentialId, oauth2Client } = await this.getGoogleClient(
+      this.prisma,
+      this.currentUser,
+    );
     try {
       const requestBody: calendar_v3.Schema$Event = {};
       if (typeof patch.title === 'string') requestBody.summary = patch.title;
       if (typeof patch.description === 'string') requestBody.description = patch.description;
       if (typeof patch.location === 'string') requestBody.location = patch.location;
-      if (patch.start) requestBody.start = { dateTime: patch.start.toISOString(), timeZone: patch.timezone };
-      if (patch.end) requestBody.end = { dateTime: patch.end.toISOString(), timeZone: patch.timezone };
-      if (Array.isArray(patch.attendees)) requestBody.attendees = this.mapAttendees(patch.attendees);
+      if (patch.start)
+        requestBody.start = { dateTime: patch.start.toISOString(), timeZone: patch.timezone };
+      if (patch.end)
+        requestBody.end = { dateTime: patch.end.toISOString(), timeZone: patch.timezone };
+      if (Array.isArray(patch.attendees))
+        requestBody.attendees = this.mapAttendees(patch.attendees);
 
       const resp = await calendar.events.patch({
         calendarId: 'primary',
@@ -194,20 +211,31 @@ export class GoogleCalendarProviderService implements CalendarService {
         conference: undefined,
       };
     } catch (error) {
-      this.logger.error(this.format({ op: 'updateEvent.error', id, error: this.renderError(error) }));
-      throw new Error(error instanceof Error ? error.message : 'Failed to update Google Calendar event');
+      this.logger.error(
+        this.format({ op: 'updateEvent.error', id, error: this.renderError(error) }),
+      );
+      throw new Error(
+        error instanceof Error ? error.message : 'Failed to update Google Calendar event',
+      );
     }
   }
 
   async deleteEvent(id: string): Promise<void> {
     this.logger.log(this.format({ op: 'deleteEvent', id }));
-    const { calendar, credentialId, oauth2Client } = await this.getGoogleClient(this.prisma, this.currentUser);
+    const { calendar, credentialId, oauth2Client } = await this.getGoogleClient(
+      this.prisma,
+      this.currentUser,
+    );
     try {
       await calendar.events.delete({ calendarId: 'primary', eventId: id, sendUpdates: 'all' });
       await this.persistTokensIfChanged(credentialId, oauth2Client);
     } catch (error) {
-      this.logger.error(this.format({ op: 'deleteEvent.error', id, error: this.renderError(error) }));
-      throw new Error(error instanceof Error ? error.message : 'Failed to delete Google Calendar event');
+      this.logger.error(
+        this.format({ op: 'deleteEvent.error', id, error: this.renderError(error) }),
+      );
+      throw new Error(
+        error instanceof Error ? error.message : 'Failed to delete Google Calendar event',
+      );
     }
   }
 
@@ -222,12 +250,12 @@ export class GoogleCalendarProviderService implements CalendarService {
       const endIso = data.end?.dateTime || data.end?.date;
       const attendees = Array.isArray(data.attendees)
         ? data.attendees
-          .map((a) =>
-            a?.email
-              ? ({ email: a.email!, name: a.displayName ?? undefined } as CalendarAttendee)
-              : null,
-          )
-          .filter((x): x is CalendarAttendee => !!x)
+            .map((a) =>
+              a?.email
+                ? ({ email: a.email!, name: a.displayName ?? undefined } as CalendarAttendee)
+                : null,
+            )
+            .filter((x): x is CalendarAttendee => !!x)
         : undefined;
       return {
         id: data.id || id,
@@ -254,10 +282,10 @@ export class GoogleCalendarProviderService implements CalendarService {
       .map((a) =>
         a?.email
           ? ({
-            email: a.email,
-            displayName: a.name,
-            optional: a.optional,
-          } as calendar_v3.Schema$EventAttendee)
+              email: a.email,
+              displayName: a.name,
+              optional: a.optional,
+            } as calendar_v3.Schema$EventAttendee)
           : null,
       )
       .filter((x): x is calendar_v3.Schema$EventAttendee => !!x);
@@ -271,8 +299,10 @@ export class GoogleCalendarProviderService implements CalendarService {
     oauth2Client: any;
     credentialId: number;
   }> {
-    const { accessToken, refreshToken, expiryDate, credentialId } =
-      await this.resolveAccessContext(prisma, currentUser);
+    const { accessToken, refreshToken, expiryDate, credentialId } = await this.resolveAccessContext(
+      prisma,
+      currentUser,
+    );
     const { clientId, clientSecret } = await this.getOAuthCredentials();
     const oauth2Client = new google.auth.OAuth2(clientId, clientSecret);
     oauth2Client.setCredentials({
@@ -284,7 +314,10 @@ export class GoogleCalendarProviderService implements CalendarService {
     return { calendar, oauth2Client, credentialId };
   }
 
-  private async resolveAccessContext(prisma: PrismaService, currentUser: CurrentUserService): Promise<{
+  private async resolveAccessContext(
+    prisma: PrismaService,
+    currentUser: CurrentUserService,
+  ): Promise<{
     accessToken: string;
     refreshToken?: string | null;
     expiryDate?: number;
