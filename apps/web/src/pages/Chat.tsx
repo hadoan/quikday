@@ -6,13 +6,6 @@ import { useSidebarRuns } from '@/hooks/useSidebarRuns';
 import { useKindeAuth } from '@kinde-oss/kinde-auth-react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { getDataSource, getFeatureFlags } from '@/lib/flags/featureFlags';
-import {
-  buildPlanMessage,
-  buildRunMessage,
-  buildLogMessage,
-  buildOutputMessage,
-  buildUndoMessage,
-} from '@/lib/adapters/backendToViewModel';
 import ChatStream from '@/components/chat/ChatStream';
 import RunDetailDrawer from '@/components/runs/RunDetailDrawer';
 import { type Question } from '@/components/QuestionsPanel';
@@ -20,13 +13,7 @@ import { createLogger } from '@/lib/utils/logger';
 import { useToast } from '@/hooks/use-toast';
 import type {
   UiRunSummary,
-  UiEvent,
-  UiPlanData,
-  UiQuestionItem,
-  UiQuestionsData,
-  UiMessage,
 } from '@/lib/datasources/DataSource';
-import type { BackendStep } from '@/lib/adapters/backendToViewModel';
 import { trackDataSourceActive } from '@/lib/telemetry/telemetry';
 import api from '@/apis/client';
 import { useNavigationWarning } from '@/hooks/useNavigationWarning';

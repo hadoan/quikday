@@ -2,19 +2,16 @@ import { useMemo, useState, useEffect } from 'react';
 import AppCard from '@/components/apps/AppCard';
 import type { AppCardInstallProps } from '@/components/apps/AppCard';
 import { Sidebar } from '@/components/layout/Sidebar';
-import { ToolsPanel } from '@/components/layout/ToolsPanel';
 import { UserMenu } from '@/components/layout/UserMenu';
 import { ThemeToggle } from '@/components/theme/ThemeToggle';
 import { Button } from '@/components/ui/button';
 // Removed mockRuns usage to avoid seeding mock data
-import { Plug2, Search, Menu } from 'lucide-react';
+import { Search, Menu } from 'lucide-react';
 import { useSidebarRuns } from '@/hooks/useSidebarRuns';
 import { useKindeAuth } from '@kinde-oss/kinde-auth-react';
-import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useNavigate } from 'react-router-dom';
 import api from '@/apis/client';
 import { Input } from '@/components/ui/input';
-import { Badge } from '@/components/ui/badge';
 import RunDetailDrawer from '@/components/runs/RunDetailDrawer';
 
 type AppListItem = {

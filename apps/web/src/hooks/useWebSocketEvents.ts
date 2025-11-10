@@ -8,7 +8,7 @@ import type {
   UiPlanData,
   Question,
 } from '@quikday/types';
-import type { BackendStep } from '@/types/backend';
+import type { BackendStep } from '@/lib/adapters/backendToViewModel';
 import {
   buildPlanMessage,
   buildOutputMessage,
