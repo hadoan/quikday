@@ -274,4 +274,21 @@ export class RunsController {
     const result = await this.runs.refreshRunCredentials(id);
     return { ok: true, ...result };
   }
+
+  @Post(':id/set-pending-apps-install')
+  async setPendingAppsInstall(@Param('id') id: string, @Req() req: any) {
+    const claims = req.user || {};
+    const userId = claims.sub;
+
+    if (!userId) {
+      throw new BadRequestException('User ID not found in claims');
+    }
+
+    // Verify ownership
+    await this.runs.get(id, userId);
+
+    await this.runs.updateStatus(id, 'pending_apps_install');
+    this.logger.log(`Run ${id} marked as pending_apps_install by user ${userId}`);
+    return { ok: true };
+  }
 }

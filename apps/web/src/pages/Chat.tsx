@@ -97,6 +97,8 @@ const Chat = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const [prefill, setPrefill] = useState<string | undefined>(undefined);
+  const { toast } = useToast();
+  const skipAutoSelectRef = useRef(false);
   
   // Handle OAuth redirect with runId parameter (after app installation)
   useEffect(() => {
@@ -106,103 +108,59 @@ const Chat = () => {
     if (runIdParam) {
       console.log('[Chat] OAuth redirect detected with runId:', runIdParam);
       
-      // Clean up the URL (remove query params) first
-      navigate('/chat', { replace: true });
-      
       // Check if there's pending install data in localStorage
-      (async () => {
-        try {
-          const pendingStr = localStorage.getItem('qd.pendingInstall');
-          if (pendingStr) {
-            const pending = JSON.parse(pendingStr);
-            console.log('[Chat] Found pending install data:', pending);
+      const pendingStr = localStorage.getItem('qd.pendingInstall');
+      if (pendingStr) {
+        console.log('[Chat] Found pending install data, clearing and starting fresh');
+        
+        (async () => {
+          try {
+            // Fetch the original run to get its prompt for prefilling
+            const { run } = await dataSource.getRun(runIdParam);
+            const originalPrompt = run.prompt || '';
+            
+            // Clean up localStorage FIRST
             localStorage.removeItem('qd.pendingInstall');
             
-            // Fetch the run from backend to get updated plan with credentials
-            const { run } = await dataSource.getRun(runIdParam);
-            console.log('[Chat] Loaded run after OAuth:', { 
-              runId: run.id, 
-              status: run.status,
-              hasGoal: !!run.goal,
-              hasPlan: Array.isArray(run.plan) && run.plan.length > 0,
+            // Clear the active run and start fresh
+            setActiveRunId(undefined);
+            
+            // Clear runs state to prevent old run from being displayed
+            setRuns([]);
+            
+            // Prefill the input with the original prompt
+            if (originalPrompt) {
+              setPrefill(originalPrompt);
+            }
+            
+            // Skip auto-selection of sidebar runs
+            skipAutoSelectRef.current = true;
+            
+            // Show success toast
+            toast({
+              title: 'App installed successfully',
+              description: 'You can now retry your task with the newly connected app.',
             });
             
-            // Set this as the active run
-            setActiveRunId(run.id);
-            
-            // Update runs state with the fetched run showing plan + questions
-            setRuns((prev) => {
-              const idx = prev.findIndex((r) => r.id === run.id);
-              
-              // Build messages from the run data
-              const newMessages: UiRunSummary['messages'] = [];
-              
-              // Add user prompt
-              if (run.prompt) {
-                newMessages.push({
-                  role: 'user',
-                  content: run.prompt,
-                });
-              }
-              
-              // Add plan card if we have a plan
-              if (run.plan && Array.isArray(run.plan) && run.plan.length > 0) {
-                const goalData = run.goal as Record<string, unknown> | null;
-                const planData: UiPlanData = {
-                  intent: (goalData?.outcome as string) || 'Process request',
-                  tools: run.plan.map((s: any) => s.tool),
-                  actions: run.plan.map((s: any) => `Execute ${s.tool}`),
-                  mode: 'plan',
-                  steps: run.plan.map((step: any, idx: number) => ({
-                    id: step.id || `step-${idx}`,
-                    tool: step.tool || 'unknown',
-                    action: step.action as string | undefined,
-                    status: 'pending' as const,
-                    appId: step.appId,
-                    credentialId: step.credentialId,
-                  })),
-                };
-                newMessages.push({
-                  role: 'assistant',
-                  type: 'plan',
-                  data: planData,
-                });
-              }
-              
-              // Add questions panel (empty questions = "Ready to continue" if credentials are OK)
-              const missing = run.missing || [];
-              newMessages.push({
-                role: 'assistant',
-                type: 'questions',
-                data: {
-                  runId: run.id,
-                  questions: missing,
-                  steps: run.plan as any,
-                } satisfies UiQuestionsData,
-              });
-              
-              const updatedRun = {
-                ...run,
-                messages: newMessages,
-              };
-              
-              if (idx === -1) {
-                return [updatedRun, ...prev];
-              } else {
-                const next = [...prev];
-                next[idx] = updatedRun;
-                return next;
-              }
+            // Navigate to clean URL with ONLY startNew flag (remove runId completely)
+            navigate('/chat?startNew=1', { replace: true });
+          } catch (error) {
+            console.warn('[Chat] Failed to fetch run for prefill:', error);
+            localStorage.removeItem('qd.pendingInstall');
+            setActiveRunId(undefined);
+            navigate('/chat', { replace: true });
+            toast({
+              title: 'App installed successfully',
+              description: 'You can now start a new task using this app.',
             });
           }
-        } catch (e) {
-          console.warn('[Chat] Failed to handle OAuth redirect:', e);
-          // Fallback: just set the runId and let normal loading happen
-          setActiveRunId(runIdParam);
-        }
-      })();
+        })();
+      } else {
+        // No pending install data, just clean up URL
+        navigate('/chat', { replace: true });
+      }
     }
-  }, [location.search, navigate, dataSource]);
+  }, [location.search, navigate, toast, dataSource]);
   
   // Default to the most recent run if none selected,
   // unless a startNew query param is present (which triggers a fresh run).
@@ -212,6 +170,10 @@ const Chat = () => {
       const v = sp.get('startNew') || sp.get('startnew');
       if (v === '1' || v === 'true') return;
     } catch {}
+    
+    // Skip auto-selection if we just came from app install
+    if (skipAutoSelectRef.current) return;
+    
     if (!activeRunId && sidebarRuns.length > 0) setActiveRunId(sidebarRuns[0].id);
   }, [activeRunId, sidebarRuns.length, location.search]);
 
@@ -229,17 +191,15 @@ const Chat = () => {
     if (v === 'multiselect' || v === 'multi_select' || v === 'multi-select') return 'multiselect';
     return 'text';
   };
-
-  const { toast } = useToast();
   
   // Determine if navigation should be blocked based on active run state
-  // Don't block on 'planning' status since user may need to install apps
+  // Don't block on 'planning', 'awaiting_input', or 'pending_apps_install' 
+  // since user may need to install apps via OAuth (which navigates away)
   const hasActiveWork = Boolean(
     activeRun && 
     (activeRun.status === 'executing' || 
      activeRun.status === 'scheduled' ||
      activeRun.status === 'awaiting_approval' ||
-     activeRun.status === 'awaiting_input' ||
      isWaitingForResponse)
   );
 
@@ -283,31 +243,83 @@ const Chat = () => {
     }
   };
 
-  // Handle pending install return-to-run if present
+  // When returning from an install flow that used localStorage to persist
+  // pending install data, ensure the chat activates the run and loads its
+  // details so the UI reflects newly-connected credentials.
   useEffect(() => {
     const key = 'qd.pendingInstall';
-    let payload: any;
+    let payload: unknown;
     try {
       const raw = localStorage.getItem(key);
-      if (raw) payload = JSON.parse(raw);
-    } catch {
+      if (raw) payload = JSON.parse(raw) as unknown;
+    } catch (e) {
+      // ignore parse errors
       payload = undefined;
     }
-    if (payload && payload.runId) {
-      const runId = String(payload.runId);
-      (async () => {
+
+    const hasRunId = (p: unknown): p is { runId: string | number } =>
+      typeof p === 'object' && p !== null && 'runId' in (p as Record<string, unknown>);
+
+    if (!hasRunId(payload)) return;
+
+    const runId = String(payload.runId);
+    (async () => {
+      try {
+        // Attempt to refresh credentials server-side first
+        await api.post(`/runs/${runId}/refresh-credentials`);
+      } catch (e) {
+        // ignore refresh errors
+      } finally {
         try {
-          await api.post(`/runs/${runId}/refresh-credentials`);
+          localStorage.removeItem(key);
         } catch (e) {
           // ignore
-        } finally {
-          try {
-            localStorage.removeItem(key);
-          } catch {}
         }
-      })();
-    }
+      }
+
+      try {
+        // Fetch the run details and ensure the UI selects it
+        const { run } = await dataSource.getRun(runId);
+        setRuns((prev) => {
+          const idx = prev.findIndex((r) => r.id === run.id);
+          if (idx === -1) return [run, ...prev];
+          const next = [...prev];
+          next[idx] = { ...next[idx], ...run, messages: run.messages } as UiRunSummary;
+          return next;
+        });
+        setActiveRunId(runId);
+      } catch (e) {
+        // If fetching fails, at minimum set the activeRunId so the stream
+        // or subsequent fetch will hydrate the run.
+        setActiveRunId(runId);
+      }
+    })();
   }, []);
+
+  // Fallback: if we landed on /chat without query params but localStorage has
+  // pending install info, add pending_credential (and runId if available) to
+  // the URL so tooling that expects the query param can observe it.
+  useEffect(() => {
+    try {
+      const sp = new URLSearchParams(location.search);
+      if (sp.get('pending_credential')) return;
+      const raw = localStorage.getItem('qd.pendingInstall');
+      if (!raw) return;
+      const payload = JSON.parse(raw) as Record<string, unknown> | null;
+      if (!payload) return;
+      const pending = (payload.pendingCredential ?? payload.pending_credential ?? payload.appId) as
+        | string
+        | undefined;
+      const runId = payload.runId ? String(payload.runId) : undefined;
+      if (!pending) return;
+      const params = new URLSearchParams(location.search);
+      if (runId && !params.get('runId')) params.set('runId', runId);
+      params.set('pending_credential', pending);
+      navigate(`/chat?${params.toString()}`, { replace: true });
+    } catch (e) {
+      // ignore
+    }
+  }, [location.pathname, location.search, navigate]);
 
   // Ensure selecting a sidebar run loads its details if not present locally
   // or if we only have a minimal stub without messages yet.
@@ -1012,6 +1024,9 @@ const Chat = () => {
   }, [location.search]);
 
   const handleNewPrompt = async (prompt: string, mode: 'preview' | 'approval' | 'auto' = 'preview') => {
+    // Clear prefill after user submits
+    setPrefill(undefined);
+    
     logger.info('📨 Handling new prompt submission', {
       timestamp: new Date().toISOString(),
       activeRunId,
@@ -1253,7 +1268,14 @@ const Chat = () => {
       const sp = new URLSearchParams(location.search);
       const v = sp.get('startNew') || sp.get('startnew');
       if (v === '1' || v === 'true') {
+        console.log('[Chat] startNew detected, creating fresh task');
+        
+        // Create completely new task with empty state
         handleNewTask();
+        
+        // Reset the skip flag after creating new task
+        skipAutoSelectRef.current = false;
+        
         // Remove the param so refresh doesn't recreate
         const url = new URL(window.location.href);
         url.searchParams.delete('startNew');

@@ -3,7 +3,7 @@ import { getDataSource } from '@/lib/flags/featureFlags';
 import { AlertCircle } from 'lucide-react';
 import InstallApp from '@/components/apps/InstallApp';
 import { getAppInstallProps } from '@/lib/utils/appConfig';
-import api from '@/apis/client';
+import api, { getWebBaseUrl } from '@/apis/client';
 
 export type Question = {
   key: string;
@@ -382,19 +382,23 @@ export function QuestionsPanel({
         {submitted
           ? 'Details Submitted'
           : hasMissingCredentials
-            ? 'Apps Need Installation'
+            ? 'Step 1: Install Required Apps'
             : (Array.isArray(questions) && questions.length === 0)
               ? 'Ready to continue'
-              : 'Missing details'}
+              : hasMissingCredentials
+                ? 'Step 1: Install Required Apps'
+                : 'Step 2: Provide Missing Information'}
       </h4>
       <p className="text-sm text-muted-foreground">
         {submitted
           ? 'Your information has been submitted. The run will continue automatically.'
-          : hasMissingCredentials
-            ? 'Please install the required apps below before continuing.'
-            : (Array.isArray(questions) && questions.length === 0)
-              ? 'No additional details are required. Click Continue to proceed.'
-              : 'Please provide the requested information to continue the run.'}
+          : hasMissingCredentials && (Array.isArray(questions) && questions.length > 0)
+            ? 'First, install the required apps below. After installation, you will be prompted to provide additional information.'
+            : hasMissingCredentials
+              ? 'Please install the required apps below before continuing.'
+              : (Array.isArray(questions) && questions.length === 0)
+                ? 'No additional details are required. Click Continue to proceed.'
+                : 'Please provide the requested information to continue the run.'}
       </p>
 
       {/* Show steps that need credentials installed - BEFORE questions */}
@@ -423,27 +427,45 @@ export function QuestionsPanel({
                 <div className="shrink-0">
                   <InstallApp
                     {...getAppInstallProps(step.appId!)}
-                    returnTo={runId ? `${window.location.origin}/chat?runId=${runId}` : undefined}
+                    // When initiating install from the chat run flow, include a
+                    // pending_credential param so the OAuth callback can return
+                    // the user to the chat screen with context about the pending
+                    // credential. We use the appId as the pending identifier here.
+                    returnTo={
+                      runId
+                        ? `${getWebBaseUrl()}/chat?runId=${encodeURIComponent(
+                            String(runId),
+                          )}&pending_credential=${encodeURIComponent(String(step.appId))}`
+                        : undefined
+                    }
                     onBeforeInstall={() => {
                       try {
                         if (runId) {
-                          const payload = { runId, appId: step.appId, ts: Date.now() };
+                          const payload = {
+                            runId,
+                            appId: step.appId,
+                            // mirror the query param we add to returnTo so the
+                            // client can reconcile state after redirect
+                            pendingCredential: step.appId,
+                            ts: Date.now(),
+                          };
+                          // Mark pending on client so fallback logic can detect
                           localStorage.setItem('qd.pendingInstall', JSON.stringify(payload));
+
+                          // Also mark run status server-side so backend processing
+                          // knows this run is waiting for app installs. Ignore
+                          // failures here (best-effort).
+                          void api.post(`/runs/${runId}/set-pending-apps-install`).catch((e) =>
+                            console.warn('Failed to mark run as pending_apps_install', e),
+                          );
                         }
-                      } catch {
+                      } catch (e) {
                         // ignore
                       }
                     }}
-                    onInstalled={async () => {
-                      try {
-                        if (runId) {
-                          await api.post(`/runs/${runId}/refresh-credentials`);
-                          // Reload the page or trigger a refresh to update the UI
-                          window.location.reload();
-                        }
-                      } catch (e) {
-                        console.warn('Failed to refresh credentials after install', e);
-                      }
+                    onInstalled={() => {
+                      // OAuth redirect will handle the rest - user will be taken to fresh chat
+                      console.log('[QuestionsPanel] App installed, OAuth will redirect to clean chat');
                     }}
                   />
                 </div>
@@ -453,8 +475,10 @@ export function QuestionsPanel({
         </div>
       )}
 
-      <div className="grid gap-3 mt-2">
-        {questions.map((q) => {
+      {/* Questions grid - only show when no credentials are missing */}
+      {!hasMissingCredentials && (
+        <div className="grid gap-3 mt-2">
+          {questions.map((q) => {
           const t = normalizeType(q.type);
           const value = answers[q.key];
           const err = fieldErrors[q.key];
@@ -650,7 +674,8 @@ export function QuestionsPanel({
             </div>
           );
         })}
-      </div>
+        </div>
+      )}
 
       {error && <div className="text-sm text-destructive mt-2">{error}</div>}
 

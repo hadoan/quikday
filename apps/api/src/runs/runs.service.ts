@@ -890,9 +890,62 @@ export class RunsService {
             updated += 1;
           }
         }
-      } catch {
+      } catch (e) {
         // continue others
+        this.logger.debug('Failed to re-resolve credential for step', { stepId: s.id, err: e });
       }
+    }
+
+    // Re-fetch steps to determine whether any planned step still lacks credentials
+    const postSteps = await this.prisma.step.findMany({ where: { runId } });
+    const missingCredSteps = postSteps.filter((st) => st.appId && (st.credentialId === null || st.credentialId === undefined));
+
+    // Update run.plan JSON to reflect the updated credentialIds
+    if (updated > 0) {
+      const currentPlan = run.plan as any[] | null;
+      if (Array.isArray(currentPlan)) {
+        const updatedPlan = currentPlan.map((planStep) => {
+          const matchingStep = postSteps.find((s) => 
+            s.id === planStep.id || 
+            s.planStepId === planStep.id || 
+            s.planStepId === planStep.stepId
+          );
+          if (matchingStep && matchingStep.credentialId) {
+            return { ...planStep, credentialId: matchingStep.credentialId };
+          }
+          return planStep;
+        });
+        await this.prisma.run.update({
+          where: { id: runId },
+          data: { plan: updatedPlan as any }
+        });
+      }
+    }
+
+    // If the run was waiting on app installs (pending_apps_install) and all
+    // required credentials are now present, check if we should resume or transition
+    // to awaiting_input.
+    try {
+      const run = await this.prisma.run.findUnique({ where: { id: runId } });
+      if (run && run.status === 'pending_apps_install' && missingCredSteps.length === 0) {
+        // Credentials are complete. Check if there are still missing inputs (questions).
+        const hasPendingQuestions = run.missing && Array.isArray(run.missing) && run.missing.length > 0;
+        
+        if (hasPendingQuestions) {
+          // Sequential flow: apps installed, now transition to awaiting_input for questions
+          this.logger.log('Apps installed; transitioning to awaiting_input for questions', { runId });
+          await this.prisma.run.update({
+            where: { id: runId },
+            data: { status: 'awaiting_input' }
+          });
+        } else {
+          // No questions remaining - auto-resume execution
+          this.logger.log('All required credentials present; resuming run', { runId });
+          await this.executePlanWithAnswers(runId);
+        }
+      }
+    } catch (e) {
+      this.logger.warn('Failed to auto-resume run after refresh credentials', e as any);
     }
 
     return { updated };
