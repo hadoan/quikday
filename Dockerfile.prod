@@ -2,6 +2,9 @@
 FROM node:20-alpine AS runtime
 WORKDIR /app
 
+# Install OpenSSL for Prisma (Alpine uses openssl3 by default, but Prisma may need compatibility)
+RUN apk add --no-cache openssl libssl3
+
 # Install a lightweight package manager for runtime (pnpm runtime install not required if node_modules are copied)
 RUN corepack enable && corepack prepare pnpm@latest --activate
 
