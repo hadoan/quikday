@@ -4,10 +4,12 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Button } from '@/components/ui/button';
 import InstallApp from '@/components/apps/InstallApp';
+import MarkdownView from '@/components/common/MarkdownView';
 import { getAppInstallProps } from '@/lib/utils/appConfig';
 import type { UiEvent, UiPlanStep, UiRunSummary } from '@/lib/datasources/DataSource';
 import { getDataSource } from '@/lib/flags/featureFlags';
 import { getAccessTokenProvider } from '@/apis/client';
+import { formatDateTime, formatTime } from '@/lib/datetime/format';
 
 interface Props {
   runId?: string;
@@ -21,6 +23,50 @@ export default function RunDetailDrawer({ runId, open, onClose }: Props) {
   const [steps, setSteps] = useState<UiPlanStep[]>([]);
   const [events, setEvents] = useState<UiEvent[]>([]);
   const [parsed, setParsed] = useState<any | null>(null);
+
+  // Extract human-readable summaries from various sources
+  const summaries = useMemo(() => {
+    const out: string[] = [];
+    const add = (v: unknown) => {
+      if (typeof v === 'string') {
+        const t = v.trim();
+        if (t) out.push(t);
+      }
+    };
+    // Run-level summary (from adapter)
+    add(run?.summaryText);
+    // Output summary from raw payload
+    add(parsed?.summary);
+    // Commit-level summaries/messages (best-effort)
+    try {
+      const commits: any[] = Array.isArray(parsed?.commits) ? parsed!.commits : [];
+      for (const c of commits) {
+        const r = c && typeof c === 'object' ? (c as any).result : undefined;
+        if (!r || typeof r !== 'object') continue;
+        // Common summary fields in step results
+        add((r as any).summary);
+        add((r as any).message);
+        add((r as any).text);
+        add((r as any).content);
+      }
+    } catch {}
+    // Deduplicate
+    const seen = new Set<string>();
+    const norm = (s: string) => s.replace(/\s+/g, ' ').trim();
+    return out.filter((s) => {
+      const n = norm(s);
+      if (seen.has(n)) return false;
+      seen.add(n);
+      return true;
+    });
+  }, [run?.summaryText, parsed?.summary, parsed?.commits]);
+
+  // Log when the drawer is opened for a given run
+  useEffect(() => {
+    if (open) {
+      console.log('[RunDetailDrawer] Opened', { runId });
+    }
+  }, [open, runId]);
 
   useEffect(() => {
     if (!open || !runId) return;
@@ -52,7 +98,7 @@ export default function RunDetailDrawer({ runId, open, onClose }: Props) {
         const res = await fetch(url, { headers });
         if (res.ok) {
           const raw = await res.json();
-          const output = (raw && typeof raw === 'object') ? (raw as any).output : null;
+          const output = raw && typeof raw === 'object' ? (raw as any).output : null;
           if (output && typeof output === 'object') {
             // Normalize to our expected structure (diff, commits, summary)
             const diff = (output as any).diff;
@@ -67,12 +113,18 @@ export default function RunDetailDrawer({ runId, open, onClose }: Props) {
       try {
         socket = ds.connectRunStream(runId, (evt) => {
           setEvents((prev) => [...prev, evt]);
-          if (evt.type === 'step_started' || evt.type === 'step_succeeded' || evt.type === 'step_failed') {
+          if (
+            evt.type === 'step_started' ||
+            evt.type === 'step_succeeded' ||
+            evt.type === 'step_failed'
+          ) {
             // naive refresh
             void ds.getRun(runId).then((d) => setSteps(d.steps));
           }
           if (evt.type === 'run_completed' || evt.type === 'run_status') {
-            setRun((prev) => (prev ? { ...prev, status: (evt.payload?.status as any) || prev.status } : prev));
+            setRun((prev) =>
+              prev ? { ...prev, status: (evt.payload?.status as any) || prev.status } : prev,
+            );
           }
         });
       } catch (e) {
@@ -80,7 +132,9 @@ export default function RunDetailDrawer({ runId, open, onClose }: Props) {
       }
     })();
     return () => {
-      try { socket?.close(); } catch {}
+      try {
+        socket?.close();
+      } catch {}
     };
   }, [open, runId]);
 
@@ -93,6 +147,18 @@ export default function RunDetailDrawer({ runId, open, onClose }: Props) {
         obj,
         (key, value) => {
           if (key === '_raw') return '[omitted]';
+          // Localize common datetime fields for readability
+          if (
+            (key === 'start' || key === 'end' || key.endsWith('At') || key.endsWith('_at')) &&
+            typeof value === 'string'
+          ) {
+            const d = new Date(value);
+            if (!Number.isNaN(d.valueOf())) {
+              try {
+                return formatDateTime(d);
+              } catch {}
+            }
+          }
           if (typeof value === 'object' && value !== null) {
             if (seen.has(value as object)) return '[Circular]';
             seen.add(value as object);
@@ -107,47 +173,99 @@ export default function RunDetailDrawer({ runId, open, onClose }: Props) {
   };
 
   return (
-    <div className="fixed inset-0 z-50">
-      <div className="absolute inset-0 bg-black/50" onClick={onClose} />
-      <div className="absolute right-0 top-0 h-full w-full sm:w-[520px] md:w-[640px] bg-background border-l shadow-xl flex flex-col min-h-0 overflow-hidden">
-        <div className="flex items-center justify-between p-4 border-b">
-          <div>
-            <div className="text-sm text-muted-foreground">Run Detail</div>
-            <div className="text-lg font-semibold">{run?.prompt || run?.summaryText || runId}</div>
+    <div className="fixed inset-0 z-50" onClick={onClose} onMouseDown={(e) => e.stopPropagation()}>
+      <div
+        className="absolute inset-0 bg-black/50"
+        onClick={onClose}
+        onMouseDown={(e) => e.stopPropagation()}
+      />
+      <div
+        className="absolute right-0 top-0 h-full w-full sm:w-[90vw] md:w-[640px] lg:w-[720px] bg-background border-l shadow-xl flex flex-col min-h-0 overflow-hidden"
+        onClick={(e) => e.stopPropagation()}
+        onMouseDown={(e) => e.stopPropagation()}
+      >
+        <div className="flex items-center justify-between p-3 sm:p-4 border-b">
+          <div className="flex-1 min-w-0 mr-2">
+            <div className="text-xs sm:text-sm text-muted-foreground">Run Detail</div>
+            <div className="text-base sm:text-lg truncate">
+              {run?.prompt || run?.summaryText || runId}
+            </div>
           </div>
-          <Button variant="ghost" size="icon" onClick={onClose} aria-label="Close">
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={onClose}
+            aria-label="Close"
+            className="flex-shrink-0"
+          >
             <X className="h-5 w-5" />
           </Button>
         </div>
 
         <Tabs defaultValue="overview" className="flex-1 flex flex-col min-h-0">
-          <div className="p-3 border-b">
-            <TabsList>
-              <TabsTrigger value="overview">Overview</TabsTrigger>
-              <TabsTrigger value="steps">Steps & Diff</TabsTrigger>
-              <TabsTrigger value="audit">Audit</TabsTrigger>
+          <div className="p-2 sm:p-3 border-b overflow-x-auto">
+            <TabsList className="w-full sm:w-auto">
+              <TabsTrigger value="overview" className="text-xs sm:text-sm">
+                Overview
+              </TabsTrigger>
+              <TabsTrigger value="steps" className="text-xs sm:text-sm">
+                Steps & Diff
+              </TabsTrigger>
+              <TabsTrigger value="audit" className="text-xs sm:text-sm">
+                Audit
+              </TabsTrigger>
             </TabsList>
           </div>
           <TabsContent value="overview" className="flex-1 min-h-0">
             <ScrollArea className="h-full">
-              <div className="p-4 space-y-3">
+              <div className="p-3 sm:p-4 space-y-3">
                 {loading && <div className="text-sm text-muted-foreground">Loading…</div>}
-                <div className="grid grid-cols-2 gap-3 text-sm">
-                  <div><div className="text-muted-foreground">Status</div><div className="font-medium">{run?.status}</div></div>
-                  <div><div className="text-muted-foreground">Created</div><div className="font-medium">{run?.createdAt ? new Date(run.createdAt).toLocaleString() : '—'}</div></div>
-                  <div><div className="text-muted-foreground">Mode</div><div className="font-medium">{run?.mode || 'auto'}</div></div>
-                  <div><div className="text-muted-foreground">ID</div><div className="font-mono text-xs">{runId}</div></div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm">
+                  <div>
+                    <div className="text-muted-foreground">Status</div>
+                    <div className="font-medium">{run?.status}</div>
+                  </div>
+                  <div>
+                    <div className="text-muted-foreground">Created</div>
+                    <div className="font-medium">
+                      {run?.createdAt ? formatDateTime(run.createdAt) : '—'}
+                    </div>
+                  </div>
+                  {/* <div><div className="text-muted-foreground">Mode</div><div className="font-medium">{run?.mode || 'auto'}</div></div> */}
+                  <div>
+                    <div className="text-muted-foreground">ID</div>
+                    <div className="font-mono text-xs break-all">{runId}</div>
+                  </div>
                 </div>
+                {summaries.length > 0 && (
+                  <div className="text-sm">
+                    <div className="text-muted-foreground mb-2">Summaries</div>
+                    {summaries.length === 1 ? (
+                      <MarkdownView content={summaries[0]} />
+                    ) : (
+                      <div className="space-y-3">
+                        {summaries.map((s, i) => (
+                          <div
+                            key={i}
+                            className="border-l-2 border-gray-300 dark:border-gray-700 pl-3"
+                          >
+                            <MarkdownView content={s} />
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                )}
                 {parsed?.diff?.summary && (
                   <div className="text-sm">
-                    <div className="text-muted-foreground">Plan Summary</div>
-                    <div className="font-medium">{parsed.diff.summary}</div>
+                    <div className="text-muted-foreground mb-2">Plan Summary</div>
+                    <MarkdownView content={parsed.diff.summary} />
                   </div>
                 )}
                 {parsed?.summary && (
                   <div className="text-sm">
-                    <div className="text-muted-foreground">Result</div>
-                    <div className="font-medium whitespace-pre-wrap break-words">{parsed.summary}</div>
+                    <div className="text-muted-foreground mb-2">Result</div>
+                    <MarkdownView content={parsed.summary} />
                   </div>
                 )}
               </div>
@@ -156,11 +274,16 @@ export default function RunDetailDrawer({ runId, open, onClose }: Props) {
           <TabsContent value="steps" className="flex-1 min-h-0">
             <ScrollArea className="h-full">
               <div className="p-4 space-y-2">
-                {steps.length === 0 && <div className="text-sm text-muted-foreground">No steps yet.</div>}
+                {steps.length === 0 && (
+                  <div className="text-sm text-muted-foreground">No steps yet.</div>
+                )}
                 {steps.map((s, i) => (
                   <div key={s.id || i} className="border rounded p-3 space-y-2">
                     <div className="flex items-center justify-between text-sm">
-                      <div className="font-medium">{s.tool}{s.action ? `.${s.action}` : ''}</div>
+                      <div className="font-medium">
+                        {s.tool}
+                        {s.action ? `.${s.action}` : ''}
+                      </div>
                       <div className="text-xs text-muted-foreground">{s.status}</div>
                     </div>
                     {s.appId && (
@@ -180,7 +303,9 @@ export default function RunDetailDrawer({ runId, open, onClose }: Props) {
                       </div>
                     )}
                     {(s.errorMessage || s.errorCode) && (
-                      <div className="text-xs text-destructive mt-1">{s.errorCode}: {s.errorMessage}</div>
+                      <div className="text-xs text-destructive mt-1">
+                        {s.errorCode}: {s.errorMessage}
+                      </div>
                     )}
                   </div>
                 ))}
@@ -192,11 +317,13 @@ export default function RunDetailDrawer({ runId, open, onClose }: Props) {
                         <div key={st.id} className="border rounded p-2 text-sm">
                           <div className="font-medium">{st.tool}</div>
                           {Array.isArray(st.dependsOn) && st.dependsOn.length > 0 && (
-                            <div className="text-xs text-muted-foreground">depends on: {st.dependsOn.join(', ')}</div>
+                            <div className="text-xs text-muted-foreground">
+                              depends on: {st.dependsOn.join(', ')}
+                            </div>
                           )}
                         </div>
                       ))}
-                  </div>
+                    </div>
                   </div>
                 )}
                 {Array.isArray(parsed?.commits) && parsed.commits.length > 0 && (
@@ -210,10 +337,19 @@ export default function RunDetailDrawer({ runId, open, onClose }: Props) {
                             <div className="flex items-center justify-between">
                               <div className="font-medium">{c.stepId}</div>
                               {link && (
-                                <a className="text-xs text-primary underline" href={link} target="_blank" rel="noreferrer">Open</a>
+                                <a
+                                  className="text-xs text-primary underline"
+                                  href={link}
+                                  target="_blank"
+                                  rel="noreferrer"
+                                >
+                                  Open
+                                </a>
                               )}
                             </div>
-                            <pre className="mt-1 whitespace-pre-wrap break-words text-xs">{safeStringify(c.result)}</pre>
+                            <pre className="mt-1 whitespace-pre-wrap break-words text-xs">
+                              {safeStringify(c.result)}
+                            </pre>
                           </div>
                         );
                       })}
@@ -226,15 +362,19 @@ export default function RunDetailDrawer({ runId, open, onClose }: Props) {
           <TabsContent value="audit" className="flex-1 min-h-0">
             <ScrollArea className="h-full">
               <div className="p-4 space-y-2">
-                {events.length === 0 && <div className="text-sm text-muted-foreground">No events yet.</div>}
+                {events.length === 0 && (
+                  <div className="text-sm text-muted-foreground">No events yet.</div>
+                )}
                 {events.slice(-200).map((e, i) => (
                   <div key={`${e.ts}-${i}`} className="border rounded p-2 text-xs">
                     <div className="flex items-center justify-between">
                       <div className="font-medium">{e.type}</div>
-                      <div className="text-muted-foreground">{new Date(e.ts).toLocaleTimeString()}</div>
+                      <div className="text-muted-foreground">{formatTime(e.ts)}</div>
                     </div>
                     {e.payload && (
-                      <pre className="mt-1 whitespace-pre-wrap break-words">{safeStringify(e.payload)}</pre>
+                      <pre className="mt-1 whitespace-pre-wrap break-words">
+                        {safeStringify(e.payload)}
+                      </pre>
                     )}
                   </div>
                 ))}

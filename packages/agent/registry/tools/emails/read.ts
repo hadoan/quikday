@@ -35,7 +35,8 @@ export type EmailReadResult = z.infer<typeof EmailReadOut>;
 export function emailRead(moduleRef: ModuleRef): Tool<EmailReadArgs, EmailReadResult> {
   return {
     name: 'email.read',
-    description: 'Search and read emails. Optional: query (search string), maxResults (default 10), newerThanDays, labels.',
+    description:
+      'Search and read emails. Optional: query (search string), maxResults (default 10), newerThanDays, labels.',
     in: EmailReadIn,
     out: EmailReadOut,
     apps: ['gmail-email'],

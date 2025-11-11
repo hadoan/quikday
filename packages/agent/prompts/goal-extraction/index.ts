@@ -6,11 +6,11 @@
 export { GoalSchema, type GoalExtraction } from './schema.js';
 
 // Compiler
-export { 
+export {
   compileGoalExtractionPrompt,
   compileGoalUserPrompt,
   detectDomains,
-  type PromptCompilerOptions 
+  type PromptCompilerOptions,
 } from './compiler.js';
 
 // Core modules (for advanced usage/testing)

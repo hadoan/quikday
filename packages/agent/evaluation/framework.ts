@@ -57,7 +57,7 @@ export interface EvalMetrics {
 
 /**
  * Run evaluation on a set of golden utterances
- * 
+ *
  * Usage:
  * ```typescript
  * const results = await runEvaluation(goldenUtterances, {
@@ -72,14 +72,14 @@ export async function runEvaluation(
     version?: string;
     connectedApps?: string[];
     llm?: any; // LLM instance
-  }
+  },
 ): Promise<{ results: EvalResult[]; metrics: EvalMetrics }> {
   // TODO: Implement evaluation logic
   // 1. For each utterance, compile prompt with options
   // 2. Call LLM to extract goal
   // 3. Validate against expected output
   // 4. Compute metrics
-  
+
   throw new Error('Not implemented yet - stub for future evaluation system');
 }
 
@@ -90,7 +90,7 @@ export async function comparePromptVersions(
   utterances: GoldenUtterance[],
   versionA: string,
   versionB: string,
-  options: { connectedApps?: string[]; llm?: any }
+  options: { connectedApps?: string[]; llm?: any },
 ): Promise<{
   versionA: EvalMetrics;
   versionB: EvalMetrics;
@@ -121,6 +121,6 @@ export function generateEvalReport(metrics: EvalMetrics): string {
     `- Avg Prompt Length: ${metrics.avgPromptLength} chars`,
     '',
     '## Failed Tests',
-    ...metrics.failedTests.map(t => `- **${t.id}**: ${t.errors.join(', ')}`),
+    ...metrics.failedTests.map((t) => `- **${t.id}**: ${t.errors.join(', ')}`),
   ].join('\n');
 }

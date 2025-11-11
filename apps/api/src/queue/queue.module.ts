@@ -23,7 +23,13 @@ import { AgentModule } from '../agent/index.js';
     BullModule.forRootAsync({
       imports: [ConfigModule],
       useFactory: (config: ConfigService) => ({
-        connection: { url: config.env.REDIS_URL },
+        connection: {
+          url: config.env.REDIS_URL,
+          // serverless-friendly options
+          maxRetriesPerRequest: null,
+          enableReadyCheck: false,
+          lazyConnect: true,
+        },
       }),
       inject: [ConfigService],
     }),

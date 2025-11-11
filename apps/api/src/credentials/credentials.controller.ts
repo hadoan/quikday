@@ -61,10 +61,17 @@ export class CredentialsController {
   }
 
   @Post(':id/select-current')
-  async selectCurrent(@Param('id', ParseIntPipe) id: number) {
-    // TODO: Extract userId from auth context
-    const userId = 1; // Placeholder
+  async selectCurrent(@Param('id', ParseIntPipe) id: number, @Req() req: Request) {
+    const claims: any = (req as any).user || {};
+    const me = await this.authService.getOrProvisionUserAndWorkspace({
+      sub: claims?.sub,
+      email: claims?.email,
+      name: claims?.name,
+      given_name: claims?.given_name,
+      family_name: claims?.family_name,
+    });
 
+    const userId = me.id;
     await this.credentialService.setUserCurrentProfile(userId, id);
 
     return {
@@ -74,9 +81,22 @@ export class CredentialsController {
   }
 
   @Post(':id/set-team-default')
-  async setTeamDefault(@Param('id', ParseIntPipe) id: number) {
-    // TODO: Extract teamId from auth context
-    const teamId = 1; // Placeholder
+  async setTeamDefault(@Param('id', ParseIntPipe) id: number, @Req() req: Request) {
+    const claims: any = (req as any).user || {};
+    const me = await this.authService.getOrProvisionUserAndWorkspace({
+      sub: claims?.sub,
+      email: claims?.email,
+      name: claims?.name,
+      given_name: claims?.given_name,
+      family_name: claims?.family_name,
+    });
+
+    // Use the user's workspaceId as the team context
+    const teamId = me.workspaceId;
+
+    if (!teamId) {
+      throw new Error('No team context available');
+    }
 
     await this.credentialService.setTeamDefaultProfile(teamId, id);
 

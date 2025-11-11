@@ -53,7 +53,7 @@ export const ensureInputs: Node<RunState, RunEventBus> = async (s, eventBus) => 
     };
 
     const questions: Question[] = unresolved.map((m: any) => {
-      const qt: QuestionType = m.type ? (typeMap[m.type] || 'text') : 'text';
+      const qt: QuestionType = m.type ? typeMap[m.type] || 'text' : 'text';
       const label = m.question || `Please provide ${m.key}`;
       const opts = Array.isArray(m.options)
         ? m.options.filter((o: any) => typeof o === 'string')

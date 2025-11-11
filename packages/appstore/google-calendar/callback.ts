@@ -297,7 +297,9 @@ export async function callback(params: {
             .filter(Boolean)
             .slice(0, 4);
           if (tokens.length > 0) {
-            return tokens.map((w) => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase()).join(' ');
+            return tokens
+              .map((w) => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase())
+              .join(' ');
           }
         }
         return undefined;

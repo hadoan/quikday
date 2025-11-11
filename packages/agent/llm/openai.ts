@@ -3,8 +3,14 @@ import OpenAI from 'openai';
 import type { LLM, LlmCallMetadata } from './types.js';
 import { getLlmContext } from './context.js';
 import { logLlmGeneration } from '../observability/langfuse.js';
+import { loadLLMConfig } from './config.js';
 
-const DEFAULT_MODEL = process.env.OPENAI_MODEL ?? 'gpt-4.1';
+const getDefaultModel = () => {
+  const config = loadLLMConfig();
+  return config.openai?.model || config.azure?.deployment || 'gpt-4o';
+};
+
+const DEFAULT_MODEL = getDefaultModel();
 
 const formatPrompt = (system?: string, user?: string) => {
   if (system && user) return `System:\n${system}\n\nUser:\n${user}`;
@@ -21,7 +27,38 @@ const parseMaybeNumber = (value?: string | number | null) => {
 const shouldLog = (metadata?: Partial<LlmCallMetadata>) =>
   Boolean(process.env.DATABASE_URL && metadata && parseMaybeNumber(metadata.userId) !== null);
 
-export function makeOpenAiLLM(client = new OpenAI({ apiKey: process.env.OPENAI_API_KEY })): LLM {
+// Create OpenAI client - supports both Azure OpenAI and regular OpenAI
+const createOpenAIClient = () => {
+  const useAzure = process.env.USE_AZURE_OPENAI === 'true';
+
+  if (useAzure) {
+    const azureApiKey = process.env.AZURE_OPENAI_API_KEY;
+    const azureEndpoint = process.env.AZURE_OPENAI_ENDPOINT;
+    const apiVersion = process.env.AZURE_OPENAI_API_VERSION || '2024-08-01-preview';
+    const deploymentName =
+      process.env.AZURE_OPENAI_DEPLOYMENT || process.env.OPENAI_MODEL || 'gpt-4o';
+
+    if (!azureApiKey || !azureEndpoint) {
+      throw new Error(
+        'USE_AZURE_OPENAI is true but AZURE_OPENAI_API_KEY or AZURE_OPENAI_ENDPOINT is missing',
+      );
+    }
+
+    return new OpenAI({
+      apiKey: azureApiKey,
+      baseURL: `${azureEndpoint.replace(/\/$/, '')}/openai/deployments/${deploymentName}`,
+      defaultQuery: { 'api-version': apiVersion },
+      defaultHeaders: { 'api-key': azureApiKey },
+    });
+  } else {
+    // Regular OpenAI
+    return new OpenAI({
+      apiKey: process.env.OPENAI_API_KEY,
+    });
+  }
+};
+
+export function makeOpenAiLLM(client = createOpenAIClient()): LLM {
   return {
     async text({ system, user, temperature = 0.2, maxTokens = 300, timeoutMs = 15_000, metadata }) {
       const ctrl = new AbortController();

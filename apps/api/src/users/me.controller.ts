@@ -14,8 +14,7 @@ export class UsersMeController {
     const sub = (claims?.sub as string | undefined) || undefined;
     const email = (claims?.email as string | undefined)?.trim()?.toLowerCase();
 
-    if (!sub && !email)
-      return res.status(401).json({ message: 'Missing sub or email in token' });
+    if (!sub && !email) return res.status(401).json({ message: 'Missing sub or email in token' });
 
     let user = email ? await this.prisma.user.findUnique({ where: { email } }) : null;
     if (!user && sub) user = await this.prisma.user.findUnique({ where: { sub } });
@@ -26,6 +25,7 @@ export class UsersMeController {
       email: user.email || undefined,
       name: user.displayName || undefined,
       avatar: user.avatar || undefined,
+      timeZone: user.timeZone || undefined,
       plan: user.plan,
       createdAt: user.createdAt,
       lastLoginAt: user.lastLoginAt || undefined,
@@ -43,8 +43,7 @@ export class UsersMeController {
     const sub = (claims?.sub as string | undefined) || undefined;
     const email = (claims?.email as string | undefined)?.trim()?.toLowerCase();
 
-    if (!sub && !email)
-      return res.status(401).json({ message: 'Missing sub or email in token' });
+    if (!sub && !email) return res.status(401).json({ message: 'Missing sub or email in token' });
 
     let user = email ? await this.prisma.user.findUnique({ where: { email } }) : null;
     if (!user && sub) user = await this.prisma.user.findUnique({ where: { sub } });

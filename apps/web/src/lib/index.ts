@@ -20,7 +20,6 @@ export type {
 export { getDataSource, getFeatureFlags, toggleDataSource } from './flags/featureFlags';
 
 // Implementations (rarely imported directly)
-export { MockDataSource } from './datasources/MockDataSource';
 export { ApiDataSource } from './datasources/ApiDataSource';
 
 // Adapters (for testing)

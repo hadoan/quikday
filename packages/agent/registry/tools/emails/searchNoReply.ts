@@ -33,7 +33,9 @@ export const EmailSearchNoReplyOut = z.object({
 export type EmailSearchNoReplyArgs = z.infer<typeof EmailSearchNoReplyIn>;
 export type EmailSearchNoReplyResult = z.infer<typeof EmailSearchNoReplyOut>;
 
-export function emailSearchNoReply(moduleRef: ModuleRef): Tool<EmailSearchNoReplyArgs, EmailSearchNoReplyResult> {
+export function emailSearchNoReply(
+  moduleRef: ModuleRef,
+): Tool<EmailSearchNoReplyArgs, EmailSearchNoReplyResult> {
   return {
     name: 'email.searchNoReply',
     description:
@@ -76,20 +78,36 @@ export function emailSearchNoReply(moduleRef: ModuleRef): Tool<EmailSearchNoRepl
       } catch {}
 
       // If nothing found, progressively widen window up to 30 days
-      if (((searchResult?.messages?.length ?? 0) === 0) && parsed.daysAgo < 30) {
+      if ((searchResult?.messages?.length ?? 0) === 0 && parsed.daysAgo < 30) {
         const widenCandidates = [Math.min(14, 30), Math.min(21, 30), 30];
         for (const days of widenCandidates) {
           if (days <= parsed.daysAgo) continue;
           const retryStart = new Date();
           retryStart.setDate(retryStart.getDate() - days);
           try {
-            log.debug(JSON.stringify({ op: 'search.retry', daysAgo: days, newerThan: retryStart.toISOString() }));
+            log.debug(
+              JSON.stringify({
+                op: 'search.retry',
+                daysAgo: days,
+                newerThan: retryStart.toISOString(),
+              }),
+            );
           } catch {}
-          const r = await svc.search({ text: 'in:sent', newerThan: retryStart, limit: parsed.maxResults * 2 });
+          const r = await svc.search({
+            text: 'in:sent',
+            newerThan: retryStart,
+            limit: parsed.maxResults * 2,
+          });
           if ((r?.messages?.length ?? 0) > 0) {
             searchResult = r;
             try {
-              log.debug(JSON.stringify({ op: 'search.retry.result', messages: r.messages.length, daysAgo: days }));
+              log.debug(
+                JSON.stringify({
+                  op: 'search.retry.result',
+                  messages: r.messages.length,
+                  daysAgo: days,
+                }),
+              );
             } catch {}
             break;
           } else {
@@ -138,8 +156,11 @@ export function emailSearchNoReply(moduleRef: ModuleRef): Tool<EmailSearchNoRepl
               const bt = b.date ? b.date.getTime() : 0;
               return at - bt;
             });
-            const originalAuthor = (sortedByDate[0]?.from?.address || message.from?.address || '')
-              .toLowerCase();
+            const originalAuthor = (
+              sortedByDate[0]?.from?.address ||
+              message.from?.address ||
+              ''
+            ).toLowerCase();
 
             // Has any message from someone else? If yes, thread has a reply
             const hasIncomingReply = thread.some((m) => {
@@ -166,8 +187,7 @@ export function emailSearchNoReply(moduleRef: ModuleRef): Tool<EmailSearchNoRepl
                 subject: origin.subject || message.subject || '(No Subject)',
                 snippet:
                   origin.snippet || origin.bodyText?.substring(0, 150) || message.snippet || '',
-                recipient:
-                  origin.to?.[0]?.address || message.to?.[0]?.address || 'unknown',
+                recipient: origin.to?.[0]?.address || message.to?.[0]?.address || 'unknown',
                 sentAt: (origin.date || message.date || new Date()).toISOString(),
               });
 

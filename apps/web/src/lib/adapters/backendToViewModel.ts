@@ -137,6 +137,8 @@ export function adaptStepsBackendToUi(backendSteps: BackendStep[]): UiPlanStep[]
   return backendSteps.map((step, idx) => adaptStepBackendToUi(step, idx));
 }
 
+import { formatTime, formatDateTime } from '@/lib/datetime/format';
+
 export function adaptStepBackendToUi(backend: BackendStep, index = 0): UiPlanStep {
   const step: UiPlanStep = {
     id: backend.id || `step-${index}`,
@@ -158,13 +160,7 @@ export function adaptStepBackendToUi(backend: BackendStep, index = 0): UiPlanSte
   // Generate time label for UI
   if (step.startedAt) {
     try {
-      const date = new Date(step.startedAt);
-      step.time = date.toLocaleTimeString('en-US', {
-        hour: '2-digit',
-        minute: '2-digit',
-        second: '2-digit',
-        hour12: false,
-      });
+      step.time = formatTime(step.startedAt, { timeStyle: 'medium' });
     } catch {
       step.time = '';
     }
@@ -309,14 +305,61 @@ function mapEventType(type: string): UiEvent['type'] {
   return typeMap[type.toLowerCase()] || 'run_status';
 }
 
-function stringifyPreview(data: unknown, maxLength = 100): string | undefined {
+function stringifyPreview(data: unknown, maxLength = 300): string | undefined {
   if (data === null || data === undefined) return undefined;
 
   try {
+    // Special-case: calendar slot arrays → human-friendly local times
+    const maybeSlots = extractSlotsArray(data);
+    if (maybeSlots) {
+      const lines = maybeSlots.map((s) => formatSlotRange(s.start, s.end));
+      const joined = lines.join('\n');
+      return joined.length > maxLength ? `${joined.substring(0, maxLength)}...` : joined;
+    }
+
     const str = typeof data === 'string' ? data : JSON.stringify(data);
     return str.length > maxLength ? `${str.substring(0, maxLength)}...` : str;
   } catch {
     return '[preview unavailable]';
+  }
+}
+
+// Recognize { slots: [{ start, end }...] } or [{ start, end }...]
+function extractSlotsArray(data: unknown): Array<{ start: string; end: string }> | null {
+  const isIso = (v: unknown) => typeof v === 'string' && !Number.isNaN(new Date(v).valueOf());
+  const looksLikeSlot = (v: any) => v && isIso(v.start) && isIso(v.end);
+
+  if (Array.isArray(data)) {
+    const arr = data.filter((x) => looksLikeSlot(x)) as Array<{ start: string; end: string }>;
+    return arr.length > 0 ? arr : null;
+  }
+  if (data && typeof data === 'object' && Array.isArray((data as any).slots)) {
+    const arr = (data as any).slots.filter((x: any) => looksLikeSlot(x)) as Array<{
+      start: string;
+      end: string;
+    }>;
+    return arr.length > 0 ? arr : null;
+  }
+  return null;
+}
+
+function formatSlotRange(start: string, end: string): string {
+  try {
+    const sd = new Date(start);
+    const ed = new Date(end);
+    const sameDay = sd.toISOString().slice(0, 10) === ed.toISOString().slice(0, 10);
+    if (sameDay) {
+      // e.g., Nov 11, 2025, 09:00 → 09:30
+      const left = formatDateTime(sd, { dateStyle: 'medium', timeStyle: 'short' });
+      const right = formatTime(ed, { timeStyle: 'short' });
+      return `${left} → ${right}`;
+    }
+    // Cross-day span, include both full stamps
+    const left = formatDateTime(sd, { dateStyle: 'medium', timeStyle: 'short' });
+    const right = formatDateTime(ed, { dateStyle: 'medium', timeStyle: 'short' });
+    return `${left} → ${right}`;
+  } catch {
+    return `${start} → ${end}`;
   }
 }
 
@@ -391,6 +434,11 @@ export function buildOutputMessage(data: {
   summary?: string;
   type?: string;
   data?: unknown;
+  presentation?: {
+    type: 'slots' | 'table' | 'text' | 'json';
+    tz?: string;
+    datetimePaths?: string[];
+  };
 }): UiMessage {
   return {
     role: 'assistant',
@@ -400,6 +448,7 @@ export function buildOutputMessage(data: {
       content: data.content || data.summary || '',
       type: (data.type as 'text' | 'summary' | 'markdown' | 'json') || 'text',
       data: data.data,
+      presentation: data.presentation,
     },
   };
 }

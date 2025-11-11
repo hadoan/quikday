@@ -16,7 +16,8 @@
     "preserveWatchOutput": true,
     "skipLibCheck": true,
     "strict": true,
-    "noImplicitAny": false
+    "noImplicitAny": false,
+    "sourceMap": true
   },
   "exclude": ["node_modules"],
   "ts-node": {

@@ -25,17 +25,20 @@ The No-Reply Sweep feature allows users to automatically find email threads they
 #### 1. Agent Tools (packages/agent/registry/tools/emails/)
 
 **searchNoReply.ts**
+
 - Tool: `email.searchNoReply`
 - Searches sent emails in last N days with no replies
 - Returns: thread metadata (subject, recipient, snippet)
 
 **generateFollowup.ts**
-- Tool: `email.generateFollowup`  
+
+- Tool: `email.generateFollowup`
 - Uses LLM to generate contextual follow-up drafts
 - Inputs: threadId, originalSubject, originalSnippet, recipient, tone
 - Returns: subject, body, preview
 
 **sendFollowup.ts**
+
 - Tool: `email.sendFollowup`
 - Sends follow-up email in existing thread
 - Creates EmailAction record for undo capability
@@ -66,11 +69,13 @@ model EmailAction {
 #### 3. API Endpoints (apps/api/src/)
 
 **POST /runs/:id/approve** (already exists)
+
 - Approves selected steps in a run
 - Located in: `runs/runs.controller.ts`
 - Body: `{ approvedSteps: string[] }`
 
 **DELETE /email/undo/:messageId** (newly created)
+
 - Undoes a sent email within 60-minute window
 - Located in: `email/email.controller.ts`
 - Checks EmailAction table for eligibility
@@ -81,6 +86,7 @@ model EmailAction {
 #### EmailFollowupApproval.tsx (apps/web/src/components/runs/)
 
 **Features:**
+
 - Displays email drafts with subject, recipient, and body
 - Checkbox selection for each draft
 - Shows selected count and undo window badge
@@ -89,6 +95,7 @@ model EmailAction {
 - Error handling and loading states
 
 **Usage:**
+
 ```tsx
 import EmailFollowupApproval from '@/components/runs/EmailFollowupApproval';
 
@@ -97,17 +104,19 @@ import EmailFollowupApproval from '@/components/runs/EmailFollowupApproval';
   steps={run.steps}
   onApproved={() => console.log('Approved!')}
   onCancelled={() => console.log('Cancelled')}
-/>
+/>;
 ```
 
 ## Example Workflow
 
 ### Step 1: User Prompt
+
 ```
 User: "No-Reply Sweep last 7 days"
 ```
 
 ### Step 2: Planner Creates Plan
+
 ```json
 {
   "plan": [
@@ -145,6 +154,7 @@ User: "No-Reply Sweep last 7 days"
 ```
 
 ### Step 3: Mode Check (in buildMainGraph.ts)
+
 ```typescript
 .addEdge('planner', (s) => {
   // APPROVAL mode: Show plan and halt for user approval
@@ -152,20 +162,22 @@ User: "No-Reply Sweep last 7 days"
     (s.scratch as any).requiresApproval = true;
     return 'END'; // Halt graph here, wait for approval
   }
-  
+
   // AUTO mode: Continue to execution immediately
   if (s.mode === 'AUTO') {
     return 'confirm';
   }
-  
+
   return 'confirm';
 })
 ```
 
 ### Step 4: Frontend Renders Approval UI
+
 The frontend detects `requiresApproval: true` and renders `EmailFollowupApproval` component.
 
 ### Step 5: User Approves
+
 ```http
 POST /runs/:runId/approve
 {
@@ -174,18 +186,23 @@ POST /runs/:runId/approve
 ```
 
 ### Step 6: Backend Re-queues Run
+
 The run is re-queued with filtered plan containing only approved steps.
 
 ### Step 7: Executor Sends Emails
+
 Each `email.sendFollowup` tool call:
+
 1. Sends email via Gmail API
 2. Creates EmailAction record with 60-min expiry
 3. Returns messageId and undoExpiresAt
 
 ### Step 8: Undo (Optional)
+
 ```http
 DELETE /email/undo/:messageId
 ```
+
 - Checks if within 60-minute window
 - Moves email to trash
 - Marks EmailAction as undone
@@ -193,17 +210,16 @@ DELETE /email/undo/:messageId
 ## Configuration
 
 ### Environment Variables
+
 No additional environment variables needed. Uses existing:
+
 - `DATABASE_URL` - PostgreSQL connection
 - Gmail OAuth credentials (already configured)
 
 ### Tool Registration (packages/agent/registry/registry.ts)
+
 ```typescript
-import {
-  emailSearchNoReply,
-  emailGenerateFollowup,
-  emailSendFollowup,
-} from './tools/email.js';
+import { emailSearchNoReply, emailGenerateFollowup, emailSendFollowup } from './tools/email.js';
 
 export function registerToolsWithLLM(llm: LLM, moduleRef: ModuleRef) {
   // ... existing tools
@@ -216,6 +232,7 @@ export function registerToolsWithLLM(llm: LLM, moduleRef: ModuleRef) {
 ## Testing
 
 ### Manual Test Flow
+
 1. Start dev servers: `pnpm dev`
 2. Connect Gmail account via integrations page
 3. Send test emails and wait (or backdate for testing)
@@ -228,6 +245,7 @@ export function registerToolsWithLLM(llm: LLM, moduleRef: ModuleRef) {
 10. Test undo within 60 minutes
 
 ### Unit Tests
+
 ```typescript
 // Test email.searchNoReply tool
 describe('emailSearchNoReply', () => {
@@ -240,13 +258,16 @@ describe('emailSearchNoReply', () => {
 // Test email.generateFollowup tool
 describe('emailGenerateFollowup', () => {
   it('should generate follow-up draft', async () => {
-    const result = await tool.call({
-      threadId: 'thread-123',
-      originalSubject: 'Test',
-      originalSnippet: 'Hello',
-      recipient: 'test@example.com',
-      tone: 'polite'
-    }, ctx);
+    const result = await tool.call(
+      {
+        threadId: 'thread-123',
+        originalSubject: 'Test',
+        originalSnippet: 'Hello',
+        recipient: 'test@example.com',
+        tone: 'polite',
+      },
+      ctx,
+    );
     expect(result.body).toBeTruthy();
   });
 });
@@ -276,26 +297,31 @@ describe('emailGenerateFollowup', () => {
 ## Troubleshooting
 
 ### Emails not found
+
 - Check Gmail OAuth scopes include `gmail.readonly` and `gmail.send`
 - Verify user has sent emails in the specified timeframe
 - Check search query filters
 
 ### Follow-ups not generated
+
 - Verify LLM service is configured and accessible
 - Check LLM token limits and quotas
 - Review LLM prompt and adjust if needed
 
 ### Emails not sending
+
 - Verify Gmail OAuth access token is valid
 - Check network connectivity to Gmail API
 - Review rate limiting and quotas
 
 ### Undo not working
+
 - Verify within 60-minute window
 - Check EmailAction record exists in database
 - Ensure Gmail API deleteMessage permission
 
 ## License
+
 GNU Affero General Public License v3.0 (AGPL-3.0)
 
 ---

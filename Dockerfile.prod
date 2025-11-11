@@ -1,0 +1,27 @@
+# Stage: runtime
+FROM node:20-alpine AS runtime
+WORKDIR /app
+
+# Install OpenSSL for Prisma (Alpine uses openssl3 by default, but Prisma may need compatibility)
+RUN apk add --no-cache openssl libssl3
+
+# Install a lightweight package manager for runtime (pnpm runtime install not required if node_modules are copied)
+RUN corepack enable && corepack prepare pnpm@latest --activate
+
+# Copy the entire workspace (monorepo) so pnpm can resolve workspace dependencies
+# The .dockerignore excludes node_modules, dist folders (except we need the built dist)
+COPY . .
+
+# Install ALL dependencies (including devDependencies for prisma CLI)
+RUN pnpm install --filter @quikday/api... --no-frozen-lockfile
+
+# Generate Prisma Client
+RUN pnpm --filter @quikday/prisma run generate
+
+# Set working directory to the API app
+WORKDIR /app/apps/api
+
+# Expose port and run
+ENV NODE_ENV=production
+EXPOSE 3000
+CMD ["node", "dist/main.js"]

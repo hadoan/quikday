@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Send, Sparkles, Eye, Zap, CheckCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
@@ -15,6 +15,9 @@ interface PromptInputProps {
   placeholder?: string;
   initialValue?: string;
   defaultMode?: RunMode;
+  autoFocus?: boolean;
+  onChangeText?: (text: string) => void;
+  onStartTyping?: () => void;
 }
 
 export const PromptInput = ({
@@ -23,9 +26,13 @@ export const PromptInput = ({
   placeholder = "Type your intent... (e.g., 'Schedule a check-in with Sara tomorrow at 10')",
   initialValue,
   defaultMode = 'preview',
+  autoFocus = true,
+  onChangeText,
+  onStartTyping,
 }: PromptInputProps) => {
   const [prompt, setPrompt] = useState(initialValue || '');
   const [mode, setMode] = useState<RunMode>(defaultMode);
+  const startedRef = useRef(false);
 
   useEffect(() => {
     if (typeof initialValue === 'string') {
@@ -56,11 +63,11 @@ export const PromptInput = ({
   };
 
   return (
-    <form onSubmit={handleSubmit} className="w-full space-y-3">
+    <form onSubmit={handleSubmit} className="w-full space-y-2 sm:space-y-3">
       {/* Mode Selector */}
       <div className="flex items-center justify-between">
         <div className="inline-flex items-center rounded-lg bg-muted p-1">
-          <button
+          {/* <button
             type="button"
             onClick={() => setMode('preview')}
             className={cn(
@@ -101,24 +108,35 @@ export const PromptInput = ({
           >
             <Zap className="h-3.5 w-3.5" />
             Auto
-          </button>
+          </button> */}
         </div>
-        <p className="text-xs text-muted-foreground">
-          Press ⌘+Enter to run
-        </p>
+        <p className="text-xs text-muted-foreground hidden sm:block">Press ⌘+Enter to run</p>
       </div>
 
       {/* Input Area */}
-      <div className="relative flex items-end gap-3 p-4 bg-card border border-border rounded-xl shadow-sm">
+      <div className="relative flex items-end gap-2 sm:gap-3 p-3 sm:p-4 bg-card border border-border rounded-xl shadow-sm">
         <div className="flex-1">
           <Textarea
             value={prompt}
-            onChange={(e) => setPrompt(e.target.value)}
+            onChange={(e) => {
+              const v = e.target.value;
+              setPrompt(v);
+              try {
+                onChangeText?.(v);
+              } catch {}
+              if (!startedRef.current && v.trim().length > 0) {
+                startedRef.current = true;
+                try {
+                  onStartTyping?.();
+                } catch {}
+              }
+            }}
             onKeyDown={handleKeyDown}
             placeholder={placeholder}
             disabled={disabled}
+            autoFocus={autoFocus}
             className={cn(
-              'min-h-[60px] resize-none border-0 bg-transparent p-0 focus-visible:ring-0 focus-visible:ring-offset-0',
+              'min-h-[60px] max-h-[200px] resize-none border-0 bg-transparent p-0 focus-visible:ring-0 focus-visible:ring-offset-0 text-sm sm:text-base',
               'placeholder:text-muted-foreground',
             )}
             rows={1}
@@ -128,12 +146,12 @@ export const PromptInput = ({
           type="submit"
           size="icon"
           disabled={!prompt.trim() || disabled}
-          className="h-10 w-10 shrink-0"
+          className="h-9 w-9 sm:h-10 sm:w-10 shrink-0"
         >
           {disabled ? (
-            <Sparkles className="h-5 w-5 animate-pulse-glow" />
+            <Sparkles className="h-4 w-4 sm:h-5 sm:w-5 animate-pulse-glow" />
           ) : (
-            <Send className="h-5 w-5" />
+            <Send className="h-4 w-4 sm:h-5 sm:w-5" />
           )}
         </Button>
       </div>

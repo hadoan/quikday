@@ -20,7 +20,8 @@ export type EmailSnoozeResult = z.infer<typeof EmailSnoozeOut>;
 export function emailSnooze(moduleRef: ModuleRef): Tool<EmailSnoozeArgs, EmailSnoozeResult> {
   return {
     name: 'email.snooze',
-    description: 'Snooze an email until a specific time. Required: (threadId or messageId) AND snoozeUntil (ISO timestamp).',
+    description:
+      'Snooze an email until a specific time. Required: (threadId or messageId) AND snoozeUntil (ISO timestamp).',
     in: EmailSnoozeIn,
     out: EmailSnoozeOut,
     apps: ['gmail-email'],

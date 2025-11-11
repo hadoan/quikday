@@ -18,10 +18,13 @@ export const EmailLabelsChangeOut = z.object({ ok: z.boolean() });
 export type EmailLabelsChangeArgs = z.infer<typeof EmailLabelsChangeIn>;
 export type EmailLabelsChangeResult = z.infer<typeof EmailLabelsChangeOut>;
 
-export function emailLabelsChange(moduleRef: ModuleRef): Tool<EmailLabelsChangeArgs, EmailLabelsChangeResult> {
+export function emailLabelsChange(
+  moduleRef: ModuleRef,
+): Tool<EmailLabelsChangeArgs, EmailLabelsChangeResult> {
   return {
     name: 'email.labels.change',
-    description: 'Add or remove labels from an email message. Required: messageId. Optional: addLabelIds, removeLabelIds (arrays).',
+    description:
+      'Add or remove labels from an email message. Required: messageId. Optional: addLabelIds, removeLabelIds (arrays).',
     in: EmailLabelsChangeIn,
     out: EmailLabelsChangeOut,
     apps: ['gmail-email'],

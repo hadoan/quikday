@@ -51,7 +51,7 @@ export function useRunsQuery(params: {
         const provider = getAccessTokenProvider();
         const tokenOrPromise = provider?.();
         const token = tokenOrPromise instanceof Promise ? await tokenOrPromise : tokenOrPromise;
-        
+
         if (token) {
           headers.set('Authorization', `Bearer ${token}`);
         }

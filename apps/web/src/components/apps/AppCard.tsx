@@ -67,15 +67,17 @@ const AppCard: FC<AppCardProps> = ({ title, description, logoSrc, installProps }
   }, [installProps.type]);
 
   return (
-    <div className="flex flex-col rounded-xl border bg-card p-6 shadow-sm">
-      <div className="h-[50px] w-[50px] overflow-hidden rounded-md bg-muted">
+    <div className="flex flex-col rounded-xl border bg-card p-4 sm:p-6 shadow-sm hover:shadow-md transition-shadow">
+      <div className="h-12 w-12 sm:h-[50px] sm:w-[50px] overflow-hidden rounded-md bg-muted">
         <img src={logoSrc} alt={`${title} logo`} className="h-full w-full object-contain" />
       </div>
-      <div className="mt-4 text-sm font-semibold text-foreground">{title}</div>
-      <div className="mb-3 flex-1 text-xs leading-6 text-muted-foreground">{description}</div>
+      <div className="mt-3 sm:mt-4 text-sm sm:text-base font-semibold text-foreground">{title}</div>
+      <div className="mb-3 flex-1 text-xs sm:text-sm leading-5 sm:leading-6 text-muted-foreground">
+        {description}
+      </div>
 
       {installedUser && (
-        <div className="mb-4 text-xs text-muted-foreground">
+        <div className="mb-3 sm:mb-4 text-xs text-muted-foreground">
           Connected as{' '}
           <span className="text-foreground font-medium">
             {installedUser.name || installedUser.email}

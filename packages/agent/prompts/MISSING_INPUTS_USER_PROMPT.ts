@@ -1,6 +1,6 @@
 /**
  * User prompt builder for missing inputs detection
- * 
+ *
  * Constructs a prompt with the user's message, provided information,
  * and tool requirements for the LLM to analyze.
  */
@@ -19,7 +19,7 @@ export interface ToolRequirement {
 export function buildMissingInputsUserPrompt(
   userMessage: string,
   providedInfo: Record<string, unknown>,
-  toolRequirements: ToolRequirement[]
+  toolRequirements: ToolRequirement[],
 ): string {
   return `User's original message:
 "${userMessage}"

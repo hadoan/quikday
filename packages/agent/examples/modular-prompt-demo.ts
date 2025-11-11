@@ -1,23 +1,23 @@
 /**
  * Example: Using the Modular Prompt System
- * 
+ *
  * This demonstrates how to use the new modular prompt system
  * for goal extraction with domain-specific rules and validation.
- * 
+ *
  * Run: pnpm tsx packages/agent/examples/modular-prompt-demo.ts
  */
 
-import { 
+import {
   compileGoalExtractionPrompt,
   compileGoalUserPrompt,
   detectDomains,
-  GoalSchema
+  GoalSchema,
 } from '../prompts/goal-extraction/index.js';
 
-import { 
+import {
   validateEmail,
   filterIntegrationPolicyQuestions,
-  repairJsonOutput
+  repairJsonOutput,
 } from '../guards/index.js';
 
 // Example user inputs
@@ -53,14 +53,20 @@ const systemPrompt = compileGoalExtractionPrompt({
   version: 'v1',
 });
 
-console.log(`System Prompt Length: ${systemPrompt.length} chars (~${Math.ceil(systemPrompt.length / 4)} tokens)\n`);
+console.log(
+  `System Prompt Length: ${systemPrompt.length} chars (~${Math.ceil(systemPrompt.length / 4)} tokens)\n`,
+);
 
 // Build user prompt
-const userPrompt = compileGoalUserPrompt(userInput, {}, {
-  timezone: 'America/New_York',
-  todayISO: new Date().toISOString(),
-  user: { id: 'demo-user', name: 'Demo User', email: 'demo@example.com' },
-});
+const userPrompt = compileGoalUserPrompt(
+  userInput,
+  {},
+  {
+    timezone: 'America/New_York',
+    todayISO: new Date().toISOString(),
+    user: { id: 'demo-user', name: 'Demo User', email: 'demo@example.com' },
+  },
+);
 
 console.log(`User Prompt Length: ${userPrompt.length} chars\n`);
 console.log();
@@ -84,11 +90,19 @@ const noDomainPrompt = compileGoalExtractionPrompt({
   includeExamples: false,
 });
 
-console.log(`All Domains:    ${allDomainsPrompt.length} chars (~${Math.ceil(allDomainsPrompt.length / 4)} tokens)`);
-console.log(`Single Domain:  ${singleDomainPrompt.length} chars (~${Math.ceil(singleDomainPrompt.length / 4)} tokens)`);
-console.log(`Core Only:      ${noDomainPrompt.length} chars (~${Math.ceil(noDomainPrompt.length / 4)} tokens)`);
+console.log(
+  `All Domains:    ${allDomainsPrompt.length} chars (~${Math.ceil(allDomainsPrompt.length / 4)} tokens)`,
+);
+console.log(
+  `Single Domain:  ${singleDomainPrompt.length} chars (~${Math.ceil(singleDomainPrompt.length / 4)} tokens)`,
+);
+console.log(
+  `Core Only:      ${noDomainPrompt.length} chars (~${Math.ceil(noDomainPrompt.length / 4)} tokens)`,
+);
 
-const savings = Math.round(((allDomainsPrompt.length - singleDomainPrompt.length) / allDomainsPrompt.length) * 100);
+const savings = Math.round(
+  ((allDomainsPrompt.length - singleDomainPrompt.length) / allDomainsPrompt.length) * 100,
+);
 console.log(`\nToken Savings: ~${savings}% when using single domain vs all domains\n`);
 console.log();
 
@@ -107,15 +121,10 @@ console.log();
 console.log('✅ Demo 4: Code-Based Validation');
 console.log('-'.repeat(80));
 
-const testEmails = [
-  'jane@acme.com',
-  'invalid.email',
-  'test@example',
-  'good.email@domain.co.uk',
-];
+const testEmails = ['jane@acme.com', 'invalid.email', 'test@example', 'good.email@domain.co.uk'];
 
 console.log('Email Validation:');
-testEmails.forEach(email => {
+testEmails.forEach((email) => {
   const result = validateEmail(email);
   console.log(`  ${result.valid ? '✓' : '✗'} ${email} ${result.error ? `(${result.error})` : ''}`);
 });
@@ -132,12 +141,12 @@ const missingFields = [
 ];
 
 console.log('Before filtering:');
-missingFields.forEach(field => console.log(`  - ${field.key}: ${field.question}`));
+missingFields.forEach((field) => console.log(`  - ${field.key}: ${field.question}`));
 
 const filtered = filterIntegrationPolicyQuestions(missingFields, ['gmail']);
 
 console.log('\nAfter filtering (gmail connected):');
-filtered.forEach(field => console.log(`  - ${field.key}: ${field.question}`));
+filtered.forEach((field) => console.log(`  - ${field.key}: ${field.question}`));
 console.log();
 
 // Demo 6: JSON repair

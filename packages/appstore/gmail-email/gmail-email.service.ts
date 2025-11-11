@@ -40,11 +40,13 @@ export class GmailEmailService implements EmailService {
     const messages: any[] = Array.isArray(data?.messages) ? data.messages : [];
     const mapped = messages.map((m) => this.mapGmailMessageToEmailMessage(m));
     try {
-      this.logger.log(this.formatMeta({
-        op: 'getThread.summary',
-        threadId,
-        messages: mapped.length,
-      }));
+      this.logger.log(
+        this.formatMeta({
+          op: 'getThread.summary',
+          threadId,
+          messages: mapped.length,
+        }),
+      );
     } catch {}
     return mapped;
   }
@@ -79,10 +81,6 @@ export class GmailEmailService implements EmailService {
     params.append('metadataHeaders', 'To');
     params.append('metadataHeaders', 'Date');
 
-    try {
-      this.logger.log(this.formatMeta({ op: 'search.queryString', q: query }));
-    } catch {}
-
     const resp = await gmail.users.messages.list({
       userId: 'me',
       q: query || undefined,
@@ -91,13 +89,6 @@ export class GmailEmailService implements EmailService {
     });
     const listing: any = resp.data;
     const items: any[] = Array.isArray(listing?.messages) ? listing.messages : [];
-    try {
-      this.logger.log(this.formatMeta({
-        op: 'search.listed',
-        count: items.length,
-        hasNext: typeof listing?.nextPageToken === 'string',
-      }));
-    } catch {}
 
     // Fetch details for each message in parallel (metadata is sometimes enough, but we map uniformly)
     const results: EmailMessage[] = await Promise.all(
@@ -111,9 +102,6 @@ export class GmailEmailService implements EmailService {
         }
       }),
     ).then((arr) => arr.filter((x): x is EmailMessage => !!x));
-    try {
-      this.logger.log(this.formatMeta({ op: 'search.hydrated', messages: results.length }));
-    } catch {}
 
     return {
       messages: results,
@@ -241,7 +229,9 @@ export class GmailEmailService implements EmailService {
       replyToMessageId: draft.replyToMessageId,
     });
 
-    const res = await this.sendEmailViaGmailApi('me', rawMessage, accessToken, { threadId: opts?.threadId });
+    const res = await this.sendEmailViaGmailApi('me', rawMessage, accessToken, {
+      threadId: opts?.threadId,
+    });
     return { messageId: res.messageId ?? '', threadId: res.threadId ?? '' };
   }
 
@@ -598,14 +588,14 @@ export class GmailEmailService implements EmailService {
 
   private createRawMimeMessage(params: RawMimeParams): string {
     const { from, to, subject, htmlBody, cc = [], bcc = [], fromName, replyToMessageId } = params;
-    const fromHeader = fromName ? `${fromName} <${from}>` : from;
+    const fromHeader = fromName ? `${this.encodeHeaderWord(fromName)} <${from}>` : from;
     const lines: string[] = [];
 
     lines.push(`From: ${fromHeader}`);
     lines.push(`To: ${to.join(', ')}`);
     if (cc.length > 0) lines.push(`Cc: ${cc.join(', ')}`);
     if (bcc.length > 0) lines.push(`Bcc: ${bcc.join(', ')}`);
-    lines.push(`Subject: ${subject}`);
+    lines.push(`Subject: ${this.encodeHeaderWord(subject)}`);
     lines.push(`Date: ${new Date().toUTCString()}`);
     lines.push(`Message-ID: <${randomUUID()}@gmail.com>`);
 
@@ -641,7 +631,9 @@ export class GmailEmailService implements EmailService {
     const { gmail } = await this.getGmailClient();
     const resp = await gmail.users.messages.send({
       userId: 'me',
-      requestBody: opts?.threadId ? { raw: rawMessage, threadId: opts.threadId } : { raw: rawMessage },
+      requestBody: opts?.threadId
+        ? { raw: rawMessage, threadId: opts.threadId }
+        : { raw: rawMessage },
     });
     const payload: any = resp.data;
     const messageId = (typeof payload?.id === 'string' ? payload.id : undefined) ?? '';
@@ -654,6 +646,14 @@ export class GmailEmailService implements EmailService {
     const padding = base64.length % 4;
     const padded = padding > 0 ? base64.padEnd(base64.length + (4 - padding), '=') : base64;
     return Buffer.from(padded, 'base64').toString('utf8');
+  }
+
+  // RFC 2047 encoded-word for non-ASCII header values (Subject, display names)
+  private encodeHeaderWord(value: string | undefined | null): string {
+    if (!value) return '';
+    if (/^[\x00-\x7F]*$/.test(value)) return value; // ASCII only
+    const b64 = Buffer.from(value, 'utf8').toString('base64');
+    return `=?UTF-8?B?${b64}?=`;
   }
 
   private parseAddressList(value?: string): EmailAddress[] {

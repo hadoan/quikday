@@ -16,7 +16,8 @@ export type EmailArchiveResult = z.infer<typeof EmailArchiveOut>;
 export function emailArchive(moduleRef: ModuleRef): Tool<EmailArchiveArgs, EmailArchiveResult> {
   return {
     name: 'email.archive',
-    description: 'Archive an email thread or message (removes from inbox). Required: threadId or messageId.',
+    description:
+      'Archive an email thread or message (removes from inbox). Required: threadId or messageId.',
     in: EmailArchiveIn,
     out: EmailArchiveOut,
     apps: ['gmail-email'],

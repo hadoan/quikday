@@ -1,6 +1,5 @@
 type Answers = Record<string, unknown>;
 
-
 export function buildClassifyUserPrompt(
   text: string,
   answers: Answers = {},
@@ -14,10 +13,5 @@ export function buildClassifyUserPrompt(
     meta && (meta.timezone || meta.todayISO)
       ? `\nMeta:\n- timezone: ${meta.timezone ?? 'UTC'}\n- nowISO: ${meta.todayISO ?? ''}\n`
       : '';
-  return [
-    'User:',
-    text,
-    answersBlock,
-    metaBlock,
-  ].join('\n');
+  return ['User:', text, answersBlock, metaBlock].join('\n');
 }

@@ -61,12 +61,14 @@ export const CalendarCheckAvailabilityOut = z.object({
   window_tz: z.string(),
 
   /** Returned slots (up to `count`) */
-  slots: z.array(z.object({
-    start: z.string(),
-    end: z.string(),
-    /** Availability flag for this specific slot */
-    available: z.boolean(),
-  })),
+  slots: z.array(
+    z.object({
+      start: z.string(),
+      end: z.string(),
+      /** Availability flag for this specific slot */
+      available: z.boolean(),
+    }),
+  ),
 
   /** If available, the first available slot for convenience */
   firstAvailableStart: z.string().optional(),
@@ -81,7 +83,8 @@ export function calendarCheckAvailability(
 ): Tool<CalendarCheckAvailabilityArgs, CalendarCheckAvailabilityResult> {
   return {
     name: 'calendar.checkAvailability',
-    description: 'Find available time slots within a date/time window. Searches for free slots during working hours and returns up to N available slots. Required: startWindow (ISO), endWindow (ISO), durationMin (meeting length in minutes).',
+    description:
+      'Find available time slots within a date/time window. Searches for free slots during working hours and returns up to N available slots. Required: startWindow (ISO), endWindow (ISO), durationMin (meeting length in minutes).',
     in: CalendarCheckAvailabilityIn,
     out: CalendarCheckAvailabilityOut,
     apps: ['google-calendar'],
@@ -105,9 +108,13 @@ export function calendarCheckAvailability(
       const endW = new Date(endWindow);
 
       // Guard: invalid window
-      if (!(startW instanceof Date) || isNaN(startW.valueOf()) ||
-          !(endW instanceof Date) || isNaN(endW.valueOf()) ||
-          endW <= startW) {
+      if (
+        !(startW instanceof Date) ||
+        isNaN(startW.valueOf()) ||
+        !(endW instanceof Date) ||
+        isNaN(endW.valueOf()) ||
+        endW <= startW
+      ) {
         return {
           available: false,
           startWindow,

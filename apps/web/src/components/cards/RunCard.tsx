@@ -75,7 +75,7 @@ export const RunCard = ({ data, runId }: RunCardProps) => {
           if (!r.ok) throw new Error('confirm failed');
         });
       }
-      
+
       // Mark as submitted to show read-only view
       setSubmitted(true);
     } catch (e) {
@@ -132,7 +132,7 @@ export const RunCard = ({ data, runId }: RunCardProps) => {
         </h3>
         <p className="text-sm text-muted-foreground mb-4">
           {submitted
-            ? "Your inputs have been submitted. Processing will continue automatically."
+            ? 'Your inputs have been submitted. Processing will continue automatically.'
             : "Please fill these in. I'll continue automatically once you submit."}
         </p>
 

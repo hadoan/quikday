@@ -15,10 +15,13 @@ export const CalendarUpdateOut = z.object({ ok: z.boolean() });
 export type CalendarUpdateArgs = z.infer<typeof CalendarUpdateIn>;
 export type CalendarUpdateResult = z.infer<typeof CalendarUpdateOut>;
 
-export function calendarUpdateEvent(moduleRef: ModuleRef): Tool<CalendarUpdateArgs, CalendarUpdateResult> {
+export function calendarUpdateEvent(
+  moduleRef: ModuleRef,
+): Tool<CalendarUpdateArgs, CalendarUpdateResult> {
   return {
     name: 'calendar.updateEvent',
-    description: 'Update an existing calendar event. Required: eventId. Optional: title, start (ISO), end (ISO), attendees, location.',
+    description:
+      'Update an existing calendar event. Required: eventId. Optional: title, start (ISO), end (ISO), attendees, location.',
     in: CalendarUpdateIn,
     out: CalendarUpdateOut,
     apps: ['google-calendar'],
@@ -35,8 +38,8 @@ export function calendarUpdateEvent(moduleRef: ModuleRef): Tool<CalendarUpdateAr
           attendees: Array.isArray(args.attendees)
             ? (args.attendees as string[]).map((e) => ({ email: e }))
             : typeof args.attendees === 'string'
-            ? normalizeAttendees(args.attendees)?.map((e: string) => ({ email: e }))
-            : undefined,
+              ? normalizeAttendees(args.attendees)?.map((e: string) => ({ email: e }))
+              : undefined,
           location: args.location,
         } as any);
       }

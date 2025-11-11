@@ -75,7 +75,7 @@ export class RunProcessor extends WorkerHost {
     private telemetry: TelemetryService,
     private agent: AgentService,
     @Inject('RunEventBus') private eventBus: RunEventBus,
-    private readonly currentUser: CurrentUserService,
+    private readonly currentUser: CurrentUserService
   ) {
     super();
   }
@@ -110,7 +110,7 @@ export class RunProcessor extends WorkerHost {
       scopes: Array.isArray(job.data.scopes) ? job.data.scopes : [],
       traceId:
         typeof job.data?.meta?.['traceId'] === 'string' &&
-          (job.data.meta!['traceId'] as string).trim()
+        (job.data.meta!['traceId'] as string).trim()
           ? (job.data.meta!['traceId'] as string)
           : `run:${run.id}`,
       tz:
@@ -193,16 +193,19 @@ export class RunProcessor extends WorkerHost {
         },
         persistStepOutput: async (step) => {
           try {
-            await this.stepsService.createStep({
-              runId: run.id,
-              tool: step.tool,
-              action: step.tool.split('.').pop() || 'execute',
-              request: step.args,
-              response: step.result,
-              planStepId: step.id,
-              startedAt: step.startedAt,
-              endedAt: step.endedAt,
-            }, run.userId);
+            await this.stepsService.createStep(
+              {
+                runId: run.id,
+                tool: step.tool,
+                action: step.tool.split('.').pop() || 'execute',
+                request: step.args,
+                response: step.result,
+                planStepId: step.id,
+                startedAt: step.startedAt,
+                endedAt: step.endedAt,
+              },
+              run.userId
+            );
           } catch (e) {
             this.logger.error('❌ Failed to persist step output', {
               runId: run.id,
@@ -236,11 +239,12 @@ export class RunProcessor extends WorkerHost {
 
           if (resumeFrom === 'executor') {
             // Resume execution from executor node after approval or answers submission
-            const reason = run.status === 'approved'
-              ? 'approval'
-              : run.status === 'pending' && run.answers
-                ? 'answers submission'
-                : 'unknown';
+            const reason =
+              run.status === 'approved'
+                ? 'approval'
+                : run.status === 'pending' && run.answers
+                  ? 'answers submission'
+                  : 'unknown';
 
             this.logger.log('▶️ Resuming from executor', {
               runId: run.id,
@@ -250,11 +254,17 @@ export class RunProcessor extends WorkerHost {
               approvedSteps: config?.approvedSteps?.length || 0,
             });
 
-            console.log('[run.processor] Initial state scratch keys:', Object.keys(initialState.scratch || {}));
+            console.log(
+              '[run.processor] Initial state scratch keys:',
+              Object.keys(initialState.scratch || {})
+            );
             console.log('[run.processor] Has plan?', !!initialState.scratch?.plan);
             console.log('[run.processor] Plan length:', initialState.scratch?.plan?.length || 0);
             console.log('[run.processor] Has answers?', !!initialState.scratch?.answers);
-            console.log('[run.processor] Answers keys:', Object.keys(initialState.scratch?.answers || {}));
+            console.log(
+              '[run.processor] Answers keys:',
+              Object.keys(initialState.scratch?.answers || {})
+            );
 
             this.logger.debug('Resuming execution with state:', {
               scratchKeys: Object.keys(initialState.scratch || {}),
@@ -284,6 +294,16 @@ export class RunProcessor extends WorkerHost {
         ) {
           const questions = awaiting.questions ?? (final.output?.diff as any)?.questions ?? [];
           const askedAt = awaiting?.askedAt || new Date().toISOString();
+
+          // Get steps from database to include credential information
+          const dbSteps = await this.stepsService.getStepsByRunId(run.id);
+          const stepsForUI = dbSteps.map((s) => ({
+            id: s.id,
+            tool: s.tool,
+            appId: s.appId || undefined,
+            credentialId: s.credentialId || undefined,
+            action: s.action || undefined,
+          }));
 
           // Persist awaiting to output (both UI-friendly and runtime-friendly)
           await this.runs.persistResult(run.id, {
@@ -316,7 +336,10 @@ export class RunProcessor extends WorkerHost {
 
           await this.eventBus.publish(
             run.id,
-            { type: 'run_status', payload: { status: 'awaiting_input', questions } },
+            {
+              type: 'run_status',
+              payload: { status: 'awaiting_input', questions, steps: stepsForUI },
+            },
             CHANNEL_WEBSOCKET
           );
           return;
@@ -325,8 +348,8 @@ export class RunProcessor extends WorkerHost {
         // Check if approval is required (AUTO mode halted after planning)
         const requiresApproval = (final?.scratch as any)?.requiresApproval === true;
         const plan = (final?.scratch?.plan ?? []) as Array<{ id: string; tool: string }>;
-        const hasExecutableSteps = plan.length > 0 &&
-          !plan.every((st) => st.tool === 'chat.respond');
+        const hasExecutableSteps =
+          plan.length > 0 && !plan.every((st) => st.tool === 'chat.respond');
 
         if (requiresApproval && hasExecutableSteps) {
           // Persist plan and diff for UI display
@@ -346,8 +369,8 @@ export class RunProcessor extends WorkerHost {
               type: 'run_status',
               payload: {
                 status: 'awaiting_approval',
-                plan: plan.map(s => ({ id: s.id, tool: s.tool }))
-              }
+                plan: plan.map((s) => ({ id: s.id, tool: s.tool })),
+              },
             },
             CHANNEL_WEBSOCKET
           );
@@ -380,8 +403,8 @@ export class RunProcessor extends WorkerHost {
               payload: {
                 status: 'done',
                 output: final.output ?? {},
-                plan: plan.map(s => ({ id: s.id, tool: s.tool }))
-              }
+                plan: plan.map((s) => ({ id: s.id, tool: s.tool })),
+              },
             },
             CHANNEL_WEBSOCKET
           );
@@ -392,7 +415,11 @@ export class RunProcessor extends WorkerHost {
             mode: run.mode,
           });
 
-          await this.telemetry.track('run_completed', { runId: run.id, status: 'done', mode: run.mode });
+          await this.telemetry.track('run_completed', {
+            runId: run.id,
+            status: 'done',
+            mode: run.mode,
+          });
 
           return;
         }
@@ -549,9 +576,10 @@ export class RunProcessor extends WorkerHost {
     const { scratch: _drop, ...restOutput } = rawOut;
 
     // Load answers from Run.answers field if available
-    const runAnswers = run.answers && typeof run.answers === 'object'
-      ? (run.answers as Record<string, unknown>)
-      : {};
+    const runAnswers =
+      run.answers && typeof run.answers === 'object'
+        ? (run.answers as Record<string, unknown>)
+        : {};
 
     // Load goal and plan from Run fields if available (for plan runs)
     const runGoal = run.goal && typeof run.goal === 'object' ? run.goal : undefined;
@@ -566,7 +594,7 @@ export class RunProcessor extends WorkerHost {
         ...structuredClone((job.data as any)?.scratch ?? {}),
         // Merge answers from Run.answers field
         answers: {
-          ...(persistedScratch.answers as Record<string, unknown> || {}),
+          ...((persistedScratch.answers as Record<string, unknown>) || {}),
           ...runAnswers,
           ...(((job.data as any)?.scratch?.answers as Record<string, unknown>) || {}),
         },
@@ -676,7 +704,10 @@ export class RunProcessor extends WorkerHost {
       console.log('[run.processor] liveState.scratch keys:', Object.keys(liveState.scratch || {}));
       console.log('[run.processor] liveState.output keys:', Object.keys(liveState.output || {}));
       console.log('[run.processor] Has plan in liveState.scratch?', !!liveState.scratch?.plan);
-      console.log('[run.processor] Plan length:', Array.isArray(liveState.scratch?.plan) ? liveState.scratch.plan.length : 0);
+      console.log(
+        '[run.processor] Plan length:',
+        Array.isArray(liveState.scratch?.plan) ? liveState.scratch.plan.length : 0
+      );
 
       // Persist output with scratch containing the plan
       const outputToPersist = {

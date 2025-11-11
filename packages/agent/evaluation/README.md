@@ -5,7 +5,9 @@ This folder contains the evaluation framework for testing the modular prompt sys
 ## Files
 
 ### `golden-utterances.ts`
+
 Contains 30 test cases covering all MVP templates:
+
 - **Triage & Priorities** (3 tests): Quick replies, inbox sprints, time-sensitive threads
 - **Follow-ups & Sweeps** (3 tests): No-reply sweeps, starred follow-ups, scheduled nudges
 - **Meeting Prep & Recaps** (3 tests): Meeting prep, recaps, pre-meeting emails
@@ -17,6 +19,7 @@ Contains 30 test cases covering all MVP templates:
 - **Quick Replies & Intros** (2 tests): Scheduled replies, double opt-in intros
 
 Each test case includes:
+
 - `id`: Unique identifier
 - `input`: User utterance
 - `expectedOutcome`: What the system should extract
@@ -27,9 +30,11 @@ Each test case includes:
 - `notes`: Additional context
 
 ### `test-goal-generation.ts`
+
 **Real ChatGPT API test runner** that validates goal extraction against all golden utterances.
 
 **Features:**
+
 - ✅ Uses real OpenAI API (gpt-4o-mini) instead of mocks
 - ✅ Berlin timezone support (`Europe/Berlin`)
 - ✅ Sequential execution with rate limit protection (500ms delay)
@@ -43,6 +48,7 @@ Each test case includes:
 - ✅ Results saved to `test-results.json`
 
 **Usage:**
+
 ```bash
 # Set your OpenAI API key (or add to .env file in project root)
 # For bash/zsh:
@@ -60,6 +66,7 @@ pnpm test:goals
 ```
 
 **Sample Output:**
+
 ```
 ================================================================================
 Goal Generation Test Suite
@@ -101,16 +108,20 @@ Results saved to: packages/agent/evaluation/test-results.json
 ```
 
 ### `framework.ts`
+
 Evaluation framework infrastructure (stub implementation).
 
 **Planned features:**
+
 - `runEvaluation()`: Compare generated goals against expected outcomes
 - Metrics collection (accuracy, confidence, field extraction)
 - A/B testing for prompt versions
 - Regression testing infrastructure
 
 ### `test-results.json`
+
 Generated output file containing detailed results from each test run, including:
+
 - Success/failure status
 - Extracted goal objects
 - Error messages (if any)
@@ -121,20 +132,25 @@ Generated output file containing detailed results from each test run, including:
 ## Testing Strategy
 
 ### 1. Smoke Test (Current)
+
 Run `test-goal-generation.ts` to verify the system can extract goals from all 30 test cases using real ChatGPT API.
 
 ### 2. Validation Test (Next)
+
 Compare extracted goals against `expectedOutcome`, `expectedProvided`, and `expectedMissing` fields to measure accuracy.
 
 ### 3. Regression Test (Future)
+
 Run tests on every prompt version change to catch regressions.
 
 ### 4. A/B Testing (Future)
+
 Compare multiple prompt versions side-by-side to measure improvements.
 
 ## Configuration
 
 The test uses these settings:
+
 - **Model**: `gpt-4o-mini` (fast, cost-effective)
 - **Temperature**: 0 (deterministic)
 - **Max Tokens**: 800 (sufficient for structured output)

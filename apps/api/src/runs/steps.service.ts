@@ -31,14 +31,15 @@ export class StepsService {
       startedAt?: Date;
       endedAt?: Date;
     },
-    userId: number,
+    userId: number
   ) {
     const { appId, credentialId } = await this.resolveAppAndCredential(data.tool, userId);
     // default waitingConfirm based on tool risk when not provided
     let waitingConfirm: boolean = false;
     try {
       const tool = registry.get(data.tool);
-      waitingConfirm = typeof data.waitingConfirm === 'boolean' ? data.waitingConfirm : tool?.risk === 'high';
+      waitingConfirm =
+        typeof data.waitingConfirm === 'boolean' ? data.waitingConfirm : tool?.risk === 'high';
     } catch {
       waitingConfirm = !!data.waitingConfirm;
     }
@@ -80,7 +81,7 @@ export class StepsService {
       startedAt?: Date;
       endedAt?: Date;
     }>,
-    userId: number,
+    userId: number
   ) {
     if (steps.length === 0) {
       return { count: 0 };
@@ -94,7 +95,8 @@ export class StepsService {
         let waitingConfirm: boolean = false;
         try {
           const tool = registry.get(step.tool);
-          waitingConfirm = typeof step.waitingConfirm === 'boolean' ? step.waitingConfirm : tool?.risk === 'high';
+          waitingConfirm =
+            typeof step.waitingConfirm === 'boolean' ? step.waitingConfirm : tool?.risk === 'high';
         } catch {
           waitingConfirm = !!step.waitingConfirm;
         }
@@ -113,7 +115,7 @@ export class StepsService {
           startedAt: step.startedAt || new Date(),
           endedAt: step.endedAt,
         };
-      }),
+      })
     );
 
     return this.prisma.step.createMany({
@@ -130,8 +132,17 @@ export class StepsService {
    */
   async enrichPlanWithCredentials(
     plan: Array<{ id?: string; tool: string; args?: any; dependsOn?: string[] }>,
-    userId: number,
-  ): Promise<Array<{ id?: string; tool: string; args?: any; dependsOn?: string[]; appId: string | null; credentialId: number | null }>> {
+    userId: number
+  ): Promise<
+    Array<{
+      id?: string;
+      tool: string;
+      args?: any;
+      dependsOn?: string[];
+      appId: string | null;
+      credentialId: number | null;
+    }>
+  > {
     if (!Array.isArray(plan) || plan.length === 0) {
       return [];
     }
@@ -144,7 +155,7 @@ export class StepsService {
           appId,
           credentialId,
         };
-      }),
+      })
     );
 
     return enriched;
@@ -155,7 +166,7 @@ export class StepsService {
    */
   async reResolveAppAndCredential(
     toolName: string,
-    userId: number,
+    userId: number
   ): Promise<{ appId: string | null; credentialId: number | null }> {
     return this.resolveAppAndCredential(toolName, userId);
   }
@@ -168,7 +179,7 @@ export class StepsService {
    */
   private async resolveAppAndCredential(
     toolName: string,
-    userId: number,
+    userId: number
   ): Promise<{ appId: string | null; credentialId: number | null }> {
     try {
       // Get tool from registry to access apps attribute
@@ -176,7 +187,7 @@ export class StepsService {
 
       if (!tool || !tool.apps || tool.apps.length === 0) {
         this.logger.debug(
-          `Tool "${toolName}" has no apps defined in registry, skipping appId/credentialId lookup`,
+          `Tool "${toolName}" has no apps defined in registry, skipping appId/credentialId lookup`
         );
         return { appId: null, credentialId: null };
       }
@@ -199,13 +210,13 @@ export class StepsService {
 
       if (!credential) {
         this.logger.debug(
-          `No valid credential found for userId=${userId}, appId=${appSlug} (tool: ${toolName})`,
+          `No valid credential found for userId=${userId}, appId=${appSlug} (tool: ${toolName})`
         );
         return { appId: appSlug, credentialId: null };
       }
 
       this.logger.debug(
-        `Resolved tool "${toolName}" -> appId: ${appSlug}, credentialId: ${credential.id}`,
+        `Resolved tool "${toolName}" -> appId: ${appSlug}, credentialId: ${credential.id}`
       );
 
       return {
@@ -216,7 +227,7 @@ export class StepsService {
       // If tool not found in registry or any other error, log and return nulls
       const errorMessage = error instanceof Error ? error.message : String(error);
       this.logger.warn(
-        `Failed to resolve appId/credentialId for tool "${toolName}": ${errorMessage}`,
+        `Failed to resolve appId/credentialId for tool "${toolName}": ${errorMessage}`
       );
       return { appId: null, credentialId: null };
     }
@@ -233,7 +244,7 @@ export class StepsService {
   async createPlannedSteps(
     runId: string,
     plan: Array<{ tool: string; args?: any }>,
-    userId: number,
+    userId: number
   ) {
     if (!Array.isArray(plan) || plan.length === 0) {
       return { count: 0 };
@@ -244,7 +255,7 @@ export class StepsService {
       runId,
       tool: String(p?.tool || 'unknown'),
       action: `Planned ${String(p?.tool || 'unknown')}`,
-      request: p && typeof p === 'object' ? (p as any).args ?? null : null,
+      request: p && typeof p === 'object' ? ((p as any).args ?? null) : null,
       planStepId: typeof p?.id === 'string' ? p.id : null,
       // Mark planned step as needing confirmation if tool has high risk
       waitingConfirm: (() => {
@@ -281,7 +292,7 @@ export class StepsService {
       completedAt?: string | number;
       planStepId?: string;
     }>,
-    userId: number,
+    userId: number
   ) {
     if (!Array.isArray(logs) || logs.length === 0) {
       return;
@@ -311,12 +322,12 @@ export class StepsService {
             startedAt: new Date(entry.ts || Date.now()),
             endedAt: entry.completedAt ? new Date(entry.completedAt) : undefined,
           },
-          userId,
+          userId
         );
       } catch (error) {
         const errorMessage = error instanceof Error ? error.message : String(error);
         this.logger.error(
-          `Failed to create step for runId=${runId}, tool=${entry.tool}: ${errorMessage}`,
+          `Failed to create step for runId=${runId}, tool=${entry.tool}: ${errorMessage}`
         );
         // Continue with other steps even if one fails
       }

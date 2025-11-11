@@ -10,6 +10,7 @@ export type UpdateMeResponse = {
   email?: string;
   name?: string;
   avatar?: string;
+  timeZone?: string;
   plan: 'FREE' | 'PRO';
   createdAt: string;
   lastLoginAt?: string;

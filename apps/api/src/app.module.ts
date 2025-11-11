@@ -25,6 +25,7 @@ import { GmailEmailService, GmailEmailModule } from '@quikday/appstore-gmail-ema
 import { TemplatesModule } from './templates/templates.module.js';
 import { HubspotCrmModule } from '@quikday/appstore-hubspot-crm';
 import { GoogleCalendarModule, GoogleCalendarProviderService } from '@quikday/appstore-google-calendar';
+
 import { EmailController } from './email/email.controller.js';
 
 const registry = new Map();
@@ -63,4 +64,4 @@ calendarRegistry.set('google', GoogleCalendarProviderService);
   controllers: [EmailController],
   providers: [{ provide: APP_INTERCEPTOR, useClass: CurrentUserInterceptor }],
 })
-export class AppModule {}
+export class AppModule { }

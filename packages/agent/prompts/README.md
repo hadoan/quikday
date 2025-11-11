@@ -15,11 +15,13 @@ This folder contains all LLM prompts used throughout the agent package, organize
 ## Structure
 
 ### Legacy Prompts (being migrated)
+
 - **System Prompts**: Define the AI's role and behavior (e.g., `FOLLOWUP_EMAIL_SYSTEM.ts`)
 - **User Prompt Templates**: Generate contextual user prompts (e.g., `FOLLOWUP_EMAIL_USER_PROMPT.ts`)
 - **Prompt Builders**: Functions that construct prompts dynamically (e.g., `buildClassifyUserPrompt`)
 
 ### Modular System (new)
+
 ```
 prompts/
 ├── goal-extraction/
@@ -42,15 +44,17 @@ prompts/
 ## Usage
 
 ### Import from central index
+
 ```typescript
-import { 
+import {
   compileGoalExtractionPrompt,
   compileGoalUserPrompt,
-  detectDomains 
+  detectDomains,
 } from '@quikday/agent/prompts';
 ```
 
 ### Using the Modular System
+
 ```typescript
 // 1. Detect domains from user input
 const domains = detectDomains(userInput); // ['email', 'calendar']
@@ -81,6 +85,7 @@ const response = await llm.text({
 ```
 
 ### Using Legacy System Prompts
+
 ```typescript
 const response = await llm.text({
   system: FOLLOWUP_EMAIL_SYSTEM,
@@ -91,18 +96,25 @@ const response = await llm.text({
 ## Best Practices
 
 ### 1. Keep Core Contract Stable
+
 The core contract (task definition, output format) should rarely change. When it does, create a new version:
+
 - `v1-core-contract.ts` → `v2-core-contract.ts`
 
 ### 2. Domain Packs Change Sometimes
+
 Domain-specific rules (Gmail, Calendar, Slack) evolve as integrations improve. Version them independently:
+
 - `email-v1.ts` → `email-v2.ts`
 
 ### 3. Examples are Testable
+
 Few-shot examples should come from real production logs. Add them to `golden-utterances.ts` for regression testing.
 
 ### 4. Enforce Structure with Schema
+
 Use JSON Schema/Zod + structured output (function calling/JSON mode) to force format adherence:
+
 ```typescript
 export const GoalSchema = z.object({
   outcome: z.string(),
@@ -113,7 +125,9 @@ export const GoalSchema = z.object({
 ```
 
 ### 5. Guardrails in Code, Not Prose
+
 Instead of "validate email format", use regex in code:
+
 ```typescript
 import { validateEmail } from '../guards/validators';
 
@@ -124,7 +138,9 @@ if (!result.valid) {
 ```
 
 ### 6. Runtime Compilation
+
 Compose only what's needed instead of pasting everything:
+
 ```typescript
 const prompt = compileGoalExtractionPrompt({
   domains: ['email'], // Only include email rules
@@ -134,7 +150,9 @@ const prompt = compileGoalExtractionPrompt({
 ```
 
 ### 7. Evaluation Loop
+
 Create 20–50 golden utterances from logs. For each prompt change:
+
 - Run offline eval → measure valid JSON rate, schema pass, missing fields accuracy
 - If a prompt edit fixes <2 failures, move it to code (parser/repair) instead
 
@@ -165,6 +183,7 @@ To migrate a legacy prompt to the modular system:
 ## Version History
 
 ### v1 (Current)
+
 - Initial modular system for goal extraction
 - Separated core contract, format rules, integration policy
 - Domain packs: email, calendar, social, messaging
@@ -186,23 +205,28 @@ To migrate a legacy prompt to the modular system:
 ## Existing Prompts
 
 ### Classification
+
 - `CLASSIFY_SYSTEM` - Intent classification system prompt
 - `CLASSIFY_USER_PROMPT` - Builds user prompt for intent detection
 
 ### Planning
+
 - `PLANNER_SYSTEM` - Action planner system prompt
 
 ### Email Follow-ups
+
 - `FOLLOWUP_EMAIL_SYSTEM` - Email writing assistant system prompt
 - `FOLLOWUP_EMAIL_USER_PROMPT` - Template for follow-up email generation
 
 ### General
+
 - `DEFAULT_ASSISTANT_SYSTEM` - Fallback assistant prompt
 - `SUMMARIZE_SYSTEM` - Run summarization system prompt
 
 ## Testing
 
 When updating prompts, test with various inputs to ensure:
+
 - Output quality and consistency
 - Token usage is reasonable
 - Edge cases are handled

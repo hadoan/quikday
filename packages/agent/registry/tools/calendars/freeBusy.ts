@@ -20,10 +20,13 @@ export const CalendarFreeBusyOut = z.object({
 export type CalendarFreeBusyArgs = z.infer<typeof CalendarFreeBusyIn>;
 export type CalendarFreeBusyResult = z.infer<typeof CalendarFreeBusyOut>;
 
-export function calendarFreeBusy(moduleRef: ModuleRef): Tool<CalendarFreeBusyArgs, CalendarFreeBusyResult> {
+export function calendarFreeBusy(
+  moduleRef: ModuleRef,
+): Tool<CalendarFreeBusyArgs, CalendarFreeBusyResult> {
   return {
     name: 'calendar.freeBusy',
-    description: 'Check free/busy status for calendars in a time range. Required: start (ISO), end (ISO). Optional: calendars (string or array).',
+    description:
+      'Check free/busy status for calendars in a time range. Required: start (ISO), end (ISO). Optional: calendars (string or array).',
     in: CalendarFreeBusyIn,
     out: CalendarFreeBusyOut,
     apps: ['google-calendar'],
@@ -32,10 +35,20 @@ export function calendarFreeBusy(moduleRef: ModuleRef): Tool<CalendarFreeBusyArg
     risk: 'low',
     async call(args) {
       const svc = await resolveGoogleCalendarService(moduleRef);
-      const res = await svc.checkAvailability({ start: new Date(args.start), end: new Date(args.end) });
+      const res = await svc.checkAvailability({
+        start: new Date(args.start),
+        end: new Date(args.end),
+      });
       const busy = res.available ? [] : [{ start: args.start, end: args.end }];
-      const ids = Array.isArray(args.calendars) ? args.calendars : args.calendars ? [args.calendars] : ['primary'];
-      return CalendarFreeBusyOut.parse({ ok: true, busy: ids.map((id) => ({ calendarId: id, slots: busy })) });
+      const ids = Array.isArray(args.calendars)
+        ? args.calendars
+        : args.calendars
+          ? [args.calendars]
+          : ['primary'];
+      return CalendarFreeBusyOut.parse({
+        ok: true,
+        busy: ids.map((id) => ({ calendarId: id, slots: busy })),
+      });
     },
   };
 }

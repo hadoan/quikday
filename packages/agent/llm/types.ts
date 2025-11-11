@@ -1,9 +1,13 @@
 export type Json = string | number | boolean | null | Json[] | { [k: string]: Json };
 
+export type LLMProvider = 'openai' | 'azure-openai' | 'anthropic';
+
 export interface LlmCallMetadata {
   userId: number;
   teamId?: number | null;
-  // Optional model override for this call (e.g., 'gpt-4o')
+  // Optional provider override (openai, azure-openai, anthropic)
+  provider?: LLMProvider;
+  // Optional model override for this call (e.g., 'gpt-4o', 'claude-3-5-haiku-20241022')
   model?: string;
   requestType?: string;
   apiEndpoint?: string;

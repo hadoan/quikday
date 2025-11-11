@@ -18,7 +18,7 @@
       "isBackground": true,
       "problemMatcher": {
         "owner": "custom",
-        "pattern": [ { "regexp": "." } ],
+        "pattern": [{ "regexp": "." }],
         "background": {
           "activeOnStart": true,
           "beginsPattern": ".*",
@@ -38,7 +38,7 @@
       "isBackground": true,
       "problemMatcher": {
         "owner": "custom",
-        "pattern": [ { "regexp": "." } ],
+        "pattern": [{ "regexp": "." }],
         "background": {
           "activeOnStart": true,
           "beginsPattern": ".*",

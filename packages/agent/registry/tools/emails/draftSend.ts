@@ -13,7 +13,9 @@ export const EmailDraftSendOut = z.object({
 export type EmailDraftSendArgs = z.infer<typeof EmailDraftSendIn>;
 export type EmailDraftSendResult = z.infer<typeof EmailDraftSendOut>;
 
-export function emailDraftSend(moduleRef: ModuleRef): Tool<EmailDraftSendArgs, EmailDraftSendResult> {
+export function emailDraftSend(
+  moduleRef: ModuleRef,
+): Tool<EmailDraftSendArgs, EmailDraftSendResult> {
   return {
     name: 'email.draft.send',
     description: 'Send an existing email draft. Required: draftId.',

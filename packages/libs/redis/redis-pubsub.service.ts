@@ -25,15 +25,17 @@ export class RedisPubSubService implements OnModuleDestroy {
     (process.env.REDIS_IGNORE_SELF_ORIGIN ?? 'false').toLowerCase() === 'true';
 
   constructor() {
-    this.publisher = new Redis(this.redisUrl, {
+    const connection = {
+      // Use the full REDIS URL (supports rediss:// for TLS endpoints like Upstash)
+      url: this.redisUrl,
+      // Helpful for serverless environments
       maxRetriesPerRequest: null,
       enableReadyCheck: false,
-    });
+      lazyConnect: true,
+    } as any;
 
-    this.subscriber = new Redis(this.redisUrl, {
-      maxRetriesPerRequest: null,
-      enableReadyCheck: false,
-    });
+    this.publisher = new Redis(connection);
+    this.subscriber = new Redis(connection);
 
     this.setupSubscriber();
   }

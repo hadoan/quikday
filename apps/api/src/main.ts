@@ -21,17 +21,34 @@ async function bootstrap() {
   if (existsSync(rootEnv)) dotenvConfig({ path: rootEnv, override });
   else dotenvConfig({ override });
 
-  // Log masked OPENAI_API_KEY to help diagnose auth errors (do not print full key)
+  // Log LLM configuration to help diagnose auth errors (do not print full keys)
   try {
-    const k = process.env.OPENAI_API_KEY || '';
-    if (k) {
-      // show first 10 chars and length
+    // eslint-disable-next-line no-console
+    console.log('=== LLM Configuration ===');
+    // eslint-disable-next-line no-console
+    console.log(`LLM_PROVIDER: ${process.env.LLM_PROVIDER || '(not set)'}`);
+    
+    const openaiKey = process.env.OPENAI_API_KEY || '';
+    if (openaiKey) {
       // eslint-disable-next-line no-console
-      console.log(`OPENAI_API_KEY: ${k.slice(0, 10)}... (len=${k.length})`);
+      console.log(`OPENAI_API_KEY: ${openaiKey.slice(0, 10)}... (len=${openaiKey.length})`);
     } else {
       // eslint-disable-next-line no-console
       console.log('OPENAI_API_KEY: (not set)');
     }
+
+    const anthropicKey = process.env.ANTHROPIC_API_KEY || '';
+    if (anthropicKey) {
+      // eslint-disable-next-line no-console
+      console.log(`ANTHROPIC_API_KEY: ${anthropicKey.slice(0, 10)}... (len=${anthropicKey.length})`);
+      // eslint-disable-next-line no-console
+      console.log(`ANTHROPIC_MODEL: ${process.env.ANTHROPIC_MODEL || '(not set)'}`);
+    } else {
+      // eslint-disable-next-line no-console
+      console.log('ANTHROPIC_API_KEY: (not set)');
+    }
+    // eslint-disable-next-line no-console
+    console.log('========================');
   } catch (e) {
     // ignore logging errors
   }
@@ -75,6 +92,7 @@ async function bootstrap() {
   const httpServer = app.getHttpServer();
   websocketService.initialize(httpServer);
 
-  await app.listen(port);
+  // Listen on 0.0.0.0 for Cloud Run compatibility
+  await app.listen(port, '0.0.0.0');
 }
 bootstrap();

@@ -24,7 +24,9 @@ export const EmailMessageGetOut = z.object({
 export type EmailMessageGetArgs = z.infer<typeof EmailMessageGetIn>;
 export type EmailMessageGetResult = z.infer<typeof EmailMessageGetOut>;
 
-export function emailMessageGet(moduleRef: ModuleRef): Tool<EmailMessageGetArgs, EmailMessageGetResult> {
+export function emailMessageGet(
+  moduleRef: ModuleRef,
+): Tool<EmailMessageGetArgs, EmailMessageGetResult> {
   return {
     name: 'email.message.get',
     description: 'Get details of a specific email message by ID. Required: messageId.',

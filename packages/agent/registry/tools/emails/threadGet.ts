@@ -21,7 +21,9 @@ export const EmailThreadGetOut = z.object({
 export type EmailThreadGetArgs = z.infer<typeof EmailThreadGetIn>;
 export type EmailThreadGetResult = z.infer<typeof EmailThreadGetOut>;
 
-export function emailThreadGet(moduleRef: ModuleRef): Tool<EmailThreadGetArgs, EmailThreadGetResult> {
+export function emailThreadGet(
+  moduleRef: ModuleRef,
+): Tool<EmailThreadGetArgs, EmailThreadGetResult> {
   return {
     name: 'email.thread.get',
     description: 'Get all messages in an email thread. Required: threadId.',

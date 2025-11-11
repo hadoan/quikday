@@ -3,6 +3,7 @@
 ## Current Behavior Analysis
 
 ### User Request Example
+
 ```
 Give me a {minutes=10}-minute triage of priority emails and create quick-reply drafts (max {max=8}).
 ```
@@ -70,12 +71,12 @@ Update `confirm.ts` to handle missing fields more intelligently:
 export const confirm: Node<RunState, RunEventBus> = async (s, eventBus) => {
   const goal = (s.scratch as any)?.goal;
   const missing = goal?.missing || [];
-  
+
   // Filter to only required missing fields or high-value optional ones
-  const criticalMissing = missing.filter((m: any) => 
-    m.required !== false || isHighValueOptional(m, goal)
+  const criticalMissing = missing.filter(
+    (m: any) => m.required !== false || isHighValueOptional(m, goal),
   );
-  
+
   if (criticalMissing.length > 0) {
     const questions: Question[] = criticalMissing.map((m: any) => ({
       key: m.key,
@@ -85,7 +86,7 @@ export const confirm: Node<RunState, RunEventBus> = async (s, eventBus) => {
       options: m.options,
       placeholder: m.placeholder,
     }));
-    
+
     // Provide better context in the awaiting message
     const awaitingReason = {
       reason: 'missing_required_inputs',
@@ -93,13 +94,13 @@ export const confirm: Node<RunState, RunEventBus> = async (s, eventBus) => {
       context: `To ${goal.outcome}, I need the following information:`,
       ts: new Date().toISOString(),
     };
-    
+
     return {
       scratch: { ...s.scratch, awaiting: awaitingReason },
       output: { ...s.output, awaiting: awaitingReason },
     };
   }
-  
+
   // No missing fields, proceed
   return { scratch: s.scratch, output: s.output };
 };
@@ -107,7 +108,7 @@ export const confirm: Node<RunState, RunEventBus> = async (s, eventBus) => {
 function isHighValueOptional(field: any, goal: any): boolean {
   // Determine if an optional field is important enough to ask about
   const highValueKeys = ['tone', 'max_results', 'priority_criteria', 'time_window'];
-  return highValueKeys.some(key => field.key.includes(key));
+  return highValueKeys.some((key) => field.key.includes(key));
 }
 ```
 
@@ -122,7 +123,7 @@ Update `planner.ts` to show a "preview plan" even with missing inputs:
 if (requiredMissing.length > 0) {
   // Generate a "preview plan" showing what we'll do once we have the info
   const previewSteps = generatePreviewSteps(goal, requiredMissing);
-  
+
   const diff = safe({
     summary: `Need ${requiredMissing.length} more detail(s) to proceed`,
     previewSteps, // Show what we'll do once we have the info
@@ -134,12 +135,12 @@ if (requiredMissing.length > 0) {
     goalDesc: goal.outcome,
     status: 'awaiting_input',
   });
-  
+
   events.planReady(s, eventBus, safe([]), diff);
-  
-  return { 
-    scratch: { ...s.scratch, plan: [], previewSteps }, 
-    output: { ...s.output, diff } 
+
+  return {
+    scratch: { ...s.scratch, plan: [], previewSteps },
+    output: { ...s.output, diff },
   };
 }
 
@@ -147,22 +148,22 @@ function generatePreviewSteps(goal: any, missing: any[]): string[] {
   // Generate human-readable preview of what will happen
   const outcome = goal.outcome.toLowerCase();
   const steps: string[] = [];
-  
+
   if (outcome.includes('triage') || outcome.includes('priority emails')) {
     steps.push(`1. Search your inbox for priority emails in the specified time window`);
     steps.push(`2. Filter and rank emails based on your criteria`);
     steps.push(`3. Select up to ${goal.provided?.max_results || 'N'} emails that need replies`);
   }
-  
+
   if (outcome.includes('draft') || outcome.includes('reply')) {
     steps.push(`4. Generate quick-reply drafts for each selected email`);
     steps.push(`5. Present drafts for your review`);
   }
-  
+
   // Add missing info note
   steps.push('');
   steps.push(`⏸️ Missing: ${missing.map((m: any) => m.key).join(', ')}`);
-  
+
   return steps;
 }
 ```
@@ -196,7 +197,7 @@ The frontend should display:
       defaultValue: 10
     },
     {
-      key: "priority_criteria", 
+      key: "priority_criteria",
       question: "What makes an email priority? (e.g., from specific senders, keywords, urgency)",
       required: false,
       type: "text",
@@ -260,12 +261,12 @@ Add specific pattern matching for common workflows:
 After improvements:
 
 ```
-**Restated Goal:**  
+**Restated Goal:**
 Triage priority emails from the last 10 minutes and create up to 8 quick-reply drafts.
 
 ---
 
-**Preview Plan:**  
+**Preview Plan:**
 1. Search your inbox for emails received in the last 10 minutes
 2. Filter emails based on priority criteria
 3. Select up to 8 emails that need replies
@@ -276,15 +277,15 @@ Triage priority emails from the last 10 minutes and create up to 8 quick-reply d
 
 **I need a bit more information:**
 
-📧 **Priority Criteria** (optional)  
-What makes an email "priority" for you?  
-Examples: from specific senders, contains keywords like "urgent", has attachments, etc.  
+📧 **Priority Criteria** (optional)
+What makes an email "priority" for you?
+Examples: from specific senders, contains keywords like "urgent", has attachments, etc.
 _If not specified, I'll use: unread emails from known contacts_
 
-🎨 **Reply Tone** (optional)  
+🎨 **Reply Tone** (optional)
 - [ ] Professional (default)
 - [ ] Casual
-- [ ] Friendly  
+- [ ] Friendly
 
 [Continue with defaults] or [Provide details]
 
@@ -296,7 +297,7 @@ _Once you provide these details (or continue with defaults), I'll proceed with t
 ## Files to Update
 
 1. `packages/agent/nodes/extractGoal.ts` - Better missing field detection
-2. `packages/agent/nodes/confirm.ts` - Structured question handling  
+2. `packages/agent/nodes/confirm.ts` - Structured question handling
 3. `packages/agent/nodes/planner.ts` - Preview plan generation
 4. `packages/agent/prompts/PLANNER_SYSTEM.ts` - Add workflow patterns
 5. `apps/web/src/components/RunDisplay.tsx` (frontend) - Display structured missing fields

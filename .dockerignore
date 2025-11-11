@@ -1,0 +1,11 @@
+node_modules
+**/node_modules
+pnpm-store
+.pnpm-store
+.git
+.env
+.env.*
+.vscode
+.DS_Store
+coverage
+# NOTE: we do NOT exclude dist folders because we need apps/api/dist for the production image

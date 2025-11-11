@@ -106,30 +106,32 @@ export default function ProfileSettingsPage() {
 
   return (
     <div className="min-h-screen bg-background">
-      <div className="max-w-3xl mx-auto px-6 py-8">
-        <div className="mb-6">
-          <h1 className="text-2xl font-semibold">Edit Profile</h1>
-          <p className="text-sm text-muted-foreground">Manage your personal information.</p>
+      <div className="max-w-3xl mx-auto px-3 sm:px-4 md:px-6 py-4 sm:py-6 md:py-8">
+        <div className="mb-4 sm:mb-6">
+          <h1 className="text-xl sm:text-2xl font-semibold">Edit Profile</h1>
+          <p className="text-xs sm:text-sm text-muted-foreground">
+            Manage your personal information.
+          </p>
         </div>
 
-        <Card className="p-6">
-          <div className="flex flex-col md:flex-row gap-6">
-            <div className="flex items-center gap-4">
-              <Avatar className="h-16 w-16">
+        <Card className="p-4 sm:p-6">
+          <div className="flex flex-col md:flex-row gap-4 sm:gap-6">
+            <div className="flex items-center gap-3 sm:gap-4">
+              <Avatar className="h-14 w-14 sm:h-16 sm:w-16">
                 {avatarPreview && <AvatarImage src={avatarPreview} alt={me?.name || 'Avatar'} />}
-                <AvatarFallback className="bg-primary text-primary-foreground">
+                <AvatarFallback className="bg-primary text-primary-foreground text-sm sm:text-base">
                   {currentInitials}
                 </AvatarFallback>
               </Avatar>
               <div>
-                <div className="font-medium">{me?.name ?? 'User'}</div>
-                <div className="text-xs text-muted-foreground">{me?.email}</div>
+                <div className="font-medium text-sm sm:text-base">{me?.name ?? 'User'}</div>
+                <div className="text-xs text-muted-foreground break-all">{me?.email}</div>
               </div>
             </div>
 
             <div className="flex-1">
               <Form {...form}>
-                <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+                <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-3 sm:space-y-4">
                   <FormField
                     control={form.control}
                     name="name"

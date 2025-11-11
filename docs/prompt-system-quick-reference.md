@@ -6,26 +6,23 @@
 
 ```typescript
 // Goal extraction with modular prompts
-import { 
+import {
   compileGoalExtractionPrompt,
   compileGoalUserPrompt,
   detectDomains,
-  GoalSchema
+  GoalSchema,
 } from '@quikday/agent/prompts/goal-extraction';
 
 // Validators
-import { 
+import {
   validateEmail,
   validateDateTime,
   filterIntegrationPolicyQuestions,
-  repairJsonOutput
+  repairJsonOutput,
 } from '@quikday/agent/guards';
 
 // Evaluation
-import { 
-  GOLDEN_UTTERANCES,
-  runEvaluation 
-} from '@quikday/agent/evaluation';
+import { GOLDEN_UTTERANCES, runEvaluation } from '@quikday/agent/evaluation';
 ```
 
 ### Basic Usage
@@ -55,10 +52,7 @@ let parsed = GoalSchema.parse(JSON.parse(json));
 
 // 5. Apply guardrails
 if (parsed.missing) {
-  parsed.missing = filterIntegrationPolicyQuestions(
-    parsed.missing, 
-    connectedApps
-  );
+  parsed.missing = filterIntegrationPolicyQuestions(parsed.missing, connectedApps);
 }
 ```
 
@@ -212,9 +206,9 @@ packages/agent/
 ### Check Token Count
 
 ```typescript
-const prompt = compileGoalExtractionPrompt({ 
+const prompt = compileGoalExtractionPrompt({
   domains: ['email'],
-  includeExamples: true 
+  includeExamples: true,
 });
 console.log('Tokens:', prompt.length / 4); // Rough estimate
 ```
@@ -222,10 +216,10 @@ console.log('Tokens:', prompt.length / 4); // Rough estimate
 ### Debug Prompt Output
 
 ```typescript
-const prompt = compileGoalExtractionPrompt({ 
+const prompt = compileGoalExtractionPrompt({
   domains: ['email', 'calendar'],
   connectedApps: ['gmail'],
-  includeExamples: false
+  includeExamples: false,
 });
 console.log(prompt); // See what's included
 ```
@@ -235,7 +229,7 @@ console.log(prompt); // See what's included
 ```typescript
 import { GOLDEN_UTTERANCES } from '@quikday/agent/evaluation';
 
-const testCase = GOLDEN_UTTERANCES.find(u => u.id === 'schedule-basic');
+const testCase = GOLDEN_UTTERANCES.find((u) => u.id === 'schedule-basic');
 // Run through extraction and compare results
 ```
 
@@ -250,6 +244,7 @@ const testCase = GOLDEN_UTTERANCES.find(u => u.id === 'schedule-basic');
 ---
 
 **Need help?** Check:
+
 - `packages/agent/prompts/README.md` - Full documentation
 - `docs/modular-prompt-system.md` - Implementation details
 - `packages/agent/evaluation/golden-utterances.ts` - Example test cases
