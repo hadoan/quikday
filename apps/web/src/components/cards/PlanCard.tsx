@@ -26,6 +26,8 @@ interface PlanCardProps {
 export const PlanCard = ({ data, onConfirm, onReject, runId }: PlanCardProps) => {
   const [isApproving, setIsApproving] = useState(false);
   const [isRejecting, setIsRejecting] = useState(false);
+  console.log("aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa");
+  console.log(data.steps)
 
   // Check if any steps are missing credentials
   const stepsNeedingInstall = (data.steps || []).filter(
@@ -116,50 +118,7 @@ export const PlanCard = ({ data, onConfirm, onReject, runId }: PlanCardProps) =>
             </div>
           )}
 
-          {/* Show steps that need credentials installed */}
-          {hasMissingCredentials && (
-            <div className="space-y-2 pt-2 border-t">
-              <div className="flex items-center gap-2">
-                <AlertCircle className="h-4 w-4 text-amber-500" />
-                <p className="text-xs font-medium text-amber-600 dark:text-amber-400 uppercase tracking-wide">
-                  Apps Need Installation
-                </p>
-              </div>
-              <div className="space-y-2">
-                {stepsNeedingInstall.map((step) => (
-                  <div
-                    key={step.id}
-                    className="flex items-center justify-between gap-3 p-2 bg-amber-50 dark:bg-amber-900/10 border border-amber-200 dark:border-amber-800 rounded"
-                  >
-                    <div className="flex-1 min-w-0">
-                      <div className="text-sm font-medium text-foreground truncate">
-                        {step.tool}
-                      </div>
-                      <div className="text-xs text-muted-foreground">
-                        Connect {step.appId} to continue
-                      </div>
-                    </div>
-                    <div className="shrink-0">
-                      <InstallApp
-                        {...getAppInstallProps(step.appId!)}
-                        onBeforeInstall={() => {}}
-                        onInstalled={async () => {
-                          try {
-                            if (runId) {
-                              await api.post(`/runs/${runId}/refresh-credentials`);
-                              // no redirect needed for direct/input installs
-                            }
-                          } catch (e) {
-                            console.warn('Failed to refresh credentials after install', e);
-                          }
-                        }}
-                      />
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
+         
         </div>
       </div>
 

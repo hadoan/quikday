@@ -11,9 +11,7 @@ import RunDetailDrawer from '@/components/runs/RunDetailDrawer';
 import { type Question } from '@/components/QuestionsPanel';
 import { createLogger } from '@/lib/utils/logger';
 import { useToast } from '@/hooks/use-toast';
-import type {
-  UiRunSummary,
-} from '@/lib/datasources/DataSource';
+import type { UiRunSummary } from '@/lib/datasources/DataSource';
 import { trackDataSourceActive } from '@/lib/telemetry/telemetry';
 import api from '@/apis/client';
 import { useNavigationWarning } from '@/hooks/useNavigationWarning';
@@ -185,21 +183,6 @@ const Chat = () => {
     if (!activeRunId && sidebarRuns.length > 0) setActiveRunId(sidebarRuns[0].id);
   }, [activeRunId, sidebarRuns.length, location.search]);
 
-  // Normalize question type from backend string to QuestionsPanel Question type
-  const normalizeQuestionType = (t?: string): Question['type'] => {
-    const v = String(t || 'text').toLowerCase();
-    if (v === 'textarea') return 'textarea';
-    if (v === 'email') return 'email';
-    if (v === 'email_list' || v === 'email-list') return 'email_list';
-    if (v === 'datetime' || v === 'date_time' || v === 'date-time') return 'datetime';
-    if (v === 'date') return 'date';
-    if (v === 'time') return 'time';
-    if (v === 'number' || v === 'numeric') return 'number';
-    if (v === 'select') return 'select';
-    if (v === 'multiselect' || v === 'multi_select' || v === 'multi-select') return 'multiselect';
-    return 'text';
-  };
-
   // Determine if navigation should be blocked based on active run state
   // Don't block on 'planning', 'awaiting_input', or 'pending_apps_install'
   // since user may need to install apps via OAuth (which navigates away)
@@ -228,87 +211,6 @@ const Chat = () => {
     message:
       'You have an active task in progress. If you navigate away now, any unsaved work and execution state will be lost and cannot be recovered. Are you sure you want to leave?',
   });
-
-  // Get autoContinue from run actions hook
-  const { autoContinue } = runActions;
-
-  // When returning from an install flow that used localStorage to persist
-  // pending install data, ensure the chat activates the run and loads its
-  // details so the UI reflects newly-connected credentials.
-  useEffect(() => {
-    const key = 'qd.pendingInstall';
-    let payload: unknown;
-    try {
-      const raw = localStorage.getItem(key);
-      if (raw) payload = JSON.parse(raw) as unknown;
-    } catch (e) {
-      // ignore parse errors
-      payload = undefined;
-    }
-
-    const hasRunId = (p: unknown): p is { runId: string | number } =>
-      typeof p === 'object' && p !== null && 'runId' in (p as Record<string, unknown>);
-
-    if (!hasRunId(payload)) return;
-
-    const runId = String(payload.runId);
-    (async () => {
-      try {
-        // Attempt to refresh credentials server-side first
-        await api.post(`/runs/${runId}/refresh-credentials`);
-      } catch (e) {
-        // ignore refresh errors
-      } finally {
-        try {
-          localStorage.removeItem(key);
-        } catch (e) {
-          // ignore
-        }
-      }
-
-      try {
-        // Fetch the run details and ensure the UI selects it
-        const { run } = await dataSource.getRun(runId);
-        setRuns((prev) => {
-          const idx = prev.findIndex((r) => r.id === run.id);
-          if (idx === -1) return [run, ...prev];
-          const next = [...prev];
-          next[idx] = { ...next[idx], ...run, messages: run.messages } as UiRunSummary;
-          return next;
-        });
-        setActiveRunId(runId);
-      } catch (e) {
-        // If fetching fails, at minimum set the activeRunId so the stream
-        // or subsequent fetch will hydrate the run.
-        setActiveRunId(runId);
-      }
-    })();
-  }, []);
-
-  // Fallback: if we landed on /chat without query params but localStorage has
-  // pending install info, add pending_credential (and runId if available) to
-  // the URL so tooling that expects the query param can observe it.
-  useEffect(() => {
-    try {
-      const sp = new URLSearchParams(location.search);
-      if (sp.get('pending_credential')) return;
-      const raw = localStorage.getItem('qd.pendingInstall');
-      if (!raw) return;
-      const payload = JSON.parse(raw) as Record<string, unknown> | null;
-      if (!payload) return;
-      const pending = (payload.pendingCredential ?? payload.pending_credential ?? payload.appId) as
-        | string
-        | undefined;
-      const runId = payload.runId ? String(payload.runId) : undefined;
-      if (!pending) return;
-      const params = new URLSearchParams(location.search);
-      if (runId && !params.get('runId')) params.set('runId', runId);
-      params.set('pending_credential', pending);
-      navigate(`/chat?${params.toString()}`, { replace: true });
-    } catch (e) {
-      // ignore
-    }
-  }, [location.pathname, location.search, navigate]);
 
   // Ensure selecting a sidebar run loads its details if not present locally
   // or if we only have a minimal stub without messages yet.

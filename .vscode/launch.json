@@ -73,14 +73,30 @@
       "type": "chrome",
       "request": "launch",
       "url": "http://localhost:8000",
-      "webRoot": "${workspaceFolder}"
+      "webRoot": "${workspaceFolder}/apps/web"
     },
     {
       "name": "Launch Web (start Vite)",
       "type": "chrome",
       "request": "launch",
       "url": "http://localhost:8000",
-      "webRoot": "${workspaceFolder}",
+      "webRoot": "${workspaceFolder}/apps/web",
+      "preLaunchTask": "dev:web"
+    },
+    {
+      "name": "Debug Web (attach to Vite)",
+      "type": "chrome",
+      "request": "attach",
+      "port": 9222,
+      "url": "http://localhost:8000",
+      "webRoot": "${workspaceFolder}/apps/web"
+    },
+    {
+      "name": "Debug Web (Edge)",
+      "type": "msedge",
+      "request": "launch",
+      "url": "http://localhost:8000",
+      "webRoot": "${workspaceFolder}/apps/web",
       "preLaunchTask": "dev:web"
     }
   ],

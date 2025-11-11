@@ -94,7 +94,7 @@ export class ApiDataSource implements DataSource {
       timestamp: new Date().toISOString(),
       runId: data.runId,
       hasGoal: !!data.goal,
-      planSteps: data.plan?.length || 0,
+      planSteps: data.plan,
       missingFields: data.missing?.length || 0,
       status: response.status,
     });

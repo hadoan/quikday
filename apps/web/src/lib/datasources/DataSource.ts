@@ -79,6 +79,14 @@ export interface UiPlanStep {
   completedAt?: string;
 }
 
+export interface ApiPlanStep {
+  tool: string;
+  action?: string;
+  inputs?: Record<string, unknown>;
+  credentialId?: number | null;
+  appId?: string;
+}
+
 export interface UiMessage {
   role: UiMessageRole;
   content?: string;
@@ -159,6 +167,7 @@ export interface UiQuestionsData {
   runId?: string;
   questions: UiQuestionItem[];
   steps?: UiPlanStep[];
+  hasMissingCredentials?: boolean;
 }
 
 export interface UiConfigData {
@@ -224,7 +233,7 @@ export interface DataSource {
   // -------------------------------------------------------------------------
   createRun(
     params: CreateRunParams,
-  ): Promise<{ goal: unknown; plan: unknown[]; missing: UiQuestionItem[]; runId?: string }>;
+  ): Promise<{ goal: unknown; plan: ApiPlanStep[]; missing: UiQuestionItem[]; runId?: string }>;
 
   // -------------------------------------------------------------------------
   // Run Retrieval (initial load / refresh)

@@ -382,12 +382,12 @@ export function QuestionsPanel({
         {submitted
           ? 'Details Submitted'
           : hasMissingCredentials
-            ? 'Step 1: Install Required Apps'
+            ? 'Install Required Apps'
             : Array.isArray(questions) && questions.length === 0
               ? 'Ready to continue'
               : hasMissingCredentials
-                ? 'Step 1: Install Required Apps'
-                : 'Step 2: Provide Missing Information'}
+                ? 'Install Required Apps'
+                : 'Provide Missing Information'}
       </h4>
       <p className="text-sm text-muted-foreground">
         {submitted

@@ -18,13 +18,15 @@ import type {
   UiRunData,
   UiLogData,
   UiOutputData,
+  UiParamsData,
   UiUndoData,
   UiQuestionsData,
   UiQuestionItem,
+  UiMessage,
 } from '@/lib/datasources/DataSource';
 
 interface MessageItemProps {
-  message: any;
+  message: UiMessage;
   runId?: string;
 }
 
@@ -48,11 +50,7 @@ const MessageItem: React.FC<MessageItemProps> = ({ message: m, runId }) => {
       intent: pd?.intent || 'Plan',
       tools: pd?.tools || [],
       actions: pd?.actions || [],
-      mode: (pd?.mode === 'approval'
-        ? 'approval'
-        : pd?.mode === 'auto'
-          ? 'auto'
-          : 'preview') as const,
+      mode: 'auto' as const,
       steps: steps,
     };
     const awaitingApproval = pd?.awaitingApproval === true || pd?.mode === 'approval';
@@ -89,12 +87,43 @@ const MessageItem: React.FC<MessageItemProps> = ({ message: m, runId }) => {
     const qd = (m.data as UiQuestionsData) || ({} as UiQuestionsData);
     const qs: UiQuestionItem[] = Array.isArray(qd?.questions) ? qd.questions : [];
     const steps = Array.isArray(qd?.steps) ? qd.steps : [];
+
+    // Convert UiQuestionItem[] to Question[] for QuestionsPanel
+    const questions = qs.map((q) => ({
+      key: q.key,
+      question: q.question,
+      type: q.type as
+        | 'text'
+        | 'textarea'
+        | 'email'
+        | 'email_list'
+        | 'datetime'
+        | 'date'
+        | 'time'
+        | 'number'
+        | 'select'
+        | 'multiselect'
+        | undefined,
+      required: q.required,
+      placeholder: q.placeholder,
+      options: q.options,
+    }));
+
+    // Convert UiPlanStep[] to StepInfo[] (subset of fields)
+    const stepInfos = steps.map((s) => ({
+      id: s.id,
+      tool: s.tool,
+      appId: s.appId,
+      credentialId: s.credentialId,
+      action: s.action,
+    }));
+
     return (
       <ChatMessage role="assistant">
         <QuestionsPanel
           runId={runId || ''}
-          questions={qs as any}
-          steps={steps as any}
+          questions={questions}
+          steps={stepInfos}
           onSubmitted={() => {}}
         />
       </ChatMessage>
@@ -116,16 +145,16 @@ const MessageItem: React.FC<MessageItemProps> = ({ message: m, runId }) => {
           content={String(od?.content || '')}
           type={type}
           data={od?.data}
-          presentation={(od as any)?.presentation}
+          presentation={od?.presentation}
         />
       </ChatMessage>
     );
   }
 
   if (m.type === 'params') {
-    const data = (m.data as any) || {};
-    const items = Array.isArray(data.items) ? data.items : [];
-    const title = typeof data.title === 'string' ? data.title : 'Inputs';
+    const paramsData = (m.data as UiParamsData) || ({ items: [] } as UiParamsData);
+    const items = Array.isArray(paramsData.items) ? paramsData.items : [];
+    const title = typeof paramsData.title === 'string' ? paramsData.title : 'Inputs';
     return (
       <ChatMessage role="assistant">
         <ParamsCard title={title} items={items} />

@@ -1,5 +1,5 @@
 import { useCallback } from 'react';
-import type { UiRunSummary, UiPlanData, UiQuestionsData } from '@/lib/datasources/DataSource';
+import type { UiRunSummary, UiPlanData, UiQuestionsData, ApiPlanStep } from '@/lib/datasources/DataSource';
 import { getDataSource } from '@/lib/flags/featureFlags';
 import { createLogger } from '@/lib/utils/logger';
 import { trackChatSent } from '@/lib/telemetry/telemetry';
@@ -110,13 +110,13 @@ export function useRunActions(params: UseRunActionsParams): UseRunActionsResult 
         prev.map((run) =>
           run.id === activeRunId
             ? {
-                ...run,
-                prompt: run.prompt || prompt,
-                messages: [
-                  ...(run.messages ?? []),
-                  { role: 'user' as const, content: prompt },
-                ] as UiRunSummary['messages'],
-              }
+              ...run,
+              prompt: run.prompt || prompt,
+              messages: [
+                ...(run.messages ?? []),
+                { role: 'user' as const, content: prompt },
+              ] as UiRunSummary['messages'],
+            }
             : run,
         ),
       );
@@ -148,7 +148,7 @@ export function useRunActions(params: UseRunActionsParams): UseRunActionsResult 
         logger.info('✅ Plan received successfully', {
           runId,
           hasGoal: !!goal,
-          planSteps: plan?.length || 0,
+          planSteps: plan,
           missingFields: missing?.length || 0,
           missing,
           timestamp: new Date().toISOString(),
@@ -172,30 +172,27 @@ export function useRunActions(params: UseRunActionsParams): UseRunActionsResult 
             const onlyChatRespond =
               Array.isArray(plan) &&
               plan.length > 0 &&
-              plan.every((step: unknown) => {
-                const stepData = step as { tool?: string };
-                const t = stepData?.tool;
-                return typeof t === 'string' && t === 'chat.respond';
-              });
+              plan.every((step: ApiPlanStep) => step.tool === 'chat.respond');
 
             // Add plan message if we have steps and it's not only chat.respond
+            const steps = plan.map((step: ApiPlanStep, idx: number) => ({
+              id: `step-${idx}`,
+              tool: step.tool || 'unknown',
+              action: step.action,
+              status: 'pending' as const,
+              inputsPreview: step.inputs ? JSON.stringify(step.inputs) : undefined,
+              credentialId: step.credentialId,
+              appId: step.appId
+            }));
+
             if (Array.isArray(plan) && plan.length > 0 && !onlyChatRespond) {
               const goalData = goal as Record<string, unknown> | null;
               const planData: UiPlanData = {
-                intent: (goalData?.intent as string) || 'Process request',
+                intent: (goalData?.outcome as string) || 'Process request',
                 tools: [],
                 actions: [],
                 mode: 'plan',
-                steps: plan.map((step: unknown, idx: number) => {
-                  const stepData = step as Record<string, unknown>;
-                  return {
-                    id: `step-${idx}`,
-                    tool: (stepData.tool as string) || 'unknown',
-                    action: stepData.action as string | undefined,
-                    status: 'pending' as const,
-                    inputsPreview: stepData.inputs ? JSON.stringify(stepData.inputs) : undefined,
-                  };
-                }),
+                steps,
               };
               newMessages.push({
                 role: 'assistant',
@@ -203,8 +200,8 @@ export function useRunActions(params: UseRunActionsParams): UseRunActionsResult 
                 data: planData,
               });
             }
-
-            // Add missing inputs questions if present
+            const hasMissingCredentials = plan.some((step: ApiPlanStep) => step.appId && (step.credentialId === null || step.credentialId === undefined));
+            // Add missing inputs questions if present only if no missing credentials
             if (Array.isArray(missing) && missing.length > 0) {
               // Use the backend runId if available to avoid duplicate questions
               // being added later by WebSocket snapshots for the same run.
@@ -215,7 +212,8 @@ export function useRunActions(params: UseRunActionsParams): UseRunActionsResult 
                 data: {
                   runId: questionsRunId,
                   questions: missing,
-                  steps: [], // Include plan steps for credential checking
+                  steps, // Include plan steps for credential checking
+                  hasMissingCredentials,
                 } satisfies UiQuestionsData,
               });
             } else if (!onlyChatRespond) {
@@ -227,7 +225,7 @@ export function useRunActions(params: UseRunActionsParams): UseRunActionsResult 
                 data: {
                   runId: questionsRunId,
                   questions: [],
-                  steps: [], // Include plan steps for credential checking
+                  steps, // Include plan steps for credential checking
                 } satisfies UiQuestionsData,
               });
             }

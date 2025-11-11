@@ -8,8 +8,6 @@ export interface ChatState {
   activeRunId: string | undefined;
   setActiveRunId: React.Dispatch<React.SetStateAction<string | undefined>>;
   activeRun: UiRunSummary | undefined;
-  isToolsPanelOpen: boolean;
-  setIsToolsPanelOpen: React.Dispatch<React.SetStateAction<boolean>>;
   isSidebarCollapsed: boolean;
   setIsSidebarCollapsed: React.Dispatch<React.SetStateAction<boolean>>;
   questions: Question[];
@@ -32,7 +30,6 @@ export interface ChatState {
 export function useChatState(): ChatState {
   const [runs, setRuns] = useState<UiRunSummary[]>([]);
   const [activeRunId, setActiveRunId] = useState<string | undefined>(undefined);
-  const [isToolsPanelOpen, setIsToolsPanelOpen] = useState(true);
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
   const [questions, setQuestions] = useState<Question[]>([]);
   const [isWaitingForResponse, setIsWaitingForResponse] = useState(false);
@@ -51,8 +48,6 @@ export function useChatState(): ChatState {
     activeRunId,
     setActiveRunId,
     activeRun,
-    isToolsPanelOpen,
-    setIsToolsPanelOpen,
     isSidebarCollapsed,
     setIsSidebarCollapsed,
     questions,
