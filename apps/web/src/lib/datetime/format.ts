@@ -41,7 +41,11 @@ export function toDate(value: string | Date | number | null | undefined): Date |
 
 export function formatDateTime(
   value: string | Date | number,
-  opts?: { tz?: string; dateStyle?: 'short' | 'medium' | 'long' | 'full'; timeStyle?: 'short' | 'medium' | 'long' }
+  opts?: {
+    tz?: string;
+    dateStyle?: 'short' | 'medium' | 'long' | 'full';
+    timeStyle?: 'short' | 'medium' | 'long';
+  },
 ): string {
   const d = toDate(value);
   if (!d) return '';
@@ -57,7 +61,7 @@ export function formatDateTime(
 
 export function formatTime(
   value: string | Date | number,
-  opts?: { tz?: string; timeStyle?: 'short' | 'medium' | 'long' }
+  opts?: { tz?: string; timeStyle?: 'short' | 'medium' | 'long' },
 ): string {
   const d = toDate(value);
   if (!d) return '';
@@ -72,7 +76,7 @@ export function formatTime(
 
 export function formatDate(
   value: string | Date | number,
-  opts?: { tz?: string; dateStyle?: 'short' | 'medium' | 'long' | 'full' }
+  opts?: { tz?: string; dateStyle?: 'short' | 'medium' | 'long' | 'full' },
 ): string {
   const d = toDate(value);
   if (!d) return '';

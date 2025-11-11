@@ -47,8 +47,13 @@ export function normalizePlanToExplicitExpansion(steps: PlanStep[]): PlanStep[] 
         if (m) foundArray = { baseId: `step-${m[1]}`, arrayField: m[2] };
         return;
       }
-      if (Array.isArray(v)) { for (const it of v) detectArrayIn(it); return; }
-      if (v && typeof v === 'object') { for (const val of Object.values(v)) detectArrayIn(val); }
+      if (Array.isArray(v)) {
+        for (const it of v) detectArrayIn(it);
+        return;
+      }
+      if (v && typeof v === 'object') {
+        for (const val of Object.values(v)) detectArrayIn(val);
+      }
     };
     detectArrayIn(step.args);
     if (foundArray) {
@@ -62,7 +67,9 @@ export function normalizePlanToExplicitExpansion(steps: PlanStep[]): PlanStep[] 
         if (!(step as any).expandOn) (step as any).expandOn = `$var.${varName}`;
       }
       // Replace occurrences with $each
-      step.args = walkReplace(step.args, (s) => s.replace(reArrayAny, (_m, _num, _arr, sub) => (sub ? `$each.${sub}` : `$each`)));
+      step.args = walkReplace(step.args, (s) =>
+        s.replace(reArrayAny, (_m, _num, _arr, sub) => (sub ? `$each.${sub}` : `$each`)),
+      );
     }
 
     // 2) Handle simple placeholders → binds + $var
@@ -79,8 +86,13 @@ export function normalizePlanToExplicitExpansion(steps: PlanStep[]): PlanStep[] 
         }
         return;
       }
-      if (Array.isArray(v)) { for (const it of v) detectSimpleIn(it); return; }
-      if (v && typeof v === 'object') { for (const val of Object.values(v)) detectSimpleIn(val); }
+      if (Array.isArray(v)) {
+        for (const it of v) detectSimpleIn(it);
+        return;
+      }
+      if (v && typeof v === 'object') {
+        for (const val of Object.values(v)) detectSimpleIn(val);
+      }
     };
     detectSimpleIn(step.args);
 
@@ -101,7 +113,10 @@ export function normalizePlanToExplicitExpansion(steps: PlanStep[]): PlanStep[] 
         (src as any).binds = binds;
 
         // Replace in consumer args
-        const needle = new RegExp(`\\$step-${baseId.slice(5)}\\.${path.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\b`, 'g');
+        const needle = new RegExp(
+          `\\$step-${baseId.slice(5)}\\.${path.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\b`,
+          'g',
+        );
         step.args = walkReplace(step.args, (s) => s.replace(needle, `$var.${varName}`));
       }
     }
@@ -109,4 +124,3 @@ export function normalizePlanToExplicitExpansion(steps: PlanStep[]): PlanStep[] 
 
   return out;
 }
-

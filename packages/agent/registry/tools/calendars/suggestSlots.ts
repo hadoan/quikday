@@ -69,8 +69,10 @@ export function calendarSuggestSlots(
 
       // Guard: invalid window
       if (
-        !(windowStart instanceof Date) || isNaN(windowStart.valueOf()) ||
-        !(windowEnd instanceof Date) || isNaN(windowEnd.valueOf()) ||
+        !(windowStart instanceof Date) ||
+        isNaN(windowStart.valueOf()) ||
+        !(windowEnd instanceof Date) ||
+        isNaN(windowEnd.valueOf()) ||
         windowEnd <= windowStart
       ) {
         return { ok: true, slots: [] };

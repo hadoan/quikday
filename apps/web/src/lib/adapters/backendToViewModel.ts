@@ -161,7 +161,9 @@ export function adaptStepBackendToUi(backend: BackendStep, index = 0): UiPlanSte
   if (step.startedAt) {
     try {
       step.time = formatTime(step.startedAt, { timeStyle: 'medium' });
-    } catch { step.time = ''; }
+    } catch {
+      step.time = '';
+    }
   }
 
   return step;
@@ -332,7 +334,10 @@ function extractSlotsArray(data: unknown): Array<{ start: string; end: string }>
     return arr.length > 0 ? arr : null;
   }
   if (data && typeof data === 'object' && Array.isArray((data as any).slots)) {
-    const arr = (data as any).slots.filter((x: any) => looksLikeSlot(x)) as Array<{ start: string; end: string }>;
+    const arr = (data as any).slots.filter((x: any) => looksLikeSlot(x)) as Array<{
+      start: string;
+      end: string;
+    }>;
     return arr.length > 0 ? arr : null;
   }
   return null;

@@ -21,7 +21,7 @@ export function expandStepForArray(step: any, stepResults: Map<string, any>, s: 
 
   if (typeof step.expandOn === 'string' && step.expandOn.trim().length > 0) {
     const v = tryResolveSelector(step.expandOn);
-  if (Array.isArray(v)) {
+    if (Array.isArray(v)) {
       try {
         if (step.expandOn.startsWith('$var.')) {
           console.log(
@@ -42,7 +42,9 @@ export function expandStepForArray(step: any, stepResults: Map<string, any>, s: 
   }
 
   // Resolve $var/$step in args first (no array detection)
-  const { resolved: baseArgs } = resolvePlaceholders(step.args, stepResults, vars, null, { tz: s?.ctx?.tz });
+  const { resolved: baseArgs } = resolvePlaceholders(step.args, stepResults, vars, null, {
+    tz: s?.ctx?.tz,
+  });
 
   // If no explicit expandOn, return single step
   if (!explicitArray) {
@@ -65,7 +67,8 @@ export function expandStepForArray(step: any, stepResults: Map<string, any>, s: 
     let mapKey: any = undefined;
     if (typeof step.expandKey === 'string' && step.expandKey.trim().length > 0) {
       if (step.expandKey === '$each') mapKey = item;
-      else if (step.expandKey.startsWith('$each.')) mapKey = getByPath(item, step.expandKey.slice(6));
+      else if (step.expandKey.startsWith('$each.'))
+        mapKey = getByPath(item, step.expandKey.slice(6));
     }
 
     // First pass: shallow copy baseArgs
@@ -80,7 +83,11 @@ export function expandStepForArray(step: any, stepResults: Map<string, any>, s: 
           if (rv === undefined || rv === null) return '';
           if (typeof rv === 'string') return rv;
           if (typeof rv === 'number' || typeof rv === 'boolean') return String(rv);
-          try { return JSON.stringify(rv); } catch { return String(rv); }
+          try {
+            return JSON.stringify(rv);
+          } catch {
+            return String(rv);
+          }
         });
         out = out.replace(/\$index\b/g, String(idx));
         if (mapKey !== undefined) out = out.replace(/\$key\b/g, String(mapKey));
@@ -97,12 +104,24 @@ export function expandStepForArray(step: any, stepResults: Map<string, any>, s: 
 
     const withEmbedded = replaceEmbedded(argsCopy);
     // Resolve direct $each.* placeholders now
-    const { resolved: finalArgs } = resolvePlaceholders(withEmbedded, stepResults, vars, { item, index: idx, key: mapKey }, { tz: s?.ctx?.tz });
+    const { resolved: finalArgs } = resolvePlaceholders(
+      withEmbedded,
+      stepResults,
+      vars,
+      { item, index: idx, key: mapKey },
+      { tz: s?.ctx?.tz },
+    );
     Object.assign(expandedArgs, finalArgs);
 
     // Return a concrete child step with expansion resolved.
     // Important: remove expandOn/expandKey so children are not re-expanded.
-    return { ...step, id: `${step.id}-${idx}`, args: expandedArgs, expandOn: undefined, expandKey: undefined } as any;
+    return {
+      ...step,
+      id: `${step.id}-${idx}`,
+      args: expandedArgs,
+      expandOn: undefined,
+      expandKey: undefined,
+    } as any;
   });
 
   return expandedSteps;

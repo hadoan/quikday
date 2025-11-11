@@ -13,7 +13,13 @@ interface OutputCardProps {
   presentation?: UiOutputDataPresentation;
 }
 
-export const OutputCard = ({ title, content, type = 'text', data, presentation }: OutputCardProps) => {
+export const OutputCard = ({
+  title,
+  content,
+  type = 'text',
+  data,
+  presentation,
+}: OutputCardProps) => {
   const { toast } = useToast();
 
   const handleCopy = () => {
@@ -29,9 +35,14 @@ export const OutputCard = ({ title, content, type = 'text', data, presentation }
     const isIso = (v: unknown) => typeof v === 'string' && !Number.isNaN(new Date(v).valueOf());
     const looksLikeSlot = (v: any) => v && isIso(v.start) && isIso(v.end);
     const tryParse = (s: string) => {
-      try { return JSON.parse(s); } catch { return null; }
+      try {
+        return JSON.parse(s);
+      } catch {
+        return null;
+      }
     };
-    const getTz = () => (presentation?.tz && presentation.tz !== 'user' ? presentation.tz : undefined);
+    const getTz = () =>
+      presentation?.tz && presentation.tz !== 'user' ? presentation.tz : undefined;
     const formatRange = (start: string, end: string) => {
       try {
         const sd = new Date(start);
@@ -55,7 +66,9 @@ export const OutputCard = ({ title, content, type = 'text', data, presentation }
         const [, base, key] = m;
         const arr = Array.isArray(root?.[base]) ? (root[base] as any[]) : [];
         return arr.map((item) => item?.[key]).filter((v) => typeof v === 'string');
-      } catch { return []; }
+      } catch {
+        return [];
+      }
     };
     const slotsFrom = (val: any): Array<{ start: string; end: string }> | null => {
       // Use presentation.datetimePaths if provided
@@ -73,7 +86,10 @@ export const OutputCard = ({ title, content, type = 'text', data, presentation }
         return arr.length > 0 ? arr : null;
       }
       if (val && typeof val === 'object' && Array.isArray(val.slots)) {
-        const arr = val.slots.filter((x: any) => looksLikeSlot(x)) as Array<{ start: string; end: string }>;
+        const arr = val.slots.filter((x: any) => looksLikeSlot(x)) as Array<{
+          start: string;
+          end: string;
+        }>;
         return arr.length > 0 ? arr : null;
       }
       return null;
@@ -88,7 +104,11 @@ export const OutputCard = ({ title, content, type = 'text', data, presentation }
             isIso(v) &&
             (k === 'start' || k === 'end' || k.endsWith('At') || k.endsWith('_at'))
           ) {
-            try { out[k] = formatDateTime(v, { tz: getTz() }); } catch { out[k] = v; }
+            try {
+              out[k] = formatDateTime(v, { tz: getTz() });
+            } catch {
+              out[k] = v;
+            }
           } else {
             out[k] = transformDates(v);
           }
@@ -108,7 +128,11 @@ export const OutputCard = ({ title, content, type = 'text', data, presentation }
       }
       // 'json' or 'text' types with datetimePaths: pretty-print with localized times
       if (presentation.datetimePaths && Array.isArray(presentation.datetimePaths)) {
-        try { return JSON.stringify(transformDates(data), null, 2); } catch { /* ignore */ }
+        try {
+          return JSON.stringify(transformDates(data), null, 2);
+        } catch {
+          /* ignore */
+        }
       }
     }
 
@@ -120,7 +144,11 @@ export const OutputCard = ({ title, content, type = 'text', data, presentation }
         return slots.map((s) => `• ${formatRange(s.start, s.end)}`).join('\n');
       }
       const transformed = transformDates(parsed);
-      try { return JSON.stringify(transformed, null, 2); } catch { /* fall through */ }
+      try {
+        return JSON.stringify(transformed, null, 2);
+      } catch {
+        /* fall through */
+      }
     }
     return content;
   })();

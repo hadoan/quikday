@@ -47,15 +47,18 @@ This document explains how the executor runs planned steps using explicit map ex
 ## Placeholders and Expansion
 
 Supported
+
 - `$var.path` — read from named variables (working memory).
 - `$each.path` — read from current item in a mapped step.
 - `$index` and `$key` inside strings for mapped steps.
 
 Not supported
+
 - `$step-XX.*` — removed. Use `binds` + `$var.*`.
 - Legacy `[*]` array syntax — removed. Use `expandOn + $each`.
 
 Explicit Map Expansion
+
 - `expandOn: '$var.items'` — resolves to an array; executor creates `step-XX-0`, `step-XX-1`, …
 - `expandKey: '$each.id'` — optional; exposes `$key` and enables stable identity.
 - Inside mapped steps:
@@ -63,6 +66,7 @@ Explicit Map Expansion
   - Embedded: `subject: 'Re: $each.subject (#$index)'`
 
 Args Cleanup and Errors
+
 - Unresolved placeholders after resolution cause `E_ARGS_UNRESOLVED`.
 - Strings containing leftover expansion markers are dropped before schema parse.
 
@@ -87,4 +91,3 @@ Args Cleanup and Errors
 - Requires `REDIS_URL` for queued execution; there is no inline fallback.
 - Enable/disable approval prompts via `AGENT_APPROVALS_ENABLED` or `ctx.meta.approvalsEnabled`.
 - Approve specific steps via API by setting `ctx.meta.approvedSteps` when resuming the run.
-

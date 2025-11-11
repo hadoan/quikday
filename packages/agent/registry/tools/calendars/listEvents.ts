@@ -25,7 +25,9 @@ export const CalendarListOut = z.object({
 export type CalendarListArgs = z.infer<typeof CalendarListIn>;
 export type CalendarListResult = z.infer<typeof CalendarListOut>;
 
-export function calendarListEvents(moduleRef: ModuleRef): Tool<CalendarListArgs, CalendarListResult> {
+export function calendarListEvents(
+  moduleRef: ModuleRef,
+): Tool<CalendarListArgs, CalendarListResult> {
   return {
     name: 'calendar.listEvents',
     description:

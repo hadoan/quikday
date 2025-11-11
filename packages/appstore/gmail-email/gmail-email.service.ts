@@ -647,7 +647,7 @@ export class GmailEmailService implements EmailService {
     const padded = padding > 0 ? base64.padEnd(base64.length + (4 - padding), '=') : base64;
     return Buffer.from(padded, 'base64').toString('utf8');
   }
-  
+
   // RFC 2047 encoded-word for non-ASCII header values (Subject, display names)
   private encodeHeaderWord(value: string | undefined | null): string {
     if (!value) return '';

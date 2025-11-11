@@ -44,7 +44,9 @@ export const LogCard = ({ logs }: LogCardProps) => {
 
       <div className="space-y-2">
         {logs.map((log, idx) => {
-          const { formatted, isJson } = log.output ? formatOutput(log.output) : { formatted: '', isJson: false };
+          const { formatted, isJson } = log.output
+            ? formatOutput(log.output)
+            : { formatted: '', isJson: false };
           const isExpanded = expandedItems[idx] ?? false;
           // Hide output in Execution Log; outputs are shown via dedicated Output cards
           const hasOutput = false;
@@ -65,11 +67,11 @@ export const LogCard = ({ logs }: LogCardProps) => {
                 <div className="flex-1 min-w-0 space-y-1">
                   <div className="flex items-center justify-between gap-2">
                     <span className="font-semibold text-foreground text-sm">{log.tool}</span>
-                    <span className="text-xs text-muted-foreground whitespace-nowrap">{log.time}</span>
+                    <span className="text-xs text-muted-foreground whitespace-nowrap">
+                      {log.time}
+                    </span>
                   </div>
-                  <p className="text-xs text-muted-foreground break-words">
-                    Completed {log.tool}
-                  </p>
+                  <p className="text-xs text-muted-foreground break-words">Completed {log.tool}</p>
                 </div>
                 {hasOutput && (
                   <button
@@ -91,7 +93,9 @@ export const LogCard = ({ logs }: LogCardProps) => {
                   <div className="mb-2 text-[10px] uppercase tracking-wide text-muted-foreground font-semibold">
                     Output
                   </div>
-                  <pre className={`text-[11px] leading-relaxed overflow-x-auto ${isJson ? 'text-foreground' : 'text-foreground/90'}`}>
+                  <pre
+                    className={`text-[11px] leading-relaxed overflow-x-auto ${isJson ? 'text-foreground' : 'text-foreground/90'}`}
+                  >
                     <code className="block whitespace-pre-wrap break-words">{formatted}</code>
                   </pre>
                 </div>

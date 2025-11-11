@@ -28,7 +28,7 @@ interface UseNavigationWarningOptions {
 
 /**
  * Hook to warn users before navigating away from a page with unsaved work
- * 
+ *
  * @param options Configuration for the navigation warning
  * @returns JSX element containing the warning dialog
  */
@@ -52,8 +52,8 @@ export function useNavigationWarning({
           return 'You have unsaved changes';
         }
       },
-      [shouldBlock]
-    )
+      [shouldBlock],
+    ),
   );
 
   // Intercept link clicks to show confirmation dialog
@@ -84,8 +84,13 @@ export function useNavigationWarning({
       // Check if it's an internal navigation link
       const href = link.getAttribute('href');
       console.log('[NavigationWarning] Link clicked:', href, 'Current:', location.pathname);
-      
-      if (!href || href.startsWith('http') || href.startsWith('mailto:') || href.startsWith('tel:')) {
+
+      if (
+        !href ||
+        href.startsWith('http') ||
+        href.startsWith('mailto:') ||
+        href.startsWith('tel:')
+      ) {
         return;
       }
 
@@ -103,7 +108,7 @@ export function useNavigationWarning({
     const handleButtonClick = (e: MouseEvent) => {
       const target = e.target as HTMLElement;
       const button = target.closest('button');
-      
+
       if (!button) return;
 
       // Check for onClick handlers that might navigate
@@ -128,7 +133,7 @@ export function useNavigationWarning({
   const handleConfirm = useCallback(() => {
     setShowDialog(false);
     isNavigatingRef.current = true;
-    
+
     if (pendingNavigation) {
       // Allow navigation
       setTimeout(() => {
@@ -168,14 +173,10 @@ export function useNavigationWarning({
             </svg>
             {title}
           </AlertDialogTitle>
-          <AlertDialogDescription className="text-base pt-2">
-            {message}
-          </AlertDialogDescription>
+          <AlertDialogDescription className="text-base pt-2">{message}</AlertDialogDescription>
         </AlertDialogHeader>
         <AlertDialogFooter>
-          <AlertDialogCancel onClick={handleCancel}>
-            Stay on Page
-          </AlertDialogCancel>
+          <AlertDialogCancel onClick={handleCancel}>Stay on Page</AlertDialogCancel>
           <AlertDialogAction
             onClick={handleConfirm}
             className="bg-destructive hover:bg-destructive/90"

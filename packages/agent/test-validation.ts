@@ -1,6 +1,6 @@
 /**
  * Test script to verify argument validation in planner
- * 
+ *
  * Run with: pnpm tsx packages/agent/test-validation.ts
  */
 
@@ -19,7 +19,10 @@ if (tool1) {
   console.log('Input args:', wrongArgs1);
   console.log('Validation result:', result1.success ? 'PASS' : 'FAIL');
   if (!result1.success) {
-    console.log('Errors:', result1.error.issues.map(e => `${e.path.join('.')}: ${e.message}`));
+    console.log(
+      'Errors:',
+      result1.error.issues.map((e) => `${e.path.join('.')}: ${e.message}`),
+    );
   } else {
     console.log('Parsed args:', result1.data);
   }
@@ -38,7 +41,10 @@ if (tool1) {
   console.log('Input args:', correctArgs1);
   console.log('Validation result:', result2.success ? 'PASS' : 'FAIL');
   if (!result2.success) {
-    console.log('Errors:', result2.error.issues.map(e => `${e.path.join('.')}: ${e.message}`));
+    console.log(
+      'Errors:',
+      result2.error.issues.map((e) => `${e.path.join('.')}: ${e.message}`),
+    );
   } else {
     console.log('Parsed args:', result2.data);
   }
@@ -60,7 +66,10 @@ if (tool3) {
   console.log('Input args:', args3);
   console.log('Validation result:', result3.success ? 'PASS' : 'FAIL');
   if (!result3.success) {
-    console.log('Errors:', result3.error.issues.map(e => `${e.path.join('.')}: ${e.message}`));
+    console.log(
+      'Errors:',
+      result3.error.issues.map((e) => `${e.path.join('.')}: ${e.message}`),
+    );
   } else {
     console.log('Parsed args:', result3.data);
   }
@@ -69,9 +78,9 @@ if (tool3) {
 // Test case 4: Show all calendar tools and their required arguments
 console.log('\n=== All Calendar Tools ===');
 const allTools = registry.getSchemas();
-const calendarTools = allTools.filter(t => t.name.startsWith('calendar.'));
+const calendarTools = allTools.filter((t) => t.name.startsWith('calendar.'));
 
-calendarTools.forEach(tool => {
+calendarTools.forEach((tool) => {
   console.log(`\n${tool.name}:`);
   console.log(`  Description: ${tool.description}`);
   console.log(`  Arguments:`, tool.args);

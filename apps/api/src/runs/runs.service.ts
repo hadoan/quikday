@@ -38,7 +38,7 @@ export class RunsService {
     private tokens: RunTokenService,
     @InjectQueue('runs') private runsQueue: Queue,
     private readonly current: CurrentUserService,
-    private readonly stepsService: StepsService,
+    private readonly stepsService: StepsService
   ) {}
 
   private jsonClone<T>(v: T): T {
@@ -246,11 +246,13 @@ export class RunsService {
     const teamId = this.current.getCurrentTeamId();
     const userSub = params.userId || this.current.getCurrentUserSub(); // This is the Kinde sub ID (string)
     if (!userSub) throw new UnauthorizedException('Not authenticated');
-    
+
     // Look up the user by their Kinde sub to get the numeric database ID
     const user = await this.prisma.user.findUnique({ where: { sub: userSub } });
     if (!user) {
-      throw new UnauthorizedException('User not found in database. Please ensure user sync completed.');
+      throw new UnauthorizedException(
+        'User not found in database. Please ensure user sync completed.'
+      );
     }
     const numericUserId = user.id;
 
@@ -261,10 +263,7 @@ export class RunsService {
     if (params.status && params.status.length) where.status = { in: params.status };
     if (params.q && params.q.trim()) {
       const q = params.q.trim();
-      where.OR = [
-        { id: { contains: q } },
-        { prompt: { contains: q, mode: 'insensitive' } },
-      ];
+      where.OR = [{ id: { contains: q } }, { prompt: { contains: q, mode: 'insensitive' } }];
     }
 
     // Sorting
@@ -306,7 +305,11 @@ export class RunsService {
       title: (r.intent as any)?.title || r.prompt?.slice(0, 80) || 'Run',
       status: r.status,
       createdAt: r.createdAt,
-      createdBy: { id: r.userId, name: r.User?.displayName || r.User?.email || 'User', avatar: r.User?.avatar || null },
+      createdBy: {
+        id: r.userId,
+        name: r.User?.displayName || r.User?.email || 'User',
+        avatar: r.User?.avatar || null,
+      },
       kind: 'action',
       source: ((r.config as any)?.meta?.source as string) || 'api',
       stepCount: r._count?.steps ?? 0,
@@ -467,7 +470,9 @@ export class RunsService {
     const stepCount = await this.stepsService.countStepsByRunId(runId);
 
     // Merge diff and plan into run.output (scratch.plan is a good place)
-    const currentOutput = (run.output && typeof run.output === 'object' ? (run.output as any) : {}) as Record<string, any>;
+    const currentOutput = (
+      run.output && typeof run.output === 'object' ? (run.output as any) : {}
+    ) as Record<string, any>;
     const nextScratch = {
       ...((currentOutput.scratch && typeof currentOutput.scratch === 'object'
         ? (currentOutput.scratch as Record<string, any>)
@@ -668,21 +673,23 @@ export class RunsService {
       },
     });
     if (!run) throw new NotFoundException('Run not found');
-    
+
     // If userSub is provided, verify ownership
     if (userSub) {
       // Look up the user by their Kinde sub to get the numeric database ID
       const user = await this.prisma.user.findUnique({ where: { sub: userSub } });
       if (!user) {
-        throw new UnauthorizedException('User not found in database. Please ensure user sync completed.');
+        throw new UnauthorizedException(
+          'User not found in database. Please ensure user sync completed.'
+        );
       }
-      
+
       // Verify the run belongs to this user
       if (run.userId !== user.id) {
         throw new NotFoundException('Run not found'); // Don't reveal existence to unauthorized users
       }
     }
-    
+
     // Enrich the plan with credential information from steps
     if (run.plan && Array.isArray(run.plan) && run.steps && run.steps.length > 0) {
       const enrichedPlan = (run.plan as any[]).map((planStep: any) => {
@@ -690,7 +697,7 @@ export class RunsService {
         const matchingStep = run.steps.find(
           (s) => s.planStepId === planStep.id || s.tool === planStep.tool
         );
-        
+
         if (matchingStep) {
           return {
             ...planStep,
@@ -698,13 +705,13 @@ export class RunsService {
             credentialId: matchingStep.credentialId || undefined,
           };
         }
-        
+
         return planStep;
       });
-      
+
       return { ...run, plan: enrichedPlan };
     }
-    
+
     return run;
   }
 
@@ -726,13 +733,13 @@ export class RunsService {
     }
 
     const config = this.asRecord(run.config);
-    
+
     // Store approved steps and mark for execution continuation
-    const nextConfig = { 
-      ...config, 
+    const nextConfig = {
+      ...config,
       approvedSteps,
       // Signal to resume from executor node
-      resumeFrom: 'executor' 
+      resumeFrom: 'executor',
     };
 
     // Update run status to approved and persist config
@@ -746,17 +753,18 @@ export class RunsService {
 
     // Get the existing scratch with plan from run output
     const rawOutput = this.asRecord(run.output);
-    const existingScratch = rawOutput.scratch && typeof rawOutput.scratch === 'object' 
-      ? rawOutput.scratch as Record<string, unknown>
-      : {};
+    const existingScratch =
+      rawOutput.scratch && typeof rawOutput.scratch === 'object'
+        ? (rawOutput.scratch as Record<string, unknown>)
+        : {};
 
     // Re-enqueue with scratch data to continue execution, preserving the plan
-    await this.enqueue(runId, { 
-      scratch: { 
+    await this.enqueue(runId, {
+      scratch: {
         ...existingScratch,
         approvalGranted: true,
-        approvedAt: new Date().toISOString()
-      } 
+        approvedAt: new Date().toISOString(),
+      },
     });
 
     await this.telemetry.track('run_approved', { runId, stepsCount: approvedSteps.length });
@@ -868,7 +876,7 @@ export class RunsService {
 
     const userSub = this.current.getCurrentUserSub();
     if (!userSub) throw new UnauthorizedException('Not authenticated');
-    
+
     // Look up the user in the database by Kinde sub field
     const user = await this.prisma.user.findFirst({ where: { sub: userSub } });
     if (!user) {
@@ -883,7 +891,7 @@ export class RunsService {
         if (s.appId && (s.credentialId === null || s.credentialId === undefined)) {
           const { credentialId } = await this.stepsService.reResolveAppAndCredential(
             s.tool,
-            user.id,
+            user.id
           );
           if (credentialId) {
             await this.prisma.step.update({ where: { id: s.id }, data: { credentialId } });
@@ -898,17 +906,20 @@ export class RunsService {
 
     // Re-fetch steps to determine whether any planned step still lacks credentials
     const postSteps = await this.prisma.step.findMany({ where: { runId } });
-    const missingCredSteps = postSteps.filter((st) => st.appId && (st.credentialId === null || st.credentialId === undefined));
+    const missingCredSteps = postSteps.filter(
+      (st) => st.appId && (st.credentialId === null || st.credentialId === undefined)
+    );
 
     // Update run.plan JSON to reflect the updated credentialIds
     if (updated > 0) {
       const currentPlan = run.plan as any[] | null;
       if (Array.isArray(currentPlan)) {
         const updatedPlan = currentPlan.map((planStep) => {
-          const matchingStep = postSteps.find((s) => 
-            s.id === planStep.id || 
-            s.planStepId === planStep.id || 
-            s.planStepId === planStep.stepId
+          const matchingStep = postSteps.find(
+            (s) =>
+              s.id === planStep.id ||
+              s.planStepId === planStep.id ||
+              s.planStepId === planStep.stepId
           );
           if (matchingStep && matchingStep.credentialId) {
             return { ...planStep, credentialId: matchingStep.credentialId };
@@ -917,7 +928,7 @@ export class RunsService {
         });
         await this.prisma.run.update({
           where: { id: runId },
-          data: { plan: updatedPlan as any }
+          data: { plan: updatedPlan as any },
         });
       }
     }
@@ -929,14 +940,17 @@ export class RunsService {
       const run = await this.prisma.run.findUnique({ where: { id: runId } });
       if (run && run.status === 'pending_apps_install' && missingCredSteps.length === 0) {
         // Credentials are complete. Check if there are still missing inputs (questions).
-        const hasPendingQuestions = run.missing && Array.isArray(run.missing) && run.missing.length > 0;
-        
+        const hasPendingQuestions =
+          run.missing && Array.isArray(run.missing) && run.missing.length > 0;
+
         if (hasPendingQuestions) {
           // Sequential flow: apps installed, now transition to awaiting_input for questions
-          this.logger.log('Apps installed; transitioning to awaiting_input for questions', { runId });
+          this.logger.log('Apps installed; transitioning to awaiting_input for questions', {
+            runId,
+          });
           await this.prisma.run.update({
             where: { id: runId },
-            data: { status: 'awaiting_input' }
+            data: { status: 'awaiting_input' },
           });
         } else {
           // No questions remaining - auto-resume execution
@@ -1119,7 +1133,7 @@ export class RunsService {
           planStepId: step.id || `step-${index}`,
           startedAt: new Date(),
         })),
-        userId,
+        userId
       );
 
       this.logger.log('✅ Plan steps created', {
@@ -1139,10 +1153,11 @@ export class RunsService {
     if (!run) throw new NotFoundException('Run not found');
 
     // Merge with existing answers if any
-    const existingAnswers = run.answers && typeof run.answers === 'object' 
-      ? (run.answers as Record<string, unknown>) 
-      : {};
-    
+    const existingAnswers =
+      run.answers && typeof run.answers === 'object'
+        ? (run.answers as Record<string, unknown>)
+        : {};
+
     const mergedAnswers = { ...existingAnswers, ...answers };
 
     this.logger.log('💾 Storing answers', {
@@ -1153,7 +1168,7 @@ export class RunsService {
 
     await this.prisma.run.update({
       where: { id: runId },
-      data: { 
+      data: {
         answers: mergedAnswers as any,
         status: 'pending', // Ready to execute
       },
@@ -1166,19 +1181,20 @@ export class RunsService {
    * Execute the plan with provided answers by reconstructing state and running from executor node
    */
   async executePlanWithAnswers(runId: string) {
-    const run = await this.prisma.run.findUnique({ 
+    const run = await this.prisma.run.findUnique({
       where: { id: runId },
       include: { steps: true },
     });
-    
+
     if (!run) throw new NotFoundException('Run not found');
 
     const goal = run.goal && typeof run.goal === 'object' ? run.goal : null;
     const plan = Array.isArray(run.plan) ? run.plan : [];
-    const answers = run.answers && typeof run.answers === 'object' 
-      ? (run.answers as Record<string, unknown>) 
-      : {};
-    
+    const answers =
+      run.answers && typeof run.answers === 'object'
+        ? (run.answers as Record<string, unknown>)
+        : {};
+
     this.logger.log('🚀 Executing plan with answers', {
       runId,
       planSteps: plan.length,
@@ -1198,10 +1214,9 @@ export class RunsService {
     };
 
     // Update config to signal resume from executor
-    const existingConfig = run.config && typeof run.config === 'object' 
-      ? (run.config as Record<string, unknown>) 
-      : {};
-    
+    const existingConfig =
+      run.config && typeof run.config === 'object' ? (run.config as Record<string, unknown>) : {};
+
     await this.prisma.run.update({
       where: { id: runId },
       data: {
@@ -1216,7 +1231,7 @@ export class RunsService {
 
     // Enqueue the run for execution with the reconstructed scratch state
     await this.enqueue(runId, { scratch });
-    
+
     this.logger.log('✅ Plan execution enqueued with resumeFrom=executor', { runId });
   }
 }

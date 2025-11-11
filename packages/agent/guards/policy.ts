@@ -21,7 +21,11 @@ export const PolicySchema = z
         minConfidenceAuto: z.number().min(0).max(1).default(0.6),
         requireApprovalForHighRisk: z.boolean().default(true),
       })
-      .default({ defaultMode: 'APPROVAL', minConfidenceAuto: 0.6, requireApprovalForHighRisk: true }),
+      .default({
+        defaultMode: 'APPROVAL',
+        minConfidenceAuto: 0.6,
+        requireApprovalForHighRisk: true,
+      }),
     quietHours: z
       .object({
         enabled: z.boolean().default(false),
@@ -68,7 +72,11 @@ export async function getTeamPolicy(teamId?: string): Promise<TeamPolicy> {
   const base: TeamPolicy = {
     teamId: teamId ?? 'unknown',
     allowlist: { tools: [], scopes: [] },
-    riskRules: { defaultMode: 'APPROVAL', minConfidenceAuto: 0.6, requireApprovalForHighRisk: true },
+    riskRules: {
+      defaultMode: 'APPROVAL',
+      minConfidenceAuto: 0.6,
+      requireApprovalForHighRisk: true,
+    },
     quietHours: { enabled: false, windows: [], behavior: 'FORCE_PLAN' },
     budgets: { enabled: false, limitCents: 0 },
     residency: { region: 'eu', restrictCrossRegion: false },

@@ -38,35 +38,37 @@ function MyComponent() {
 
 ### Parameters
 
-| Parameter | Type | Required | Default | Description |
-|-----------|------|----------|---------|-------------|
-| `shouldBlock` | `boolean` | Yes | - | Condition that determines if navigation should be blocked |
-| `title` | `string` | No | `'Confirm Navigation'` | Custom dialog title |
-| `message` | `string` | No | Default warning message | Custom warning message displayed in the dialog |
+| Parameter     | Type      | Required | Default                 | Description                                               |
+| ------------- | --------- | -------- | ----------------------- | --------------------------------------------------------- |
+| `shouldBlock` | `boolean` | Yes      | -                       | Condition that determines if navigation should be blocked |
+| `title`       | `string`  | No       | `'Confirm Navigation'`  | Custom dialog title                                       |
+| `message`     | `string`  | No       | Default warning message | Custom warning message displayed in the dialog            |
 
 ### Example: Chat Page
 
 The hook is used in the chat page (`/apps/web/src/pages/Index.tsx`) to warn users when they have:
+
 - An active task being executed
 - Pending questions to answer
 - A task waiting for approval
 
 ```tsx
 const hasActiveWork = Boolean(
-  activeRun && 
-  (activeRun.status === 'executing' || 
-   activeRun.status === 'planning' || 
-   activeRun.status === 'scheduled' ||
-   activeRun.status === 'awaiting_approval' ||
-   activeRun.status === 'awaiting_input' ||
-   isWaitingForResponse ||
-   questions.length > 0)
+  activeRun &&
+    (activeRun.status === 'executing' ||
+      activeRun.status === 'planning' ||
+      activeRun.status === 'scheduled' ||
+      activeRun.status === 'awaiting_approval' ||
+      activeRun.status === 'awaiting_input' ||
+      isWaitingForResponse ||
+      questions.length > 0),
 );
 
 const navigationWarningDialog = useNavigationWarning({
   shouldBlock: hasActiveWork,
   title: 'Leave Active Task?',
-  message: 'You have an active task in progress. If you navigate away now, any unsaved work and execution state will be lost and cannot be recovered. Are you sure you want to leave?',
+  message:
+    'You have an active task in progress. If you navigate away now, any unsaved work and execution state will be lost and cannot be recovered. Are you sure you want to leave?',
 });
 ```
 

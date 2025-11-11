@@ -21,15 +21,26 @@ export const ParamsCard = ({ title = 'Inputs', items }: ParamsCardProps) => {
 
   const renderCell = (it: { key: string; value: string; full?: unknown }) => {
     const isUrl = typeof it.value === 'string' && /^https?:\/\//i.test(it.value.trim());
-    const isTrimmed = typeof it.value === 'string' && (/…$/.test(it.value) || /\.\.\.$/.test(it.value));
-    const isStringifiedJson = typeof it.value === 'string' && (/^\s*\[/.test(it.value) || /^\s*\{/.test(it.value));
+    const isTrimmed =
+      typeof it.value === 'string' && (/…$/.test(it.value) || /\.\.\.$/.test(it.value));
+    const isStringifiedJson =
+      typeof it.value === 'string' && (/^\s*\[/.test(it.value) || /^\s*\{/.test(it.value));
     const isComplex = Array.isArray(it.full) || (it.full !== null && typeof it.full === 'object');
-    const showMore = isTrimmed || isComplex || isStringifiedJson || (typeof it.value === 'string' && it.value.length > 150);
+    const showMore =
+      isTrimmed ||
+      isComplex ||
+      isStringifiedJson ||
+      (typeof it.value === 'string' && it.value.length > 150);
     return (
       <div className="flex flex-col items-start gap-2">
         <div className="min-w-0 break-words">
           {isUrl ? (
-            <a href={it.value} target="_blank" rel="noreferrer" className="text-primary underline break-all">
+            <a
+              href={it.value}
+              target="_blank"
+              rel="noreferrer"
+              className="text-primary underline break-all"
+            >
               {it.value}
             </a>
           ) : (
@@ -99,7 +110,9 @@ export const ParamsCard = ({ title = 'Inputs', items }: ParamsCardProps) => {
                       <td className="py-2 pr-4 align-top font-medium text-foreground/90 whitespace-nowrap">
                         {it.key}
                       </td>
-                      <td className="py-2 align-top text-foreground/90 break-words">{renderCell(it)}</td>
+                      <td className="py-2 align-top text-foreground/90 break-words">
+                        {renderCell(it)}
+                      </td>
                       <td className="py-2 align-top text-right">
                         <div className="flex justify-end gap-1">
                           <Button

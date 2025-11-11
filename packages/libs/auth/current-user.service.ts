@@ -7,7 +7,13 @@ import { getCurrentUserCtx } from './current-user.als.js';
 export class CurrentUserService implements ICurrentUserService {
   constructor(
     @Inject('CurrentUserPrisma')
-    private readonly prisma: { user: { findUnique: (q: any) => Promise<{ displayName?: string | null; email?: string | null } | null> } },
+    private readonly prisma: {
+      user: {
+        findUnique: (
+          q: any,
+        ) => Promise<{ displayName?: string | null; email?: string | null } | null>;
+      };
+    },
   ) {}
   getCurrentUserSub(): string | null {
     return getCurrentUserCtx().userSub;

@@ -9,7 +9,10 @@ export function createQueueHelpers(s: any) {
     if (!stepQueue) {
       const url = process.env.REDIS_URL || process.env.REDIS_URL_HTTP || process.env.REDIS_URL_WS;
       if (!url) {
-        throw Object.assign(new Error('Step queue unavailable: set REDIS_URL to enable queued execution'), { code: 'E_QUEUE_UNAVAILABLE' });
+        throw Object.assign(
+          new Error('Step queue unavailable: set REDIS_URL to enable queued execution'),
+          { code: 'E_QUEUE_UNAVAILABLE' },
+        );
       }
 
       const connection = {
@@ -29,7 +32,9 @@ export function createQueueHelpers(s: any) {
   async function runStepViaQueue(planStepId: string, toolName: string, args: any) {
     const q = getStepQueue();
     if (!stepQueueEvents) {
-      throw Object.assign(new Error('Step queue events unavailable'), { code: 'E_QUEUE_UNAVAILABLE' });
+      throw Object.assign(new Error('Step queue events unavailable'), {
+        code: 'E_QUEUE_UNAVAILABLE',
+      });
     }
 
     const jobId = `run-${s.ctx.runId}-step-${planStepId}-${Date.now().toString(36)}`;
@@ -44,7 +49,7 @@ export function createQueueHelpers(s: any) {
     const als = getCurrentUserCtx();
     const __ctx = {
       userSub: als.userSub,
-      userId: als.userId ?? (s.ctx.userId ?? null),
+      userId: als.userId ?? s.ctx.userId ?? null,
       teamId: als.teamId ?? (s.ctx.teamId ? Number(s.ctx.teamId) : null),
       scopes: Array.isArray(als.scopes) && als.scopes.length ? als.scopes : s.ctx.scopes,
       traceId: als.traceId ?? s.ctx.traceId,
@@ -52,13 +57,17 @@ export function createQueueHelpers(s: any) {
       runId: s.ctx.runId,
     } as any;
 
-    const job = await q.add('execute-step', {
-      runId: s.ctx.runId,
-      planStepId,
-      tool: toolName,
-      args,
-      __ctx,
-    }, jobOpts);
+    const job = await q.add(
+      'execute-step',
+      {
+        runId: s.ctx.runId,
+        planStepId,
+        tool: toolName,
+        args,
+        __ctx,
+      },
+      jobOpts,
+    );
 
     const res = await job.waitUntilFinished(stepQueueEvents, 60_000);
     return (res as any)?.result ?? null;

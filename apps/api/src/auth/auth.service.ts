@@ -72,10 +72,16 @@ export class AuthService {
 
     // Try to find existing user prioritized by email (primary key), fallback to sub
     let existing = emailNorm
-      ? await this.prisma.user.findUnique({ where: { email: emailNorm }, include: { workspace: true } })
+      ? await this.prisma.user.findUnique({
+          where: { email: emailNorm },
+          include: { workspace: true },
+        })
       : null;
     if (!existing && sub) {
-      existing = await this.prisma.user.findUnique({ where: { sub }, include: { workspace: true } });
+      existing = await this.prisma.user.findUnique({
+        where: { sub },
+        include: { workspace: true },
+      });
     }
 
     if (!existing) {
@@ -127,10 +133,16 @@ export class AuthService {
         if (code === 'P2002') {
           this.logger.warn('Unique constraint hit during provisioning; retrying find');
           let retry = emailNorm
-            ? await this.prisma.user.findUnique({ where: { email: emailNorm }, include: { workspace: true } })
+            ? await this.prisma.user.findUnique({
+                where: { email: emailNorm },
+                include: { workspace: true },
+              })
             : null;
           if (!retry && sub) {
-            retry = await this.prisma.user.findUnique({ where: { sub }, include: { workspace: true } });
+            retry = await this.prisma.user.findUnique({
+              where: { sub },
+              include: { workspace: true },
+            });
           }
           if (retry) {
             void this.prisma.user
@@ -159,11 +171,11 @@ export class AuthService {
     // This preserves user-set names and prevents overwriting with auto-generated values.
     const hasRealNameInClaims = Boolean(
       (typeof claims.name === 'string' && claims.name.trim()) ||
-      (typeof claims.given_name === 'string' && claims.given_name.trim()) ||
-      (typeof claims.family_name === 'string' && claims.family_name.trim()),
+        (typeof claims.given_name === 'string' && claims.given_name.trim()) ||
+        (typeof claims.family_name === 'string' && claims.family_name.trim())
     );
     const displayNameIsBlank = !existing.displayName || existing.displayName.trim() === '';
-    
+
     const updateData: Prisma.UserUpdateInput = {
       avatar: claims.picture || existing.avatar || undefined,
       lastLoginAt: new Date(),

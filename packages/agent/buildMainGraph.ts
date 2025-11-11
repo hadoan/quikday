@@ -44,38 +44,37 @@ export const buildMainGraph = ({ llm, eventBus, moduleRef }: BuildMainGraphOptio
         const goal = s.scratch?.goal;
         const missing = (goal?.missing ?? []) as Array<{ key: string; required?: boolean }>;
         const requiredMissing = missing.filter((m) => m.required !== false);
-        
+
         // Check if we have answers provided (from Run.answers field)
         const answers = s.scratch?.answers || {};
         const hasAnswers = Object.keys(answers).length > 0;
-        
+
         // First priority: Check if we have missing required inputs
         if (requiredMissing.length > 0 && !hasAnswers) {
           // We have missing inputs and no answers yet - go to ensure_inputs to handle them
           return 'ensure_inputs';
         }
-        
-        const onlyChatRespond = plan.length > 0 && 
-          plan.every((st) => st.tool === 'chat.respond');
+
+        const onlyChatRespond = plan.length > 0 && plan.every((st) => st.tool === 'chat.respond');
         const hasExecutableSteps = plan.length > 0 && !onlyChatRespond;
-        
+
         // If only chat.respond, always execute immediately regardless of mode
         if (onlyChatRespond) {
           return 'confirm'; // Execute chat response immediately
         }
-        
+
         // PREVIEW mode: Just show the plan, don't execute
         if (s.mode === 'PREVIEW') {
           return 'END'; // Show plan only, no execution
         }
-        
+
         // APPROVAL mode: Show plan and halt for user approval
         if (s.mode === 'APPROVAL' && hasExecutableSteps) {
           // Mark as awaiting approval - will be handled by processor
           (s.scratch as any).requiresApproval = true;
           return 'END'; // Halt graph here, wait for approval
         }
-        
+
         // For AUTO/default: proceed to confirm
         return 'confirm';
       })

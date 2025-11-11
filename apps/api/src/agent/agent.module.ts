@@ -2,7 +2,7 @@ import { DynamicModule, Module, Provider, forwardRef } from '@nestjs/common';
 import { AgentService } from './agent.service.js';
 import { AgentController } from './agent.controller.js';
 import { AGENT_LLM, type AgentModuleOptions } from './agent.tokens.js';
-import { makeOpenAiLLM } from '@quikday/agent/llm/openai';
+import { createLLM } from '@quikday/agent/llm/factory';
 import { PubSubModule } from '@quikday/libs';
 import { PrismaModule } from '@quikday/prisma';
 import { AuthModule } from '../auth/auth.module.js';
@@ -13,7 +13,7 @@ export class AgentModule {
   static forRoot(options: AgentModuleOptions = {}): DynamicModule {
     const llmProvider: Provider = options.llm
       ? { provide: AGENT_LLM, useValue: options.llm }
-      : { provide: AGENT_LLM, useFactory: () => makeOpenAiLLM() };
+      : { provide: AGENT_LLM, useFactory: () => createLLM(undefined, true) };
 
     return {
       module: AgentModule,

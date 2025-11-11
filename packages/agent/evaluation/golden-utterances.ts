@@ -1,6 +1,6 @@
 /**
  * Golden Utterances for Goal Extraction Testing
- * 
+ *
  * These are real-world examples that we use to evaluate prompt quality.
  * Each change to the prompt system should be evaluated against these.
  */
@@ -43,12 +43,13 @@ export const GOLDEN_UTTERANCES: GoldenUtterance[] = [
     expectedMissing: ['content'],
     minConfidence: 0.7,
     domains: ['social'],
-    notes: 'Should ask for content since it\'s missing',
+    notes: "Should ask for content since it's missing",
   },
   {
     id: 'email-triage-complex',
     input: 'Give me a 10-minute triage of priority emails and create quick-reply drafts (max 8)',
-    expectedOutcome: 'Triage priority emails from the last 10 minutes and create up to 8 quick-reply drafts',
+    expectedOutcome:
+      'Triage priority emails from the last 10 minutes and create up to 8 quick-reply drafts',
     expectedProvided: {
       time_window_minutes: 10,
       max_results: 8,
@@ -85,7 +86,8 @@ export const GOLDEN_UTTERANCES: GoldenUtterance[] = [
   {
     id: 'multi-domain',
     input: 'Schedule a meeting with John tomorrow at 2pm and DM him the meeting link on Slack',
-    expectedOutcome: 'Schedule a meeting with John tomorrow at 2pm and send meeting link via Slack DM',
+    expectedOutcome:
+      'Schedule a meeting with John tomorrow at 2pm and send meeting link via Slack DM',
     expectedProvided: {
       relative_time: 'tomorrow at 2pm',
     },
@@ -99,7 +101,8 @@ export const GOLDEN_UTTERANCES: GoldenUtterance[] = [
   {
     id: 'triage-quick-reply',
     input: 'Give me a 10-minute triage of priority emails and create quick-reply drafts (max 8)',
-    expectedOutcome: 'Triage priority emails from the last 10 minutes and create up to 8 quick-reply drafts',
+    expectedOutcome:
+      'Triage priority emails from the last 10 minutes and create up to 8 quick-reply drafts',
     expectedProvided: {
       time_window_minutes: 10,
       max_results: 8,
@@ -112,8 +115,10 @@ export const GOLDEN_UTTERANCES: GoldenUtterance[] = [
   },
   {
     id: 'inbox-sprint',
-    input: 'Run a 15-minute inbox sprint: archive newsletters, snooze low-priority items for 3d, and surface actionables (max 12)',
-    expectedOutcome: 'Execute 15-minute inbox sprint: archive newsletters, snooze low-priority for 3 days, surface up to 12 actionables',
+    input:
+      'Run a 15-minute inbox sprint: archive newsletters, snooze low-priority items for 3d, and surface actionables (max 12)',
+    expectedOutcome:
+      'Execute 15-minute inbox sprint: archive newsletters, snooze low-priority for 3 days, surface up to 12 actionables',
     expectedProvided: {
       time_window_minutes: 15,
       max_results: 12,
@@ -127,7 +132,8 @@ export const GOLDEN_UTTERANCES: GoldenUtterance[] = [
   {
     id: 'time-sensitive-threads',
     input: 'Show top 10 time-sensitive threads from the last 3 days and draft concise replies',
-    expectedOutcome: 'Identify top 10 time-sensitive threads from last 3 days and create concise reply drafts',
+    expectedOutcome:
+      'Identify top 10 time-sensitive threads from last 3 days and create concise reply drafts',
     expectedProvided: {
       max_results: 10,
       days: 3,
@@ -141,8 +147,10 @@ export const GOLDEN_UTTERANCES: GoldenUtterance[] = [
   // Follow-ups & Sweeps (Templates 4-6)
   {
     id: 'no-reply-sweep-polite',
-    input: 'Sweep my sent threads with no reply from the last 14 days and draft polite nudges (tone polite)',
-    expectedOutcome: 'Find sent threads with no reply from last 14 days and create polite follow-up nudges',
+    input:
+      'Sweep my sent threads with no reply from the last 14 days and draft polite nudges (tone polite)',
+    expectedOutcome:
+      'Find sent threads with no reply from last 14 days and create polite follow-up nudges',
     expectedProvided: {
       days: 14,
       tone: 'polite',
@@ -155,7 +163,8 @@ export const GOLDEN_UTTERANCES: GoldenUtterance[] = [
   {
     id: 'starred-followup',
     input: 'Find starred threads older than 7 days without response and draft follow-ups (max 15)',
-    expectedOutcome: 'Locate starred threads older than 7 days without response and draft up to 15 follow-ups',
+    expectedOutcome:
+      'Locate starred threads older than 7 days without response and draft up to 15 follow-ups',
     expectedProvided: {
       days: 7,
       max_results: 15,
@@ -169,7 +178,8 @@ export const GOLDEN_UTTERANCES: GoldenUtterance[] = [
   {
     id: 'scheduled-nudge',
     input: 'For follow-ups I send today, schedule a second nudge in 3d if no reply',
-    expectedOutcome: 'Set up automatic second nudge in 3 days for follow-ups sent today if no reply received',
+    expectedOutcome:
+      'Set up automatic second nudge in 3 days for follow-ups sent today if no reply received',
     expectedProvided: {
       after: '3d',
     },
@@ -182,8 +192,10 @@ export const GOLDEN_UTTERANCES: GoldenUtterance[] = [
   // Meeting Prep & Recaps (Templates 7-9)
   {
     id: 'meeting-prep-onepager',
-    input: 'Prepare a one-pager for my 3pm meeting with Acme Corp using related recent emails; add 3 talking points',
-    expectedOutcome: 'Create one-page meeting brief for 3pm Acme Corp meeting with email context and 3 talking points',
+    input:
+      'Prepare a one-pager for my 3pm meeting with Acme Corp using related recent emails; add 3 talking points',
+    expectedOutcome:
+      'Create one-page meeting brief for 3pm Acme Corp meeting with email context and 3 talking points',
     expectedProvided: {
       time: '3pm',
       company: 'Acme Corp',
@@ -196,8 +208,10 @@ export const GOLDEN_UTTERANCES: GoldenUtterance[] = [
   },
   {
     id: 'meeting-recap-reminder',
-    input: 'Draft a recap for the last meeting with john@acme.com and add a follow-up reminder in 3d on my calendar',
-    expectedOutcome: 'Create meeting recap for john@acme.com and schedule 3-day follow-up reminder on calendar',
+    input:
+      'Draft a recap for the last meeting with john@acme.com and add a follow-up reminder in 3d on my calendar',
+    expectedOutcome:
+      'Create meeting recap for john@acme.com and schedule 3-day follow-up reminder on calendar',
     expectedProvided: {
       contact_email: 'john@acme.com',
       followup: '3d',
@@ -209,7 +223,8 @@ export const GOLDEN_UTTERANCES: GoldenUtterance[] = [
   },
   {
     id: 'pre-meeting-emails',
-    input: 'For my next 24 hours of meetings, draft quick "see you soon" emails with agenda bullets to all attendees',
+    input:
+      'For my next 24 hours of meetings, draft quick "see you soon" emails with agenda bullets to all attendees',
     expectedOutcome: 'Draft pre-meeting emails with agendas for all meetings in next 24 hours',
     expectedProvided: {
       hours: 24,
@@ -223,8 +238,10 @@ export const GOLDEN_UTTERANCES: GoldenUtterance[] = [
   // Scheduling Helpers (Templates 10-12)
   {
     id: 'propose-slots',
-    input: 'From my availability over the next 7 days, propose 3 30-min slots and draft a scheduling email to jane@startup.io',
-    expectedOutcome: 'Find 3 available 30-minute slots in next 7 days and draft scheduling email to jane@startup.io',
+    input:
+      'From my availability over the next 7 days, propose 3 30-min slots and draft a scheduling email to jane@startup.io',
+    expectedOutcome:
+      'Find 3 available 30-minute slots in next 7 days and draft scheduling email to jane@startup.io',
     expectedProvided: {
       days: 7,
       slots: 3,
@@ -239,7 +256,8 @@ export const GOLDEN_UTTERANCES: GoldenUtterance[] = [
   {
     id: 'conflict-detection',
     input: 'Detect conflicts in the next 5 days and draft reschedule emails with 2 alternatives',
-    expectedOutcome: 'Identify calendar conflicts in next 5 days and create reschedule emails with 2 alternative slots',
+    expectedOutcome:
+      'Identify calendar conflicts in next 5 days and create reschedule emails with 2 alternative slots',
     expectedProvided: {
       days: 5,
       slots: 2,
@@ -251,8 +269,10 @@ export const GOLDEN_UTTERANCES: GoldenUtterance[] = [
   },
   {
     id: 'focus-blocks',
-    input: 'Create calendar focus blocks tomorrow for top actionable threads (max 5) with 30m each; link emails in description',
-    expectedOutcome: 'Schedule 5 focus blocks tomorrow for actionable email threads, 30 minutes each with email links',
+    input:
+      'Create calendar focus blocks tomorrow for top actionable threads (max 5) with 30m each; link emails in description',
+    expectedOutcome:
+      'Schedule 5 focus blocks tomorrow for actionable email threads, 30 minutes each with email links',
     expectedProvided: {
       max_results: 5,
       duration_minutes: 30,
@@ -267,8 +287,10 @@ export const GOLDEN_UTTERANCES: GoldenUtterance[] = [
   // Digests & Daily Ops (Templates 13-15)
   {
     id: 'daily-digest',
-    input: 'Every weekday at 08:45, send a digest of today\'s meetings, hot emails, and pending follow-ups (max 8)',
-    expectedOutcome: 'Schedule recurring weekday digest at 08:45 with meetings, priority emails, and follow-ups (max 8)',
+    input:
+      "Every weekday at 08:45, send a digest of today's meetings, hot emails, and pending follow-ups (max 8)",
+    expectedOutcome:
+      'Schedule recurring weekday digest at 08:45 with meetings, priority emails, and follow-ups (max 8)',
     expectedProvided: {
       time: '08:45',
       frequency: 'weekday',
@@ -281,8 +303,10 @@ export const GOLDEN_UTTERANCES: GoldenUtterance[] = [
   },
   {
     id: 'weekly-summary',
-    input: 'Each Mon at 09:00, summarize key threads from last week, this week\'s meetings, and suggested follow-ups',
-    expectedOutcome: 'Schedule Monday 09:00 weekly summary: last week threads, upcoming meetings, follow-up suggestions',
+    input:
+      "Each Mon at 09:00, summarize key threads from last week, this week's meetings, and suggested follow-ups",
+    expectedOutcome:
+      'Schedule Monday 09:00 weekly summary: last week threads, upcoming meetings, follow-up suggestions',
     expectedProvided: {
       weekday: 'Mon',
       time: '09:00',
@@ -294,8 +318,10 @@ export const GOLDEN_UTTERANCES: GoldenUtterance[] = [
   },
   {
     id: 'action-items-reminders',
-    input: 'Extract action items from the last 3 days of starred threads and add calendar reminders across 3d',
-    expectedOutcome: 'Extract action items from starred threads (last 3 days) and create calendar reminders spread over 3 days',
+    input:
+      'Extract action items from the last 3 days of starred threads and add calendar reminders across 3d',
+    expectedOutcome:
+      'Extract action items from starred threads (last 3 days) and create calendar reminders spread over 3 days',
     expectedProvided: {
       days: 3,
       spread: '3d',
@@ -310,8 +336,10 @@ export const GOLDEN_UTTERANCES: GoldenUtterance[] = [
   // RSVP & Confirmations (Templates 16-17)
   {
     id: 'smart-rsvp',
-    input: 'For invites in the last 7 days, draft RSVP emails based on my calendar availability; accept if free, propose alt slots if busy',
-    expectedOutcome: 'Process invites from last 7 days: draft accept/propose emails based on calendar availability',
+    input:
+      'For invites in the last 7 days, draft RSVP emails based on my calendar availability; accept if free, propose alt slots if busy',
+    expectedOutcome:
+      'Process invites from last 7 days: draft accept/propose emails based on calendar availability',
     expectedProvided: {
       days: 7,
     },
@@ -322,8 +350,10 @@ export const GOLDEN_UTTERANCES: GoldenUtterance[] = [
   },
   {
     id: 'meeting-confirmation',
-    input: 'Confirm the Product Review meeting on Nov 15 at 2pm with location Building A, Room 301 and attach a brief agenda',
-    expectedOutcome: 'Send confirmation for Product Review meeting Nov 15 at 2pm at Building A, Room 301 with agenda',
+    input:
+      'Confirm the Product Review meeting on Nov 15 at 2pm with location Building A, Room 301 and attach a brief agenda',
+    expectedOutcome:
+      'Send confirmation for Product Review meeting Nov 15 at 2pm at Building A, Room 301 with agenda',
     expectedProvided: {
       title: 'Product Review',
       date: 'Nov 15',
@@ -339,8 +369,10 @@ export const GOLDEN_UTTERANCES: GoldenUtterance[] = [
   // Out-of-Office & Boundaries (Templates 18-19)
   {
     id: 'ooo-setup',
-    input: 'Set an out-of-office from Dec 20 to Dec 27 with this message: "On vacation, will respond Jan 2". Draft a heads-up to my top contacts',
-    expectedOutcome: 'Set OOO Dec 20-27 with vacation message and send advance notice to top contacts',
+    input:
+      'Set an out-of-office from Dec 20 to Dec 27 with this message: "On vacation, will respond Jan 2". Draft a heads-up to my top contacts',
+    expectedOutcome:
+      'Set OOO Dec 20-27 with vacation message and send advance notice to top contacts',
     expectedProvided: {
       start: 'Dec 20',
       end: 'Dec 27',
@@ -353,8 +385,10 @@ export const GOLDEN_UTTERANCES: GoldenUtterance[] = [
   },
   {
     id: 'focus-time-autoreplies',
-    input: 'During Mon–Fri 13:00–15:00, auto-draft "in focus time" replies and suggest booking links from my calendar',
-    expectedOutcome: 'Set up auto-replies for Mon-Fri 13:00-15:00 focus time with calendar booking links',
+    input:
+      'During Mon–Fri 13:00–15:00, auto-draft "in focus time" replies and suggest booking links from my calendar',
+    expectedOutcome:
+      'Set up auto-replies for Mon-Fri 13:00-15:00 focus time with calendar booking links',
     expectedProvided: {
       dow: 'Mon–Fri',
       start: '13:00',
@@ -369,8 +403,10 @@ export const GOLDEN_UTTERANCES: GoldenUtterance[] = [
   // Cleanup & Hygiene (Templates 20-21)
   {
     id: 'calendar-hygiene',
-    input: 'Review next 14 days: flag double-bookings, remove declined events, and add buffers of 10m around back-to-backs',
-    expectedOutcome: 'Audit calendar for next 14 days: flag conflicts, remove declined events, add 10-minute buffers',
+    input:
+      'Review next 14 days: flag double-bookings, remove declined events, and add buffers of 10m around back-to-backs',
+    expectedOutcome:
+      'Audit calendar for next 14 days: flag conflicts, remove declined events, add 10-minute buffers',
     expectedProvided: {
       days: 14,
       buffer_minutes: 10,
@@ -382,8 +418,10 @@ export const GOLDEN_UTTERANCES: GoldenUtterance[] = [
   },
   {
     id: 'newsletter-digest',
-    input: 'Collect newsletters from the last 7 days into one summary and schedule a single reading block of 20m',
-    expectedOutcome: 'Aggregate 7-day newsletters into summary and create 20-minute reading block on calendar',
+    input:
+      'Collect newsletters from the last 7 days into one summary and schedule a single reading block of 20m',
+    expectedOutcome:
+      'Aggregate 7-day newsletters into summary and create 20-minute reading block on calendar',
     expectedProvided: {
       days: 7,
       duration_minutes: 20,
@@ -397,7 +435,8 @@ export const GOLDEN_UTTERANCES: GoldenUtterance[] = [
   // Quick Replies & Intros (Templates 22-23)
   {
     id: 'scheduled-replies',
-    input: 'For the top 8 threads today, draft short replies (crisp style) and schedule send for 17:30',
+    input:
+      'For the top 8 threads today, draft short replies (crisp style) and schedule send for 17:30',
     expectedOutcome: 'Draft crisp replies for top 8 threads today and schedule sending at 17:30',
     expectedProvided: {
       max_results: 8,
@@ -411,8 +450,10 @@ export const GOLDEN_UTTERANCES: GoldenUtterance[] = [
   },
   {
     id: 'double-optin-intro',
-    input: 'Draft a double-opt-in intro between alice@startup.com and bob@corp.io; schedule a reminder in 5d to follow up',
-    expectedOutcome: 'Create double-opt-in introduction between alice@startup.com and bob@corp.io with 5-day follow-up reminder',
+    input:
+      'Draft a double-opt-in intro between alice@startup.com and bob@corp.io; schedule a reminder in 5d to follow up',
+    expectedOutcome:
+      'Create double-opt-in introduction between alice@startup.com and bob@corp.io with 5-day follow-up reminder',
     expectedProvided: {
       a_email: 'alice@startup.com',
       b_email: 'bob@corp.io',
@@ -427,7 +468,7 @@ export const GOLDEN_UTTERANCES: GoldenUtterance[] = [
 
 /**
  * Run tests on golden utterances
- * 
+ *
  * Usage:
  * ```bash
  * pnpm tsx packages/agent/evaluation/golden-utterances.ts
@@ -436,8 +477,7 @@ export const GOLDEN_UTTERANCES: GoldenUtterance[] = [
 console.log('Golden Utterances Test Suite');
 console.log(`Total test cases: ${GOLDEN_UTTERANCES.length}`);
 console.log('\nTest cases:');
-GOLDEN_UTTERANCES.forEach(u => {
+GOLDEN_UTTERANCES.forEach((u) => {
   console.log(`- [${u.id}] ${u.input}`);
 });
 console.log('\nTo run evaluation, implement runEvaluation() in framework.ts');
-

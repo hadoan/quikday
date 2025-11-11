@@ -106,11 +106,11 @@ export interface RunState {
       success_criteria?: string;
       confidence: number;
     };
-    
+
     // Legacy fields (deprecated, kept for backward compatibility during transition)
     intent?: string;
     intentMeta?: { confidence: number; reason?: string };
-    
+
     plan?: PlanStep[];
     previewSteps?: string[]; // human-readable preview of what will happen
     stepsRun?: number;

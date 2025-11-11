@@ -8,10 +8,10 @@ List Runs
 - GET `/runs?page=1&pageSize=25&status=running&status=succeeded&q=Demo&sortBy=createdAt&sortDir=desc`
 - Response:
   {
-    "items": [ { "id": "...", "title": "...", "status": "running", "createdAt": "...", "createdBy": {"id":1, "name":"...", "avatar": null}, "kind": "action", "source": "api", "stepCount": 2, "approvals": {"required": false}, "undo": {"available": false}, "lastEventAt": "...", "tags": [] } ],
-    "page": 1,
-    "pageSize": 25,
-    "total": 123
+  "items": [ { "id": "...", "title": "...", "status": "running", "createdAt": "...", "createdBy": {"id":1, "name":"...", "avatar": null}, "kind": "action", "source": "api", "stepCount": 2, "approvals": {"required": false}, "undo": {"available": false}, "lastEventAt": "...", "tags": [] } ],
+  "page": 1,
+  "pageSize": 25,
+  "total": 123
   }
 
 Get Run
@@ -35,4 +35,3 @@ RBAC (baseline)
 - viewer: list, view detail, stream
 - operator: + approve, cancel, undo
 - admin: + policy edits (out of scope here)
-

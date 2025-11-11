@@ -20,9 +20,16 @@ export function TemplateCard({ t, onPrefill }: { t: Template; onPrefill: (text: 
           )}
         </div>
       </div>
-      <p className="text-xs sm:text-sm text-muted-foreground line-clamp-3 mb-2 sm:mb-3">{t.sample_text}</p>
+      <p className="text-xs sm:text-sm text-muted-foreground line-clamp-3 mb-2 sm:mb-3">
+        {t.sample_text}
+      </p>
       <div className="mt-auto pt-2 sm:pt-3 flex gap-2">
-        <Button variant="outline" size="sm" onClick={() => onPrefill(t.sample_text)} className="text-xs sm:text-sm">
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() => onPrefill(t.sample_text)}
+          className="text-xs sm:text-sm"
+        >
           Try this
         </Button>
       </div>

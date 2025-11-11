@@ -7,6 +7,7 @@ Successfully refactored Quikday's prompt system from monolithic mega-prompts to 
 ## What Changed
 
 ### Before
+
 - **Single mega-prompt** in `extractGoal.ts` (~180 lines of inline prompt text)
 - All rules, examples, and domain logic mixed together
 - Hard to test, version, or modify
@@ -14,6 +15,7 @@ Successfully refactored Quikday's prompt system from monolithic mega-prompts to 
 - No way to compose different rule combinations
 
 ### After
+
 - **Modular prompt components** organized by purpose and versioned
 - **Runtime compiler** that assembles only needed pieces
 - **Code-based guardrails** for validation
@@ -43,11 +45,11 @@ goal-extraction/
 
 ```typescript
 // packages/agent/guards/validators.ts
-- validateEmail()               // Regex-based email validation
-- validateDateTime()            // ISO 8601 + relative date handling
-- validateDuration()            // Natural language duration parsing
-- filterIntegrationPolicyQuestions()  // Remove redundant questions
-- repairJsonOutput()            // Clean LLM output artifacts
+-validateEmail() - // Regex-based email validation
+  validateDateTime() - // ISO 8601 + relative date handling
+  validateDuration() - // Natural language duration parsing
+  filterIntegrationPolicyQuestions() - // Remove redundant questions
+  repairJsonOutput(); // Clean LLM output artifacts
 ```
 
 ### 3. Evaluation Framework (packages/agent/evaluation/)
@@ -67,21 +69,25 @@ goal-extraction/
 ## Benefits
 
 ### 1. Maintainability
+
 - **Separated concerns**: Core contract vs domain rules vs examples
 - **Versioned components**: Easy to A/B test changes (v1 → v2)
 - **Clear ownership**: Each file has a single responsibility
 
 ### 2. Performance
+
 - **Smaller prompts**: Only include relevant domain rules
 - **Reduced tokens**: 50-70% token savings on single-domain requests
 - **Faster responses**: Less processing time for LLM
 
 ### 3. Quality
+
 - **Schema enforcement**: JSON Schema + Zod prevents format errors
 - **Code validation**: Email/datetime validation in code, not prose
 - **Testable**: Golden utterances enable regression testing
 
 ### 4. Flexibility
+
 - **Dynamic composition**: Include only needed rules per request
 - **Domain detection**: Auto-detect email/calendar/social from input
 - **Easy to extend**: Add new domains without touching core
@@ -89,15 +95,12 @@ goal-extraction/
 ## Usage Example
 
 ```typescript
-import { 
+import {
   compileGoalExtractionPrompt,
   compileGoalUserPrompt,
-  detectDomains 
+  detectDomains,
 } from '@quikday/agent/prompts';
-import { 
-  validateEmail, 
-  filterIntegrationPolicyQuestions 
-} from '@quikday/agent/guards/validators';
+import { validateEmail, filterIntegrationPolicyQuestions } from '@quikday/agent/guards/validators';
 
 // 1. Detect domains from user input
 const domains = detectDomains(userInput);
@@ -129,16 +132,14 @@ let parsed = GoalSchema.parse(JSON.parse(response));
 
 // 6. Apply guardrails
 if (parsed.missing) {
-  parsed.missing = filterIntegrationPolicyQuestions(
-    parsed.missing, 
-    connectedApps
-  );
+  parsed.missing = filterIntegrationPolicyQuestions(parsed.missing, connectedApps);
 }
 ```
 
 ## Migration Status
 
 ### ✅ Completed
+
 - [x] Schema definition with Zod
 - [x] Core contract module (v1)
 - [x] Format rules module (v1)
@@ -155,6 +156,7 @@ if (parsed.missing) {
 - [x] Updated documentation
 
 ### 🚧 TODO (Future Work)
+
 - [ ] Implement runEvaluation() logic
 - [ ] Implement comparePromptVersions() for A/B testing
 - [ ] Add more golden utterances from production logs (target: 50+)
@@ -166,11 +168,13 @@ if (parsed.missing) {
 ## Token Savings
 
 ### Before (Monolithic)
+
 - Email request: ~1,200 tokens (includes all rules)
 - Calendar request: ~1,200 tokens (includes all rules)
 - Multi-domain: ~1,200 tokens (includes all rules)
 
 ### After (Modular)
+
 - Email request: ~650 tokens (email rules only)
 - Calendar request: ~580 tokens (calendar rules only)
 - Multi-domain: ~850 tokens (only 2 relevant domains)
@@ -189,8 +193,9 @@ v1-examples.ts           → v2-examples.ts
 ```
 
 Compiler selects version based on options:
+
 ```typescript
-compileGoalExtractionPrompt({ version: 'v2' })
+compileGoalExtractionPrompt({ version: 'v2' });
 ```
 
 ## Best Practices Applied
@@ -216,6 +221,7 @@ compileGoalExtractionPrompt({ version: 'v2' })
 ## Files Created/Modified
 
 ### Created (13 files)
+
 ```
 packages/agent/prompts/goal-extraction/
 ├── schema.ts
@@ -239,6 +245,7 @@ packages/agent/evaluation/
 ```
 
 ### Modified (3 files)
+
 ```
 packages/agent/nodes/extractGoal.ts    # Now uses modular system
 packages/agent/prompts/index.ts        # Exports new modules
@@ -263,6 +270,7 @@ pnpm tsx packages/agent/examples/modular-prompt-demo.ts
 ```
 
 This demo shows:
+
 - Basic prompt compilation
 - Token savings comparison
 - Domain detection

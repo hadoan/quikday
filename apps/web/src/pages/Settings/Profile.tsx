@@ -109,7 +109,9 @@ export default function ProfileSettingsPage() {
       <div className="max-w-3xl mx-auto px-3 sm:px-4 md:px-6 py-4 sm:py-6 md:py-8">
         <div className="mb-4 sm:mb-6">
           <h1 className="text-xl sm:text-2xl font-semibold">Edit Profile</h1>
-          <p className="text-xs sm:text-sm text-muted-foreground">Manage your personal information.</p>
+          <p className="text-xs sm:text-sm text-muted-foreground">
+            Manage your personal information.
+          </p>
         </div>
 
         <Card className="p-4 sm:p-6">

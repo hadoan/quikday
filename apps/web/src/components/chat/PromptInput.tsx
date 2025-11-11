@@ -110,9 +110,7 @@ export const PromptInput = ({
             Auto
           </button> */}
         </div>
-        <p className="text-xs text-muted-foreground hidden sm:block">
-          Press ⌘+Enter to run
-        </p>
+        <p className="text-xs text-muted-foreground hidden sm:block">Press ⌘+Enter to run</p>
       </div>
 
       {/* Input Area */}
@@ -123,10 +121,14 @@ export const PromptInput = ({
             onChange={(e) => {
               const v = e.target.value;
               setPrompt(v);
-              try { onChangeText?.(v); } catch {}
+              try {
+                onChangeText?.(v);
+              } catch {}
               if (!startedRef.current && v.trim().length > 0) {
                 startedRef.current = true;
-                try { onStartTyping?.(); } catch {}
+                try {
+                  onStartTyping?.();
+                } catch {}
               }
             }}
             onKeyDown={handleKeyDown}

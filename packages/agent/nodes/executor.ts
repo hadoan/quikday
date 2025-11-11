@@ -21,7 +21,10 @@ import { expandStepForArray } from './executor/expand.js';
 import { createQueueHelpers } from './executor/queue.js';
 
 /** Get child results for a base step id: step-02-0, step-02-1, ... (sorted by suffix) */
-function getChildResults(stepResults: Map<string, any>, baseId: string): Array<{ id: string; result: any }> {
+function getChildResults(
+  stepResults: Map<string, any>,
+  baseId: string,
+): Array<{ id: string; result: any }> {
   const prefix = `${baseId}-`;
   const out: Array<{ id: string; result: any }> = [];
   for (const [id, result] of stepResults.entries()) {
@@ -112,7 +115,10 @@ export const executor: Node<RunState, RunEventBus> = async (s, eventBus) => {
       if (blocked) {
         console.log(`[executor] Skipping ${currentStep.id} due to dependency without output`);
         processedStepIds.add(currentStep.id);
-        commits.push({ stepId: currentStep.id, result: { skipped: true, reason: 'dependency_no_output' } });
+        commits.push({
+          stepId: currentStep.id,
+          result: { skipped: true, reason: 'dependency_no_output' },
+        });
         continue;
       }
     } catch {}
@@ -141,7 +147,13 @@ export const executor: Node<RunState, RunEventBus> = async (s, eventBus) => {
     if (containsUnresolved(argsWithAnswers)) {
       const err: any = new Error(`Unresolved placeholders in arguments for ${currentStep.tool}`);
       err.code = 'E_ARGS_UNRESOLVED';
-      events.toolFailed(s, eventBus, currentStep.tool, { code: err.code, message: err.message }, currentStep.id);
+      events.toolFailed(
+        s,
+        eventBus,
+        currentStep.tool,
+        { code: err.code, message: err.message },
+        currentStep.id,
+      );
       (s as any).error = { node: 'executor', message: err.message, code: err.code };
       throw err;
     }
@@ -155,7 +167,9 @@ export const executor: Node<RunState, RunEventBus> = async (s, eventBus) => {
             return [k, undefined];
           }
           if (typeof v === 'string' && v.includes('[*]')) {
-            console.warn(`[executor] Removing field "${k}" with unresolved array placeholder: "${v}"`);
+            console.warn(
+              `[executor] Removing field "${k}" with unresolved array placeholder: "${v}"`,
+            );
             return [k, undefined];
           }
           return [k, v];
@@ -180,7 +194,13 @@ export const executor: Node<RunState, RunEventBus> = async (s, eventBus) => {
         const err: any = new Error(`Invalid args for ${currentStep.tool}`);
         err.code = 'E_ARGS_INVALID';
         err.details = zerr;
-        events.toolFailed(s, eventBus, currentStep.tool, { code: err.code, details: zerr }, currentStep.id);
+        events.toolFailed(
+          s,
+          eventBus,
+          currentStep.tool,
+          { code: err.code, details: zerr },
+          currentStep.id,
+        );
         (s as any).error = { node: 'executor', message: err.message, code: err.code };
         throw err;
       }
@@ -242,13 +262,11 @@ export const executor: Node<RunState, RunEventBus> = async (s, eventBus) => {
     try {
       const result = await withRetry(
         () =>
-          (isChat
-            ? runWithCurrentUser(
-                getCurrentUserCtx(),
-                () => registry.call(currentStep.tool, args, s.ctx),
+          isChat
+            ? runWithCurrentUser(getCurrentUserCtx(), () =>
+                registry.call(currentStep.tool, args, s.ctx),
               )
-            : runStepViaQueue(currentStep.id, currentStep.tool, args)
-          ),
+            : runStepViaQueue(currentStep.id, currentStep.tool, args),
         { retries: 3, baseMs: 500, maxMs: 5_000 },
       );
 
@@ -309,7 +327,9 @@ export const executor: Node<RunState, RunEventBus> = async (s, eventBus) => {
                 .filter(Boolean)
                 .reduce((acc: any, k) => (acc == null ? undefined : acc[k]), prevVars);
             if (expr.startsWith('$step-')) {
-              const err: any = new Error('Step placeholders are not supported in binds. Use $ or $var.*');
+              const err: any = new Error(
+                'Step placeholders are not supported in binds. Use $ or $var.*',
+              );
               err.code = 'E_PLACEHOLDER_UNSUPPORTED';
               throw err;
             }
@@ -372,7 +392,11 @@ export const executor: Node<RunState, RunEventBus> = async (s, eventBus) => {
 
   // Optional: broadcast undo queue if any
   if (undo.length > 0 && (events as any).undoEnqueued) {
-    const undoForEvents: any = undo.map((u) => ({ stepId: u.stepId, tool: u.tool, args: toJson(u.args) }));
+    const undoForEvents: any = undo.map((u) => ({
+      stepId: u.stepId,
+      tool: u.tool,
+      args: toJson(u.args),
+    }));
     (events as any).undoEnqueued(s, eventBus, redactForLog(undoForEvents));
   }
 

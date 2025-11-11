@@ -41,7 +41,7 @@ export default function RunDetailDrawer({ runId, open, onClose }: Props) {
     try {
       const commits: any[] = Array.isArray(parsed?.commits) ? parsed!.commits : [];
       for (const c of commits) {
-        const r = (c && typeof c === 'object') ? (c as any).result : undefined;
+        const r = c && typeof c === 'object' ? (c as any).result : undefined;
         if (!r || typeof r !== 'object') continue;
         // Common summary fields in step results
         add((r as any).summary);
@@ -98,7 +98,7 @@ export default function RunDetailDrawer({ runId, open, onClose }: Props) {
         const res = await fetch(url, { headers });
         if (res.ok) {
           const raw = await res.json();
-          const output = (raw && typeof raw === 'object') ? (raw as any).output : null;
+          const output = raw && typeof raw === 'object' ? (raw as any).output : null;
           if (output && typeof output === 'object') {
             // Normalize to our expected structure (diff, commits, summary)
             const diff = (output as any).diff;
@@ -113,12 +113,18 @@ export default function RunDetailDrawer({ runId, open, onClose }: Props) {
       try {
         socket = ds.connectRunStream(runId, (evt) => {
           setEvents((prev) => [...prev, evt]);
-          if (evt.type === 'step_started' || evt.type === 'step_succeeded' || evt.type === 'step_failed') {
+          if (
+            evt.type === 'step_started' ||
+            evt.type === 'step_succeeded' ||
+            evt.type === 'step_failed'
+          ) {
             // naive refresh
             void ds.getRun(runId).then((d) => setSteps(d.steps));
           }
           if (evt.type === 'run_completed' || evt.type === 'run_status') {
-            setRun((prev) => (prev ? { ...prev, status: (evt.payload?.status as any) || prev.status } : prev));
+            setRun((prev) =>
+              prev ? { ...prev, status: (evt.payload?.status as any) || prev.status } : prev,
+            );
           }
         });
       } catch (e) {
@@ -126,7 +132,9 @@ export default function RunDetailDrawer({ runId, open, onClose }: Props) {
       }
     })();
     return () => {
-      try { socket?.close(); } catch {}
+      try {
+        socket?.close();
+      } catch {}
     };
   }, [open, runId]);
 
@@ -146,7 +154,9 @@ export default function RunDetailDrawer({ runId, open, onClose }: Props) {
           ) {
             const d = new Date(value);
             if (!Number.isNaN(d.valueOf())) {
-              try { return formatDateTime(d); } catch {}
+              try {
+                return formatDateTime(d);
+              } catch {}
             }
           }
           if (typeof value === 'object' && value !== null) {
@@ -177,9 +187,17 @@ export default function RunDetailDrawer({ runId, open, onClose }: Props) {
         <div className="flex items-center justify-between p-3 sm:p-4 border-b">
           <div className="flex-1 min-w-0 mr-2">
             <div className="text-xs sm:text-sm text-muted-foreground">Run Detail</div>
-            <div className="text-base sm:text-lg truncate">{run?.prompt || run?.summaryText || runId}</div>
+            <div className="text-base sm:text-lg truncate">
+              {run?.prompt || run?.summaryText || runId}
+            </div>
           </div>
-          <Button variant="ghost" size="icon" onClick={onClose} aria-label="Close" className="flex-shrink-0">
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={onClose}
+            aria-label="Close"
+            className="flex-shrink-0"
+          >
             <X className="h-5 w-5" />
           </Button>
         </div>
@@ -187,9 +205,15 @@ export default function RunDetailDrawer({ runId, open, onClose }: Props) {
         <Tabs defaultValue="overview" className="flex-1 flex flex-col min-h-0">
           <div className="p-2 sm:p-3 border-b overflow-x-auto">
             <TabsList className="w-full sm:w-auto">
-              <TabsTrigger value="overview" className="text-xs sm:text-sm">Overview</TabsTrigger>
-              <TabsTrigger value="steps" className="text-xs sm:text-sm">Steps & Diff</TabsTrigger>
-              <TabsTrigger value="audit" className="text-xs sm:text-sm">Audit</TabsTrigger>
+              <TabsTrigger value="overview" className="text-xs sm:text-sm">
+                Overview
+              </TabsTrigger>
+              <TabsTrigger value="steps" className="text-xs sm:text-sm">
+                Steps & Diff
+              </TabsTrigger>
+              <TabsTrigger value="audit" className="text-xs sm:text-sm">
+                Audit
+              </TabsTrigger>
             </TabsList>
           </div>
           <TabsContent value="overview" className="flex-1 min-h-0">
@@ -197,10 +221,21 @@ export default function RunDetailDrawer({ runId, open, onClose }: Props) {
               <div className="p-3 sm:p-4 space-y-3">
                 {loading && <div className="text-sm text-muted-foreground">Loading…</div>}
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm">
-                  <div><div className="text-muted-foreground">Status</div><div className="font-medium">{run?.status}</div></div>
-                  <div><div className="text-muted-foreground">Created</div><div className="font-medium">{run?.createdAt ? formatDateTime(run.createdAt) : '—'}</div></div>
+                  <div>
+                    <div className="text-muted-foreground">Status</div>
+                    <div className="font-medium">{run?.status}</div>
+                  </div>
+                  <div>
+                    <div className="text-muted-foreground">Created</div>
+                    <div className="font-medium">
+                      {run?.createdAt ? formatDateTime(run.createdAt) : '—'}
+                    </div>
+                  </div>
                   {/* <div><div className="text-muted-foreground">Mode</div><div className="font-medium">{run?.mode || 'auto'}</div></div> */}
-                  <div><div className="text-muted-foreground">ID</div><div className="font-mono text-xs break-all">{runId}</div></div>
+                  <div>
+                    <div className="text-muted-foreground">ID</div>
+                    <div className="font-mono text-xs break-all">{runId}</div>
+                  </div>
                 </div>
                 {summaries.length > 0 && (
                   <div className="text-sm">
@@ -210,7 +245,10 @@ export default function RunDetailDrawer({ runId, open, onClose }: Props) {
                     ) : (
                       <div className="space-y-3">
                         {summaries.map((s, i) => (
-                          <div key={i} className="border-l-2 border-gray-300 dark:border-gray-700 pl-3">
+                          <div
+                            key={i}
+                            className="border-l-2 border-gray-300 dark:border-gray-700 pl-3"
+                          >
                             <MarkdownView content={s} />
                           </div>
                         ))}
@@ -236,11 +274,16 @@ export default function RunDetailDrawer({ runId, open, onClose }: Props) {
           <TabsContent value="steps" className="flex-1 min-h-0">
             <ScrollArea className="h-full">
               <div className="p-4 space-y-2">
-                {steps.length === 0 && <div className="text-sm text-muted-foreground">No steps yet.</div>}
+                {steps.length === 0 && (
+                  <div className="text-sm text-muted-foreground">No steps yet.</div>
+                )}
                 {steps.map((s, i) => (
                   <div key={s.id || i} className="border rounded p-3 space-y-2">
                     <div className="flex items-center justify-between text-sm">
-                      <div className="font-medium">{s.tool}{s.action ? `.${s.action}` : ''}</div>
+                      <div className="font-medium">
+                        {s.tool}
+                        {s.action ? `.${s.action}` : ''}
+                      </div>
                       <div className="text-xs text-muted-foreground">{s.status}</div>
                     </div>
                     {s.appId && (
@@ -260,7 +303,9 @@ export default function RunDetailDrawer({ runId, open, onClose }: Props) {
                       </div>
                     )}
                     {(s.errorMessage || s.errorCode) && (
-                      <div className="text-xs text-destructive mt-1">{s.errorCode}: {s.errorMessage}</div>
+                      <div className="text-xs text-destructive mt-1">
+                        {s.errorCode}: {s.errorMessage}
+                      </div>
                     )}
                   </div>
                 ))}
@@ -272,11 +317,13 @@ export default function RunDetailDrawer({ runId, open, onClose }: Props) {
                         <div key={st.id} className="border rounded p-2 text-sm">
                           <div className="font-medium">{st.tool}</div>
                           {Array.isArray(st.dependsOn) && st.dependsOn.length > 0 && (
-                            <div className="text-xs text-muted-foreground">depends on: {st.dependsOn.join(', ')}</div>
+                            <div className="text-xs text-muted-foreground">
+                              depends on: {st.dependsOn.join(', ')}
+                            </div>
                           )}
                         </div>
                       ))}
-                  </div>
+                    </div>
                   </div>
                 )}
                 {Array.isArray(parsed?.commits) && parsed.commits.length > 0 && (
@@ -290,10 +337,19 @@ export default function RunDetailDrawer({ runId, open, onClose }: Props) {
                             <div className="flex items-center justify-between">
                               <div className="font-medium">{c.stepId}</div>
                               {link && (
-                                <a className="text-xs text-primary underline" href={link} target="_blank" rel="noreferrer">Open</a>
+                                <a
+                                  className="text-xs text-primary underline"
+                                  href={link}
+                                  target="_blank"
+                                  rel="noreferrer"
+                                >
+                                  Open
+                                </a>
                               )}
                             </div>
-                            <pre className="mt-1 whitespace-pre-wrap break-words text-xs">{safeStringify(c.result)}</pre>
+                            <pre className="mt-1 whitespace-pre-wrap break-words text-xs">
+                              {safeStringify(c.result)}
+                            </pre>
                           </div>
                         );
                       })}
@@ -306,7 +362,9 @@ export default function RunDetailDrawer({ runId, open, onClose }: Props) {
           <TabsContent value="audit" className="flex-1 min-h-0">
             <ScrollArea className="h-full">
               <div className="p-4 space-y-2">
-                {events.length === 0 && <div className="text-sm text-muted-foreground">No events yet.</div>}
+                {events.length === 0 && (
+                  <div className="text-sm text-muted-foreground">No events yet.</div>
+                )}
                 {events.slice(-200).map((e, i) => (
                   <div key={`${e.ts}-${i}`} className="border rounded p-2 text-xs">
                     <div className="flex items-center justify-between">
@@ -314,7 +372,9 @@ export default function RunDetailDrawer({ runId, open, onClose }: Props) {
                       <div className="text-muted-foreground">{formatTime(e.ts)}</div>
                     </div>
                     {e.payload && (
-                      <pre className="mt-1 whitespace-pre-wrap break-words">{safeStringify(e.payload)}</pre>
+                      <pre className="mt-1 whitespace-pre-wrap break-words">
+                        {safeStringify(e.payload)}
+                      </pre>
                     )}
                   </div>
                 ))}

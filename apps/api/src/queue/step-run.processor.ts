@@ -21,7 +21,12 @@ export class StepRunProcessor extends WorkerHost {
   async process(job: Job<StepRunJobData>) {
     const { runId, planStepId, tool, args, __ctx } = job.data || ({} as StepRunJobData);
     if (!runId || !planStepId || !tool) {
-      this.logger.error('❌ Invalid step run job payload', { jobId: job.id, runId, planStepId, tool });
+      this.logger.error('❌ Invalid step run job payload', {
+        jobId: job.id,
+        runId,
+        planStepId,
+        tool,
+      });
       throw new Error('Invalid step run job payload');
     }
 
@@ -46,7 +51,12 @@ export class StepRunProcessor extends WorkerHost {
       this.logger.log('✅ Step succeeded', { runId, planStepId, tool, ms });
       return { result, ms };
     } catch (err: any) {
-      this.logger.error('❌ Step failed', { runId, planStepId, tool, error: err?.message ?? String(err) });
+      this.logger.error('❌ Step failed', {
+        runId,
+        planStepId,
+        tool,
+        error: err?.message ?? String(err),
+      });
       throw err;
     }
   }

@@ -29,12 +29,16 @@ export async function resolveGoogleCalendarService(moduleRef: ModuleRef): Promis
       'GoogleCalendarProviderService not found in Nest container. Ensure GoogleCalendarModule is imported into the worker module so DI can provide it.',
     );
   }
-  return (svc as unknown) as CalendarService;
+  return svc as unknown as CalendarService;
 }
 
 export function normalizeAttendees(attendees?: string | string[]) {
   if (Array.isArray(attendees)) return attendees;
-  if (typeof attendees === 'string') return attendees.split(',').map((s) => s.trim()).filter(Boolean);
+  if (typeof attendees === 'string')
+    return attendees
+      .split(',')
+      .map((s) => s.trim())
+      .filter(Boolean);
   return undefined;
 }
 
@@ -50,7 +54,13 @@ export function addDays(d: Date, days: number): Date {
   return new Date(d.getTime() + days * 24 * 60 * 60 * 1000);
 }
 
-export function setTimeWithSameOffset(d: Date, hh: number, mm: number, ss: number, ms: number): Date {
+export function setTimeWithSameOffset(
+  d: Date,
+  hh: number,
+  mm: number,
+  ss: number,
+  ms: number,
+): Date {
   const x = new Date(d);
   x.setHours(hh, mm, ss, ms);
   return x;

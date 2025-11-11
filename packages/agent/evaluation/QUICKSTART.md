@@ -11,12 +11,14 @@
 ## Running Tests
 
 ### Option 1: Using pnpm script (Recommended)
+
 ```bash
 # From project root
 pnpm --filter @quikday/agent test:goals
 ```
 
 ### Option 2: Direct execution
+
 ```bash
 # From project root
 pnpm tsx packages/agent/evaluation/test-goal-generation.ts
@@ -29,6 +31,7 @@ pnpm test:goals
 ## What Gets Tested
 
 The script runs goal extraction on **30 test cases** covering:
+
 - ✉️ Email operations (drafts, follow-ups, filters)
 - 📅 Calendar management (scheduling, conflicts, blocks)
 - 💬 Messaging (Slack threads, DMs, summaries)
@@ -37,6 +40,7 @@ The script runs goal extraction on **30 test cases** covering:
 ## Configuration
 
 **Automatically set:**
+
 - Model: `gpt-4o-mini` (cost-effective, fast)
 - Temperature: 0 (deterministic results)
 - Timezone: `Europe/Berlin`
@@ -88,18 +92,22 @@ Results saved to: packages/agent/evaluation/test-results.json
 ## Understanding Results
 
 ### Success Metrics
+
 - **Pass Rate**: % of tests that successfully extract valid JSON matching schema
 - **Confidence**: Model's certainty (0.0-1.0, higher is better)
 - **Duration**: Time to extract goal (lower is better)
 - **Prompt Length**: Token efficiency (modular system saves 18-50%)
 
 ### Failure Modes
+
 - **Invalid JSON**: Output doesn't parse as JSON
 - **Schema Validation**: JSON doesn't match GoalSchema
 - **API Errors**: OpenAI API issues (rate limits, timeouts)
 
 ### Domain Detection
+
 Tests validate that the system correctly identifies:
+
 - `email`: Email-related tasks
 - `calendar`: Calendar operations
 - `social`: Social media posts
@@ -142,25 +150,33 @@ Results are saved to `packages/agent/evaluation/test-results.json`:
 ## Troubleshooting
 
 ### "OPENAI_API_KEY environment variable is not set"
+
 **Solution**: Add your API key to `.env` file or export it:
+
 ```bash
 export OPENAI_API_KEY=sk-your-key-here
 ```
 
 ### "Cannot find module 'openai'"
+
 **Solution**: Install dependencies:
+
 ```bash
 pnpm install
 ```
 
 ### Rate limit errors
+
 **Solution**: Tests already include 500ms delay. If still hitting limits:
+
 1. Reduce test count temporarily
 2. Increase delay in `test-goal-generation.ts`
 3. Check your OpenAI account rate limits
 
 ### All tests failing with same error
+
 **Solution**: Check:
+
 1. API key is valid and has credits
 2. Network connection is stable
 3. OpenAI API status: https://status.openai.com

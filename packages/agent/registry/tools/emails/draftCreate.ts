@@ -23,10 +23,13 @@ export const EmailDraftCreateOut = z.object({
 export type EmailDraftCreateArgs = z.infer<typeof EmailDraftCreateIn>;
 export type EmailDraftCreateResult = z.infer<typeof EmailDraftCreateOut>;
 
-export function emailDraftCreate(moduleRef: ModuleRef): Tool<EmailDraftCreateArgs, EmailDraftCreateResult> {
+export function emailDraftCreate(
+  moduleRef: ModuleRef,
+): Tool<EmailDraftCreateArgs, EmailDraftCreateResult> {
   return {
     name: 'email.draft.create',
-    description: 'Create an email draft (not sent). Required: to, subject, body. Optional: cc, bcc, html, replyToMessageId (for replies).',
+    description:
+      'Create an email draft (not sent). Required: to, subject, body. Optional: cc, bcc, html, replyToMessageId (for replies).',
     in: EmailDraftCreateIn,
     out: EmailDraftCreateOut,
     apps: ['gmail-email'],
@@ -50,7 +53,12 @@ export function emailDraftCreate(moduleRef: ModuleRef): Tool<EmailDraftCreateArg
         replyToMessageId: parsed.replyToMessageId,
       } as any;
       const res = await svc.createDraft(draft);
-      return EmailDraftCreateOut.parse({ ok: true, draftId: res.draftId, messageId: (res as any).messageId, threadId: res.threadId });
+      return EmailDraftCreateOut.parse({
+        ok: true,
+        draftId: res.draftId,
+        messageId: (res as any).messageId,
+        threadId: res.threadId,
+      });
     },
   };
 }

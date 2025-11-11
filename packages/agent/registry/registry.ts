@@ -82,8 +82,10 @@ export class ToolRegistry {
     if (schema instanceof z.ZodBoolean) return 'boolean';
     if (schema instanceof z.ZodArray) return 'array';
     if (schema instanceof z.ZodObject) return 'object';
-    if (schema instanceof z.ZodOptional) return this.getZodType(schema.unwrap() as z.ZodTypeAny) + '?';
-    if (schema instanceof z.ZodDefault) return this.getZodType(schema._def.innerType as z.ZodTypeAny);
+    if (schema instanceof z.ZodOptional)
+      return this.getZodType(schema.unwrap() as z.ZodTypeAny) + '?';
+    if (schema instanceof z.ZodDefault)
+      return this.getZodType(schema._def.innerType as z.ZodTypeAny);
     if (schema instanceof z.ZodUnion) return 'string|array';
     return 'any';
   }

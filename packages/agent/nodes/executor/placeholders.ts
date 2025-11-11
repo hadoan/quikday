@@ -25,7 +25,9 @@ export function resolvePlaceholders(
 
   if (Array.isArray(args)) {
     return {
-      resolved: args.map((item) => resolvePlaceholders(item, stepResults, vars, each, opts).resolved),
+      resolved: args.map(
+        (item) => resolvePlaceholders(item, stepResults, vars, each, opts).resolved,
+      ),
       needsExpansion: false,
     };
   }
@@ -41,7 +43,11 @@ export function resolvePlaceholders(
       const mVarOnly = str.match(/^\$var\.(.+)$/);
       if (mVarOnly && vars) {
         const v = getByPath(vars, mVarOnly[1]);
-        try { console.log(`[executor] resolvePlaceholders: resolved var for field "${key}" from expr="${value}" → ${previewForLog(v)}`); } catch {}
+        try {
+          console.log(
+            `[executor] resolvePlaceholders: resolved var for field "${key}" from expr="${value}" → ${previewForLog(v)}`,
+          );
+        } catch {}
         resolved[key] = v;
         continue;
       }
@@ -52,7 +58,7 @@ export function resolvePlaceholders(
         const pathStr = mEach[1];
         let v = getByPath((each as any).item, pathStr);
         if (v === undefined && pathStr.endsWith('.address')) {
-          const basePath = pathStr.slice(0, -('.address'.length));
+          const basePath = pathStr.slice(0, -'.address'.length);
           const base = getByPath((each as any).item, basePath);
           if (typeof base === 'string') v = base;
         }
@@ -71,47 +77,70 @@ export function resolvePlaceholders(
         try {
           const d = typeof dt === 'string' || typeof dt === 'number' ? new Date(dt) : dt;
           if (!d || isNaN(d.valueOf())) return String(dt);
-          const options: Intl.DateTimeFormatOptions = { dateStyle: 'medium', timeStyle: 'short', timeZone: tz };
+          const options: Intl.DateTimeFormatOptions = {
+            dateStyle: 'medium',
+            timeStyle: 'short',
+            timeZone: tz,
+          };
           if (withTzName) options.timeZoneName = 'short';
           return new Intl.DateTimeFormat(undefined, options).format(d);
-        } catch { return String(dt); }
+        } catch {
+          return String(dt);
+        }
       };
       const evalExpr = (expr: string): any => {
         expr = expr.trim();
         if (expr.startsWith('$var.') && vars) return getByPath(vars, expr.slice(5));
-        if (expr.startsWith('$each.') && each && 'item' in (each as any)) return getByPath((each as any).item, expr.slice(6));
-        if ((expr.startsWith('"') && expr.endsWith('"')) || (expr.startsWith('\'') && expr.endsWith('\''))) return expr.slice(1, -1);
+        if (expr.startsWith('$each.') && each && 'item' in (each as any))
+          return getByPath((each as any).item, expr.slice(6));
+        if (
+          (expr.startsWith('"') && expr.endsWith('"')) ||
+          (expr.startsWith("'") && expr.endsWith("'"))
+        )
+          return expr.slice(1, -1);
         return expr;
       };
       const tz = opts?.tz;
-      str = str.replace(/\$fmt\.(datetime|range)\(([^)]*)\)/g, (_m, kind: string, inner: string) => {
-        const parts = inner.split(',').map((s) => s.trim()).filter(Boolean);
-        if (kind === 'datetime') {
-          const val = parts[0] ? evalExpr(parts[0]) : undefined;
-          const tzArg = parts[1] ? String(evalExpr(parts[1])) : tz;
-          return fmt(val, tzArg || tz, true);
-        }
-        if (kind === 'range') {
-          const a = parts[0] ? evalExpr(parts[0]) : undefined;
-          const b = parts[1] ? evalExpr(parts[1]) : undefined;
-          const tzArg = parts[2] ? String(evalExpr(parts[2])) : tz;
-          const left = fmt(a, tzArg || tz, true);
-          const right = fmt(b, tzArg || tz, true);
-          return `${left} → ${right}`;
-        }
-        return _m;
-      });
+      str = str.replace(
+        /\$fmt\.(datetime|range)\(([^)]*)\)/g,
+        (_m, kind: string, inner: string) => {
+          const parts = inner
+            .split(',')
+            .map((s) => s.trim())
+            .filter(Boolean);
+          if (kind === 'datetime') {
+            const val = parts[0] ? evalExpr(parts[0]) : undefined;
+            const tzArg = parts[1] ? String(evalExpr(parts[1])) : tz;
+            return fmt(val, tzArg || tz, true);
+          }
+          if (kind === 'range') {
+            const a = parts[0] ? evalExpr(parts[0]) : undefined;
+            const b = parts[1] ? evalExpr(parts[1]) : undefined;
+            const tzArg = parts[2] ? String(evalExpr(parts[2])) : tz;
+            const left = fmt(a, tzArg || tz, true);
+            const right = fmt(b, tzArg || tz, true);
+            return `${left} → ${right}`;
+          }
+          return _m;
+        },
+      );
 
       // $fmt.listRange(arrayExpr, 'startKey', 'endKey', tz?) → numbered bullet list
       str = str.replace(/\$fmt\.listRange\(([^)]*)\)/g, (_m, inner: string) => {
         try {
-          const parts = inner.split(',').map((s) => s.trim()).filter(Boolean);
+          const parts = inner
+            .split(',')
+            .map((s) => s.trim())
+            .filter(Boolean);
           if (parts.length < 3) return _m;
           const arrVal = parts[0] ? evalExpr(parts[0]) : undefined;
           const startKeyRaw = parts[1];
           const endKeyRaw = parts[2];
           const tzArg = parts[3] ? String(evalExpr(parts[3])) : tz;
-          const unquote = (s: string) => (s?.startsWith('"') && s?.endsWith('"')) || (s?.startsWith('\'') && s?.endsWith('\'')) ? s.slice(1, -1) : s;
+          const unquote = (s: string) =>
+            (s?.startsWith('"') && s?.endsWith('"')) || (s?.startsWith("'") && s?.endsWith("'"))
+              ? s.slice(1, -1)
+              : s;
           const startKey = unquote(startKeyRaw);
           const endKey = unquote(endKeyRaw);
           const arr: any[] = Array.isArray(arrVal) ? arrVal : [];
@@ -130,8 +159,14 @@ export function resolvePlaceholders(
               lines.push(`${idx + 1}. ${left} → ${right}`);
               return;
             }
-            const dateOpts: Intl.DateTimeFormatOptions = { dateStyle: 'medium', timeZone: tzArg || tz };
-            const timeOpts: Intl.DateTimeFormatOptions = { timeStyle: 'short', timeZone: tzArg || tz };
+            const dateOpts: Intl.DateTimeFormatOptions = {
+              dateStyle: 'medium',
+              timeZone: tzArg || tz,
+            };
+            const timeOpts: Intl.DateTimeFormatOptions = {
+              timeStyle: 'short',
+              timeZone: tzArg || tz,
+            };
             const datePart = new Intl.DateTimeFormat(undefined, dateOpts).format(startDate);
             const startTime = new Intl.DateTimeFormat(undefined, timeOpts).format(startDate);
             const endTime = new Intl.DateTimeFormat(undefined, timeOpts).format(endDate);
@@ -150,7 +185,11 @@ export function resolvePlaceholders(
           if (v === undefined || v === null) return '';
           if (typeof v === 'string') return v;
           if (typeof v === 'number' || typeof v === 'boolean') return String(v);
-          try { return JSON.stringify(v); } catch { return String(v); }
+          try {
+            return JSON.stringify(v);
+          } catch {
+            return String(v);
+          }
         });
       }
 
