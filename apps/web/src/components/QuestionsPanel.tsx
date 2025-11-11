@@ -410,49 +410,56 @@ export function QuestionsPanel({
               Required Apps
             </p>
           </div>
-          <div className="space-y-2">
-            {stepsNeedingInstall.map((step) => (
+          <div className="space-y-3">
+            {stepsNeedingInstall.map((step, index) => (
               <div
                 key={step.id}
-                className="flex items-center justify-between gap-3 p-3 bg-amber-50 dark:bg-amber-900/10 border border-amber-200 dark:border-amber-800 rounded"
+                className="p-3 bg-amber-50 dark:bg-amber-900/10 border border-amber-200 dark:border-amber-800 rounded space-y-2"
               >
-                <div className="flex-1 min-w-0">
-                  <div className="text-sm font-medium text-foreground truncate">{step.tool}</div>
-                  <div className="text-xs text-muted-foreground">
-                    Connect {step.appId} to continue
+                <div className="flex items-start justify-between gap-3">
+                  <div className="flex-1 min-w-0">
+                    <div className="text-sm font-medium text-foreground">
+                      Step {index + 1}: {step.tool}
+                    </div>
+                    {step.action && (
+                      <div className="text-sm text-foreground mt-1">{step.action}</div>
+                    )}
+                    <div className="text-xs text-muted-foreground mt-1">
+                      Connect {step.appId} to continue
+                    </div>
                   </div>
-                </div>
-                <div className="shrink-0">
-                  <InstallApp
-                    {...getAppInstallProps(step.appId!)}
-                    // When initiating install from the chat run flow, include a
-                    // pending_credential param so the OAuth callback can return
-                    // the user to the chat screen with context about the pending
-                    // credential. We use the appId as the pending identifier here.
-                    returnTo={`${getWebBaseUrl()}/chat}`}
-                    onBeforeInstall={() => {
-                      try {
-                        if (runId) {
-                          const payload = {
-                            runId,
-                            appId: step.appId,
-                            // mirror the query param we add to returnTo so the
-                            // client can reconcile state after redirect
-                            pendingCredential: step.appId,
-                            ts: Date.now(),
-                          };
+                  <div className="shrink-0">
+                    <InstallApp
+                      {...getAppInstallProps(step.appId!)}
+                      // When initiating install from the chat run flow, include a
+                      // pending_credential param so the OAuth callback can return
+                      // the user to the chat screen with context about the pending
+                      // credential. We use the appId as the pending identifier here.
+                      returnTo={`${getWebBaseUrl()}/chat}`}
+                      onBeforeInstall={() => {
+                        try {
+                          if (runId) {
+                            const payload = {
+                              runId,
+                              appId: step.appId,
+                              // mirror the query param we add to returnTo so the
+                              // client can reconcile state after redirect
+                              pendingCredential: step.appId,
+                              ts: Date.now(),
+                            };
+                          }
+                        } catch (e) {
+                          // ignore
                         }
-                      } catch (e) {
-                        // ignore
-                      }
-                    }}
-                    onInstalled={() => {
-                      // OAuth redirect will handle the rest - user will be taken to fresh chat
-                      console.log(
-                        '[QuestionsPanel] App installed, OAuth will redirect to clean chat',
-                      );
-                    }}
-                  />
+                      }}
+                      onInstalled={() => {
+                        // OAuth redirect will handle the rest - user will be taken to fresh chat
+                        console.log(
+                          '[QuestionsPanel] App installed, OAuth will redirect to clean chat',
+                        );
+                      }}
+                    />
+                  </div>
                 </div>
               </div>
             ))}
