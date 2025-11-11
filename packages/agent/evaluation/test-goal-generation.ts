@@ -119,7 +119,7 @@ async function testGoalGeneration(utterance: (typeof GOLDEN_UTTERANCES)[0]): Pro
 
     // Call ChatGPT API
     const response = await openai.chat.completions.create({
-      model: 'gpt-4o-mini',
+      model: process.env.OPENAI_MODEL || 'gpt-4o-mini',
       messages: [
         { role: 'system', content: systemPrompt },
         { role: 'user', content: userPrompt },
@@ -173,7 +173,7 @@ async function runAllTests() {
   console.log();
   console.log(`Total test cases: ${GOLDEN_UTTERANCES.length}`);
   console.log(`Timezone: Europe/Berlin`);
-  console.log(`Model: gpt-4o-mini`);
+  console.log(`Model: ${process.env.OPENAI_MODEL || 'gpt-4o-mini'}`);
   console.log();
 
   if (!process.env.OPENAI_API_KEY) {

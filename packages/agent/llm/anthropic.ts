@@ -2,8 +2,14 @@ import Anthropic from '@anthropic-ai/sdk';
 import type { LLM, LlmCallMetadata } from './types.js';
 import { getLlmContext } from './context.js';
 import { logLlmGeneration } from '../observability/langfuse.js';
+import { loadLLMConfig } from './config.js';
 
-const DEFAULT_MODEL = process.env.ANTHROPIC_MODEL ?? 'claude-3-5-haiku-20241022';
+const getDefaultModel = () => {
+  const config = loadLLMConfig();
+  return config.anthropic?.model || 'claude-3-5-haiku-20241022';
+};
+
+const DEFAULT_MODEL = getDefaultModel();
 
 const formatPrompt = (system?: string, user?: string) => {
   if (system && user) return `System:\n${system}\n\nUser:\n${user}`;

@@ -33,7 +33,6 @@ export class AgentController {
     }
 
     const user = req?.user || {};
-    const userId: string = user?.id || user?.sub || user?.email || 'anonymous';
     const teamId: string | undefined = user?.teamId?.toString?.() || undefined;
 
     // Resolve user from database and get timezone (prefer email, then sub)
@@ -79,7 +78,7 @@ export class AgentController {
       prompt: prompt,
       messages,
       tz,
-      userId,
+      userId: dbUser.id,
       teamId,
       userName: displayName,
       userEmail: email,

@@ -3,8 +3,14 @@ import OpenAI from 'openai';
 import type { LLM, LlmCallMetadata } from './types.js';
 import { getLlmContext } from './context.js';
 import { logLlmGeneration } from '../observability/langfuse.js';
+import { loadLLMConfig } from './config.js';
 
-const DEFAULT_MODEL = process.env.OPENAI_MODEL ?? 'gpt-4o';
+const getDefaultModel = () => {
+  const config = loadLLMConfig();
+  return config.openai?.model || config.azure?.deployment || 'gpt-4o';
+};
+
+const DEFAULT_MODEL = getDefaultModel();
 
 const formatPrompt = (system?: string, user?: string) => {
   if (system && user) return `System:\n${system}\n\nUser:\n${user}`;

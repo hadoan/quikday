@@ -7,6 +7,7 @@ import { z } from 'zod';
 import type { RunEventBus } from '@quikday/libs';
 import { registry } from '../registry/registry.js';
 import type { LLM } from '../llm/types.js';
+import { loadLLMConfig } from '../llm/config.js';
 import { buildPlannerSystemPrompt } from '../prompts/PLANNER_SYSTEM.js';
 import { DEFAULT_ASSISTANT_SYSTEM } from '../prompts/DEFAULT_ASSISTANT_SYSTEM.js';
 import { MISSING_INPUTS_SYSTEM } from '../prompts/MISSING_INPUTS_SYSTEM.js';
@@ -151,6 +152,8 @@ async function planWithLLM(
   user: string,
 ): Promise<string | null> {
   try {
+    const config = loadLLMConfig();
+    
     return await llm.text({
       system,
       user,
@@ -163,8 +166,9 @@ async function planWithLLM(
         runId: s.ctx.runId as any,
         userId: s.ctx.userId as any,
         teamId: (s.ctx.teamId as any) ?? undefined,
-        // Use a stronger model for planning by default; allow env override
-        model: process.env.OPENAI_PLANNER_MODEL || 'gpt-4o',
+        // Provider-agnostic model override for planner (works with OpenAI, Azure, or Anthropic)
+        // Falls back to provider default if not set
+        ...(config.plannerModel && { model: config.plannerModel }),
       },
     });
   } catch {

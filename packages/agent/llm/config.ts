@@ -20,6 +20,8 @@ export interface LLMConfig {
     apiKey: string;
     model: string;
   };
+  // Optional model override for specific use cases (e.g., planner)
+  plannerModel?: string;
 }
 
 /**
@@ -59,6 +61,11 @@ export function loadLLMConfig(): LLMConfig {
     };
   }
 
+  // Load optional planner model override (works for any provider)
+  if (process.env.PLANNER_MODEL) {
+    config.plannerModel = process.env.PLANNER_MODEL;
+  }
+
   return config;
 }
 
@@ -67,12 +74,13 @@ export function loadLLMConfig(): LLMConfig {
  * Priority:
  * 1. LLM_PROVIDER env var (openai, azure, anthropic)
  * 2. USE_AZURE_OPENAI=true → azure-openai (legacy)
- * 3. ANTHROPIC_API_KEY present → anthropic
+ * 3. Auto-detect based on available credentials
  * 4. Default to openai
  */
 export function detectProvider(): LLMProvider {
-  const explicitProvider = process.env.LLM_PROVIDER?.toLowerCase();
+  const explicitProvider = process.env.LLM_PROVIDER?.toLowerCase().trim();
   
+  // Priority 1: Explicit LLM_PROVIDER setting (highest priority)
   if (explicitProvider === 'anthropic' || explicitProvider === 'claude') {
     return 'anthropic';
   }
@@ -85,16 +93,23 @@ export function detectProvider(): LLMProvider {
     return 'openai';
   }
 
-  // Legacy support: USE_AZURE_OPENAI=true
+  // Priority 2: Legacy support: USE_AZURE_OPENAI=true
   if (process.env.USE_AZURE_OPENAI === 'true') {
     return 'azure-openai';
   }
 
-  // Auto-detect based on available credentials
+  // Priority 3: Auto-detect based on available credentials
+  // Prefer Anthropic if only Anthropic key is set
   if (process.env.ANTHROPIC_API_KEY && !process.env.OPENAI_API_KEY) {
     return 'anthropic';
   }
+  
+  // Prefer Azure if Azure credentials are fully configured
+  if (process.env.AZURE_OPENAI_API_KEY && process.env.AZURE_OPENAI_ENDPOINT) {
+    return 'azure-openai';
+  }
 
+  // Priority 4: Default to openai
   return 'openai';
 }
 

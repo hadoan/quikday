@@ -35,6 +35,11 @@ export function createLLM(provider?: LLMProvider, verbose = false): LLM {
   // Validate configuration
   validateLLMConfig(config);
 
+  // Always log which provider is being used (critical for debugging)
+  console.log(`[LLM Factory] Creating LLM with provider: ${effectiveProvider}`);
+  console.log(`[LLM Factory] Config provider detected: ${config.provider}`);
+  console.log(`[LLM Factory] LLM_PROVIDER env: ${process.env.LLM_PROVIDER || '(not set)'}`);
+
   // Log configuration if verbose
   if (verbose) {
     logLLMConfig(config);
@@ -42,10 +47,15 @@ export function createLLM(provider?: LLMProvider, verbose = false): LLM {
 
   switch (effectiveProvider) {
     case 'anthropic':
+      console.log('[LLM Factory] ✅ Using Anthropic Claude');
       return makeAnthropicLLM();
 
     case 'azure-openai':
+      console.log('[LLM Factory] ✅ Using Azure OpenAI');
+      return makeOpenAiLLM();
+      
     case 'openai':
+      console.log('[LLM Factory] ✅ Using OpenAI');
       return makeOpenAiLLM();
 
     default:
