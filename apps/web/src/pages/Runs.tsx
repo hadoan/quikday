@@ -1,8 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
-import { ThemeToggle } from '@/components/theme/ThemeToggle';
-import { UserMenu } from '@/components/layout/UserMenu';
 import { Sidebar } from '@/components/layout/Sidebar';
-import { ToolsPanel } from '@/components/layout/ToolsPanel';
+import AppHeader from '@/components/layout/AppHeader';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import {
@@ -18,21 +16,7 @@ import { mockRuns } from '@/data/mockRuns';
 import { useNavigate } from 'react-router-dom';
 import RunDetailDrawer from '@/components/runs/RunDetailDrawer';
 import { formatDateTime } from '@/lib/datetime/format';
-import { Menu } from 'lucide-react';
 
-const STATUS_OPTIONS = [
-  'queued',
-  'planning',
-  'awaiting_approval',
-  'approved',
-  'running',
-  'succeeded',
-  'failed',
-  'canceled',
-  'undo_pending',
-  'undone',
-  'undo_failed',
-] as const;
 
 export default function RunsPage() {
   const [q, setQ] = useState('');
@@ -58,7 +42,7 @@ export default function RunsPage() {
   });
 
   useEffect(() => {
-    const socket = createRunListSocket((payload) => {
+    const socket = createRunListSocket(() => {
       // Optimistically update row when projection arrives
       // Simple strategy: refetch if the run is in current page
       void refetch();
@@ -98,35 +82,7 @@ export default function RunsPage() {
       />
 
       <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
-        {/* Header */}
-        <header className="border-b border-border bg-card px-3 sm:px-4 md:px-6 lg:px-8 py-3 sm:py-4 flex-shrink-0">
-          <div className="flex items-center gap-2 md:gap-3">
-            {/* Mobile menu button */}
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
-              className="md:hidden h-9 w-9"
-            >
-              <Menu className="h-5 w-5" />
-            </Button>
-
-            <div className="flex-1 min-w-0">
-              <h1 className="text-base sm:text-xl md:text-2xl font-bold text-foreground">
-                All Runs
-              </h1>
-            </div>
-
-            <div className="flex items-center gap-2">
-              <ThemeToggle />
-              <UserMenu
-                onViewProfile={() => {}}
-                onEditProfile={() => navigate('/settings/profile')}
-                onLogout={() => {}}
-              />
-            </div>
-          </div>
-        </header>
+        <AppHeader title="All Runs" onToggleSidebar={() => setIsSidebarCollapsed(!isSidebarCollapsed)} />
 
         {/* Content */}
         <div className="flex-1 overflow-y-auto">

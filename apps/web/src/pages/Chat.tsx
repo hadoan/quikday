@@ -3,7 +3,6 @@ import { PromptInput } from '@/components/chat/PromptInput';
 import { Sidebar } from '@/components/layout/Sidebar';
 import { Loader2 } from 'lucide-react';
 import { useSidebarRuns } from '@/hooks/useSidebarRuns';
-import { useKindeAuth } from '@kinde-oss/kinde-auth-react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { getDataSource, getFeatureFlags } from '@/lib/flags/featureFlags';
 import ChatStream from '@/components/chat/ChatStream';
@@ -17,6 +16,7 @@ import { useChatState } from '@/hooks/useChatState';
 import { useRunActions } from '@/hooks/useRunActions';
 import { useWebSocketEvents } from '@/hooks/useWebSocketEvents';
 import ChatHeader from '@/components/chat/ChatHeader';
+import QuestionsPanel from '@/components/QuestionsPanel';
 
 // Initialize data source at the top to avoid ReferenceError
 const dataSource = getDataSource();
@@ -35,6 +35,8 @@ const Chat = () => {
     setIsSidebarCollapsed,
     questions,
     setQuestions,
+    steps,
+    setSteps,
     isWaitingForResponse,
     setIsWaitingForResponse,
     drawerRunId,
@@ -166,6 +168,62 @@ const Chat = () => {
     }
   }, [location.search, navigate, toast, dataSource]);
 
+  // Handle direct run_id parameter (e.g., /chat?run_id=xxx)
+  useEffect(() => {
+    const sp = new URLSearchParams(location.search);
+    const runIdParam = sp.get('run_id');
+
+    // Only process if we have a run_id and it's not already the active run
+    if (runIdParam && runIdParam !== activeRunId) {
+      console.log('[Chat] Direct run_id parameter detected:', runIdParam);
+
+      // Skip if this is a temporary client-generated ID
+      if (/^R-\d+$/.test(runIdParam)) {
+        console.log('[Chat] Skipping temporary runId:', runIdParam);
+        navigate('/chat', { replace: true });
+        return;
+      }
+
+      (async () => {
+        try {
+          // Fetch the run data
+          const { run, steps: runSteps, events } = await dataSource.getRun(runIdParam);
+
+          // Add to runs array if not already present
+          setRuns((prev) => {
+            const existing = prev.find((r) => r.id === runIdParam);
+            if (existing) {
+              // Update existing run with full data
+              return prev.map((r) => (r.id === runIdParam ? { ...r, ...run } : r));
+            } else {
+              // Add new run
+              return [run, ...prev];
+            }
+          });
+
+          // Store steps data for QuestionsPanel
+          if (Array.isArray(runSteps)) {
+            setSteps(runSteps);
+          }
+
+          // Set as active run
+          setActiveRunId(runIdParam);
+
+          console.log('[Chat] Successfully loaded run:', runIdParam, 'with steps:', runSteps);
+        } catch (error) {
+          console.error('[Chat] Failed to load run from run_id:', error);
+          toast({
+            title: 'Failed to load run',
+            description: 'The requested run could not be found or loaded.',
+            variant: 'destructive',
+          });
+          // Clean up URL on error
+          navigate('/chat', { replace: true });
+        }
+      })();
+    }
+  }, [location.search, activeRunId, dataSource, navigate, toast]);
+
   // Default to the most recent run if none selected,
   // unless a startNew query param is present (which triggers a fresh run).
   useEffect(() => {
@@ -191,16 +249,6 @@ const Chat = () => {
         activeRun.status === 'awaiting_approval' ||
         isWaitingForResponse),
   );
-
-  // Debug log
-  useEffect(() => {
-    console.log('[Index] Navigation blocking state:', {
-      hasActiveWork,
-      status: activeRun?.status,
-      isWaitingForResponse,
-      questionsCount: questions.length,
-    });
-  }, [hasActiveWork, activeRun?.status, isWaitingForResponse, questions.length]);
 
   // Navigation warning dialog when user tries to leave with active work
   const navigationWarningDialog = useNavigationWarning({
@@ -330,24 +378,6 @@ const Chat = () => {
     }
   }, [location.search]);
 
-  const handleViewProfile = () => {
-    console.log('View profile');
-    // Navigate to profile page
-  };
-
-  const handleEditProfile = () => {
-    navigate('/settings/profile');
-  };
-
-  const { logout } = useKindeAuth();
-  const handleLogout = async () => {
-    try {
-      const redirect = `${window.location.origin}/auth/login`;
-      await logout?.(redirect);
-    } catch (err) {
-      console.error('Logout failed', err);
-    }
-  };
 
   const handleSelectRun = (runId: string) => {
     // In Chat screen, clicking a run shows details drawer instead of switching chat
@@ -373,9 +403,6 @@ const Chat = () => {
             isSidebarCollapsed={isSidebarCollapsed}
             onToggleSidebar={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
             onNewTask={handleNewTask}
-            onViewProfile={handleViewProfile}
-            onEditProfile={handleEditProfile}
-            onLogout={handleLogout}
           />
 
           {/* Chat Area */}
@@ -395,7 +422,26 @@ const Chat = () => {
                   <span className="text-sm">Processing your request...</span>
                 </div>
               )}
-              {/** Questions are now rendered inline within ChatStream as a message */}
+              {/** Render QuestionsPanel when awaiting input and run_id is in URL params */}
+              {(() => {
+                const sp = new URLSearchParams(location.search);
+                const hasRunIdParam = sp.has('run_id');
+                const isAwaitingInput = activeRun?.status === 'awaiting_input';
+                const hasQuestions = questions.length > 0;
+
+                return hasRunIdParam && isAwaitingInput && hasQuestions && activeRunId ? (
+                  <QuestionsPanel
+                    runId={activeRunId}
+                    questions={questions}
+                    steps={steps}
+                    onSubmitted={() => {
+                      // Clear questions after submission
+                      setQuestions([]);
+                      // The WebSocket will update the run status
+                    }}
+                  />
+                ) : null;
+              })()}
               <div ref={bottomRef} />
             </div>
           </div>

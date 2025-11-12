@@ -436,6 +436,7 @@ export function QuestionsPanel({
                       // the user to the chat screen with context about the pending
                       // credential. We use the appId as the pending identifier here.
                       returnTo={`${getWebBaseUrl()}/chat}`}
+                      runId={runId}
                       onBeforeInstall={() => {
                         try {
                           if (runId) {
