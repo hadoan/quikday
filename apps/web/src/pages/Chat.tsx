@@ -8,12 +8,10 @@ import { useLocation, useNavigate } from 'react-router-dom';
 import { getDataSource, getFeatureFlags } from '@/lib/flags/featureFlags';
 import ChatStream from '@/components/chat/ChatStream';
 import RunDetailDrawer from '@/components/runs/RunDetailDrawer';
-import { type Question } from '@/components/QuestionsPanel';
 import { createLogger } from '@/lib/utils/logger';
 import { useToast } from '@/hooks/use-toast';
 import type { UiRunSummary } from '@/lib/datasources/DataSource';
 import { trackDataSourceActive } from '@/lib/telemetry/telemetry';
-import api from '@/apis/client';
 import { useNavigationWarning } from '@/hooks/useNavigationWarning';
 import { useChatState } from '@/hooks/useChatState';
 import { useRunActions } from '@/hooks/useRunActions';
@@ -93,7 +91,7 @@ const Chat = () => {
                 : ('running' as const),
         }));
       // Prepend local extras, then server items; de-duplicate by id
-      const combined: typeof server = [] as unknown[];
+      const combined = [] as typeof server;
       const seen = new Set<string>();
       for (const item of [...localExtras, ...server]) {
         if (seen.has(item.id)) continue;

@@ -45,8 +45,9 @@ export async function resolveGmailAuthUrl(params: {
   meta: AppMeta;
   prisma: PrismaService;
   signedState?: string;
+  runId?: string;
 }): Promise<GmailAuthUrlResult> {
-  const { req, meta, signedState, prisma } = params;
+  const { req, meta, signedState, prisma, runId } = params;
 
   let clientId: string | undefined;
   let clientSecret: string | undefined;
@@ -71,7 +72,7 @@ export async function resolveGmailAuthUrl(params: {
     state = signedState;
   } else {
     const userId = req.user?.id || req.user?.sub;
-    state = JSON.stringify({ userId, timestamp: Date.now() });
+    state = JSON.stringify({ userId, timestamp: Date.now(), runId });
     console.warn(
       '⚠️  Using unsigned OAuth state - consider using signed state for better security',
     );

@@ -1,10 +1,15 @@
 import type { AppMeta } from '@quikday/types';
+import { extractOAuthParams, buildRedirectUrl } from '@quikday/appstore';
 
 export default function createApp(meta: AppMeta, _deps: any) {
   return new (class SlackApp {
     constructor(public readonly meta: AppMeta) {}
-    async add(_req: any, res: any) {
-      res.redirect('/integrations/slack-messaging/auth');
+    async add(req: any, res: any) {
+      const params = extractOAuthParams(req);
+      const redirectUrl = buildRedirectUrl('/integrations/slack-messaging/auth', {
+        run_id: params.runId,
+      });
+      res.redirect(redirectUrl);
     }
     async callback(_req: any, res: any) {
       res.redirect(`/apps/automation/${meta.slug}`);

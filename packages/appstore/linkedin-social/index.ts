@@ -1,5 +1,6 @@
 /* NOTE: This file contains structure only. Implement provider logic separately. */
 import type { AppMeta } from '@quikday/types';
+import { extractOAuthParams, buildRedirectUrl } from '@quikday/appstore';
 
 export default function createApp(meta: AppMeta, _deps: any) {
   return new (class MyApp {
@@ -8,7 +9,11 @@ export default function createApp(meta: AppMeta, _deps: any) {
     async add(req: any, res: any) {
       // TODO: build provider auth URL, redirect
       // Use env vars only (no secrets committed). See .env.example
-      res.redirect('/TODO-auth-url');
+      const params = extractOAuthParams(req);
+      const redirectUrl = buildRedirectUrl('/TODO-auth-url', {
+        run_id: params.runId,
+      });
+      res.redirect(redirectUrl);
     }
 
     async callback(req: any, res: any) {

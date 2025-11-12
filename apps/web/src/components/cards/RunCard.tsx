@@ -29,6 +29,9 @@ function formatTime(value?: string): string {
 }
 
 export const RunCard = ({ data, runId }: RunCardProps) => {
+  console.log('-----------------------------------------------------------------');
+  console.log('RunCard data:', data, runId);
+  console.log('-----------------------------------------------------------------');
   const rawStatus = String((data as any).status || '').toLowerCase();
   const status = normalizeStatus(data.status);
   const awaitingQuestions =
@@ -122,7 +125,10 @@ export const RunCard = ({ data, runId }: RunCardProps) => {
   };
 
   // If run is awaiting input, render the input form inline (per UX copy)
-  if (rawStatus === 'awaiting_input' || (awaitingQuestions && awaitingQuestions.length > 0)) {
+  if (rawStatus === 'awaiting_input') {
+    if (!awaitingQuestions || awaitingQuestions.length === 0) {
+      return <></>;
+    }
     const qs = awaitingQuestions as any[];
 
     return (

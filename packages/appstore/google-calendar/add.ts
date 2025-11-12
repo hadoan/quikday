@@ -56,8 +56,9 @@ export async function resolveGoogleCalendarAuthUrl(params: {
   meta: AppMeta;
   signedState?: string; // Optional pre-signed state from API
   prisma?: any; // Optional Prisma service for app key lookup
+  runId?: string;
 }): Promise<GoogleCalendarAuthUrlResult> {
-  const { req, meta, signedState, prisma } = params;
+  const { req, meta, signedState, prisma, runId } = params;
 
   let clientId: string | undefined = undefined;
   let clientSecret: string | undefined = undefined;
@@ -92,6 +93,7 @@ export async function resolveGoogleCalendarAuthUrl(params: {
     state = JSON.stringify({
       userId,
       timestamp: Date.now(),
+      runId,
     });
     console.warn(
       '⚠️  Using unsigned OAuth state - consider using signed state for better security',
