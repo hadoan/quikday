@@ -43,7 +43,6 @@ export default function createApp(meta: AppMeta, deps: any) {
           meta,
           signedState,
           prisma: prisma as any,
-          runId: params.runId,
         });
 
         const acceptsJson =

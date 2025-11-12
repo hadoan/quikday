@@ -16,16 +16,14 @@ export const hideKeysForFrontend = (keys?: Record<string, unknown>) => {
 
 /**
  * Extract OAuth-related parameters from request query
- * Returns common parameters used in OAuth flows (run_id, returnTo, etc.)
+ * Returns common parameters used in OAuth flows (returnTo, etc.)
  */
 export interface OAuthParams {
-  runId?: string;
   returnTo?: string;
 }
 
 export const extractOAuthParams = (req: any): OAuthParams => {
   return {
-    runId: req.query?.run_id as string | undefined,
     returnTo: req.query?.returnTo as string | undefined,
   };
 };
@@ -56,6 +54,5 @@ export const buildOAuthState = (userId: string, params: OAuthParams) => {
     userId,
     timestamp: Date.now(),
     ...(params.returnTo && { returnTo: params.returnTo }),
-    ...(params.runId && { runId: params.runId }),
   };
 };

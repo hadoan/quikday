@@ -11,7 +11,7 @@ export default function createApp(meta: AppMeta, _deps: any) {
       // Use env vars only (no secrets committed). See .env.example
       const params = extractOAuthParams(req);
       const redirectUrl = buildRedirectUrl('/TODO-auth-url', {
-        run_id: params.runId,
+        returnTo: params.returnTo,
       });
       res.redirect(redirectUrl);
     }

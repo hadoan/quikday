@@ -7,7 +7,7 @@ export default function createApp(meta: AppMeta, _deps: any) {
     async add(req: any, res: any) {
       const params = extractOAuthParams(req);
       const redirectUrl = buildRedirectUrl('/integrations/slack-messaging/auth', {
-        run_id: params.runId,
+        returnTo: params.returnTo,
       });
       res.redirect(redirectUrl);
     }

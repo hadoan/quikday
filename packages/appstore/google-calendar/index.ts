@@ -31,7 +31,6 @@ export default function createApp(meta: AppMeta, deps: any) {
           meta,
           signedState,
           prisma,
-          runId: params.runId,
         } as any);
         const acceptsJson =
           (req.headers['accept'] || '').includes('application/json') ||
