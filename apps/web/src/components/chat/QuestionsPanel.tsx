@@ -1,6 +1,13 @@
 import * as React from 'react';
 import { getDataSource } from '@/lib/flags/featureFlags';
 import { continueWithAnswers } from '@/lib/utils/questionHelpers';
+import {
+  TextInput,
+  SelectInput,
+  MultiselectInput,
+  EmailListField,
+} from '@/components/input';
+import { normalizeType, validateField, normalizeAnswerValue } from '@/lib/utils/questionValidation';
 
 export type Question = {
   key: string;
@@ -26,63 +33,24 @@ export type Question = {
 // NOTE: This component implements the UI contract for rendering a set of
 // questions (different control types), local validation, and submission.
 
-function EmailListInput({
-  placeholder,
-  onAdd,
-}: {
-  placeholder?: string;
-  onAdd: (email: string) => void;
-}) {
-  const [text, setText] = React.useState('');
-  const [localErr, setLocalErr] = React.useState<string | null>(null);
-  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-
-  function tryAdd(candidate: string) {
-    const trimmed = candidate.trim();
-    if (!trimmed) return;
-    if (!emailRegex.test(trimmed)) {
-      setLocalErr('Invalid email');
-      return;
-    }
-    onAdd(trimmed);
-    setText('');
-    setLocalErr(null);
-  }
-
-  return (
-    <div>
-      <input
-        className="border rounded px-2 py-1"
-        placeholder={placeholder}
-        value={text}
-        onChange={(e) => setText(e.target.value)}
-        onKeyDown={(e) => {
-          if (e.key === 'Enter' || e.key === ',') {
-            e.preventDefault();
-            tryAdd(text);
-          }
-        }}
-        onBlur={() => {
-          if (text.includes(',')) {
-            text.split(',').forEach((t) => tryAdd(t));
-          } else {
-            tryAdd(text);
-          }
-        }}
-      />
-      {localErr && <div className="text-sm text-destructive mt-1">{localErr}</div>}
-    </div>
-  );
-}
+export type StepInfo = {
+  id: string;
+  tool: string;
+  appId?: string;
+  credentialId?: number | null;
+  action?: string;
+};
 
 export function QuestionsPanel({
   runId,
   questions,
   onSubmitted,
+  steps,
 }: {
   runId: string;
   questions: Question[];
   onSubmitted?: () => void;
+  steps: StepInfo[];
 }) {
   const [answers, setAnswers] = React.useState<Record<string, unknown>>({});
   const [loading, setLoading] = React.useState(false);
@@ -90,6 +58,21 @@ export function QuestionsPanel({
   const [error, setError] = React.useState<string | null>(null);
   const [fieldErrors, setFieldErrors] = React.useState<Record<string, string | null>>({});
 
+  // Filter steps that need credentials installed
+  const stepsNeedingInstall = React.useMemo(() => {
+    if (!Array.isArray(steps)) {
+      console.log('[MissingCredentials] No steps array provided:', steps);
+      return [];
+    }
+    console.log('[MissingCredentials] Checking steps for missing credentials:', steps);
+    const missing = steps.filter(
+      (step) => step.appId && (step.credentialId === null || step.credentialId === undefined),
+    );
+    console.log('[MissingCredentials] Steps needing install:', missing);
+    return missing;
+  }, [steps]);
+
+  const hasMissingCredentials = stepsNeedingInstall.length > 0;
 
   // Source options from backend; no hardcoded defaults
   const getOptionsForQuestion = React.useCallback((q: Question): string[] => {
@@ -120,72 +103,10 @@ export function QuestionsPanel({
     setFieldErrors(initialFieldErrors);
   }, [questions]);
 
-  const normalizeType = (t?: Question['type'] | string): string => {
-    const raw = (t ?? 'text').toString().toLowerCase().trim();
-    const norm = raw.replace(/[-\s]/g, '_');
-    if (norm === 'date_time') return 'datetime';
-    if (norm === 'datetime_local') return 'datetime';
-    return norm;
-  };
-
-  const validateField = React.useCallback((q: Question, value: unknown): string | null => {
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    const required = q.required !== false;
-    const t = normalizeType(q.type);
-    if (required) {
-      if (t === 'multiselect' || t === 'email_list') {
-        if (!Array.isArray(value) || value.length === 0) return 'Required';
-      } else if (t === 'number') {
-        if (value === '' || value === null || value === undefined) return 'Required';
-      } else {
-        if (value === '' || value === null || value === undefined) return 'Required';
-      }
-    }
-
-    if (value === '' || value === null || value === undefined) return null;
-
-    switch (t) {
-      case 'email':
-        return emailRegex.test(String(value)) ? null : 'Invalid email';
-      case 'email_list': {
-        if (!Array.isArray(value)) return 'Invalid value';
-        for (const e of value) {
-          if (!emailRegex.test(String(e))) return `Invalid email: ${e}`;
-        }
-        return null;
-      }
-      case 'datetime': {
-        const d = new Date(String(value));
-        return isNaN(d.getTime()) ? 'Invalid date/time' : null;
-      }
-      case 'date': {
-        const ok = /^\d{4}-\d{2}-\d{2}$/.test(String(value));
-        return ok ? null : 'Invalid date';
-      }
-      case 'time': {
-        const ok = /^([01]\d|2[0-3]):[0-5]\d$/.test(String(value));
-        return ok ? null : 'Invalid time';
-      }
-      case 'number': {
-        const n = Number(value);
-        return Number.isFinite(n) ? null : 'Invalid number';
-      }
-      case 'select': {
-        if (q.options && q.options.length > 0)
-          return q.options.includes(String(value)) ? null : 'Invalid option';
-        return null;
-      }
-      case 'multiselect': {
-        if (!Array.isArray(value)) return 'Invalid value';
-        if (q.options && q.options.length > 0) {
-          for (const v of value) if (!q.options.includes(String(v))) return 'Invalid option';
-        }
-        return null;
-      }
-      default:
-        return null;
-    }
-  }, []);
+  // Don't show questions panel if there are missing credentials
+  if (hasMissingCredentials) {
+    return null;
+  }
 
   function setFieldValue(key: string, value: unknown, q?: Question) {
     setAnswers((a) => ({ ...a, [key]: value }));
@@ -201,7 +122,7 @@ export function QuestionsPanel({
       if (err) return false;
     }
     return true;
-  }, [questions, answers, validateField]);
+  }, [questions, answers]);
 
   return (
     <form
@@ -231,26 +152,7 @@ export function QuestionsPanel({
           // normalize answers according to type
           const payloadAnswers: Record<string, unknown> = {};
           for (const q of questions) {
-            const t = normalizeType(q.type);
-            const raw = answers[q.key];
-            if (raw === '' || raw === undefined) {
-              payloadAnswers[q.key] = raw;
-              continue;
-            }
-            switch (t) {
-              case 'datetime': {
-                // convert local datetime-local value to ISO
-                // e.g. '2025-10-24T16:00' -> new Date(...) -> ISO
-                const d = new Date(String(raw));
-                payloadAnswers[q.key] = isNaN(d.getTime()) ? raw : d.toISOString();
-                break;
-              }
-              case 'number':
-                payloadAnswers[q.key] = Number(raw);
-                break;
-              default:
-                payloadAnswers[q.key] = raw;
-            }
+            payloadAnswers[q.key] = normalizeAnswerValue(q, answers[q.key]);
           }
 
           // Use centralized continueWithAnswers helper
@@ -296,196 +198,112 @@ export function QuestionsPanel({
           const valueStr = value == null ? '' : String(value);
           const options = getOptionsForQuestion(q);
           return (
-              <div key={q.key} className="flex flex-col gap-1">
-                <label className="text-sm font-medium">
-                  {q.question}{' '}
-                  {required && (
-                    <>
-                      <span aria-hidden className="text-destructive">
-                        *
-                      </span>
-                      <span className="sr-only"> required</span>
-                    </>
-                  )}
-                </label>
-                {q.rationale && <p className="text-xs text-gray-500">{q.rationale}</p>}
-
-                {t === 'textarea' ? (
-                  <textarea
-                    rows={4}
-                    className="border rounded px-2 py-1 disabled:bg-muted disabled:cursor-not-allowed disabled:opacity-75"
-                    placeholder={q.placeholder}
-                    value={valueStr}
-                    onChange={(ev) => setFieldValue(q.key, ev.target.value, q)}
-                    disabled={submitted}
-                    readOnly={submitted}
-                    aria-required={required}
-                  />
-                ) : t === 'email' ? (
-                  <input
-                    type="email"
-                    className="border rounded px-2 py-1 disabled:bg-muted disabled:cursor-not-allowed disabled:opacity-75"
-                    placeholder={q.placeholder}
-                    value={valueStr}
-                    onChange={(ev) => setFieldValue(q.key, ev.target.value, q)}
-                    disabled={submitted}
-                    readOnly={submitted}
-                    aria-required={required}
-                  />
-                ) : t === 'email_list' ? (
-                  <div>
-                    <div className="flex flex-wrap gap-2 mb-1">
-                      {(Array.isArray(value) ? value : []).map((e: string, idx: number) => (
-                        <span
-                          key={`${q.key}-chip-${idx}`}
-                          className="px-2 py-0.5 bg-gray-200 rounded flex items-center gap-2"
-                        >
-                          <span className="text-sm">{e}</span>
-                          {!submitted && (
-                            <button
-                              type="button"
-                              aria-label={`Remove ${e}`}
-                              onClick={() =>
-                                setFieldValue(
-                                  q.key,
-                                  (Array.isArray(value)
-                                    ? value.filter((x: string) => x !== e)
-                                    : []
-                                  ).slice(),
-                                  q,
-                                )
-                              }
-                            >
-                              ×
-                            </button>
-                          )}
-                        </span>
-                      ))}
-                    </div>
-                    {!submitted && (
-                      <EmailListInput
-                        placeholder={q.placeholder}
-                        onAdd={(email) =>
-                          setFieldValue(q.key, [...(Array.isArray(value) ? value : []), email], q)
-                        }
-                      />
-                    )}
-                  </div>
-                ) : t === 'datetime' ? (
-                  <input
-                    type="datetime-local"
-                    className="border rounded px-2 py-1 disabled:bg-muted disabled:cursor-not-allowed disabled:opacity-75"
-                    placeholder={q.placeholder}
-                    value={valueStr}
-                    onChange={(ev) => setFieldValue(q.key, ev.target.value, q)}
-                    disabled={submitted}
-                    readOnly={submitted}
-                    aria-required={required}
-                  />
-                ) : t === 'date' ? (
-                  <input
-                    type="date"
-                    className="border rounded px-2 py-1 disabled:bg-muted disabled:cursor-not-allowed disabled:opacity-75"
-                    value={valueStr}
-                    onChange={(ev) => setFieldValue(q.key, ev.target.value, q)}
-                    disabled={submitted}
-                    readOnly={submitted}
-                    aria-required={required}
-                  />
-                ) : t === 'time' ? (
-                  <input
-                    type="time"
-                    className="border rounded px-2 py-1 disabled:bg-muted disabled:cursor-not-allowed disabled:opacity-75"
-                    value={valueStr}
-                    onChange={(ev) => setFieldValue(q.key, ev.target.value, q)}
-                    disabled={submitted}
-                    readOnly={submitted}
-                    aria-required={required}
-                  />
-                ) : t === 'number' ? (
-                  <input
-                    type="number"
-                    step={1}
-                    className="border rounded px-2 py-1 disabled:bg-muted disabled:cursor-not-allowed disabled:opacity-75"
-                    value={typeof value === 'number' ? value : valueStr}
-                    onChange={(ev) =>
-                      setFieldValue(q.key, ev.target.value === '' ? '' : Number(ev.target.value), q)
-                    }
-                    disabled={submitted}
-                    readOnly={submitted}
-                    aria-required={required}
-                  />
-                ) : t === 'select' ? (
-                  options.length > 0 ? (
-                    <select
-                      className="border rounded px-2 py-1 disabled:bg-muted disabled:cursor-not-allowed disabled:opacity-75"
-                      value={valueStr}
-                      onChange={(ev) => setFieldValue(q.key, ev.target.value, q)}
-                      disabled={submitted}
-                      aria-required={required}
-                    >
-                      <option value="" disabled>
-                        {required ? 'Select… (required)' : 'Select…'}
-                      </option>
-                      {options.map((opt) => (
-                        <option key={opt} value={opt}>
-                          {opt}
-                        </option>
-                      ))}
-                    </select>
-                  ) : (
-                    <input
-                      type="text"
-                      className="border rounded px-2 py-1 disabled:bg-muted disabled:cursor-not-allowed disabled:opacity-75"
-                      placeholder={q.placeholder}
-                      value={valueStr}
-                      onChange={(ev) => setFieldValue(q.key, ev.target.value, q)}
-                      disabled={submitted}
-                      readOnly={submitted}
-                      aria-required={required}
-                    />
-                  )
-                ) : t === 'multiselect' ? (
-                  <div className="flex flex-col gap-1">
-                    {(q.options ?? []).map((opt) => (
-                      <label key={opt} className="inline-flex items-center gap-2">
-                        <input
-                          type="checkbox"
-                          checked={Array.isArray(value) ? (value as string[]).includes(opt) : false}
-                          onChange={(ev) => {
-                            const current = Array.isArray(value) ? [...value] : [];
-                            if (ev.target.checked) current.push(opt);
-                            else {
-                              const idx = current.indexOf(opt);
-                              if (idx >= 0) current.splice(idx, 1);
-                            }
-                            setFieldValue(q.key, current, q);
-                          }}
-                          disabled={submitted}
-                          aria-required={required}
-                        />
-                        <span>{opt}</span>
-                      </label>
-                    ))}
-                  </div>
-                ) : (
-                  // fallback to text
-                  <input
-                    type="text"
-                    className="border rounded px-2 py-1 disabled:bg-muted disabled:cursor-not-allowed disabled:opacity-75"
-                    placeholder={q.placeholder}
-                    value={valueStr}
-                    onChange={(ev) => setFieldValue(q.key, ev.target.value, q)}
-                    disabled={submitted}
-                    readOnly={submitted}
-                    aria-required={required}
-                  />
+            <div key={q.key} className="flex flex-col gap-1">
+              <label className="text-sm font-medium">
+                {q.question}{' '}
+                {required && (
+                  <>
+                    <span aria-hidden className="text-destructive">
+                      *
+                    </span>
+                    <span className="sr-only"> required</span>
+                  </>
                 )}
+              </label>
+              {q.rationale && <p className="text-xs text-gray-500">{q.rationale}</p>}
+
+              {t === 'textarea' ? (
+                <TextInput
+                  type="text"
+                  value={valueStr}
+                  placeholder={q.placeholder}
+                  required={required}
+                  disabled={submitted}
+                  rows={4}
+                  onChange={(val) => setFieldValue(q.key, val, q)}
+                />
+              ) : t === 'email' ? (
+                <TextInput
+                  type="email"
+                  value={valueStr}
+                  placeholder={q.placeholder}
+                  required={required}
+                  disabled={submitted}
+                  onChange={(val) => setFieldValue(q.key, val, q)}
+                />
+              ) : t === 'email_list' ? (
+                <EmailListField
+                  value={Array.isArray(value) ? value : []}
+                  placeholder={q.placeholder}
+                  disabled={submitted}
+                  onChange={(val) => setFieldValue(q.key, val, q)}
+                />
+              ) : t === 'datetime' ? (
+                <TextInput
+                  type="datetime-local"
+                  value={valueStr}
+                  placeholder={q.placeholder}
+                  required={required}
+                  disabled={submitted}
+                  onChange={(val) => setFieldValue(q.key, val, q)}
+                />
+              ) : t === 'date' ? (
+                <TextInput
+                  type="date"
+                  value={valueStr}
+                  required={required}
+                  disabled={submitted}
+                  onChange={(val) => setFieldValue(q.key, val, q)}
+                />
+              ) : t === 'time' ? (
+                <TextInput
+                  type="time"
+                  value={valueStr}
+                  required={required}
+                  disabled={submitted}
+                  onChange={(val) => setFieldValue(q.key, val, q)}
+                />
+              ) : t === 'number' ? (
+                <TextInput
+                  type="number"
+                  value={typeof value === 'number' ? value : valueStr}
+                  required={required}
+                  disabled={submitted}
+                  onChange={(val) => setFieldValue(q.key, val, q)}
+                />
+              ) : t === 'select' ? (
+                <SelectInput
+                  value={valueStr}
+                  options={options}
+                  placeholder={q.placeholder}
+                  required={required}
+                  disabled={submitted}
+                  onChange={(val) => setFieldValue(q.key, val, q)}
+                />
+              ) : t === 'multiselect' ? (
+                <MultiselectInput
+                  value={Array.isArray(value) ? (value as string[]) : []}
+                  options={q.options ?? []}
+                  required={required}
+                  disabled={submitted}
+                  onChange={(val) => setFieldValue(q.key, val, q)}
+                />
+              ) : (
+                // fallback to text
+                <TextInput
+                  type="text"
+                  value={valueStr}
+                  placeholder={q.placeholder}
+                  required={required}
+                  disabled={submitted}
+                  onChange={(val) => setFieldValue(q.key, val, q)}
+                />
+              )}
 
               {err && <div className="text-sm text-destructive mt-1">{err}</div>}
-          </div>
-        );
-      })}
+            </div>
+          );
+        })}
       </div>
 
       {error && <div className="text-sm text-destructive mt-2">{error}</div>}

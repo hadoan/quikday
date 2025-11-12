@@ -42,6 +42,7 @@ export class ApiDataSource implements DataSource {
     { timer: ReturnType<typeof setInterval>; lastStatus?: string; lastStepCount: number }
   >();
   private logger = createLogger('ApiDataSource');
+  private currentRunId: string | null = null;
 
   constructor(config: DataSourceConfig = {}) {
     // Set defaults
@@ -115,6 +116,7 @@ export class ApiDataSource implements DataSource {
     steps: UiPlanStep[];
     events: UiEvent[];
   }> {
+    this.logger.debug('getRun called', { runId, updateCredential: options?.updateCredential });
     let data: BackendRun;
 
     // Use POST /retrieve endpoint if updateCredential is true
@@ -150,6 +152,88 @@ export class ApiDataSource implements DataSource {
   }
 
   // -------------------------------------------------------------------------
+  // Cleanup Methods
+  // -------------------------------------------------------------------------
+
+  /**
+   * Clean up all stale connections except for the specified runId
+   */
+  private cleanupStaleConnections(currentRunId: string): void {
+    this.logger.info('Cleaning up stale connections', { currentRunId });
+
+    // Close and remove all sockets except current
+    const socketsToClose: string[] = [];
+    for (const [id, socket] of this.activeSockets.entries()) {
+      if (id !== currentRunId) {
+        socketsToClose.push(id);
+      }
+    }
+
+    for (const id of socketsToClose) {
+      this.logger.info('Closing stale socket', { runId: id });
+      const socket = this.activeSockets.get(id);
+      if (socket) {
+        try {
+          socket.close();
+        } catch (err) {
+          this.logger.error('Error closing socket', err as Error);
+        }
+        this.activeSockets.delete(id);
+      }
+    }
+
+    // Stop and remove all pollers except current
+    const pollersToStop: string[] = [];
+    for (const [id] of this.activePollers.entries()) {
+      if (id !== currentRunId) {
+        pollersToStop.push(id);
+      }
+    }
+
+    for (const id of pollersToStop) {
+      this.logger.info('Stopping stale poller', { runId: id });
+      const poller = this.activePollers.get(id);
+      if (poller) {
+        try {
+          clearInterval(poller.timer);
+        } catch (err) {
+          this.logger.error('Error clearing interval', err as Error);
+        }
+        this.activePollers.delete(id);
+      }
+    }
+  }
+
+  /**
+   * Clean up connection for a specific runId
+   */
+  private cleanupConnection(runId: string): void {
+    this.logger.info('Cleaning up connection', { runId });
+
+    // Close socket
+    const socket = this.activeSockets.get(runId);
+    if (socket) {
+      try {
+        socket.close();
+      } catch (err) {
+        this.logger.error('Error closing socket', err as Error);
+      }
+      this.activeSockets.delete(runId);
+    }
+
+    // Stop poller
+    const poller = this.activePollers.get(runId);
+    if (poller) {
+      try {
+        clearInterval(poller.timer);
+      } catch (err) {
+        this.logger.error('Error clearing interval', err as Error);
+      }
+      this.activePollers.delete(runId);
+    }
+  }
+
+  // -------------------------------------------------------------------------
   // WebSocket Connection
   // -------------------------------------------------------------------------
   connectRunStream(runId: string, onEvent: (evt: UiEvent) => void): { close: () => void } {
@@ -168,11 +252,21 @@ export class ApiDataSource implements DataSource {
       };
     }
 
-    // Close existing socket for this run if any
-    const existingSocket = this.activeSockets.get(runId);
-    if (existingSocket) {
-      existingSocket.close();
+    // If switching to a different run, close all old connections to prevent stale polling
+    if (this.currentRunId && this.currentRunId !== runId) {
+      this.logger.info('Switching to new run', {
+        oldRunId: this.currentRunId,
+        newRunId: runId,
+      });
+      // Clean up ALL stale connections for other runs
+      this.cleanupStaleConnections(runId);
     }
+
+    // Update current run ID
+    this.currentRunId = runId;
+
+    // Clean up any existing connection for this specific runId before creating new one
+    this.cleanupConnection(runId);
 
     // Resolve auth token for WS
     // Note: Backend WS currently accepts only no token or 'dev'; do not send OIDC tokens.
@@ -213,15 +307,15 @@ export class ApiDataSource implements DataSource {
 
     return {
       close: () => {
+        this.logger.info('Closing stream', { runId });
         // Close WS
-        socket.close();
-        this.activeSockets.delete(runId);
-        // Stop poller if running
-        const poller = this.activePollers.get(runId);
-        if (poller) {
-          clearInterval(poller.timer);
-          this.activePollers.delete(runId);
+        try {
+          socket.close();
+        } catch (err) {
+          this.logger.error('Error closing socket in close()', err as Error);
         }
+        // Clean up this connection
+        this.cleanupConnection(runId);
       },
     };
   }
@@ -433,13 +527,32 @@ export class ApiDataSource implements DataSource {
   }
 
   private async pollRun(runId: string, onEvent: (evt: UiEvent) => void): Promise<void> {
+    // Check if this runId should still be polled
+    const poller = this.activePollers.get(runId);
+    if (!poller) {
+      this.logger.debug('Poller not found, skipping poll', { runId });
+      return;
+    }
+
+    // If this isn't the current run, stop polling it
+    if (this.currentRunId && this.currentRunId !== runId) {
+      this.logger.info('Stopping polling for non-current run', {
+        runId,
+        currentRunId: this.currentRunId,
+      });
+      clearInterval(poller.timer);
+      this.activePollers.delete(runId);
+      return;
+    }
+
     try {
+      this.logger.debug('Polling run', { runId });
       const { run, steps } = await this.getRun(runId);
-      const poller = this.activePollers.get(runId);
-      if (!poller) return;
+      const updatedPoller = this.activePollers.get(runId);
+      if (!updatedPoller) return;
 
       // Emit status change
-      if (run.status && poller.lastStatus !== run.status) {
+      if (run.status && updatedPoller.lastStatus !== run.status) {
         onEvent({
           type:
             run.status === 'succeeded' || run.status === 'completed' || run.status === 'done'
@@ -449,12 +562,12 @@ export class ApiDataSource implements DataSource {
           ts: new Date().toISOString(),
           runId,
         });
-        poller.lastStatus = run.status;
+        updatedPoller.lastStatus = run.status;
       }
 
       // Emit new step entries
       const newCount = steps.length;
-      const prevCount = poller.lastStepCount || 0;
+      const prevCount = updatedPoller.lastStepCount || 0;
       if (newCount > prevCount) {
         for (let i = prevCount; i < newCount; i++) {
           const s = steps[i];
@@ -475,11 +588,12 @@ export class ApiDataSource implements DataSource {
             runId,
           });
         }
-        poller.lastStepCount = newCount;
+        updatedPoller.lastStepCount = newCount;
       }
 
       // Stop polling when terminal
       if (['succeeded', 'failed', 'completed', 'done'].includes(run.status)) {
+        this.logger.info('Run reached terminal status, stopping polling', { runId, status: run.status });
         const p = this.activePollers.get(runId);
         if (p) {
           clearInterval(p.timer);

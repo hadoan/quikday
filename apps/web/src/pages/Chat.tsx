@@ -16,7 +16,6 @@ import { useChatState } from '@/hooks/useChatState';
 import { useRunActions } from '@/hooks/useRunActions';
 import { useWebSocketEvents } from '@/hooks/useWebSocketEvents';
 import ChatHeader from '@/components/chat/ChatHeader';
-import QuestionsPanel from '@/components/chat/QuestionsPanel';
 
 // Initialize data source at the top to avoid ReferenceError
 const dataSource = getDataSource();

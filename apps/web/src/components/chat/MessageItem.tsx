@@ -138,9 +138,25 @@ const MessageItem: React.FC<MessageItemProps> = ({ message: m, runId }) => {
       options: q.options,
     }));
 
+    // Convert steps to the format expected by QuestionsPanel
+    const steps = Array.isArray(qd?.steps)
+      ? qd.steps.map((s) => ({
+          id: s.id || '',
+          tool: s.tool || '',
+          appId: s.appId,
+          credentialId: s.credentialId,
+          action: s.action,
+        }))
+      : [];
+
     return (
       <ChatMessage role="assistant">
-        <QuestionsPanel runId={runId || ''} questions={questions} onSubmitted={() => {}} />
+        <QuestionsPanel
+          runId={runId || ''}
+          questions={questions}
+          onSubmitted={() => {}}
+          steps={steps}
+        />
       </ChatMessage>
     );
   }
