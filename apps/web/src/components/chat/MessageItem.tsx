@@ -25,7 +25,7 @@ import type {
   UiQuestionItem,
   UiAppCredentialsData,
   UiMessage,
-} from '@/lib/datasources/DataSource';
+} from '@/apis/runs';
 
 interface MessageItemProps {
   message: UiMessage;

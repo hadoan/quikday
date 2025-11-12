@@ -2,9 +2,9 @@ import * as React from 'react';
 import { CheckCircle2, Loader2, XCircle } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Progress } from '@/components/ui/progress';
-import type { UiRunData, UiRunStatus, UiStepStatus } from '@/lib/datasources/DataSource';
+import type { UiRunData, UiRunStatus, UiStepStatus } from '@/apis/runs';
 import { getDataSource } from '@/lib/flags/featureFlags';
-import { continueWithAnswers } from '@/lib/utils/questionHelpers';
+import { continueWithAnswers } from '@/apis/runs';
 
 type CanonicalStatus = 'running' | 'success' | 'error';
 

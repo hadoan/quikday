@@ -1,5 +1,5 @@
 import { useState, useRef } from 'react';
-import type { UiRunSummary } from '@/lib/datasources/DataSource';
+import type { UiRunSummary } from '@/apis/runs';
 import { Question } from '@/components/chat/QuestionsPanel';
 import { StepInfo } from '@/components/chat/MissingCredentials';
 

@@ -2,7 +2,7 @@ import { FileText, Copy } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
 import { formatDateTime, formatTime } from '@/lib/datetime/format';
-import type { UiOutputDataPresentation } from '@/lib/datasources/DataSource';
+import type { UiOutputDataPresentation } from '@/apis/runs';
 
 interface OutputCardProps {
   title: string;

@@ -1,6 +1,6 @@
 import * as React from 'react';
 import { getDataSource } from '@/lib/flags/featureFlags';
-import { continueWithAnswers } from '@/lib/utils/questionHelpers';
+import { continueWithAnswers } from '@/apis/runs';
 import {
   TextInput,
   SelectInput,

@@ -5,7 +5,7 @@ import { ToolBadge } from './ToolBadge';
 import InstallApp from '@/components/apps/InstallApp';
 import { getAppInstallProps } from '@/lib/utils/appConfig';
 import { useState } from 'react';
-import type { UiPlanStep } from '@/lib/datasources/DataSource';
+import type { UiPlanStep } from '@/apis/runs';
 import api from '@/apis/client';
 
 export interface PlanData {

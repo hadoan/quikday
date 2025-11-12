@@ -1,6 +1,6 @@
 import * as React from 'react';
 import MessageList from './MessageList';
-import type { UiRunSummary } from '@/lib/datasources/DataSource';
+import type { UiRunSummary } from '@/apis/runs';
 
 export function ChatStream({
   runId,

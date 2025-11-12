@@ -10,7 +10,7 @@ import {
   SelectItem,
   SelectValue,
 } from '@/components/ui/select';
-import { useRunsQuery } from '@/hooks/useRuns';
+import { useRunsQuery } from '@/apis/runs';
 import { createRunListSocket } from '@/lib/ws/RunListSocket';
 import { mockRuns } from '@/data/mockRuns';
 import { useNavigate } from 'react-router-dom';

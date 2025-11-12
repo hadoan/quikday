@@ -9,7 +9,7 @@ import ChatStream from '@/components/chat/ChatStream';
 import RunDetailDrawer from '@/components/runs/RunDetailDrawer';
 import { createLogger } from '@/lib/utils/logger';
 import { useToast } from '@/hooks/use-toast';
-import type { UiRunSummary } from '@/lib/datasources/DataSource';
+import type { UiRunSummary } from '@/apis/runs';
 import { trackDataSourceActive } from '@/lib/telemetry/telemetry';
 import { useNavigationWarning } from '@/hooks/useNavigationWarning';
 import { useChatState } from '@/hooks/useChatState';

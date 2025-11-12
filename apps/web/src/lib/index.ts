@@ -2,25 +2,28 @@
  * Integration Layer Entry Point
  *
  * Import from this file to access the data source layer.
+ * NOTE: Most run-related types and functions have been moved to @/apis/runs
  */
 
-// Main interface and types
+// Main interface and types (re-exported from new location)
 export type {
-  DataSource,
   UiRunSummary,
   UiPlanStep,
   UiEvent,
   UiMessage,
   UiCredential,
   CreateRunParams,
-  DataSourceConfig,
-} from './datasources/DataSource';
+  RunApiConfig as DataSourceConfig,
+} from '@/apis/runs';
+
+// Backward compatibility type alias
+export type { RunApiClient as DataSource } from '@/apis/runs';
 
 // Factory function (use this to get active data source)
 export { getDataSource, getFeatureFlags, toggleDataSource } from './flags/featureFlags';
 
 // Implementations (rarely imported directly)
-export { ApiDataSource } from './datasources/ApiDataSource';
+export { RunApiClient as ApiDataSource } from '@/apis/runs';
 
 // Adapters (for testing)
 export {
@@ -31,8 +34,8 @@ export {
 } from './adapters/backendToViewModel';
 
 // WebSocket (for advanced usage)
-export { createRunSocket } from './ws/RunSocket';
-export type { RunSocket } from './ws/RunSocket';
+export { createRunSocket } from '@/apis/runs';
+export type { RunSocket } from '@/apis/runs';
 
 // Telemetry
 export {

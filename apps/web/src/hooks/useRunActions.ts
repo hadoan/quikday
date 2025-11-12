@@ -1,10 +1,10 @@
 import { useCallback } from 'react';
-import type { UiRunSummary, UiPlanData, UiQuestionsData, UiAppCredentialsData, ApiPlanStep } from '@/lib/datasources/DataSource';
+import type { UiRunSummary, UiPlanData, UiQuestionsData, UiAppCredentialsData, ApiPlanStep } from '@/apis/runs';
 import { getDataSource } from '@/lib/flags/featureFlags';
 import { createLogger } from '@/lib/utils/logger';
 import { trackChatSent } from '@/lib/telemetry/telemetry';
 import { Question } from '@/components/chat/QuestionsPanel';
-import { autoContinue as autoContinueHelper } from '@/lib/utils/questionHelpers';
+import { autoContinue as autoContinueHelper } from '@/apis/runs';
 
 const logger = createLogger('useRunActions');
 const dataSource = getDataSource();
