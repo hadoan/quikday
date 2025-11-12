@@ -61,7 +61,8 @@ export function MissingCredentials({
     <div className="space-y-3 border rounded p-3 sm:p-4 max-w-4xl mx-auto bg-card">
       <h4 className="font-medium">Connect Required Apps</h4>
       <p className="text-sm text-muted-foreground">
-        Please connect the following apps to continue the run. You'll be redirected to authorize each app.
+        Please connect the following apps to continue the run. You'll be redirected to authorize
+        each app.
       </p>
 
       <div className="space-y-3 mt-4">
@@ -79,36 +80,22 @@ export function MissingCredentials({
                   </div>
                 </div>
                 {step.action && (
-                  <div className="text-sm text-muted-foreground mt-1">
-                    Action: {step.action}
-                  </div>
+                  <div className="text-sm text-muted-foreground mt-1">Action: {step.action}</div>
                 )}
-                <div className="text-sm text-muted-foreground mt-1">
-                  Tool: {step.tool}
-                </div>
+                <div className="text-sm text-muted-foreground mt-1">Tool: {step.tool}</div>
               </div>
               <div className="shrink-0">
                 <InstallApp
                   {...getAppInstallProps(step.appId!)}
-                  returnTo={`${getWebBaseUrl()}/chat}`}
+                  returnTo={`${getWebBaseUrl()}/chat?run_id=${runId}`}
                   runId={runId}
                   onBeforeInstall={() => {
-                    try {
-                      if (runId) {
-                        const payload = {
-                          runId,
-                          appId: step.appId,
-                          pendingCredential: step.appId,
-                          ts: Date.now(),
-                        };
-                      }
-                      onBeforeInstall?.(step.appId!);
-                    } catch (e) {
-                      // ignore
-                    }
+                    onBeforeInstall?.(step.appId!);
                   }}
                   onInstalled={() => {
-                    console.log('[MissingCredentials] App installed, OAuth will redirect to clean chat');
+                    console.log(
+                      '[MissingCredentials] App installed, OAuth will redirect to clean chat',
+                    );
                     onInstalled?.(step.appId!);
                   }}
                 />
