@@ -857,6 +857,13 @@ importers:
         version: link:../../tsconfig
 
   packages/appstore/linkedin-social:
+    dependencies:
+      '@quikday/appstore':
+        specifier: workspace:*
+        version: link:..
+      '@quikday/types':
+        specifier: workspace:*
+        version: link:../../types
     devDependencies:
       '@quikday/tsconfig':
         specifier: workspace:*
