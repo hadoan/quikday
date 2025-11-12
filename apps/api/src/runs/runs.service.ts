@@ -844,6 +844,89 @@ export class RunsService {
   }
 
   /**
+   * Update credentialId in chat items of type 'app_credentials' for a given run.
+   * Re-resolves credentials for each step and updates the chat item content.
+   */
+  async updateChatItemCredentials(runId: string): Promise<{ updated: number }> {
+    const userSub = this.current.getCurrentUserSub();
+    if (!userSub) throw new UnauthorizedException('Not authenticated');
+
+    const user = await this.prisma.user.findFirst({ where: { sub: userSub } });
+    if (!user) {
+      throw new UnauthorizedException('User not found in database');
+    }
+
+    // Find all chat items with type 'app_credentials' for this run
+    const chatItems = await this.prisma.chatItem.findMany({
+      where: {
+        runId,
+        type: 'app_credentials',
+      },
+    });
+
+    let totalUpdated = 0;
+
+    for (const item of chatItems) {
+      try {
+        const content = item.content as any;
+        if (!content || !Array.isArray(content.steps)) {
+          continue;
+        }
+
+        let itemUpdated = false;
+        const updatedSteps = await Promise.all(
+          content.steps.map(async (step: any) => {
+            if (step.appId && (step.credentialId === null || step.credentialId === undefined)) {
+              try {
+                const { credentialId } = await this.stepsService.reResolveAppAndCredential(
+                  step.tool,
+                  user.id
+                );
+                if (credentialId) {
+                  itemUpdated = true;
+                  return { ...step, credentialId };
+                }
+              } catch (e) {
+                this.logger.debug('Failed to re-resolve credential for chat item step', {
+                  chatItemId: item.id,
+                  stepTool: step.tool,
+                  err: e,
+                });
+              }
+            }
+            return step;
+          })
+        );
+
+        if (itemUpdated) {
+          await this.prisma.chatItem.update({
+            where: { id: item.id },
+            data: {
+              content: {
+                ...content,
+                steps: updatedSteps,
+              } as any,
+            },
+          });
+          totalUpdated += 1;
+          this.logger.debug('Updated credentials in chat item', {
+            chatItemId: item.id,
+            runId,
+          });
+        }
+      } catch (e) {
+        this.logger.warn('Failed to update chat item credentials', {
+          chatItemId: item.id,
+          err: e,
+        });
+      }
+    }
+
+    this.logger.log(`Updated credentials in ${totalUpdated} chat items for run ${runId}`);
+    return { updated: totalUpdated };
+  }
+
+  /**
    * Persist user-provided answers into run.output.scratch and clear any pause flag.
    */
   async applyUserAnswers(runId: string, answers: Record<string, unknown>) {

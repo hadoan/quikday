@@ -107,14 +107,31 @@ export class ApiDataSource implements DataSource {
   // -------------------------------------------------------------------------
   // Get Run
   // -------------------------------------------------------------------------
-  async getRun(runId: string): Promise<{
+  async getRun(
+    runId: string,
+    options?: { updateCredential?: boolean }
+  ): Promise<{
     run: UiRunSummary;
     steps: UiPlanStep[];
     events: UiEvent[];
   }> {
-    const url = `${this.config.apiBaseUrl}/runs/${runId}`;
-    const response = await this.fetch(url);
-    const data: BackendRun = await response.json();
+    let data: BackendRun;
+
+    // Use POST /retrieve endpoint if updateCredential is true
+    if (options?.updateCredential) {
+      const url = `${this.config.apiBaseUrl}/runs/${runId}/retrieve`;
+      const response = await this.fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ update_credential: true }),
+      });
+      data = await response.json();
+    } else {
+      // Use GET endpoint for standard retrieval
+      const url = `${this.config.apiBaseUrl}/runs/${runId}`;
+      const response = await this.fetch(url);
+      data = await response.json();
+    }
 
     // Adapt backend response to UI view model
     const run = adaptRunBackendToUi(data);

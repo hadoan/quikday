@@ -5,8 +5,6 @@ import { Sidebar } from '@/components/layout/Sidebar';
 import AppHeader from '@/components/layout/AppHeader';
 import { Search } from 'lucide-react';
 import { useSidebarRuns } from '@/hooks/useSidebarRuns';
-import { useNavigate } from 'react-router-dom';
-import api from '@/apis/client';
 import { Input } from '@/components/ui/input';
 import RunDetailDrawer from '@/components/runs/RunDetailDrawer';
 
@@ -117,11 +115,8 @@ const apps: AppListItem[] = [
 const Apps = () => {
   const [activeRunId, setActiveRunId] = useState<string | undefined>(undefined);
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
-  const [isToolsPanelOpen, setIsToolsPanelOpen] = useState(false);
   const { runs: sidebarRuns } = useSidebarRuns(5);
-  const navigate = useNavigate();
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
-  const [category, setCategory] = useState<string>('All');
   const [query, setQuery] = useState('');
 
   // Don't auto-open drawer; open only when user selects a run
@@ -133,22 +128,6 @@ const Apps = () => {
     handle();
     mq.addEventListener('change', handle);
     return () => mq.removeEventListener('change', handle);
-  }, []);
-
-  const categories = useMemo(() => {
-    const counts = new Map<string, number>();
-    apps.forEach((a) => {
-      a.categories.forEach((c) => {
-        counts.set(c, (counts.get(c) ?? 0) + 1);
-      });
-    });
-    // Always ensure All exists and is first
-    const unique = Array.from(counts.keys()).sort((a, b) => {
-      if (a === 'All') return -1;
-      if (b === 'All') return 1;
-      return a.localeCompare(b);
-    });
-    return unique.map((c) => ({ name: c, count: counts.get(c) ?? 0 }));
   }, []);
 
   const filteredApps = useMemo(() => {
@@ -165,33 +144,6 @@ const Apps = () => {
       return matchesCategory && matchesQuery;
     });
   }, [query]);
-
-  // If an app install was initiated from a specific run, refresh that run's steps and return to chat
-  useEffect(() => {
-    const key = 'qd.pendingInstall';
-    let payload: any;
-    try {
-      const raw = localStorage.getItem(key);
-      if (raw) payload = JSON.parse(raw);
-    } catch {
-      payload = undefined;
-    }
-    if (payload && payload.runId) {
-      const runId = String(payload.runId);
-      (async () => {
-        try {
-          await api.post(`/runs/${runId}/refresh-credentials`);
-        } catch (e) {
-          // best-effort
-        } finally {
-          try {
-            localStorage.removeItem(key);
-          } catch {}
-          navigate(`/?runId=${encodeURIComponent(runId)}`);
-        }
-      })();
-    }
-  }, [navigate]);
 
   return (
     <div className="flex h-screen w-full bg-background overflow-hidden">

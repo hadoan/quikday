@@ -106,68 +106,6 @@ const Chat = () => {
     }
   })();
 
-  // Handle OAuth redirect with runId parameter (after app installation)
-  useEffect(() => {
-    const sp = new URLSearchParams(location.search);
-    const runIdParam = sp.get('runId');
-
-    if (runIdParam) {
-      console.log('[Chat] OAuth redirect detected with runId:', runIdParam);
-
-      // Check if there's pending install data in localStorage
-      const pendingStr = localStorage.getItem('qd.pendingInstall');
-      if (pendingStr) {
-        console.log('[Chat] Found pending install data, clearing and starting fresh');
-
-        (async () => {
-          try {
-            // Fetch the original run to get its prompt for prefilling
-            const { run } = await dataSource.getRun(runIdParam);
-            const originalPrompt = run.prompt || '';
-
-            // Clean up localStorage FIRST
-            localStorage.removeItem('qd.pendingInstall');
-
-            // Clear the active run and start fresh
-            setActiveRunId(undefined);
-
-            // Clear runs state to prevent old run from being displayed
-            setRuns([]);
-
-            // Prefill the input with the original prompt
-            if (originalPrompt) {
-              setPrefill(originalPrompt);
-            }
-
-            // Skip auto-selection of sidebar runs
-            skipAutoSelectRef.current = true;
-
-            // Show success toast
-            toast({
-              title: 'App installed successfully',
-              description: 'You can now retry your task with the newly connected app.',
-            });
-
-            // Navigate to clean URL with ONLY startNew flag (remove runId completely)
-            navigate('/chat?startNew=1', { replace: true });
-          } catch (error) {
-            console.warn('[Chat] Failed to fetch run for prefill:', error);
-            localStorage.removeItem('qd.pendingInstall');
-            setActiveRunId(undefined);
-            navigate('/chat', { replace: true });
-            toast({
-              title: 'App installed successfully',
-              description: 'You can now start a new task using this app.',
-            });
-          }
-        })();
-      } else {
-        // No pending install data, just clean up URL
-        navigate('/chat', { replace: true });
-      }
-    }
-  }, [location.search, navigate, toast, dataSource]);
-
   // Handle direct run_id parameter (e.g., /chat?run_id=xxx)
   useEffect(() => {
     const sp = new URLSearchParams(location.search);

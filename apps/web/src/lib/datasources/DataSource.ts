@@ -245,7 +245,10 @@ export interface DataSource {
   // -------------------------------------------------------------------------
   // Run Retrieval (initial load / refresh)
   // -------------------------------------------------------------------------
-  getRun(runId: string): Promise<{
+  getRun(
+    runId: string,
+    options?: { updateCredential?: boolean }
+  ): Promise<{
     run: UiRunSummary;
     steps: UiPlanStep[];
     events: UiEvent[];

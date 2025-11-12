@@ -40,6 +40,10 @@ export interface ConfirmDto {
   approve?: boolean;
 }
 
+export interface RetrieveRunDto {
+  update_credential?: boolean;
+}
+
 @Controller('runs')
 @UseGuards(KindeGuard)
 export class RunsController {
@@ -267,6 +271,29 @@ export class RunsController {
     }
 
     return this.runs.get(id, userId);
+  }
+
+  @Post(':id/retrieve')
+  async retrieve(
+    @Param('id') id: string,
+    @Body() body: RetrieveRunDto,
+    @Req() req: any
+  ) {
+    const claims = req.user || {};
+    const userId = claims.sub;
+
+    if (!userId) {
+      throw new BadRequestException('User ID not found in claims');
+    }
+
+    const run = await this.runs.get(id, userId);
+
+    // If update_credential is true, refresh credentials in chat items
+    if (body.update_credential === true) {
+      await this.runs.updateChatItemCredentials(id);
+    }
+
+    return run;
   }
 
   @Post(':id/refresh-credentials')
