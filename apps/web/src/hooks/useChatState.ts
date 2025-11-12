@@ -1,6 +1,7 @@
 import { useState, useRef } from 'react';
 import type { UiRunSummary } from '@/lib/datasources/DataSource';
-import { Question, StepInfo } from '@/components/QuestionsPanel';
+import { Question } from '@/components/chat/QuestionsPanel';
+import { StepInfo } from '@/components/chat/MissingCredentials';
 
 export interface ChatState {
   runs: UiRunSummary[];

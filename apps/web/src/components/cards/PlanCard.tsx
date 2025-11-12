@@ -26,8 +26,6 @@ interface PlanCardProps {
 export const PlanCard = ({ data, onConfirm, onReject, runId }: PlanCardProps) => {
   const [isApproving, setIsApproving] = useState(false);
   const [isRejecting, setIsRejecting] = useState(false);
-  console.log("aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa");
-  console.log(data.steps)
 
   // Check if any steps are missing credentials
   const stepsNeedingInstall = (data.steps || []).filter(
@@ -117,8 +115,6 @@ export const PlanCard = ({ data, onConfirm, onReject, runId }: PlanCardProps) =>
               </ol>
             </div>
           )}
-
-         
         </div>
       </div>
 

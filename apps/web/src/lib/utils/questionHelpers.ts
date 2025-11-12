@@ -1,4 +1,4 @@
-import { type Question } from '@/components/QuestionsPanel';
+import { type Question } from '@/components/chat/QuestionsPanel';
 
 /**
  * Normalize question type from backend string to QuestionsPanel Question type

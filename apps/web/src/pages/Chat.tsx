@@ -16,7 +16,7 @@ import { useChatState } from '@/hooks/useChatState';
 import { useRunActions } from '@/hooks/useRunActions';
 import { useWebSocketEvents } from '@/hooks/useWebSocketEvents';
 import ChatHeader from '@/components/chat/ChatHeader';
-import QuestionsPanel from '@/components/QuestionsPanel';
+import QuestionsPanel from '@/components/chat/QuestionsPanel';
 
 // Initialize data source at the top to avoid ReferenceError
 const dataSource = getDataSource();
@@ -423,7 +423,7 @@ const Chat = () => {
                 </div>
               )}
               {/** Render QuestionsPanel when awaiting input and run_id is in URL params */}
-              {(() => {
+              {/* {(() => {
                 const sp = new URLSearchParams(location.search);
                 const hasRunIdParam = sp.has('run_id');
                 const isAwaitingInput = activeRun?.status === 'awaiting_input';
@@ -441,7 +441,7 @@ const Chat = () => {
                     }}
                   />
                 ) : null;
-              })()}
+              })()} */}
               <div ref={bottomRef} />
             </div>
           </div>

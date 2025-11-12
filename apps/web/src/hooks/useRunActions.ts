@@ -3,7 +3,7 @@ import type { UiRunSummary, UiPlanData, UiQuestionsData, ApiPlanStep } from '@/l
 import { getDataSource } from '@/lib/flags/featureFlags';
 import { createLogger } from '@/lib/utils/logger';
 import { trackChatSent } from '@/lib/telemetry/telemetry';
-import { Question } from '@/components/QuestionsPanel';
+import { Question } from '@/components/chat/QuestionsPanel';
 
 const logger = createLogger('useRunActions');
 const dataSource = getDataSource();

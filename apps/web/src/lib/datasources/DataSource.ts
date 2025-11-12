@@ -37,7 +37,8 @@ export type UiMessageType =
   | 'config'
   | 'error'
   | 'params'
-  | 'questions';
+  | 'questions'
+  | 'app_credentials';
 
 // ============================================================================
 // Core View Models (mirror current UI props)
@@ -103,7 +104,8 @@ export type UiMessageData =
   | UiConfigData
   | UiQuestionsData
   | UiParamsData
-  | UiErrorData;
+  | UiErrorData
+  | UiAppCredentialsData;
 
 export interface UiPlanData {
   intent: string;
@@ -179,6 +181,11 @@ export interface UiErrorData {
   code: string;
   message: string;
   context?: Record<string, unknown>;
+}
+
+export interface UiAppCredentialsData {
+  runId?: string;
+  steps: UiPlanStep[];
 }
 
 // ============================================================================

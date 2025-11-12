@@ -9,7 +9,8 @@ import { LogCard } from '@/components/cards/LogCard';
 import { OutputCard } from '@/components/cards/OutputCard';
 import { ParamsCard } from '@/components/cards/ParamsCard';
 import { UndoCard } from '@/components/cards/UndoCard';
-import QuestionsPanel from '@/components/QuestionsPanel';
+import QuestionsPanel from '@/components/chat/QuestionsPanel';
+import MissingCredentials from '@/components/chat/MissingCredentials';
 import { useToast } from '@/hooks/use-toast';
 import type {
   UiRunSummary,
@@ -22,6 +23,7 @@ import type {
   UiUndoData,
   UiQuestionsData,
   UiQuestionItem,
+  UiAppCredentialsData,
   UiMessage,
 } from '@/lib/datasources/DataSource';
 
@@ -53,7 +55,6 @@ const MessageItem: React.FC<MessageItemProps> = ({ message: m, runId }) => {
       mode: 'auto' as const,
       steps: steps,
     };
-    const awaitingApproval = pd?.awaitingApproval === true || pd?.mode === 'approval';
     // Approval logic omitted for brevity; can be added as needed
     return (
       <ChatMessage role="assistant">
@@ -83,10 +84,38 @@ const MessageItem: React.FC<MessageItemProps> = ({ message: m, runId }) => {
     );
   }
 
+  if (m.type === 'app_credentials') {
+    const acd = (m.data as UiAppCredentialsData) || ({ steps: [] } as UiAppCredentialsData);
+    const steps = Array.isArray(acd?.steps) ? acd.steps : [];
+
+    // Convert UiPlanStep[] to StepInfo[] (subset of fields needed by MissingCredentials)
+    const stepInfos = steps.map((s) => ({
+      id: s.id,
+      tool: s.tool,
+      appId: s.appId,
+      credentialId: s.credentialId,
+      action: s.action,
+    }));
+
+    return (
+      <ChatMessage role="assistant">
+        <MissingCredentials
+          runId={acd?.runId || runId || ''}
+          steps={stepInfos}
+          onBeforeInstall={(appId) => {
+            console.log('[MessageItem] Starting install for app:', appId);
+          }}
+          onInstalled={(appId) => {
+            console.log('[MessageItem] App installed:', appId);
+          }}
+        />
+      </ChatMessage>
+    );
+  }
+
   if (m.type === 'questions') {
     const qd = (m.data as UiQuestionsData) || ({} as UiQuestionsData);
     const qs: UiQuestionItem[] = Array.isArray(qd?.questions) ? qd.questions : [];
-    const steps = Array.isArray(qd?.steps) ? qd.steps : [];
 
     // Convert UiQuestionItem[] to Question[] for QuestionsPanel
     const questions = qs.map((q) => ({
@@ -109,23 +138,9 @@ const MessageItem: React.FC<MessageItemProps> = ({ message: m, runId }) => {
       options: q.options,
     }));
 
-    // Convert UiPlanStep[] to StepInfo[] (subset of fields)
-    const stepInfos = steps.map((s) => ({
-      id: s.id,
-      tool: s.tool,
-      appId: s.appId,
-      credentialId: s.credentialId,
-      action: s.action,
-    }));
-
     return (
       <ChatMessage role="assistant">
-        <QuestionsPanel
-          runId={runId || ''}
-          questions={questions}
-          steps={stepInfos}
-          onSubmitted={() => {}}
-        />
+        <QuestionsPanel runId={runId || ''} questions={questions} onSubmitted={() => {}} />
       </ChatMessage>
     );
   }
