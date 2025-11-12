@@ -15,6 +15,7 @@ import {
   buildMissingInputsUserPrompt,
   type ToolRequirement,
 } from '../prompts/MISSING_INPUTS_USER_PROMPT.js';
+import { parseRobustJson } from '../guards/validators.js';
 
 /* ------------------ Whitelist & Schemas ------------------ */
 
@@ -513,17 +514,8 @@ async function detectMissingInputsWithLLM(
       },
     });
 
-    // Extract JSON from response
-    const cleaned = extractJsonFromOutput(raw);
-
-    console.log('[detectMissingInputsWithLLM] Raw LLM response:', {
-      rawLength: raw.length,
-      rawPreview: raw.slice(0, 200),
-      cleanedLength: cleaned.length,
-      cleanedPreview: cleaned.slice(0, 200),
-    });
-
-    const parsed = JSON.parse(cleaned);
+    // Extract and parse JSON from response
+    const parsed = parseRobustJson<any>(raw, 'missing-inputs-detection');
 
     console.log('[detectMissingInputsWithLLM] Parsed JSON:', {
       isArray: Array.isArray(parsed),
@@ -664,13 +656,7 @@ export const makePlanner =
 
     if (raw) {
       try {
-        const cleaned = extractJsonFromOutput(raw);
-        console.log('[planner] Cleaned JSON:', {
-          cleanedLength: cleaned.length,
-          cleanedPreview: cleaned.slice(0, 300),
-        });
-
-        const parsed = PlanInSchema.parse(JSON.parse(cleaned));
+        const parsed = PlanInSchema.parse(parseRobustJson(raw, 'planner'));
         console.log('[planner] Parsed plan:', {
           stepsCount: parsed.steps.length,
           steps: parsed.steps,
@@ -811,34 +797,3 @@ export const makePlanner =
     };
   };
 
-// Extract a JSON object if the model wrapped it in ```json fences or extra prose
-function extractJsonFromOutput(output: string): string {
-  let s = (output || '').trim();
-
-  // Remove markdown code fences if present
-  const fence = s.match(/```(?:json)?\s*([\s\S]*?)```/i);
-  if (fence && fence[1]) s = fence[1].trim();
-
-  // Check if it's an array or object
-  const firstBracket = s.indexOf('[');
-  const firstBrace = s.indexOf('{');
-
-  // Determine if we're dealing with an array or object
-  const isArray = firstBracket >= 0 && (firstBrace < 0 || firstBracket < firstBrace);
-
-  if (isArray) {
-    // Extract array
-    const last = s.lastIndexOf(']');
-    if (firstBracket >= 0 && last > firstBracket) {
-      return s.slice(firstBracket, last + 1);
-    }
-  } else {
-    // Extract object
-    const last = s.lastIndexOf('}');
-    if (firstBrace >= 0 && last > firstBrace) {
-      return s.slice(firstBrace, last + 1);
-    }
-  }
-
-  return s;
-}

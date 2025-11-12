@@ -19,6 +19,7 @@ import {
   adaptRunBackendToUi,
   adaptStepsBackendToUi,
   adaptCredentialsBackendToUi,
+  adaptChatItemsToUiMessages,
   buildPlanMessage,
   buildRunMessage,
   buildLogMessage,
@@ -27,6 +28,7 @@ import {
   type BackendRun,
   type BackendStep,
   type BackendCredential,
+  type BackendChatItem,
 } from '../adapters/backendToViewModel';
 import { createRunSocket, type RunSocket } from '../ws/RunSocket';
 import { getAccessTokenProvider } from '@/apis/client';
@@ -485,6 +487,35 @@ export class ApiDataSource implements DataSource {
   }
 
   private buildMessagesFromRun(run: BackendRun, steps: UiPlanStep[]) {
+    // If chat items exist, use them directly (they're the source of truth)
+    const runWithChat = run as BackendRun & { chat?: { items?: BackendChatItem[] } };
+    if (runWithChat.chat?.items && runWithChat.chat.items.length > 0) {
+      this.logger.info('Using saved chat items for messages', {
+        runId: run.id,
+        itemCount: runWithChat.chat.items.length,
+      });
+
+      // Add user prompt first
+      const messages: UiRunSummary['messages'] = [];
+      if (run.prompt) {
+        messages.push({
+          role: 'user',
+          content: run.prompt,
+        });
+      }
+
+      // Convert chat items to messages
+      const chatMessages = adaptChatItemsToUiMessages(runWithChat.chat.items);
+      messages.push(...chatMessages);
+
+      return messages;
+    }
+
+    // Fallback: Build messages programmatically (for runs without saved chat items)
+    this.logger.debug('Building messages programmatically (no saved chat items)', {
+      runId: run.id,
+    });
+
     const messages: UiRunSummary['messages'] = [];
     // Track assistant text we've already included to avoid duplicates
     const seenAssistantTexts = new Set<string>();

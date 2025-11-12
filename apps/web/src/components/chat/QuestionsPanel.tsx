@@ -1,5 +1,6 @@
 import * as React from 'react';
 import { getDataSource } from '@/lib/flags/featureFlags';
+import { continueWithAnswers } from '@/lib/utils/questionHelpers';
 
 export type Question = {
   key: string;
@@ -252,66 +253,9 @@ export function QuestionsPanel({
             }
           }
 
-          // Prefer using the project's ApiDataSource so auth headers (OIDC/Kinde)
-          // are attached automatically. `getDataSource()` will return either
-          // a MockDataSource or ApiDataSource depending on flags.
-          const ds = getDataSource() as unknown;
-          const dsAny = ds as {
-            fetch?: (url: string, opts?: RequestInit) => Promise<Response>;
-            config?: { apiBaseUrl?: string };
-          };
-
-          const hasQuestions = Array.isArray(questions) && questions.length > 0;
-          if (dsAny.fetch && typeof dsAny.fetch === 'function') {
-            const apiBase =
-              dsAny.config?.apiBaseUrl ??
-              (typeof window !== 'undefined'
-                ? `${window.location.protocol}//${window.location.hostname}:3000`
-                : 'http://localhost:3000');
-
-            // Always use continueWithAnswers; send empty answers when none are required
-            const url = `${apiBase}/runs/${runId}/continueWithAnswers`;
-            const body = JSON.stringify({ answers: payloadAnswers || {} });
-
-            const res = await dsAny.fetch(url, {
-              method: 'POST',
-              body,
-            });
-
-            if (!res.ok) {
-              // try to parse body for structured errors
-              const bodyText = await res.text();
-              try {
-                const parsed = JSON.parse(bodyText);
-                if (parsed?.validationErrors) {
-                  setFieldErrors((fe) => ({ ...fe, ...parsed.validationErrors }));
-                }
-                throw new Error(parsed?.message || bodyText || `HTTP ${res.status}`);
-              } catch (e) {
-                throw new Error(bodyText || `HTTP ${res.status}`);
-              }
-            }
-          } else {
-            // Fallback to native fetch — always use continueWithAnswers
-            const url = `/runs/${runId}/continueWithAnswers`;
-            const init: RequestInit = {
-              method: 'POST',
-              headers: { 'content-type': 'application/json' },
-              body: JSON.stringify({ answers: payloadAnswers || {} }),
-            };
-            const res = await fetch(url, init);
-            if (!res.ok) {
-              const txt = await res.text();
-              try {
-                const parsed = JSON.parse(txt);
-                if (parsed?.validationErrors)
-                  setFieldErrors((fe) => ({ ...fe, ...parsed.validationErrors }));
-                throw new Error(parsed?.message || txt || `HTTP ${res.status}`);
-              } catch (e) {
-                throw new Error(txt || `HTTP ${res.status}`);
-              }
-            }
-          }
+          // Use centralized continueWithAnswers helper
+          const ds = getDataSource();
+          await continueWithAnswers(runId, payloadAnswers, ds);
 
           // success
           setFieldErrors({});

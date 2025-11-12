@@ -4,6 +4,7 @@ import { getDataSource } from '@/lib/flags/featureFlags';
 import { createLogger } from '@/lib/utils/logger';
 import { trackChatSent } from '@/lib/telemetry/telemetry';
 import { Question } from '@/components/chat/QuestionsPanel';
+import { autoContinue as autoContinueHelper } from '@/lib/utils/questionHelpers';
 
 const logger = createLogger('useRunActions');
 const dataSource = getDataSource();
@@ -52,33 +53,7 @@ export function useRunActions(params: UseRunActionsParams): UseRunActionsResult 
   // Auto-continue helper: when there are no questions (e.g., only chat.respond),
   // immediately submit empty answers to proceed execution without user click.
   const autoContinue = useCallback(async (runId?: string) => {
-    try {
-      if (!runId) return;
-      const dsAny = dataSource as unknown as {
-        config?: { apiBaseUrl?: string };
-        fetch?: typeof fetch;
-      };
-      const apiBase =
-        dsAny?.config?.apiBaseUrl ??
-        (typeof window !== 'undefined'
-          ? `${window.location.protocol}//${window.location.hostname}:3000`
-          : 'http://localhost:3000');
-      const url = `${apiBase}/runs/${runId}/continueWithAnswers`;
-      const body = JSON.stringify({ answers: {} });
-      const res = await (dsAny?.fetch
-        ? dsAny.fetch(url, { method: 'POST', body })
-        : fetch(url, { method: 'POST', headers: { 'content-type': 'application/json' }, body }));
-      if (!res?.ok) {
-        // Soft-fail; user can still click Continue if needed
-        try {
-          console.warn('[useRunActions] Auto-continue failed:', await res.text());
-        } catch {
-          // Ignore text extraction errors
-        }
-      }
-    } catch (e) {
-      console.warn('[useRunActions] Auto-continue error', e);
-    }
+    await autoContinueHelper(runId, dataSource);
   }, []);
 
   const handleNewPrompt = useCallback(

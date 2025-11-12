@@ -116,6 +116,15 @@ export class RunQueryService {
         steps: true,
         effects: true,
         User: true, // Include user to verify ownership
+        chat: {
+          include: {
+            items: {
+              orderBy: {
+                createdAt: 'asc',
+              },
+            },
+          },
+        },
       },
     });
     if (!run) throw new NotFoundException('Run not found');

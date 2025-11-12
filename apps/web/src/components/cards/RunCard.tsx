@@ -4,6 +4,7 @@ import { cn } from '@/lib/utils';
 import { Progress } from '@/components/ui/progress';
 import type { UiRunData, UiRunStatus, UiStepStatus } from '@/lib/datasources/DataSource';
 import { getDataSource } from '@/lib/flags/featureFlags';
+import { continueWithAnswers } from '@/lib/utils/questionHelpers';
 
 type CanonicalStatus = 'running' | 'success' | 'error';
 
@@ -37,7 +38,6 @@ export const RunCard = ({ data, runId }: RunCardProps) => {
   const awaitingQuestions =
     (data as any).awaitingQuestions || (data as any).awaiting?.questions || [];
 
-  const dsAny = getDataSource() as unknown as { applyAnswers?: Function; confirm?: Function };
   const [answers, setAnswers] = React.useState<Record<string, string>>({});
   const [submitting, setSubmitting] = React.useState(false);
   const [submitted, setSubmitted] = React.useState(false);
@@ -58,26 +58,9 @@ export const RunCard = ({ data, runId }: RunCardProps) => {
     }
     setSubmitting(true);
     try {
-      if (dsAny.applyAnswers && typeof dsAny.applyAnswers === 'function') {
-        await dsAny.applyAnswers(runId, answers);
-      } else {
-        // Fallback to native fetch
-        await fetch(`/runs/${runId}/continueWithAnswers`, {
-          method: 'POST',
-          headers: { 'content-type': 'application/json' },
-          body: JSON.stringify({ answers }),
-        }).then((r) => {
-          if (!r.ok) throw new Error('applyAnswers failed');
-        });
-      }
-
-      if (dsAny.confirm && typeof dsAny.confirm === 'function') {
-        await dsAny.confirm(runId);
-      } else {
-        await fetch(`/runs/${runId}/confirm`, { method: 'POST' }).then((r) => {
-          if (!r.ok) throw new Error('confirm failed');
-        });
-      }
+      // Use centralized continueWithAnswers helper
+      const ds = getDataSource();
+      await continueWithAnswers(runId, answers, ds);
 
       // Mark as submitted to show read-only view
       setSubmitted(true);
