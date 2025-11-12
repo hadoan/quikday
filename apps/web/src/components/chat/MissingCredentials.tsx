@@ -58,27 +58,33 @@ export function MissingCredentials({
   }
 
   return (
-    <div className="space-y-2 pt-2 border-t mt-3">
-      <div className="flex items-center gap-2">
-        <AlertCircle className="h-4 w-4 text-amber-500" />
-        <p className="text-xs font-medium text-amber-600 dark:text-amber-400 uppercase tracking-wide">
-          Required Apps
-        </p>
-      </div>
-      <div className="space-y-3">
+    <div className="space-y-3 border rounded p-3 sm:p-4 max-w-4xl mx-auto bg-card">
+      <h4 className="font-medium">Connect Required Apps</h4>
+      <p className="text-sm text-muted-foreground">
+        Please connect the following apps to continue the run. You'll be redirected to authorize each app.
+      </p>
+
+      <div className="space-y-3 mt-4">
         {stepsNeedingInstall.map((step, index) => (
           <div
             key={step.id}
-            className="p-3 bg-amber-50 dark:bg-amber-900/10 border border-amber-200 dark:border-amber-800 rounded space-y-2"
+            className="p-3 sm:p-4 bg-amber-50 dark:bg-amber-900/10 border border-amber-200 dark:border-amber-800 rounded-lg space-y-2"
           >
             <div className="flex items-start justify-between gap-3">
               <div className="flex-1 min-w-0">
-                <div className="text-sm font-medium text-foreground">
-                  Step {index + 1}: {step.tool}
+                <div className="flex items-center gap-2 mb-1">
+                  <AlertCircle className="h-4 w-4 text-amber-600 dark:text-amber-400 flex-shrink-0" />
+                  <div className="text-sm font-semibold text-foreground">
+                    {step.appId || 'App'} Connection Required
+                  </div>
                 </div>
-                {step.action && <div className="text-sm text-foreground mt-1">{step.action}</div>}
-                <div className="text-xs text-muted-foreground mt-1">
-                  Connect {step.appId} to continue
+                {step.action && (
+                  <div className="text-sm text-muted-foreground mt-1">
+                    Action: {step.action}
+                  </div>
+                )}
+                <div className="text-sm text-muted-foreground mt-1">
+                  Tool: {step.tool}
                 </div>
               </div>
               <div className="shrink-0">

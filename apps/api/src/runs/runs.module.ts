@@ -8,6 +8,12 @@ import { ConfigModule } from '../config/config.module.js';
 import { RunTokenService } from './run-token.service.js';
 import { CurrentUserModule } from '@quikday/libs';
 import { StepsService } from './steps.service.js';
+import { ChatService } from './chat.service.js';
+import { RunEnrichmentService } from './run-enrichment.service.js';
+import { ChatItemOrchestratorService } from './chat-item-orchestrator.service.js';
+import { RunCreationService } from './run-creation.service.js';
+import { RunQueryService } from './run-query.service.js';
+import { RunAuthorizationService } from './run-authorization.service.js';
 
 @Module({
   imports: [
@@ -17,8 +23,18 @@ import { StepsService } from './steps.service.js';
     ConfigModule,
     CurrentUserModule,
   ],
-  providers: [RunsService, RunTokenService, StepsService],
+  providers: [
+    RunsService,
+    RunTokenService,
+    StepsService,
+    ChatService,
+    RunEnrichmentService,
+    ChatItemOrchestratorService,
+    RunCreationService,
+    RunQueryService,
+    RunAuthorizationService,
+  ],
   controllers: [RunsController],
-  exports: [RunsService, StepsService],
+  exports: [RunsService, StepsService, RunEnrichmentService],
 })
 export class RunsModule {}

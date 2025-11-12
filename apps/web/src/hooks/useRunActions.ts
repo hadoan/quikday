@@ -1,5 +1,5 @@
 import { useCallback } from 'react';
-import type { UiRunSummary, UiPlanData, UiQuestionsData, ApiPlanStep } from '@/lib/datasources/DataSource';
+import type { UiRunSummary, UiPlanData, UiQuestionsData, UiAppCredentialsData, ApiPlanStep } from '@/lib/datasources/DataSource';
 import { getDataSource } from '@/lib/flags/featureFlags';
 import { createLogger } from '@/lib/utils/logger';
 import { trackChatSent } from '@/lib/telemetry/telemetry';
@@ -201,7 +201,21 @@ export function useRunActions(params: UseRunActionsParams): UseRunActionsResult 
               });
             }
             const hasMissingCredentials = plan.some((step: ApiPlanStep) => step.appId && (step.credentialId === null || step.credentialId === undefined));
-            // Add missing inputs questions if present only if no missing credentials
+
+            // Add app_credentials message if there are steps with missing credentials
+            if (hasMissingCredentials) {
+              const questionsRunId = runId || activeRunId;
+              newMessages.push({
+                role: 'assistant',
+                type: 'app_credentials',
+                data: {
+                  runId: questionsRunId,
+                  steps,
+                } satisfies UiAppCredentialsData,
+              });
+            }
+
+            // Add missing inputs questions if present
             if (Array.isArray(missing) && missing.length > 0) {
               // Use the backend runId if available to avoid duplicate questions
               // being added later by WebSocket snapshots for the same run.
