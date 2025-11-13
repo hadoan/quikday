@@ -35,6 +35,6 @@ import { RunAuthorizationService } from './run-authorization.service.js';
     RunAuthorizationService,
   ],
   controllers: [RunsController],
-  exports: [RunsService, StepsService, RunEnrichmentService],
+  exports: [RunsService, StepsService, RunEnrichmentService, ChatService],
 })
 export class RunsModule {}

@@ -21,6 +21,7 @@ import { RunEnrichmentService } from './run-enrichment.service.js';
 import { RunCreationService } from './run-creation.service.js';
 import { RunQueryService } from './run-query.service.js';
 import { RunAuthorizationService } from './run-authorization.service.js';
+import { RunStatus } from '@prisma/client';
 import type { Goal, PlanStep, MissingField } from './types.js';
 
 @Injectable()
@@ -253,7 +254,7 @@ export class RunsService {
     userId?: string;
     page?: number;
     pageSize?: number;
-    status?: string[];
+    status?: RunStatus[];
     q?: string;
     sortBy?: 'createdAt' | 'lastEventAt' | 'status' | 'stepCount';
     sortDir?: 'asc' | 'desc';
@@ -267,11 +268,17 @@ export class RunsService {
   async cancel(runId: string) {
     const run = await this.prisma.run.findUnique({ where: { id: runId } });
     if (!run) throw new NotFoundException('Run not found');
-    const allowed = new Set(['planning', 'queued', 'scheduled', 'awaiting_approval', 'approved']);
+    const allowed = new Set<RunStatus>([
+      RunStatus.PLANNING,
+      RunStatus.QUEUED,
+      RunStatus.SCHEDULED,
+      RunStatus.AWAITING_APPROVAL,
+      RunStatus.APPROVED,
+    ]);
     if (!allowed.has(run.status)) {
       throw new BadRequestException('Run not cancelable in current status');
     }
-    await this.prisma.run.update({ where: { id: runId }, data: { status: 'canceled' } });
+    await this.prisma.run.update({ where: { id: runId }, data: { status: RunStatus.CANCELED } });
   }
 
   async enqueue(runId: string, opts: { delayMs?: number; scratch?: Record<string, unknown> } = {}) {
@@ -507,17 +514,17 @@ export class RunsService {
     };
   }
 
-  private initialStatusForMode(mode: string): string {
+  private initialStatusForMode(mode: string): RunStatus {
     switch (mode) {
       case 'preview':
-        return 'planning';
+        return RunStatus.PLANNING;
       case 'approval':
-        return 'awaiting_approval';
+        return RunStatus.AWAITING_APPROVAL;
       case 'scheduled':
-        return 'scheduled';
+        return RunStatus.SCHEDULED;
       case 'auto':
       default:
-        return 'queued';
+        return RunStatus.QUEUED;
     }
   }
 
@@ -593,7 +600,7 @@ export class RunsService {
     return this.queryService.get(id, userSub);
   }
 
-  async updateStatus(id: string, status: string) {
+  async updateStatus(id: string, status: RunStatus) {
     return this.prisma.run.update({ where: { id }, data: { status } });
   }
 
@@ -604,7 +611,7 @@ export class RunsService {
     }
 
     // Verify run is in awaiting_approval state
-    if (run.status !== 'awaiting_approval') {
+    if (run.status !== RunStatus.AWAITING_APPROVAL) {
       throw new BadRequestException(
         `Cannot approve run with status '${run.status}'. Expected 'awaiting_approval'.`
       );
@@ -625,7 +632,7 @@ export class RunsService {
       where: { id: runId },
       data: {
         config: nextConfig,
-        status: 'approved',
+        status: RunStatus.APPROVED,
       },
     });
 
@@ -816,7 +823,7 @@ export class RunsService {
     // to awaiting_input.
     try {
       const run = await this.prisma.run.findUnique({ where: { id: runId } });
-      if (run && run.status === 'pending_apps_install' && missingCredSteps.length === 0) {
+      if (run && run.status === RunStatus.PENDING_APPS_INSTALL && missingCredSteps.length === 0) {
         // Credentials are complete. Check if there are still missing inputs (questions).
         const hasPendingQuestions =
           run.missing && Array.isArray(run.missing) && run.missing.length > 0;
@@ -828,7 +835,7 @@ export class RunsService {
           });
           await this.prisma.run.update({
             where: { id: runId },
-            data: { status: 'awaiting_input' },
+            data: { status: RunStatus.AWAITING_INPUT },
           });
         } else {
           // No questions remaining - auto-resume execution
@@ -1074,7 +1081,7 @@ export class RunsService {
       where: { id: runId },
       data: {
         answers: mergedAnswers as any,
-        status: 'pending', // Ready to execute
+        status: RunStatus.PENDING, // Ready to execute
       },
     });
 
@@ -1124,7 +1131,7 @@ export class RunsService {
     await this.prisma.run.update({
       where: { id: runId },
       data: {
-        status: 'pending',
+        status: RunStatus.PENDING,
         config: {
           ...existingConfig,
           resumeFrom: 'executor', // Signal to processor to resume from executor

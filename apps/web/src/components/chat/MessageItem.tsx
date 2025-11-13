@@ -114,8 +114,12 @@ const MessageItem: React.FC<MessageItemProps> = ({ message: m, runId }) => {
   }
 
   if (m.type === 'questions') {
+    console.log('[MessageItem] Rendering questions panel');
+    console.log('[MessageItem] Questions data:', m);
     const qd = (m.data as UiQuestionsData) || ({} as UiQuestionsData);
     const qs: UiQuestionItem[] = Array.isArray(qd?.questions) ? qd.questions : [];
+  console.log('aaaaaa........................');
+  console.log(m);
 
     // Convert UiQuestionItem[] to Question[] for QuestionsPanel
     const questions = qs.map((q) => ({

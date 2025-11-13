@@ -512,6 +512,12 @@ export function adaptChatItemToUiMessage(chatItem: BackendChatItem): UiMessage {
 
     case 'questions':
       // Questions message: enrich steps if present
+      console.log('[Adapter] Processing questions chat item:', {
+        id: chatItem.id,
+        content: chatItem.content,
+        hasSteps: !!chatItem.content?.steps,
+        questions: chatItem.content?.questions,
+      });
       if (chatItem.content?.steps) {
         message.data = {
           ...chatItem.content,
@@ -520,6 +526,7 @@ export function adaptChatItemToUiMessage(chatItem: BackendChatItem): UiMessage {
       } else {
         message.data = chatItem.content;
       }
+      console.log('[Adapter] Processed questions message.data:', message.data);
       break;
 
     case 'assistant':

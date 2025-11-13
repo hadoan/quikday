@@ -1,6 +1,39 @@
 import { Injectable, Logger, NotFoundException, UnauthorizedException } from '@nestjs/common';
 import { PrismaService } from '@quikday/prisma';
 import { CurrentUserService } from '@quikday/libs';
+import { RunEnrichmentService } from './run-enrichment.service.js';
+import { RunStatus, type Prisma, type Run, type User } from '@prisma/client';
+
+/**
+ * Run with user and step count information
+ */
+type RunWithUserAndCount = Run & {
+  User: User;
+  _count?: { steps: number };
+};
+
+/**
+ * Run list item response
+ */
+interface RunListItem {
+  id: string;
+  title: string;
+  status: RunStatus;
+  createdAt: Date;
+  createdBy: {
+    id: number;
+    name: string;
+    avatar: string | null;
+  };
+  kind: 'action';
+  source: string;
+  stepCount: number;
+  approvals: { required: boolean };
+  undo: { available: boolean };
+  lastEventAt: Date;
+  tags: unknown[];
+}
+
 
 /**
  * RunQueryService handles querying and retrieving runs.
@@ -13,6 +46,7 @@ export class RunQueryService {
   constructor(
     private prisma: PrismaService,
     private readonly current: CurrentUserService,
+    private enrichmentService: RunEnrichmentService,
   ) {}
 
   /**
@@ -22,11 +56,11 @@ export class RunQueryService {
     userId?: string;
     page?: number;
     pageSize?: number;
-    status?: string[];
+    status?: RunStatus[];
     q?: string;
     sortBy?: 'createdAt' | 'lastEventAt' | 'status' | 'stepCount';
     sortDir?: 'asc' | 'desc';
-  }) {
+  }): Promise<{ items: RunListItem[]; page: number; pageSize: number; total: number }> {
     const teamId = this.current.getCurrentTeamId();
     const userSub = params.userId || this.current.getCurrentUserSub();
     if (!userSub) throw new UnauthorizedException('Not authenticated');
@@ -42,7 +76,11 @@ export class RunQueryService {
 
     const page = Math.max(1, Number(params.page ?? 1));
     const pageSize = Math.min(100, Math.max(1, Number(params.pageSize ?? 25)));
-    const where: any = { userId: numericUserId }; // CRITICAL: Filter by userId to prevent cross-user data access
+
+    const where: Prisma.RunWhereInput = {
+      userId: numericUserId,
+    };
+
     if (teamId) where.teamId = Number(teamId);
     if (params.status && params.status.length) where.status = { in: params.status };
     if (params.q && params.q.trim()) {
@@ -51,17 +89,20 @@ export class RunQueryService {
     }
 
     // Sorting
-    let orderBy: any = { createdAt: 'desc' };
-    const dir = (params.sortDir ?? 'desc').toLowerCase() === 'asc' ? 'asc' : 'desc';
+    type SortOrder = 'asc' | 'desc';
+
+    const dir: SortOrder = (params.sortDir ?? 'desc').toLowerCase() === 'asc' ? 'asc' : 'desc';
+
+    let orderBy: Prisma.RunOrderByWithRelationInput = { createdAt: dir };
+
     switch (params.sortBy) {
       case 'status':
         orderBy = { status: dir };
         break;
       case 'stepCount':
-        orderBy = { steps: { _count: dir as any } } as any;
+        orderBy = { steps: { _count: dir } };
         break;
       case 'lastEventAt':
-        // No lastEventAt column; use updatedAt as a proxy
         orderBy = { updatedAt: dir };
         break;
       case 'createdAt':
@@ -79,29 +120,34 @@ export class RunQueryService {
         take: pageSize,
         include: {
           User: true,
-          _count: { select: { steps: true } } as any,
+          _count: { select: { steps: true } },
         },
-      } as any),
+      }),
     ]);
 
-    const items = runs.map((r: any) => ({
-      id: r.id,
-      title: (r.intent as any)?.title || r.prompt?.slice(0, 80) || 'Run',
-      status: r.status,
-      createdAt: r.createdAt,
-      createdBy: {
-        id: r.userId,
-        name: r.User?.displayName || r.User?.email || 'User',
-        avatar: r.User?.avatar || null,
-      },
-      kind: 'action',
-      source: ((r.config as any)?.meta?.source as string) || 'api',
-      stepCount: r._count?.steps ?? 0,
-      approvals: { required: false },
-      undo: { available: false },
-      lastEventAt: r.updatedAt,
-      tags: [],
-    }));
+    const items: RunListItem[] = runs.map((r: RunWithUserAndCount) => {
+      const intentData = (r.intent as { title?: string } | null);
+      const configData = (r.config as { meta?: { source?: string } } | null);
+
+      return {
+        id: r.id,
+        title: intentData?.title || r.prompt?.slice(0, 80) || 'Run',
+        status: r.status,
+        createdAt: r.createdAt,
+        createdBy: {
+          id: r.userId,
+          name: r.User?.displayName || r.User?.email || 'User',
+          avatar: r.User?.avatar || null,
+        },
+        kind: 'action' as const,
+        source: configData?.meta?.source || 'api',
+        stepCount: r._count?.steps ?? 0,
+        approvals: { required: false },
+        undo: { available: false },
+        lastEventAt: r.updatedAt,
+        tags: [],
+      };
+    });
 
     return { items, page, pageSize, total };
   }
@@ -109,13 +155,21 @@ export class RunQueryService {
   /**
    * Get a single run by ID with ownership verification
    */
-  async get(id: string, userSub?: string) {
+  async get(id: string, userSub?: string): Promise<
+    Run & {
+      User: User;
+      steps: any[];
+      effects: any[];
+      chat?: any | null;
+      plan?: any;
+    }
+  > {
     const run = await this.prisma.run.findUnique({
       where: { id },
       include: {
         steps: true,
         effects: true,
-        User: true, // Include user to verify ownership
+        User: true,
         chat: {
           include: {
             items: {
@@ -127,11 +181,13 @@ export class RunQueryService {
         },
       },
     });
-    if (!run) throw new NotFoundException('Run not found');
 
-    // If userSub is provided, verify ownership
+    if (!run) {
+      throw new NotFoundException('Run not found');
+    }
+
+    // Verify ownership if userSub provided
     if (userSub) {
-      // Look up the user by their Kinde sub to get the numeric database ID
       const user = await this.prisma.user.findUnique({ where: { sub: userSub } });
       if (!user) {
         throw new UnauthorizedException(
@@ -139,32 +195,20 @@ export class RunQueryService {
         );
       }
 
-      // Verify the run belongs to this user
       if (run.userId !== user.id) {
-        throw new NotFoundException('Run not found'); // Don't reveal existence to unauthorized users
+        throw new NotFoundException('Run not found');
       }
     }
 
-    // Enrich the plan with credential information from steps
+    // Enrich the plan and steps with credential information
     if (run.plan && Array.isArray(run.plan) && run.steps && run.steps.length > 0) {
-      const enrichedPlan = (run.plan as any[]).map((planStep: any) => {
-        // Find matching step by planStepId or tool name
-        const matchingStep = run.steps.find(
-          (s) => s.planStepId === planStep.id || s.tool === planStep.tool,
-        );
+      const enrichedSteps = await this.enrichmentService.getEnrichedSteps(run.id, run.userId);
+      const enrichedPlan = this.enrichmentService.mapStepsToPlanFormat(
+        enrichedSteps,
+        run.plan as any,
+      );
 
-        if (matchingStep) {
-          return {
-            ...planStep,
-            appId: matchingStep.appId || undefined,
-            credentialId: matchingStep.credentialId || undefined,
-          };
-        }
-
-        return planStep;
-      });
-
-      return { ...run, plan: enrichedPlan };
+      return { ...run, plan: enrichedPlan as any, steps: enrichedSteps as any };
     }
 
     return run;

@@ -223,4 +223,31 @@ export class ChatService {
       },
     });
   }
+
+  /**
+   * Create status chat item for CHANNEL_WEBSOCKET events
+   */
+  async createStatusChatItem(
+    chatId: string,
+    runId: string,
+    userId: number,
+    teamId: number | null,
+    eventType: string,
+    payload: any
+  ) {
+    return this.prisma.chatItem.create({
+      data: {
+        chatId,
+        type: 'status',
+        role: 'system',
+        content: {
+          eventType,
+          payload,
+        } as any,
+        runId,
+        userId,
+        teamId,
+      },
+    });
+  }
 }

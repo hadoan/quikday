@@ -33,7 +33,7 @@ export function ChatStream({
     }
     return out;
   }, [messages]);
-
+console.log('Deduped messages:', messages, dedupedMessages);
   return <MessageList runId={runId} messages={dedupedMessages} />;
 }
 

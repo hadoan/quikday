@@ -10,7 +10,7 @@
     pnpm seed      # runs this script via ts-node
 */
 
-import { PrismaClient } from '@prisma/client';
+import { PrismaClient, RunStatus } from '@prisma/client';
 import { templateData } from './template-data';
 
 const prisma = new PrismaClient();
@@ -104,18 +104,18 @@ async function main() {
   const existingRuns = await prisma.run.count();
   if (existingRuns === 0) {
     console.log('🧪 Seeding sample runs...');
-    const statuses = [
-      'queued',
-      'planning',
-      'awaiting_approval',
-      'approved',
-      'running',
-      'succeeded',
-      'failed',
-      'canceled',
-      'undo_pending',
-      'undone',
-      'undo_failed',
+    const statuses: RunStatus[] = [
+      RunStatus.QUEUED,
+      RunStatus.PLANNING,
+      RunStatus.AWAITING_APPROVAL,
+      RunStatus.APPROVED,
+      RunStatus.RUNNING,
+      RunStatus.SUCCEEDED,
+      RunStatus.FAILED,
+      RunStatus.CANCELED,
+      RunStatus.UNDO_PENDING,
+      RunStatus.UNDONE,
+      RunStatus.UNDO_FAILED,
     ];
     const toCreate = Array.from({ length: 12 }).map((_, i) => ({
       prompt: `Sample run #${i + 1}`,

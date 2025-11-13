@@ -58,6 +58,8 @@ export function QuestionsPanel({
   const [error, setError] = React.useState<string | null>(null);
   const [fieldErrors, setFieldErrors] = React.useState<Record<string, string | null>>({});
 
+  console.log('steps........................');
+  console.log(steps);
   // Filter steps that need credentials installed
   const stepsNeedingInstall = React.useMemo(() => {
     if (!Array.isArray(steps)) {
@@ -105,6 +107,7 @@ export function QuestionsPanel({
 
   // Don't show questions panel if there are missing credentials
   if (hasMissingCredentials) {
+    console.log('[QuestionsPanel] Skipping questions panel due to missing credentials');
     return null;
   }
 

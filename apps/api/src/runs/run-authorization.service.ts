@@ -2,6 +2,7 @@ import { Injectable, Logger, ForbiddenException, UnauthorizedException } from '@
 import { PrismaService } from '@quikday/prisma';
 import { getTeamPolicy, type TeamPolicy } from '@quikday/agent/guards/policy';
 import { CurrentUserService } from '@quikday/libs';
+import { RunStatus } from '@prisma/client';
 import type { ChatMessage } from '@quikday/agent/state/types';
 
 /**
@@ -228,17 +229,17 @@ export class RunAuthorizationService {
   /**
    * Helper: Get initial status based on mode
    */
-  initialStatusForMode(mode: string): string {
+  initialStatusForMode(mode: string): RunStatus {
     switch (mode) {
       case 'preview':
-        return 'planning';
+        return RunStatus.PLANNING;
       case 'approval':
-        return 'awaiting_approval';
+        return RunStatus.AWAITING_APPROVAL;
       case 'scheduled':
-        return 'scheduled';
+        return RunStatus.SCHEDULED;
       case 'auto':
       default:
-        return 'queued';
+        return RunStatus.QUEUED;
     }
   }
 

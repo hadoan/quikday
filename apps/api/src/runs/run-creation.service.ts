@@ -6,6 +6,7 @@ import { TelemetryService } from '../telemetry/telemetry.service.js';
 import { StepsService } from './steps.service.js';
 import { ChatItemOrchestratorService } from './chat-item-orchestrator.service.js';
 import { RunAuthorizationService } from './run-authorization.service.js';
+import { RunStatus } from '@prisma/client';
 import type { CreateRunDto } from './runs.controller.js';
 import type { Goal, PlanStep, MissingField } from './types.js';
 
@@ -215,7 +216,8 @@ export class RunCreationService {
     const { prompt, userId, teamId, tz, goal, plan, missing } = data;
 
     // Determine status based on whether there are missing inputs
-    const status = missing && missing.length > 0 ? 'awaiting_input' : 'planning';
+    const status =
+      missing && missing.length > 0 ? RunStatus.AWAITING_INPUT : RunStatus.PLANNING;
 
     this.logger.log('💾 Creating plan run', {
       userId,
