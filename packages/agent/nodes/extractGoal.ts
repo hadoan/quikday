@@ -7,7 +7,7 @@ import {
   compileGoalUserPrompt,
   detectDomains,
 } from '../prompts/goal-extraction/compiler.js';
-import { repairJsonOutput } from '../guards/validators.js';
+import { parseRobustJson } from '../guards/validators.js';
 
 /**
  * Goal extraction node factory
@@ -71,9 +71,8 @@ export const makeExtractGoal = (llm: LLM): Node<RunState> => {
         timeoutMs: 12_000,
       });
 
-      // Repair and extract JSON safely
-      const json = repairJsonOutput(raw);
-      const parsed = GoalSchema.parse(JSON.parse(json));
+      // Parse and validate JSON safely
+      const parsed = GoalSchema.parse(parseRobustJson(raw, 'goal-extraction'));
 
       console.log('[extractGoal] LLM returned:', JSON.stringify(parsed, null, 2));
 

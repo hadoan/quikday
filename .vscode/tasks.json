@@ -37,12 +37,16 @@
       "command": "pnpm dev:web",
       "isBackground": true,
       "problemMatcher": {
-        "owner": "custom",
-        "pattern": [{ "regexp": "." }],
+        "pattern": {
+          "regexp": "^\\s*ERROR",
+          "file": 1,
+          "location": 2,
+          "message": 3
+        },
         "background": {
           "activeOnStart": true,
-          "beginsPattern": ".*",
-          "endsPattern": "Local:\\s+http://localhost:8000"
+          "beginsPattern": "VITE.*ready|vite",
+          "endsPattern": "Local:.*localhost:8000|Network:"
         }
       },
       "presentation": {

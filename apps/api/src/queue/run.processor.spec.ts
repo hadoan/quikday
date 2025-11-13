@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import type { Job } from 'bullmq';
 import { RunProcessor } from './run.processor.js';
+import { RunStatus } from '@prisma/client';
 
 const graphRunMock = vi.fn();
 
@@ -110,8 +111,8 @@ describe('RunProcessor.process', () => {
     await processor.process(job);
 
     expect(runsService.get).toHaveBeenCalledWith('run-123');
-    expect(runsService.updateStatus).toHaveBeenNthCalledWith(1, 'run-123', 'running');
-    expect(runsService.updateStatus).toHaveBeenNthCalledWith(2, 'run-123', 'done');
+    expect(runsService.updateStatus).toHaveBeenNthCalledWith(1, 'run-123', RunStatus.RUNNING);
+    expect(runsService.updateStatus).toHaveBeenNthCalledWith(2, 'run-123', RunStatus.DONE);
     expect(runsService.persistResult).toHaveBeenCalledWith(
       'run-123',
       expect.objectContaining({
@@ -131,7 +132,7 @@ describe('RunProcessor.process', () => {
     expect(redis.hasHandler('run-123')).toBe(false);
     expect(telemetry.track).toHaveBeenCalledWith('run_completed', {
       runId: 'run-123',
-      status: 'done',
+      status: RunStatus.DONE,
     });
     expect(agentService.createGraph).toHaveBeenCalledTimes(1);
   });

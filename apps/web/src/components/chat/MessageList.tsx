@@ -1,6 +1,6 @@
 import React from 'react';
 import MessageItem from './MessageItem';
-import type { UiRunSummary } from '@/lib/datasources/DataSource';
+import type { UiRunSummary } from '@/apis/runs';
 
 interface MessageListProps {
   runId?: string;

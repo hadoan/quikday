@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button';
 import InstallApp from '@/components/apps/InstallApp';
 import MarkdownView from '@/components/common/MarkdownView';
 import { getAppInstallProps } from '@/lib/utils/appConfig';
-import type { UiEvent, UiPlanStep, UiRunSummary } from '@/lib/datasources/DataSource';
+import type { UiEvent, UiPlanStep, UiRunSummary } from '@/apis/runs';
 import { getDataSource } from '@/lib/flags/featureFlags';
 import { getAccessTokenProvider } from '@/apis/client';
 import { formatDateTime, formatTime } from '@/lib/datetime/format';

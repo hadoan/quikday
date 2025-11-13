@@ -3,6 +3,7 @@ import type { AppMeta } from '@quikday/types';
 import { resolveGmailAuthUrl } from './add.js';
 import { callback as gmailCallback } from './callback.js';
 import { PrismaService } from '@quikday/prisma';
+import { extractOAuthParams, buildOAuthState } from '@quikday/appstore';
 
 // Export Nest module and service for EmailModule compatibility (used by apps/api AppModule)
 export { GmailEmailModule } from './gmail-email.module.js';
@@ -22,17 +23,15 @@ export default function createApp(meta: AppMeta, deps: any) {
     async add(req: any, res: any) {
       const prisma: PrismaService | undefined = deps?.prisma;
       try {
+        const params = extractOAuthParams(req);
+
         // Build signed OAuth state when available
         let signedState: string | undefined;
         if (typeof deps?.createSignedState === 'function') {
           try {
             const userId = req?.user?.id || req?.user?.sub;
             if (userId) {
-              signedState = deps.createSignedState({
-                userId,
-                timestamp: Date.now(),
-                returnTo: req.query?.returnTo as string | undefined,
-              });
+              signedState = deps.createSignedState(buildOAuthState(userId, params));
             }
           } catch {
             // Fallback to unsigned state inside helper

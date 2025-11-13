@@ -1,5 +1,5 @@
 import { useMemo } from 'react';
-import { useRunsQuery } from '@/hooks/useRuns';
+import { useRunsQuery } from '@/apis/runs';
 
 export type SidebarRunItem = {
   id: string;

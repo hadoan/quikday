@@ -1,9 +1,10 @@
 import { useCallback } from 'react';
-import type { UiRunSummary, UiPlanData, UiQuestionsData } from '@/lib/datasources/DataSource';
+import type { UiRunSummary, UiPlanData, UiQuestionsData, UiAppCredentialsData, ApiPlanStep } from '@/apis/runs';
 import { getDataSource } from '@/lib/flags/featureFlags';
 import { createLogger } from '@/lib/utils/logger';
 import { trackChatSent } from '@/lib/telemetry/telemetry';
-import { Question } from '@/components/QuestionsPanel';
+import { Question } from '@/components/chat/QuestionsPanel';
+import { autoContinue as autoContinueHelper } from '@/apis/runs';
 
 const logger = createLogger('useRunActions');
 const dataSource = getDataSource();
@@ -52,33 +53,7 @@ export function useRunActions(params: UseRunActionsParams): UseRunActionsResult 
   // Auto-continue helper: when there are no questions (e.g., only chat.respond),
   // immediately submit empty answers to proceed execution without user click.
   const autoContinue = useCallback(async (runId?: string) => {
-    try {
-      if (!runId) return;
-      const dsAny = dataSource as unknown as {
-        config?: { apiBaseUrl?: string };
-        fetch?: typeof fetch;
-      };
-      const apiBase =
-        dsAny?.config?.apiBaseUrl ??
-        (typeof window !== 'undefined'
-          ? `${window.location.protocol}//${window.location.hostname}:3000`
-          : 'http://localhost:3000');
-      const url = `${apiBase}/runs/${runId}/continueWithAnswers`;
-      const body = JSON.stringify({ answers: {} });
-      const res = await (dsAny?.fetch
-        ? dsAny.fetch(url, { method: 'POST', body })
-        : fetch(url, { method: 'POST', headers: { 'content-type': 'application/json' }, body }));
-      if (!res?.ok) {
-        // Soft-fail; user can still click Continue if needed
-        try {
-          console.warn('[useRunActions] Auto-continue failed:', await res.text());
-        } catch {
-          // Ignore text extraction errors
-        }
-      }
-    } catch (e) {
-      console.warn('[useRunActions] Auto-continue error', e);
-    }
+    await autoContinueHelper(runId, dataSource);
   }, []);
 
   const handleNewPrompt = useCallback(
@@ -110,13 +85,13 @@ export function useRunActions(params: UseRunActionsParams): UseRunActionsResult 
         prev.map((run) =>
           run.id === activeRunId
             ? {
-                ...run,
-                prompt: run.prompt || prompt,
-                messages: [
-                  ...(run.messages ?? []),
-                  { role: 'user' as const, content: prompt },
-                ] as UiRunSummary['messages'],
-              }
+              ...run,
+              prompt: run.prompt || prompt,
+              messages: [
+                ...(run.messages ?? []),
+                { role: 'user' as const, content: prompt },
+              ] as UiRunSummary['messages'],
+            }
             : run,
         ),
       );
@@ -148,7 +123,7 @@ export function useRunActions(params: UseRunActionsParams): UseRunActionsResult 
         logger.info('✅ Plan received successfully', {
           runId,
           hasGoal: !!goal,
-          planSteps: plan?.length || 0,
+          planSteps: plan,
           missingFields: missing?.length || 0,
           missing,
           timestamp: new Date().toISOString(),
@@ -172,35 +147,46 @@ export function useRunActions(params: UseRunActionsParams): UseRunActionsResult 
             const onlyChatRespond =
               Array.isArray(plan) &&
               plan.length > 0 &&
-              plan.every((step: unknown) => {
-                const stepData = step as { tool?: string };
-                const t = stepData?.tool;
-                return typeof t === 'string' && t === 'chat.respond';
-              });
+              plan.every((step: ApiPlanStep) => step.tool === 'chat.respond');
 
             // Add plan message if we have steps and it's not only chat.respond
+            const steps = plan.map((step: ApiPlanStep, idx: number) => ({
+              id: `step-${idx}`,
+              tool: step.tool || 'unknown',
+              action: step.action,
+              status: 'pending' as const,
+              inputsPreview: step.inputs ? JSON.stringify(step.inputs) : undefined,
+              credentialId: step.credentialId,
+              appId: step.appId
+            }));
+
             if (Array.isArray(plan) && plan.length > 0 && !onlyChatRespond) {
               const goalData = goal as Record<string, unknown> | null;
               const planData: UiPlanData = {
-                intent: (goalData?.intent as string) || 'Process request',
+                intent: (goalData?.outcome as string) || 'Process request',
                 tools: [],
                 actions: [],
                 mode: 'plan',
-                steps: plan.map((step: unknown, idx: number) => {
-                  const stepData = step as Record<string, unknown>;
-                  return {
-                    id: `step-${idx}`,
-                    tool: (stepData.tool as string) || 'unknown',
-                    action: stepData.action as string | undefined,
-                    status: 'pending' as const,
-                    inputsPreview: stepData.inputs ? JSON.stringify(stepData.inputs) : undefined,
-                  };
-                }),
+                steps,
               };
               newMessages.push({
                 role: 'assistant',
                 type: 'plan',
                 data: planData,
+              });
+            }
+            const hasMissingCredentials = plan.some((step: ApiPlanStep) => step.appId && (step.credentialId === null || step.credentialId === undefined));
+
+            // Add app_credentials message if there are steps with missing credentials
+            if (hasMissingCredentials) {
+              const questionsRunId = runId || activeRunId;
+              newMessages.push({
+                role: 'assistant',
+                type: 'app_credentials',
+                data: {
+                  runId: questionsRunId,
+                  steps,
+                } satisfies UiAppCredentialsData,
               });
             }
 
@@ -215,7 +201,8 @@ export function useRunActions(params: UseRunActionsParams): UseRunActionsResult 
                 data: {
                   runId: questionsRunId,
                   questions: missing,
-                  steps: [], // Include plan steps for credential checking
+                  steps, // Include plan steps for credential checking
+                  hasMissingCredentials,
                 } satisfies UiQuestionsData,
               });
             } else if (!onlyChatRespond) {
@@ -227,7 +214,7 @@ export function useRunActions(params: UseRunActionsParams): UseRunActionsResult 
                 data: {
                   runId: questionsRunId,
                   questions: [],
-                  steps: [], // Include plan steps for credential checking
+                  steps, // Include plan steps for credential checking
                 } satisfies UiQuestionsData,
               });
             }

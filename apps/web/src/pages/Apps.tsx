@@ -2,15 +2,9 @@ import { useMemo, useState, useEffect } from 'react';
 import AppCard from '@/components/apps/AppCard';
 import type { AppCardInstallProps } from '@/components/apps/AppCard';
 import { Sidebar } from '@/components/layout/Sidebar';
-import { UserMenu } from '@/components/layout/UserMenu';
-import { ThemeToggle } from '@/components/theme/ThemeToggle';
-import { Button } from '@/components/ui/button';
-// Removed mockRuns usage to avoid seeding mock data
-import { Search, Menu } from 'lucide-react';
+import AppHeader from '@/components/layout/AppHeader';
+import { Search } from 'lucide-react';
 import { useSidebarRuns } from '@/hooks/useSidebarRuns';
-import { useKindeAuth } from '@kinde-oss/kinde-auth-react';
-import { useNavigate } from 'react-router-dom';
-import api from '@/apis/client';
 import { Input } from '@/components/ui/input';
 import RunDetailDrawer from '@/components/runs/RunDetailDrawer';
 
@@ -121,20 +115,8 @@ const apps: AppListItem[] = [
 const Apps = () => {
   const [activeRunId, setActiveRunId] = useState<string | undefined>(undefined);
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
-  const { logout } = useKindeAuth();
-  const handleLogout = async () => {
-    try {
-      const redirect = `${window.location.origin}/auth/login`;
-      await logout?.(redirect);
-    } catch (err) {
-      console.error('Logout failed', err);
-    }
-  };
-  const [isToolsPanelOpen, setIsToolsPanelOpen] = useState(false);
   const { runs: sidebarRuns } = useSidebarRuns(5);
-  const navigate = useNavigate();
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
-  const [category, setCategory] = useState<string>('All');
   const [query, setQuery] = useState('');
 
   // Don't auto-open drawer; open only when user selects a run
@@ -146,22 +128,6 @@ const Apps = () => {
     handle();
     mq.addEventListener('change', handle);
     return () => mq.removeEventListener('change', handle);
-  }, []);
-
-  const categories = useMemo(() => {
-    const counts = new Map<string, number>();
-    apps.forEach((a) => {
-      a.categories.forEach((c) => {
-        counts.set(c, (counts.get(c) ?? 0) + 1);
-      });
-    });
-    // Always ensure All exists and is first
-    const unique = Array.from(counts.keys()).sort((a, b) => {
-      if (a === 'All') return -1;
-      if (b === 'All') return 1;
-      return a.localeCompare(b);
-    });
-    return unique.map((c) => ({ name: c, count: counts.get(c) ?? 0 }));
   }, []);
 
   const filteredApps = useMemo(() => {
@@ -179,32 +145,6 @@ const Apps = () => {
     });
   }, [query]);
 
-  // If an app install was initiated from a specific run, refresh that run's steps and return to chat
-  useEffect(() => {
-    let payload: any;
-    try {
-      const raw = localStorage.getItem(key);
-      if (raw) payload = JSON.parse(raw);
-    } catch {
-      payload = undefined;
-    }
-    if (payload && payload.runId) {
-      const runId = String(payload.runId);
-      (async () => {
-        try {
-          await api.post(`/runs/${runId}/refresh-credentials`);
-        } catch (e) {
-          // best-effort
-        } finally {
-          try {
-            localStorage.removeItem(key);
-          } catch {}
-          navigate(`/?runId=${encodeURIComponent(runId)}`);
-        }
-      })();
-    }
-  }, [navigate]);
-
   return (
     <div className="flex h-screen w-full bg-background overflow-hidden">
       <Sidebar
@@ -219,45 +159,7 @@ const Apps = () => {
       />
 
       <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
-        {/* Header */}
-        <header className="border-b border-border bg-card px-3 sm:px-4 md:px-6 lg:px-8 py-3 sm:py-4 flex-shrink-0">
-          <div className="flex items-center gap-2 md:gap-3">
-            {/* Mobile menu button */}
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
-              className="md:hidden h-9 w-9"
-            >
-              <Menu className="h-5 w-5" />
-            </Button>
-
-            <div className="flex-1 min-w-0">
-              <h1 className="text-base sm:text-xl md:text-2xl font-bold text-foreground flex items-center gap-2">
-                <img
-                  src="/logo/logo-light-bg.svg"
-                  alt="Quik.day"
-                  className="h-5 sm:h-6 w-auto dark:hidden"
-                />
-                <img
-                  src="/logo/logo-dark-bg.svg"
-                  alt="Quik.day"
-                  className="h-5 sm:h-6 w-auto hidden dark:block"
-                />
-                <span className="hidden sm:inline">Apps</span>
-              </h1>
-            </div>
-
-            <div className="flex items-center gap-2">
-              <ThemeToggle />
-              <UserMenu
-                onViewProfile={() => {}}
-                onEditProfile={() => navigate('/settings/profile')}
-                onLogout={handleLogout}
-              />
-            </div>
-          </div>
-        </header>
+        <AppHeader title="Apps" onToggleSidebar={() => setIsSidebarCollapsed(!isSidebarCollapsed)} />
 
         {/* Content */}
         <div className="flex-1 overflow-y-auto">

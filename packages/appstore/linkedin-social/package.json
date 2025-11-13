@@ -5,6 +5,10 @@
   "type": "module",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
+  "dependencies": {
+    "@quikday/appstore": "workspace:*",
+    "@quikday/types": "workspace:*"
+  },
   "devDependencies": {
     "@quikday/tsconfig": "workspace:*"
   },

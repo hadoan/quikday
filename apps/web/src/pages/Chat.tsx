@@ -3,19 +3,14 @@ import { PromptInput } from '@/components/chat/PromptInput';
 import { Sidebar } from '@/components/layout/Sidebar';
 import { Loader2 } from 'lucide-react';
 import { useSidebarRuns } from '@/hooks/useSidebarRuns';
-import { useKindeAuth } from '@kinde-oss/kinde-auth-react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { getDataSource, getFeatureFlags } from '@/lib/flags/featureFlags';
 import ChatStream from '@/components/chat/ChatStream';
 import RunDetailDrawer from '@/components/runs/RunDetailDrawer';
-import { type Question } from '@/components/QuestionsPanel';
 import { createLogger } from '@/lib/utils/logger';
 import { useToast } from '@/hooks/use-toast';
-import type {
-  UiRunSummary,
-} from '@/lib/datasources/DataSource';
+import type { UiRunSummary } from '@/apis/runs';
 import { trackDataSourceActive } from '@/lib/telemetry/telemetry';
-import api from '@/apis/client';
 import { useNavigationWarning } from '@/hooks/useNavigationWarning';
 import { useChatState } from '@/hooks/useChatState';
 import { useRunActions } from '@/hooks/useRunActions';
@@ -24,7 +19,6 @@ import ChatHeader from '@/components/chat/ChatHeader';
 
 // Initialize data source at the top to avoid ReferenceError
 const dataSource = getDataSource();
-const logger = createLogger('Chat');
 
 const Chat = () => {
   // Use custom hooks for state management
@@ -37,8 +31,8 @@ const Chat = () => {
     activeRun,
     isSidebarCollapsed,
     setIsSidebarCollapsed,
-    questions,
     setQuestions,
+    setSteps,
     isWaitingForResponse,
     setIsWaitingForResponse,
     drawerRunId,
@@ -71,7 +65,6 @@ const Chat = () => {
     handleNewPrompt,
     handleNewTask,
     ensureDraftForTyping,
-    handleStartTypingOnce: handleStartTypingOnceHook,
   } = runActions;
 
   // Merge server-provided sidebar runs with any local draft/unknown runs so
@@ -95,7 +88,7 @@ const Chat = () => {
                 : ('running' as const),
         }));
       // Prepend local extras, then server items; de-duplicate by id
-      const combined: typeof server = [] as unknown[];
+      const combined = [] as typeof server;
       const seen = new Set<string>();
       for (const item of [...localExtras, ...server]) {
         if (seen.has(item.id)) continue;
@@ -108,67 +101,123 @@ const Chat = () => {
     }
   })();
 
-  // Handle OAuth redirect with runId parameter (after app installation)
+  // Handle direct run_id parameter (e.g., /chat?run_id=xxx)
   useEffect(() => {
     const sp = new URLSearchParams(location.search);
-    const runIdParam = sp.get('runId');
+    const runIdParam = sp.get('run_id');
 
-    if (runIdParam) {
-      console.log('[Chat] OAuth redirect detected with runId:', runIdParam);
+    // Only process if we have a run_id and it's not already the active run
+    if (runIdParam && runIdParam !== activeRunId) {
+      console.log('[Chat] Direct run_id parameter detected:', runIdParam);
 
-      // Check if there's pending install data in localStorage
-      const pendingStr = localStorage.getItem('qd.pendingInstall');
-      if (pendingStr) {
-        console.log('[Chat] Found pending install data, clearing and starting fresh');
+      // Skip if this is a temporary client-generated ID
+      if (/^R-\d+$/.test(runIdParam)) {
+        console.log('[Chat] Skipping temporary runId:', runIdParam);
+        navigate('/chat', { replace: true });
+        return;
+      }
 
-        (async () => {
-          try {
-            // Fetch the original run to get its prompt for prefilling
-            const { run } = await dataSource.getRun(runIdParam);
-            const originalPrompt = run.prompt || '';
+      (async () => {
+        try {
+          // Fetch the run data with credential update to get latest credential state
+          // This is especially important when returning from credential installation
+          const { run, steps: runSteps } = await dataSource.getRun(runIdParam);
 
-            // Clean up localStorage FIRST
-            localStorage.removeItem('qd.pendingInstall');
+          // Update hasMissingCredentials flag in messages based on current steps
+          // This is crucial after credential installation - the backend may return old chat items
+          // with hasMissingCredentials: true, but the steps now have valid credentialId values
+          console.log('[Chat] Run messages from backend:', {
+            runId: runIdParam,
+            messageCount: run.messages?.length,
+            messages: run.messages,
+            runSteps
+          });
 
-            // Clear the active run and start fresh
-            setActiveRunId(undefined);
-
-            // Clear runs state to prevent old run from being displayed
-            setRuns([]);
-
-            // Prefill the input with the original prompt
-            if (originalPrompt) {
-              setPrefill(originalPrompt);
-            }
-
-            // Skip auto-selection of sidebar runs
-            skipAutoSelectRef.current = true;
-
-            // Show success toast
-            toast({
-              title: 'App installed successfully',
-              description: 'You can now retry your task with the newly connected app.',
+          if (run.messages && Array.isArray(runSteps)) {
+            const currentHasMissingCredentials = runSteps.some(
+              (step) => step.appId && (step.credentialId === null || step.credentialId === undefined)
+            );
+            console.log('[Chat] Current credential state:', {
+              currentHasMissingCredentials,
+              stepsWithMissingCreds: runSteps.filter(s => s.appId && (s.credentialId === null || s.credentialId === undefined)),
             });
 
-            // Navigate to clean URL with ONLY startNew flag (remove runId completely)
-            navigate('/chat?startNew=1', { replace: true });
-          } catch (error) {
-            console.warn('[Chat] Failed to fetch run for prefill:', error);
-            localStorage.removeItem('qd.pendingInstall');
-            setActiveRunId(undefined);
-            navigate('/chat', { replace: true });
-            toast({
-              title: 'App installed successfully',
-              description: 'You can now start a new task using this app.',
+            run.messages = run.messages.map((msg) => {
+              // Update questions message
+              if (msg.type === 'questions' && msg.data) {
+                console.log('[Chat] BEFORE update - questions message:', {
+                  type: msg.type,
+                  data: msg.data,
+                });
+
+                // Safely access properties while preserving the questions array
+                const questionData = msg.data as Record<string, unknown>;
+                const updatedData = {
+                  runId: questionData.runId as string | undefined,
+                  questions: (questionData.questions as unknown[]) || [], // Explicitly preserve questions array
+                  steps: runSteps, // Update steps with current credential info
+                  hasMissingCredentials: currentHasMissingCredentials, // Update credential state
+                };
+
+                console.log('[Chat] AFTER update - questions message:', {
+                  type: msg.type,
+                  data: updatedData,
+                  questionsCount: updatedData.questions.length,
+                });
+
+                return {
+                  ...msg,
+                  data: updatedData,
+                };
+              }
+              // Update app_credentials message (remove it if credentials are now installed)
+              if (msg.type === 'app_credentials' && currentHasMissingCredentials === false) {
+                console.log('[Chat] Removing app_credentials message (credentials now installed)');
+                return null;
+              }
+              return msg;
+            }).filter((msg): msg is typeof msg & object => msg !== null);
+
+            console.log('[Chat] Final messages after update:', {
+              messageCount: run.messages.length,
+              messages: run.messages,
             });
           }
-        })();
-      } else {
-        // No pending install data, just clean up URL
-        navigate('/chat', { replace: true });
-      }
+
+          // Add to runs array if not already present
+          setRuns((prev) => {
+            const existing = prev.find((r) => r.id === runIdParam);
+            if (existing) {
+              // Update existing run with full data
+              return prev.map((r) => (r.id === runIdParam ? { ...r, ...run } : r));
+            } else {
+              // Add new run
+              return [run, ...prev];
+            }
+          });
+
+          // Store steps data for QuestionsPanel
+          if (Array.isArray(runSteps)) {
+            setSteps(runSteps);
+          }
+
+          // Set as active run
+          setActiveRunId(runIdParam);
+
+          console.log('[Chat] Successfully loaded run:', runIdParam, 'with steps:', runSteps);
+        } catch (error) {
+          console.error('[Chat] Failed to load run from run_id:', error);
+          toast({
+            title: 'Failed to load run',
+            description: 'The requested run could not be found or loaded.',
+            variant: 'destructive',
+          });
+          // Clean up URL on error
+          navigate('/chat', { replace: true });
+        }
+      })();
     }
-  }, [location.search, navigate, toast, dataSource]);
+  }, [location.search, activeRunId, dataSource, navigate, toast]);
 
   // Default to the most recent run if none selected,
   // unless a startNew query param is present (which triggers a fresh run).
@@ -185,21 +234,6 @@ const Chat = () => {
     if (!activeRunId && sidebarRuns.length > 0) setActiveRunId(sidebarRuns[0].id);
   }, [activeRunId, sidebarRuns.length, location.search]);
 
-  // Normalize question type from backend string to QuestionsPanel Question type
-  const normalizeQuestionType = (t?: string): Question['type'] => {
-    const v = String(t || 'text').toLowerCase();
-    if (v === 'textarea') return 'textarea';
-    if (v === 'email') return 'email';
-    if (v === 'email_list' || v === 'email-list') return 'email_list';
-    if (v === 'datetime' || v === 'date_time' || v === 'date-time') return 'datetime';
-    if (v === 'date') return 'date';
-    if (v === 'time') return 'time';
-    if (v === 'number' || v === 'numeric') return 'number';
-    if (v === 'select') return 'select';
-    if (v === 'multiselect' || v === 'multi_select' || v === 'multi-select') return 'multiselect';
-    return 'text';
-  };
-
   // Determine if navigation should be blocked based on active run state
   // Don't block on 'planning', 'awaiting_input', or 'pending_apps_install'
   // since user may need to install apps via OAuth (which navigates away)
@@ -211,16 +245,6 @@ const Chat = () => {
         isWaitingForResponse),
   );
 
-  // Debug log
-  useEffect(() => {
-    console.log('[Index] Navigation blocking state:', {
-      hasActiveWork,
-      status: activeRun?.status,
-      isWaitingForResponse,
-      questionsCount: questions.length,
-    });
-  }, [hasActiveWork, activeRun?.status, isWaitingForResponse, questions.length]);
-
   // Navigation warning dialog when user tries to leave with active work
   const navigationWarningDialog = useNavigationWarning({
     shouldBlock: hasActiveWork,
@@ -228,87 +252,6 @@ const Chat = () => {
     message:
       'You have an active task in progress. If you navigate away now, any unsaved work and execution state will be lost and cannot be recovered. Are you sure you want to leave?',
   });
-
-  // Get autoContinue from run actions hook
-  const { autoContinue } = runActions;
-
-  // When returning from an install flow that used localStorage to persist
-  // pending install data, ensure the chat activates the run and loads its
-  // details so the UI reflects newly-connected credentials.
-  useEffect(() => {
-    const key = 'qd.pendingInstall';
-    let payload: unknown;
-    try {
-      const raw = localStorage.getItem(key);
-      if (raw) payload = JSON.parse(raw) as unknown;
-    } catch (e) {
-      // ignore parse errors
-      payload = undefined;
-    }
-
-    const hasRunId = (p: unknown): p is { runId: string | number } =>
-      typeof p === 'object' && p !== null && 'runId' in (p as Record<string, unknown>);
-
-    if (!hasRunId(payload)) return;
-
-    const runId = String(payload.runId);
-    (async () => {
-      try {
-        // Attempt to refresh credentials server-side first
-        await api.post(`/runs/${runId}/refresh-credentials`);
-      } catch (e) {
-        // ignore refresh errors
-      } finally {
-        try {
-          localStorage.removeItem(key);
-        } catch (e) {
-          // ignore
-        }
-      }
-
-      try {
-        // Fetch the run details and ensure the UI selects it
-        const { run } = await dataSource.getRun(runId);
-        setRuns((prev) => {
-          const idx = prev.findIndex((r) => r.id === run.id);
-          if (idx === -1) return [run, ...prev];
-          const next = [...prev];
-          next[idx] = { ...next[idx], ...run, messages: run.messages } as UiRunSummary;
-          return next;
-        });
-        setActiveRunId(runId);
-      } catch (e) {
-        // If fetching fails, at minimum set the activeRunId so the stream
-        // or subsequent fetch will hydrate the run.
-        setActiveRunId(runId);
-      }
-    })();
-  }, []);
-
-  // Fallback: if we landed on /chat without query params but localStorage has
-  // pending install info, add pending_credential (and runId if available) to
-  // the URL so tooling that expects the query param can observe it.
-  useEffect(() => {
-    try {
-      const sp = new URLSearchParams(location.search);
-      if (sp.get('pending_credential')) return;
-      const raw = localStorage.getItem('qd.pendingInstall');
-      if (!raw) return;
-      const payload = JSON.parse(raw) as Record<string, unknown> | null;
-      if (!payload) return;
-      const pending = (payload.pendingCredential ?? payload.pending_credential ?? payload.appId) as
-        | string
-        | undefined;
-      const runId = payload.runId ? String(payload.runId) : undefined;
-      if (!pending) return;
-      const params = new URLSearchParams(location.search);
-      if (runId && !params.get('runId')) params.set('runId', runId);
-      params.set('pending_credential', pending);
-      navigate(`/chat?${params.toString()}`, { replace: true });
-    } catch (e) {
-      // ignore
-    }
-  }, [location.pathname, location.search, navigate]);
 
   // Ensure selecting a sidebar run loads its details if not present locally
   // or if we only have a minimal stub without messages yet.
@@ -430,24 +373,6 @@ const Chat = () => {
     }
   }, [location.search]);
 
-  const handleViewProfile = () => {
-    console.log('View profile');
-    // Navigate to profile page
-  };
-
-  const handleEditProfile = () => {
-    navigate('/settings/profile');
-  };
-
-  const { logout } = useKindeAuth();
-  const handleLogout = async () => {
-    try {
-      const redirect = `${window.location.origin}/auth/login`;
-      await logout?.(redirect);
-    } catch (err) {
-      console.error('Logout failed', err);
-    }
-  };
 
   const handleSelectRun = (runId: string) => {
     // In Chat screen, clicking a run shows details drawer instead of switching chat
@@ -473,9 +398,6 @@ const Chat = () => {
             isSidebarCollapsed={isSidebarCollapsed}
             onToggleSidebar={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
             onNewTask={handleNewTask}
-            onViewProfile={handleViewProfile}
-            onEditProfile={handleEditProfile}
-            onLogout={handleLogout}
           />
 
           {/* Chat Area */}
@@ -495,7 +417,26 @@ const Chat = () => {
                   <span className="text-sm">Processing your request...</span>
                 </div>
               )}
-              {/** Questions are now rendered inline within ChatStream as a message */}
+              {/** Render QuestionsPanel when awaiting input and run_id is in URL params */}
+              {/* {(() => {
+                const sp = new URLSearchParams(location.search);
+                const hasRunIdParam = sp.has('run_id');
+                const isAwaitingInput = activeRun?.status === 'awaiting_input';
+                const hasQuestions = questions.length > 0;
+
+                return hasRunIdParam && isAwaitingInput && hasQuestions && activeRunId ? (
+                  <QuestionsPanel
+                    runId={activeRunId}
+                    questions={questions}
+                    steps={steps}
+                    onSubmitted={() => {
+                      // Clear questions after submission
+                      setQuestions([]);
+                      // The WebSocket will update the run status
+                    }}
+                  />
+                ) : null;
+              })()} */}
               <div ref={bottomRef} />
             </div>
           </div>

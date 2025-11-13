@@ -16,6 +16,12 @@ import { getTeamPolicy, type TeamPolicy } from '@quikday/agent/guards/policy';
 import type { ChatMessage } from '@quikday/agent/state/types';
 import { CurrentUserService, getCurrentUserCtx } from '@quikday/libs';
 import { StepsService } from './steps.service.js';
+import { ChatItemOrchestratorService } from './chat-item-orchestrator.service.js';
+import { RunEnrichmentService } from './run-enrichment.service.js';
+import { RunCreationService } from './run-creation.service.js';
+import { RunQueryService } from './run-query.service.js';
+import { RunAuthorizationService } from './run-authorization.service.js';
+import { RunStatus } from '@prisma/client';
 import type { Goal, PlanStep, MissingField } from './types.js';
 
 @Injectable()
@@ -38,7 +44,12 @@ export class RunsService {
     private tokens: RunTokenService,
     @InjectQueue('runs') private runsQueue: Queue,
     private readonly current: CurrentUserService,
-    private readonly stepsService: StepsService
+    private readonly stepsService: StepsService,
+    private readonly chatItemOrchestrator: ChatItemOrchestratorService,
+    private readonly enrichmentService: RunEnrichmentService,
+    private readonly creationService: RunCreationService,
+    private readonly queryService: RunQueryService,
+    private readonly authService: RunAuthorizationService,
   ) {}
 
   private jsonClone<T>(v: T): T {
@@ -231,6 +242,11 @@ export class RunsService {
     return run;
   }
 
+  // Delegate to creation service
+  async createFromPromptDelegated(dto: CreateRunDto, claims: any = {}) {
+    return this.creationService.createFromPrompt(dto, claims);
+  }
+
   // ----------------------------------------------------------------------------
   // List Runs (list projection + filters/sort/pagination)
   // ----------------------------------------------------------------------------
@@ -238,88 +254,12 @@ export class RunsService {
     userId?: string;
     page?: number;
     pageSize?: number;
-    status?: string[];
+    status?: RunStatus[];
     q?: string;
     sortBy?: 'createdAt' | 'lastEventAt' | 'status' | 'stepCount';
     sortDir?: 'asc' | 'desc';
   }) {
-    const teamId = this.current.getCurrentTeamId();
-    const userSub = params.userId || this.current.getCurrentUserSub(); // This is the Kinde sub ID (string)
-    if (!userSub) throw new UnauthorizedException('Not authenticated');
-
-    // Look up the user by their Kinde sub to get the numeric database ID
-    const user = await this.prisma.user.findUnique({ where: { sub: userSub } });
-    if (!user) {
-      throw new UnauthorizedException(
-        'User not found in database. Please ensure user sync completed.'
-      );
-    }
-    const numericUserId = user.id;
-
-    const page = Math.max(1, Number(params.page ?? 1));
-    const pageSize = Math.min(100, Math.max(1, Number(params.pageSize ?? 25)));
-    const where: any = { userId: numericUserId }; // CRITICAL: Filter by userId to prevent cross-user data access
-    if (teamId) where.teamId = Number(teamId);
-    if (params.status && params.status.length) where.status = { in: params.status };
-    if (params.q && params.q.trim()) {
-      const q = params.q.trim();
-      where.OR = [{ id: { contains: q } }, { prompt: { contains: q, mode: 'insensitive' } }];
-    }
-
-    // Sorting
-    let orderBy: any = { createdAt: 'desc' };
-    const dir = (params.sortDir ?? 'desc').toLowerCase() === 'asc' ? 'asc' : 'desc';
-    switch (params.sortBy) {
-      case 'status':
-        orderBy = { status: dir };
-        break;
-      case 'stepCount':
-        orderBy = { steps: { _count: dir as any } } as any; // Prisma supports relation count ordering in recent versions
-        break;
-      case 'lastEventAt':
-        // No lastEventAt column; use updatedAt as a proxy
-        orderBy = { updatedAt: dir };
-        break;
-      case 'createdAt':
-      default:
-        orderBy = { createdAt: dir };
-        break;
-    }
-
-    const [total, runs] = await this.prisma.$transaction([
-      this.prisma.run.count({ where }),
-      this.prisma.run.findMany({
-        where,
-        orderBy,
-        skip: (page - 1) * pageSize,
-        take: pageSize,
-        include: {
-          User: true,
-          _count: { select: { steps: true } } as any,
-        },
-      } as any),
-    ]);
-
-    const items = runs.map((r: any) => ({
-      id: r.id,
-      title: (r.intent as any)?.title || r.prompt?.slice(0, 80) || 'Run',
-      status: r.status,
-      createdAt: r.createdAt,
-      createdBy: {
-        id: r.userId,
-        name: r.User?.displayName || r.User?.email || 'User',
-        avatar: r.User?.avatar || null,
-      },
-      kind: 'action',
-      source: ((r.config as any)?.meta?.source as string) || 'api',
-      stepCount: r._count?.steps ?? 0,
-      approvals: { required: false },
-      undo: { available: false },
-      lastEventAt: r.updatedAt,
-      tags: [],
-    }));
-
-    return { items, page, pageSize, total };
+    return this.queryService.list(params);
   }
 
   // ----------------------------------------------------------------------------
@@ -328,11 +268,17 @@ export class RunsService {
   async cancel(runId: string) {
     const run = await this.prisma.run.findUnique({ where: { id: runId } });
     if (!run) throw new NotFoundException('Run not found');
-    const allowed = new Set(['planning', 'queued', 'scheduled', 'awaiting_approval', 'approved']);
+    const allowed = new Set<RunStatus>([
+      RunStatus.PLANNING,
+      RunStatus.QUEUED,
+      RunStatus.SCHEDULED,
+      RunStatus.AWAITING_APPROVAL,
+      RunStatus.APPROVED,
+    ]);
     if (!allowed.has(run.status)) {
       throw new BadRequestException('Run not cancelable in current status');
     }
-    await this.prisma.run.update({ where: { id: runId }, data: { status: 'canceled' } });
+    await this.prisma.run.update({ where: { id: runId }, data: { status: RunStatus.CANCELED } });
   }
 
   async enqueue(runId: string, opts: { delayMs?: number; scratch?: Record<string, unknown> } = {}) {
@@ -492,32 +438,19 @@ export class RunsService {
 
     await this.prisma.run.update({ where: { id: runId }, data: { output: nextOutput } });
 
-    // Persist plan as a chat item
+    // Persist plan as chat items using orchestrator service
     try {
       const run2 = await this.prisma.run.findUnique({ where: { id: runId } });
       if (run2) {
-        // Find or create chat for this run
-        let chat = await this.prisma.chat.findUnique({ where: { runId: runId } });
-        if (!chat) {
-          chat = await this.prisma.chat.create({
-            data: {
-              runId,
-              userId: run2.userId,
-              teamId: run2.teamId ?? null,
-              title: String(run2.prompt || '').slice(0, 120),
-            },
-          });
-        }
-        await this.prisma.chatItem.create({
-          data: {
-            chatId: chat.id,
-            type: 'plan',
-            role: 'assistant',
-            content: { plan, diff } as any,
-            runId,
-            userId: run2.userId,
-            teamId: run2.teamId ?? null,
-          },
+        // Use orchestrator to create all chat items
+        await this.chatItemOrchestrator.createChatItemsForRun({
+          runId,
+          userId: run2.userId,
+          teamId: run2.teamId ?? null,
+          prompt: String(run2.prompt || ''),
+          goal: (run2.goal as any) ?? null,
+          plan: plan ?? [],
+          missing: ((run2.missing as any) ?? []) as any[],
         });
       }
     } catch (e) {
@@ -581,17 +514,17 @@ export class RunsService {
     };
   }
 
-  private initialStatusForMode(mode: string): string {
+  private initialStatusForMode(mode: string): RunStatus {
     switch (mode) {
       case 'preview':
-        return 'planning';
+        return RunStatus.PLANNING;
       case 'approval':
-        return 'awaiting_approval';
+        return RunStatus.AWAITING_APPROVAL;
       case 'scheduled':
-        return 'scheduled';
+        return RunStatus.SCHEDULED;
       case 'auto':
       default:
-        return 'queued';
+        return RunStatus.QUEUED;
     }
   }
 
@@ -664,58 +597,10 @@ export class RunsService {
   }
 
   async get(id: string, userSub?: string) {
-    const run = await this.prisma.run.findUnique({
-      where: { id },
-      include: {
-        steps: true,
-        effects: true,
-        User: true, // Include user to verify ownership
-      },
-    });
-    if (!run) throw new NotFoundException('Run not found');
-
-    // If userSub is provided, verify ownership
-    if (userSub) {
-      // Look up the user by their Kinde sub to get the numeric database ID
-      const user = await this.prisma.user.findUnique({ where: { sub: userSub } });
-      if (!user) {
-        throw new UnauthorizedException(
-          'User not found in database. Please ensure user sync completed.'
-        );
-      }
-
-      // Verify the run belongs to this user
-      if (run.userId !== user.id) {
-        throw new NotFoundException('Run not found'); // Don't reveal existence to unauthorized users
-      }
-    }
-
-    // Enrich the plan with credential information from steps
-    if (run.plan && Array.isArray(run.plan) && run.steps && run.steps.length > 0) {
-      const enrichedPlan = (run.plan as any[]).map((planStep: any) => {
-        // Find matching step by planStepId or tool name
-        const matchingStep = run.steps.find(
-          (s) => s.planStepId === planStep.id || s.tool === planStep.tool
-        );
-
-        if (matchingStep) {
-          return {
-            ...planStep,
-            appId: matchingStep.appId || undefined,
-            credentialId: matchingStep.credentialId || undefined,
-          };
-        }
-
-        return planStep;
-      });
-
-      return { ...run, plan: enrichedPlan };
-    }
-
-    return run;
+    return this.queryService.get(id, userSub);
   }
 
-  async updateStatus(id: string, status: string) {
+  async updateStatus(id: string, status: RunStatus) {
     return this.prisma.run.update({ where: { id }, data: { status } });
   }
 
@@ -726,7 +611,7 @@ export class RunsService {
     }
 
     // Verify run is in awaiting_approval state
-    if (run.status !== 'awaiting_approval') {
+    if (run.status !== RunStatus.AWAITING_APPROVAL) {
       throw new BadRequestException(
         `Cannot approve run with status '${run.status}'. Expected 'awaiting_approval'.`
       );
@@ -747,7 +632,7 @@ export class RunsService {
       where: { id: runId },
       data: {
         config: nextConfig,
-        status: 'approved',
+        status: RunStatus.APPROVED,
       },
     });
 
@@ -938,7 +823,7 @@ export class RunsService {
     // to awaiting_input.
     try {
       const run = await this.prisma.run.findUnique({ where: { id: runId } });
-      if (run && run.status === 'pending_apps_install' && missingCredSteps.length === 0) {
+      if (run && run.status === RunStatus.PENDING_APPS_INSTALL && missingCredSteps.length === 0) {
         // Credentials are complete. Check if there are still missing inputs (questions).
         const hasPendingQuestions =
           run.missing && Array.isArray(run.missing) && run.missing.length > 0;
@@ -950,7 +835,7 @@ export class RunsService {
           });
           await this.prisma.run.update({
             where: { id: runId },
-            data: { status: 'awaiting_input' },
+            data: { status: RunStatus.AWAITING_INPUT },
           });
         } else {
           // No questions remaining - auto-resume execution
@@ -963,6 +848,89 @@ export class RunsService {
     }
 
     return { updated };
+  }
+
+  /**
+   * Update credentialId in chat items of type 'app_credentials' for a given run.
+   * Re-resolves credentials for each step and updates the chat item content.
+   */
+  async updateChatItemCredentials(runId: string): Promise<{ updated: number }> {
+    const userSub = this.current.getCurrentUserSub();
+    if (!userSub) throw new UnauthorizedException('Not authenticated');
+
+    const user = await this.prisma.user.findFirst({ where: { sub: userSub } });
+    if (!user) {
+      throw new UnauthorizedException('User not found in database');
+    }
+
+    // Find all chat items with type 'app_credentials' for this run
+    const chatItems = await this.prisma.chatItem.findMany({
+      where: {
+        runId,
+        type: 'app_credentials',
+      },
+    });
+
+    let totalUpdated = 0;
+
+    for (const item of chatItems) {
+      try {
+        const content = item.content as any;
+        if (!content || !Array.isArray(content.steps)) {
+          continue;
+        }
+
+        let itemUpdated = false;
+        const updatedSteps = await Promise.all(
+          content.steps.map(async (step: any) => {
+            if (step.appId && (step.credentialId === null || step.credentialId === undefined)) {
+              try {
+                const { credentialId } = await this.stepsService.reResolveAppAndCredential(
+                  step.tool,
+                  user.id
+                );
+                if (credentialId) {
+                  itemUpdated = true;
+                  return { ...step, credentialId };
+                }
+              } catch (e) {
+                this.logger.debug('Failed to re-resolve credential for chat item step', {
+                  chatItemId: item.id,
+                  stepTool: step.tool,
+                  err: e,
+                });
+              }
+            }
+            return step;
+          })
+        );
+
+        if (itemUpdated) {
+          await this.prisma.chatItem.update({
+            where: { id: item.id },
+            data: {
+              content: {
+                ...content,
+                steps: updatedSteps,
+              } as any,
+            },
+          });
+          totalUpdated += 1;
+          this.logger.debug('Updated credentials in chat item', {
+            chatItemId: item.id,
+            runId,
+          });
+        }
+      } catch (e) {
+        this.logger.warn('Failed to update chat item credentials', {
+          chatItemId: item.id,
+          err: e,
+        });
+      }
+    }
+
+    this.logger.log(`Updated credentials in ${totalUpdated} chat items for run ${runId}`);
+    return { updated: totalUpdated };
   }
 
   /**
@@ -1085,64 +1053,7 @@ export class RunsService {
     plan: PlanStep[];
     missing: MissingField[];
   }) {
-    const { prompt, userId, teamId, tz, goal, plan, missing } = data;
-
-    // Determine status based on whether there are missing inputs
-    const status = missing && missing.length > 0 ? 'awaiting_input' : 'planning';
-
-    this.logger.log('💾 Creating plan run', {
-      userId,
-      teamId: teamId ?? null,
-      status,
-      planSteps: plan?.length || 0,
-      missingFields: missing?.length || 0,
-    });
-
-    // Create the Run record
-    const run = await this.prisma.run.create({
-      data: {
-        userId,
-        teamId: teamId ?? undefined,
-        prompt,
-        mode: 'preview',
-        status,
-        // Persist structured planning fields directly on Run
-        goal: (goal ?? null) as any,
-        plan: (Array.isArray(plan) ? plan : []) as any,
-        missing: (Array.isArray(missing) ? missing : []) as any,
-        // Preserve tz in config for downstream usage
-        config: {
-          tz,
-        } as any,
-      },
-    });
-
-    this.logger.log('✅ Plan run created', {
-      runId: run.id,
-      status: run.status,
-    });
-
-    // Create Step records for each step in the plan using StepsService
-    if (Array.isArray(plan) && plan.length > 0) {
-      await this.stepsService.createSteps(
-        plan.map((step: PlanStep, index: number) => ({
-          runId: run.id,
-          tool: step.tool || 'unknown',
-          action: `Execute ${step.tool || 'unknown'}`,
-          request: (step as any).request ?? step.args ?? null,
-          planStepId: step.id || `step-${index}`,
-          startedAt: new Date(),
-        })),
-        userId
-      );
-
-      this.logger.log('✅ Plan steps created', {
-        runId: run.id,
-        stepCount: plan.length,
-      });
-    }
-
-    return run;
+    return this.creationService.createPlanRun(data);
   }
 
   /**
@@ -1170,7 +1081,7 @@ export class RunsService {
       where: { id: runId },
       data: {
         answers: mergedAnswers as any,
-        status: 'pending', // Ready to execute
+        status: RunStatus.PENDING, // Ready to execute
       },
     });
 
@@ -1220,7 +1131,7 @@ export class RunsService {
     await this.prisma.run.update({
       where: { id: runId },
       data: {
-        status: 'pending',
+        status: RunStatus.PENDING,
         config: {
           ...existingConfig,
           resumeFrom: 'executor', // Signal to processor to resume from executor

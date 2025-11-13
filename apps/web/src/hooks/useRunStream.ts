@@ -6,9 +6,9 @@ import type {
   UiQuestionsData,
   UiPlanData,
   UiMessage,
-} from '@/lib/datasources/DataSource';
-import type { Question } from '@/components/QuestionsPanel';
-import { normalizeQuestionType } from '@/lib/utils/questionHelpers';
+} from '@/apis/runs';
+import type { Question } from '@/components/chat/QuestionsPanel';
+import { normalizeQuestionType } from '@/apis/runs';
 import type { BackendStep } from '@/lib/adapters/backendToViewModel';
 import {
   buildPlanMessage,

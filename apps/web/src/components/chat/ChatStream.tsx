@@ -1,6 +1,6 @@
 import * as React from 'react';
 import MessageList from './MessageList';
-import type { UiRunSummary } from '@/lib/datasources/DataSource';
+import type { UiRunSummary } from '@/apis/runs';
 
 export function ChatStream({
   runId,
@@ -33,7 +33,7 @@ export function ChatStream({
     }
     return out;
   }, [messages]);
-
+console.log('Deduped messages:', messages, dedupedMessages);
   return <MessageList runId={runId} messages={dedupedMessages} />;
 }
 

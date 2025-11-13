@@ -9,7 +9,8 @@ import { LogCard } from '@/components/cards/LogCard';
 import { OutputCard } from '@/components/cards/OutputCard';
 import { ParamsCard } from '@/components/cards/ParamsCard';
 import { UndoCard } from '@/components/cards/UndoCard';
-import QuestionsPanel from '@/components/QuestionsPanel';
+import QuestionsPanel from '@/components/chat/QuestionsPanel';
+import MissingCredentials from '@/components/chat/MissingCredentials';
 import { useToast } from '@/hooks/use-toast';
 import type {
   UiRunSummary,
@@ -18,13 +19,16 @@ import type {
   UiRunData,
   UiLogData,
   UiOutputData,
+  UiParamsData,
   UiUndoData,
   UiQuestionsData,
   UiQuestionItem,
-} from '@/lib/datasources/DataSource';
+  UiAppCredentialsData,
+  UiMessage,
+} from '@/apis/runs';
 
 interface MessageItemProps {
-  message: any;
+  message: UiMessage;
   runId?: string;
 }
 
@@ -48,14 +52,9 @@ const MessageItem: React.FC<MessageItemProps> = ({ message: m, runId }) => {
       intent: pd?.intent || 'Plan',
       tools: pd?.tools || [],
       actions: pd?.actions || [],
-      mode: (pd?.mode === 'approval'
-        ? 'approval'
-        : pd?.mode === 'auto'
-          ? 'auto'
-          : 'preview') as const,
+      mode: 'auto' as const,
       steps: steps,
     };
-    const awaitingApproval = pd?.awaitingApproval === true || pd?.mode === 'approval';
     // Approval logic omitted for brevity; can be added as needed
     return (
       <ChatMessage role="assistant">
@@ -85,17 +84,82 @@ const MessageItem: React.FC<MessageItemProps> = ({ message: m, runId }) => {
     );
   }
 
+  if (m.type === 'app_credentials') {
+    const acd = (m.data as UiAppCredentialsData) || ({ steps: [] } as UiAppCredentialsData);
+    const steps = Array.isArray(acd?.steps) ? acd.steps : [];
+
+    // Convert UiPlanStep[] to StepInfo[] (subset of fields needed by MissingCredentials)
+    const stepInfos = steps.map((s) => ({
+      id: s.id,
+      tool: s.tool,
+      appId: s.appId,
+      credentialId: s.credentialId,
+      action: s.action,
+    }));
+
+    return (
+      <ChatMessage role="assistant">
+        <MissingCredentials
+          runId={acd?.runId || runId || ''}
+          steps={stepInfos}
+          onBeforeInstall={(appId) => {
+            console.log('[MessageItem] Starting install for app:', appId);
+          }}
+          onInstalled={(appId) => {
+            console.log('[MessageItem] App installed:', appId);
+          }}
+        />
+      </ChatMessage>
+    );
+  }
+
   if (m.type === 'questions') {
+    console.log('[MessageItem] Rendering questions panel');
+    console.log('[MessageItem] Questions data:', m);
     const qd = (m.data as UiQuestionsData) || ({} as UiQuestionsData);
     const qs: UiQuestionItem[] = Array.isArray(qd?.questions) ? qd.questions : [];
-    const steps = Array.isArray(qd?.steps) ? qd.steps : [];
+  console.log('aaaaaa........................');
+  console.log(m);
+
+    // Convert UiQuestionItem[] to Question[] for QuestionsPanel
+    const questions = qs.map((q) => ({
+      key: q.key,
+      question: q.question,
+      type: q.type as
+        | 'text'
+        | 'textarea'
+        | 'email'
+        | 'email_list'
+        | 'datetime'
+        | 'date'
+        | 'time'
+        | 'number'
+        | 'select'
+        | 'multiselect'
+        | undefined,
+      required: q.required,
+      placeholder: q.placeholder,
+      options: q.options,
+    }));
+
+    // Convert steps to the format expected by QuestionsPanel
+    const steps = Array.isArray(qd?.steps)
+      ? qd.steps.map((s) => ({
+          id: s.id || '',
+          tool: s.tool || '',
+          appId: s.appId,
+          credentialId: s.credentialId,
+          action: s.action,
+        }))
+      : [];
+
     return (
       <ChatMessage role="assistant">
         <QuestionsPanel
           runId={runId || ''}
-          questions={qs as any}
-          steps={steps as any}
+          questions={questions}
           onSubmitted={() => {}}
+          steps={steps}
         />
       </ChatMessage>
     );
@@ -116,16 +180,16 @@ const MessageItem: React.FC<MessageItemProps> = ({ message: m, runId }) => {
           content={String(od?.content || '')}
           type={type}
           data={od?.data}
-          presentation={(od as any)?.presentation}
+          presentation={od?.presentation}
         />
       </ChatMessage>
     );
   }
 
   if (m.type === 'params') {
-    const data = (m.data as any) || {};
-    const items = Array.isArray(data.items) ? data.items : [];
-    const title = typeof data.title === 'string' ? data.title : 'Inputs';
+    const paramsData = (m.data as UiParamsData) || ({ items: [] } as UiParamsData);
+    const items = Array.isArray(paramsData.items) ? paramsData.items : [];
+    const title = typeof paramsData.title === 'string' ? paramsData.title : 'Inputs';
     return (
       <ChatMessage role="assistant">
         <ParamsCard title={title} items={items} />

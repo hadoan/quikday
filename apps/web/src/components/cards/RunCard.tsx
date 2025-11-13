@@ -2,8 +2,9 @@ import * as React from 'react';
 import { CheckCircle2, Loader2, XCircle } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Progress } from '@/components/ui/progress';
-import type { UiRunData, UiRunStatus, UiStepStatus } from '@/lib/datasources/DataSource';
+import type { UiRunData, UiRunStatus, UiStepStatus } from '@/apis/runs';
 import { getDataSource } from '@/lib/flags/featureFlags';
+import { continueWithAnswers } from '@/apis/runs';
 
 type CanonicalStatus = 'running' | 'success' | 'error';
 
@@ -29,12 +30,14 @@ function formatTime(value?: string): string {
 }
 
 export const RunCard = ({ data, runId }: RunCardProps) => {
+  console.log('-----------------------------------------------------------------');
+  console.log('RunCard data:', data, runId);
+  console.log('-----------------------------------------------------------------');
   const rawStatus = String((data as any).status || '').toLowerCase();
   const status = normalizeStatus(data.status);
   const awaitingQuestions =
     (data as any).awaitingQuestions || (data as any).awaiting?.questions || [];
 
-  const dsAny = getDataSource() as unknown as { applyAnswers?: Function; confirm?: Function };
   const [answers, setAnswers] = React.useState<Record<string, string>>({});
   const [submitting, setSubmitting] = React.useState(false);
   const [submitted, setSubmitted] = React.useState(false);
@@ -55,26 +58,9 @@ export const RunCard = ({ data, runId }: RunCardProps) => {
     }
     setSubmitting(true);
     try {
-      if (dsAny.applyAnswers && typeof dsAny.applyAnswers === 'function') {
-        await dsAny.applyAnswers(runId, answers);
-      } else {
-        // Fallback to native fetch
-        await fetch(`/runs/${runId}/continueWithAnswers`, {
-          method: 'POST',
-          headers: { 'content-type': 'application/json' },
-          body: JSON.stringify({ answers }),
-        }).then((r) => {
-          if (!r.ok) throw new Error('applyAnswers failed');
-        });
-      }
-
-      if (dsAny.confirm && typeof dsAny.confirm === 'function') {
-        await dsAny.confirm(runId);
-      } else {
-        await fetch(`/runs/${runId}/confirm`, { method: 'POST' }).then((r) => {
-          if (!r.ok) throw new Error('confirm failed');
-        });
-      }
+      // Use centralized continueWithAnswers helper
+      const ds = getDataSource();
+      await continueWithAnswers(runId, answers, ds);
 
       // Mark as submitted to show read-only view
       setSubmitted(true);
@@ -122,7 +108,10 @@ export const RunCard = ({ data, runId }: RunCardProps) => {
   };
 
   // If run is awaiting input, render the input form inline (per UX copy)
-  if (rawStatus === 'awaiting_input' || (awaitingQuestions && awaitingQuestions.length > 0)) {
+  if (rawStatus === 'awaiting_input') {
+    if (!awaitingQuestions || awaitingQuestions.length === 0) {
+      return <></>;
+    }
     const qs = awaitingQuestions as any[];
 
     return (

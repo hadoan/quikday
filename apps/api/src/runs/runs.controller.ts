@@ -13,6 +13,7 @@ import {
 import { RunsService } from './runs.service.js';
 import { KindeGuard } from '../auth/kinde.guard.js';
 import { validateAnswers } from '@quikday/agent/validation/answers';
+import { RunStatus } from '@prisma/client';
 
 export interface ChatMessageDto {
   role: 'system' | 'user' | 'assistant' | 'tool';
@@ -40,6 +41,10 @@ export interface ConfirmDto {
   approve?: boolean;
 }
 
+export interface RetrieveRunDto {
+  update_credential?: boolean;
+}
+
 @Controller('runs')
 @UseGuards(KindeGuard)
 export class RunsController {
@@ -63,7 +68,18 @@ export class RunsController {
     const pageSize = req.query?.pageSize ? Number(req.query.pageSize) : undefined;
     const sortBy = req.query?.sortBy as string | undefined as any;
     const sortDir = req.query?.sortDir as string | undefined as any;
-    const status = ([] as string[]).concat(req.query?.status ?? []).filter(Boolean);
+    const rawStatuses = ([] as string[])
+      .concat(req.query?.status ?? [])
+      .filter(Boolean)
+      .map((value) => value.toString().toLowerCase());
+    const allowedStatuses = new Set<RunStatus>(Object.values(RunStatus) as RunStatus[]);
+    const status = rawStatuses.reduce<RunStatus[]>((acc, value) => {
+      if (allowedStatuses.has(value as RunStatus)) {
+        acc.push(value as RunStatus);
+      }
+      return acc;
+    }, []);
+
     return this.runs.list({ userId, page, pageSize, q, status, sortBy, sortDir });
   }
 
@@ -269,6 +285,29 @@ export class RunsController {
     return this.runs.get(id, userId);
   }
 
+  @Post(':id/retrieve')
+  async retrieve(
+    @Param('id') id: string,
+    @Body() body: RetrieveRunDto,
+    @Req() req: any
+  ) {
+    const claims = req.user || {};
+    const userId = claims.sub;
+
+    if (!userId) {
+      throw new BadRequestException('User ID not found in claims');
+    }
+
+    const run = await this.runs.get(id, userId);
+
+    // If update_credential is true, refresh credentials in chat items
+    if (body.update_credential === true) {
+      await this.runs.updateChatItemCredentials(id);
+    }
+
+    return run;
+  }
+
   @Post(':id/refresh-credentials')
   async refreshCredentials(@Param('id') id: string, @Req() req: any) {
     const claims = req.user || {};
@@ -296,7 +335,7 @@ export class RunsController {
     // Verify ownership
     await this.runs.get(id, userId);
 
-    await this.runs.updateStatus(id, 'pending_apps_install');
+    await this.runs.updateStatus(id, RunStatus.PENDING_APPS_INSTALL);
     this.logger.log(`Run ${id} marked as pending_apps_install by user ${userId}`);
     return { ok: true };
   }
