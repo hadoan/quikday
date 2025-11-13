@@ -10,7 +10,7 @@ import { ErrorCode } from '@quikday/types';
 import type { RunState, RunMode } from '@quikday/agent/state/types';
 import { RunStatus, type Run } from '@prisma/client';
 import { subscribeToRunEvents } from '@quikday/agent/observability/events';
-import { CHANNEL_WORKER, CHANNEL_WEBSOCKET } from '@quikday/libs';
+import { CHANNEL_WORKER } from '@quikday/libs';
 import type { RunEvent as UiRunEvent } from '@quikday/libs/redis/RunEvent';
 import { AgentService } from '../agent/index.js';
 import type { RunEventBus } from '@quikday/libs/pubsub/event-bus';
@@ -126,19 +126,11 @@ export class RunProcessor extends WorkerHost {
     return runWithCurrentUser(ctx, async () => {
       // mark running and notify
       await this.runs.updateStatus(run.id, RunStatus.RUNNING);
-      await this.publishAndSaveChatItem(run, 'run_status', { status: RunStatus.RUNNING });
-
-      this.logger.log('▶️ Starting run execution', {
-        timestamp: new Date().toISOString(),
-        runId: run.id,
-        prompt: run.prompt.substring(0, 50) + (run.prompt.length > 50 ? '...' : ''),
-        mode: run.mode,
-        userId: run.userId,
-        teamId: run.teamId,
-      });
+     
 
       // Build runtime input + ctx
-      const { initialState, publishRunEvent, safePublish } = await this.buildInputAndCtx(run, job);
+      const { initialState, appendStatusMessage, appendStatusMessageSync } =
+        await this.buildInputAndCtx(run, job);
 
       // prepare runtime graph
       const graph = this.agent.createGraph();
@@ -163,7 +155,7 @@ export class RunProcessor extends WorkerHost {
         liveStateRef: { get: () => liveState, set: (s: RunState) => (liveState = s) },
         markStep,
         applyDelta,
-        safePublish,
+        appendStatusMessage: appendStatusMessageSync,
         stepLogs,
         setGraphEmitted: (v: boolean) => (graphEmittedRunCompleted = v),
         logger: this.logger,
@@ -332,7 +324,7 @@ export class RunProcessor extends WorkerHost {
 
           await this.runs.updateStatus(run.id, RunStatus.AWAITING_INPUT);
 
-          await this.publishAndSaveChatItem(run, 'run_status', {
+          await this.persistStatusChatItem(run, 'run_status', {
             status: RunStatus.AWAITING_INPUT,
             questions,
             steps: stepsForUI,
@@ -358,7 +350,7 @@ export class RunProcessor extends WorkerHost {
 
           // Notify UI of awaiting_approval status
           // Note: plan_generated event was already emitted by graph during execution
-          await this.publishAndSaveChatItem(run, 'run_status', {
+          await this.persistStatusChatItem(run, 'run_status', {
             status: RunStatus.AWAITING_APPROVAL,
             plan: plan.map((s) => ({ id: s.id, tool: s.tool })),
           });
@@ -384,7 +376,7 @@ export class RunProcessor extends WorkerHost {
 
           // Notify UI that preview mode is completed
           // Note: plan_generated event was already emitted by graph during execution
-          await this.publishAndSaveChatItem(run, 'run_completed', {
+          await this.persistStatusChatItem(run, 'run_completed', {
             status: RunStatus.DONE,
             output: final.output ?? {},
             plan: plan.map((s) => ({ id: s.id, tool: s.tool })),
@@ -430,7 +422,7 @@ export class RunProcessor extends WorkerHost {
         }
 
         if (!graphEmittedRunCompleted) {
-          await publishRunEvent('run_completed', {
+          await appendStatusMessage('run_completed', {
             status: RunStatus.DONE,
             output: final.output ?? {},
             lastAssistant,
@@ -452,7 +444,7 @@ export class RunProcessor extends WorkerHost {
           liveState,
           formatLogsForPersistence,
           job,
-          publishRunEvent: publishRunEvent.bind(this),
+          appendStatusMessage,
         });
       }
     });
@@ -586,19 +578,19 @@ export class RunProcessor extends WorkerHost {
       output: restOutput as RunState['output'],
     };
 
-    const publishRunEvent = (type: UiRunEvent['type'], payload: UiRunEvent['payload']) =>
-      this.publishAndSaveChatItem(run, type, payload);
+    const appendStatusMessage = (type: UiRunEvent['type'], payload: UiRunEvent['payload']) =>
+      this.persistStatusChatItem(run, type, payload);
 
-    const safePublish = (type: UiRunEvent['type'], payload: UiRunEvent['payload']) =>
-      void publishRunEvent(type, payload).catch((publishErr) =>
-        this.logger.error('❌ Failed to publish run event', {
+    const appendStatusMessageSync = (type: UiRunEvent['type'], payload: UiRunEvent['payload']) =>
+      void appendStatusMessage(type, payload).catch((err) =>
+        this.logger.error('❌ Failed to append status chat item', {
           runId: run.id,
           type,
-          error: publishErr?.message ?? publishErr,
+          error: err?.message ?? err,
         })
       );
 
-    return { initialState, publishRunEvent, safePublish };
+    return { initialState, appendStatusMessage, appendStatusMessageSync };
   }
 
   private applyDelta(target: any, delta: any) {
@@ -656,18 +648,15 @@ export class RunProcessor extends WorkerHost {
   }
 
   /**
-   * Publish event to CHANNEL_WEBSOCKET and save as chat item
+   * Persist status events as chat items (websocket notifications happen inside ChatService).
    */
-  private async publishAndSaveChatItem(
+  private async persistStatusChatItem(
     run: Run,
     eventType: UiRunEvent['type'],
     payload: UiRunEvent['payload']
   ) {
-    // Publish to websocket
-    await this.eventBus.publish(run.id, { type: eventType, payload }, CHANNEL_WEBSOCKET);
-
-    // Save as chat item
     try {
+      const normalizedPayload = this.enrichStatusPayload(run, eventType, payload);
       const chat = await this.chatService.findOrCreateChat(
         run.id,
         run.userId,
@@ -680,7 +669,7 @@ export class RunProcessor extends WorkerHost {
         run.userId,
         run.teamId,
         eventType,
-        payload
+        normalizedPayload
       );
     } catch (err) {
       this.logger.error('❌ Failed to save chat item', {
@@ -691,15 +680,55 @@ export class RunProcessor extends WorkerHost {
     }
   }
 
+  private enrichStatusPayload(
+    run: Run,
+    eventType: UiRunEvent['type'],
+    payload: UiRunEvent['payload']
+  ): Record<string, unknown> {
+    const normalized: Record<string, unknown> =
+      payload && typeof payload === 'object' ? { ...payload } : {};
+
+    const hasStartedField =
+      typeof normalized.started_at === 'string' || typeof normalized.startedAt === 'string';
+    if (!hasStartedField && run.createdAt instanceof Date) {
+      normalized.started_at = run.createdAt.toISOString();
+    }
+
+    const statusValue =
+      typeof normalized.status === 'string' ? normalized.status.toLowerCase() : undefined;
+    const terminalStatuses = new Set<string>([
+      RunStatus.DONE,
+      RunStatus.SUCCEEDED,
+      RunStatus.COMPLETED,
+      RunStatus.FAILED,
+      RunStatus.CANCELED,
+    ]);
+
+    const eventImpliesCompletion =
+      eventType === 'run_completed' ||
+      (eventType === 'run_status' && statusValue && terminalStatuses.has(statusValue));
+
+    const hasCompletedField =
+      typeof normalized.completed_at === 'string' || typeof normalized.completedAt === 'string';
+    if (eventImpliesCompletion && !hasCompletedField) {
+      normalized.completed_at = new Date().toISOString();
+    }
+
+    return normalized;
+  }
+
   private async handleExecutionError(opts: {
     err: any;
     run: any;
     liveState: RunState;
     formatLogsForPersistence: () => any[];
     job: Job<RunJobData>;
-    publishRunEvent: (type: UiRunEvent['type'], payload: UiRunEvent['payload']) => Promise<void>;
+    appendStatusMessage: (
+      type: UiRunEvent['type'],
+      payload: UiRunEvent['payload']
+    ) => Promise<void>;
   }) {
-    const { err, run, liveState, formatLogsForPersistence, job, publishRunEvent } = opts;
+    const { err, run, liveState, formatLogsForPersistence, job, appendStatusMessage } = opts;
     this.logger.error('❌ Job execution failed', {
       timestamp: new Date().toISOString(),
       jobId: job.id,
@@ -741,8 +770,7 @@ export class RunProcessor extends WorkerHost {
         '⏸️ Run awaiting approval',
         approvalId ? { runId: run.id, approvalId } : { runId: run.id }
       );
-      await this.publishAndSaveChatItem(
-        run,
+      await appendStatusMessage(
         'run_status',
         approvalId
           ? { status: RunStatus.AWAITING_APPROVAL, approvalId }
@@ -765,7 +793,7 @@ export class RunProcessor extends WorkerHost {
       logs: formatLogsForPersistence(),
     });
     await this.runs.updateStatus(run.id, RunStatus.FAILED);
-    await this.publishAndSaveChatItem(run, 'run_status', {
+    await this.persistStatusChatItem(run, 'run_status', {
       status: RunStatus.FAILED,
       error: errorPayload,
     });

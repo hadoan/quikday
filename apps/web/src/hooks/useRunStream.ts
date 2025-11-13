@@ -157,18 +157,8 @@ function processRunEvent(
       handlePlanGenerated(event, activeRunId, newMessages);
       break;
 
-    case 'run_snapshot':
-      handleRunSnapshot(event, activeRunId, newMessages, setQuestions);
-      break;
-
     case 'step_started':
       handleStepStarted(event, newMessages);
-      break;
-
-    case 'run_status':
-    case 'scheduled':
-    case 'run_completed':
-      handleRunStatus(event, newMessages, activeRunId, setQuestions);
       break;
 
     default:
@@ -243,50 +233,6 @@ function handlePlanGenerated(event: UiEvent, activeRunId: string, newMessages: U
         steps: stepsPayload as any,
       }),
     );
-  }
-}
-
-function handleRunSnapshot(
-  event: UiEvent,
-  activeRunId: string,
-  newMessages: UiMessage[],
-  setQuestions: Dispatch<SetStateAction<Question[]>>,
-) {
-  try {
-    const status = (event.payload.status as UiRunSummary['status']) || undefined;
-    const lastAssistant = event.payload.lastAssistant as string | undefined;
-    const missingFields = event.payload.missingFields as UiQuestionItem[] | undefined;
-
-    if (lastAssistant && typeof lastAssistant === 'string' && lastAssistant.trim()) {
-      newMessages.push({ role: 'assistant', content: lastAssistant });
-    }
-
-    if (Array.isArray(missingFields) && missingFields.length > 0) {
-      const hasQuestionsCard = newMessages.some(
-        (m) => m && m.type === 'questions' && (m.data as any)?.runId === activeRunId,
-      );
-      if (!hasQuestionsCard) {
-        newMessages.push({
-          role: 'assistant',
-          type: 'questions',
-          data: {
-            runId: activeRunId,
-            questions: missingFields,
-          } satisfies UiQuestionsData,
-        });
-        const qs: Question[] = missingFields.map((q) => ({
-          key: q.key,
-          question: q.question,
-          required: q.required,
-          placeholder: q.placeholder,
-          options: q.options,
-          type: normalizeQuestionType(q.type),
-        }));
-        setQuestions(qs);
-      }
-    }
-  } catch (e) {
-    console.warn('[useRunStream] Failed to handle run_snapshot', e);
   }
 }
 

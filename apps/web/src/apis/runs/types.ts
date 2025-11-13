@@ -90,7 +90,7 @@ export interface ApiPlanStep {
 
 export interface UiMessage {
   role: UiMessageRole;
-  content?: JSON | string | {steps?: ApiPlanStep[]};
+  content?: JSON | string | { steps?: ApiPlanStep[] };
   type?: UiMessageType;
   data?: UiMessageData;
 }
@@ -121,6 +121,7 @@ export interface UiRunData {
   started_at?: string;
   completed_at?: string;
   progress?: number;
+  error?: string;
 }
 
 export interface UiLogData {
@@ -168,6 +169,8 @@ export interface UiQuestionsData {
   questions: UiQuestionItem[];
   steps?: UiPlanStep[];
   hasMissingCredentials?: boolean;
+  answered?: boolean;
+  answeredAt?: string;
 }
 
 export interface UiConfigData {
@@ -205,7 +208,8 @@ export type UiEventType =
   | 'run_completed'
   | 'run_failed'
   | 'run_status'
-  | 'error';
+  | 'error'
+  | 'chat_updated';
 
 export interface UiEvent {
   type: UiEventType;

@@ -193,7 +193,7 @@ export function parseRobustJson<T = any>(raw: string, context?: string): T {
 
     throw new Error(
       `Failed to parse LLM JSON output${contextStr}: ${errorMsg}\n` +
-      `Preview: ${preview}${raw.length > 200 ? '...' : ''}`
+        `Preview: ${preview}${raw.length > 200 ? '...' : ''}`,
     );
   }
 }

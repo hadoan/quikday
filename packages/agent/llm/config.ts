@@ -79,16 +79,16 @@ export function loadLLMConfig(): LLMConfig {
  */
 export function detectProvider(): LLMProvider {
   const explicitProvider = process.env.LLM_PROVIDER?.toLowerCase().trim();
-  
+
   // Priority 1: Explicit LLM_PROVIDER setting (highest priority)
   if (explicitProvider === 'anthropic' || explicitProvider === 'claude') {
     return 'anthropic';
   }
-  
+
   if (explicitProvider === 'azure-openai' || explicitProvider === 'azure') {
     return 'azure-openai';
   }
-  
+
   if (explicitProvider === 'openai') {
     return 'openai';
   }
@@ -103,7 +103,7 @@ export function detectProvider(): LLMProvider {
   if (process.env.ANTHROPIC_API_KEY && !process.env.OPENAI_API_KEY) {
     return 'anthropic';
   }
-  
+
   // Prefer Azure if Azure credentials are fully configured
   if (process.env.AZURE_OPENAI_API_KEY && process.env.AZURE_OPENAI_ENDPOINT) {
     return 'azure-openai';
@@ -121,9 +121,7 @@ export function validateLLMConfig(config: LLMConfig): void {
   switch (config.provider) {
     case 'openai':
       if (!config.openai?.apiKey) {
-        throw new Error(
-          'OpenAI API key is required. Set OPENAI_API_KEY environment variable.',
-        );
+        throw new Error('OpenAI API key is required. Set OPENAI_API_KEY environment variable.');
       }
       break;
 
@@ -169,7 +167,7 @@ export function getProviderDisplayName(provider: LLMProvider): string {
  */
 export function logLLMConfig(config: LLMConfig): void {
   console.log(`[LLM Config] Provider: ${getProviderDisplayName(config.provider)}`);
-  
+
   switch (config.provider) {
     case 'openai':
       console.log(`[LLM Config] Model: ${config.openai?.model}`);

@@ -24,7 +24,7 @@ export class RunCreationService {
     private stepsService: StepsService,
     private chatItemOrchestrator: ChatItemOrchestratorService,
     private authService: RunAuthorizationService,
-    @InjectQueue('runs') private runsQueue: Queue,
+    @InjectQueue('runs') private runsQueue: Queue
   ) {}
 
   /**
@@ -69,7 +69,7 @@ export class RunCreationService {
     // Build policy snapshot
     const policySnapshot = await this.authService.buildPolicySnapshot(
       team?.id ?? null,
-      toolAllowlist,
+      toolAllowlist
     );
 
     // Humanize user name
@@ -212,12 +212,12 @@ export class RunCreationService {
     goal: Goal | null;
     plan: PlanStep[];
     missing: MissingField[];
+    no_ws_socket_notify?: boolean;
   }) {
-    const { prompt, userId, teamId, tz, goal, plan, missing } = data;
+    const { prompt, userId, teamId, tz, goal, plan, missing, no_ws_socket_notify } = data;
 
     // Determine status based on whether there are missing inputs
-    const status =
-      missing && missing.length > 0 ? RunStatus.AWAITING_INPUT : RunStatus.PLANNING;
+    const status = missing && missing.length > 0 ? RunStatus.AWAITING_INPUT : RunStatus.PLANNING;
 
     this.logger.log('💾 Creating plan run', {
       userId,
@@ -262,7 +262,7 @@ export class RunCreationService {
           planStepId: step.id || `step-${index}`,
           startedAt: new Date(),
         })),
-        userId,
+        userId
       );
 
       this.logger.log('✅ Plan steps created', {
@@ -281,6 +281,7 @@ export class RunCreationService {
         goal,
         plan,
         missing,
+        no_ws_socket_notify
       });
     } catch (e) {
       this.logger.warn('Failed to create chat items for plan run', e as any);
@@ -294,7 +295,7 @@ export class RunCreationService {
    */
   private async enqueueRun(
     runId: string,
-    opts: { delayMs?: number; scratch?: Record<string, unknown> } = {},
+    opts: { delayMs?: number; scratch?: Record<string, unknown> } = {}
   ) {
     this.logger.log('📮 Adding job to BullMQ queue', {
       timestamp: new Date().toISOString(),

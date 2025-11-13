@@ -53,7 +53,7 @@ export function createLLM(provider?: LLMProvider, verbose = false): LLM {
     case 'azure-openai':
       console.log('[LLM Factory] ✅ Using Azure OpenAI');
       return makeOpenAiLLM();
-      
+
     case 'openai':
       console.log('[LLM Factory] ✅ Using OpenAI');
       return makeOpenAiLLM();

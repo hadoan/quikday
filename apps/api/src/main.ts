@@ -27,7 +27,7 @@ async function bootstrap() {
     console.log('=== LLM Configuration ===');
     // eslint-disable-next-line no-console
     console.log(`LLM_PROVIDER: ${process.env.LLM_PROVIDER || '(not set)'}`);
-    
+
     const openaiKey = process.env.OPENAI_API_KEY || '';
     if (openaiKey) {
       // eslint-disable-next-line no-console
@@ -40,7 +40,9 @@ async function bootstrap() {
     const anthropicKey = process.env.ANTHROPIC_API_KEY || '';
     if (anthropicKey) {
       // eslint-disable-next-line no-console
-      console.log(`ANTHROPIC_API_KEY: ${anthropicKey.slice(0, 10)}... (len=${anthropicKey.length})`);
+      console.log(
+        `ANTHROPIC_API_KEY: ${anthropicKey.slice(0, 10)}... (len=${anthropicKey.length})`
+      );
       // eslint-disable-next-line no-console
       console.log(`ANTHROPIC_MODEL: ${process.env.ANTHROPIC_MODEL || '(not set)'}`);
     } else {

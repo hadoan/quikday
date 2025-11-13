@@ -9,7 +9,7 @@ class FakeRedisPubSubService {
   public published: Array<{ runId: string; event: any }> = [];
   private handlers = new Map<string, (event: any) => void>();
 
-  async publishRunEvent(runId: string, event: any): Promise<void> {
+  async appendStatusMessage(runId: string, event: any): Promise<void> {
     this.published.push({ runId, event });
   }
 

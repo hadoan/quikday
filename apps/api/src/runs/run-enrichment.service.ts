@@ -68,7 +68,7 @@ export class RunEnrichmentService {
 
   constructor(
     private stepsService: StepsService,
-    private prisma: PrismaService,
+    private prisma: PrismaService
   ) {}
 
   /**
@@ -204,10 +204,7 @@ export class RunEnrichmentService {
    * Map enriched steps to plan response format (for API responses)
    * Merges database step data with original plan data
    */
-  mapStepsToPlanFormat(
-    enrichedSteps: EnrichedStep[],
-    originalPlan: PlanStep[]
-  ): PlanFormatStep[] {
+  mapStepsToPlanFormat(enrichedSteps: EnrichedStep[], originalPlan: PlanStep[]): PlanFormatStep[] {
     return enrichedSteps.map((step) => {
       const originalStep = originalPlan.find(
         (p) => p.id === step.planStepId || p.tool === step.tool

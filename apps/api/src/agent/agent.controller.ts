@@ -19,7 +19,7 @@ export class AgentController {
     private readonly agent: AgentService,
     private readonly prisma: PrismaService,
     private readonly runsService: RunsService,
-    private readonly enrichmentService: RunEnrichmentService,
+    private readonly enrichmentService: RunEnrichmentService
   ) {}
 
   /**
@@ -102,6 +102,7 @@ export class AgentController {
         goal: result.goal,
         plan: result.plan,
         missing: result.missing,
+        no_ws_socket_notify: true,
       });
 
       // Fetch enriched steps from database (single source of truth)

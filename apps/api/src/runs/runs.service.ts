@@ -17,6 +17,7 @@ import type { ChatMessage } from '@quikday/agent/state/types';
 import { CurrentUserService, getCurrentUserCtx } from '@quikday/libs';
 import { StepsService } from './steps.service.js';
 import { ChatItemOrchestratorService } from './chat-item-orchestrator.service.js';
+import { ChatService } from './chat.service.js';
 import { RunEnrichmentService } from './run-enrichment.service.js';
 import { RunCreationService } from './run-creation.service.js';
 import { RunQueryService } from './run-query.service.js';
@@ -50,7 +51,8 @@ export class RunsService {
     private readonly creationService: RunCreationService,
     private readonly queryService: RunQueryService,
     private readonly authService: RunAuthorizationService,
-  ) {}
+    private readonly chatService: ChatService
+  ) { }
 
   private jsonClone<T>(v: T): T {
     return JSON.parse(JSON.stringify(v));
@@ -706,43 +708,31 @@ export class RunsService {
         const chat = await this.prisma.chat.findUnique({ where: { runId: id } });
         if (chat) {
           if (Array.isArray(result.logs) && result.logs.length > 0) {
-            await this.prisma.chatItem.create({
-              data: {
-                chatId: chat.id,
-                type: 'log',
-                role: 'assistant',
-                content: { entries: result.logs } as any,
-                runId: id,
-                userId: run2.userId,
-                teamId: run2.teamId ?? null,
-              },
-            });
+            await this.chatService.createLogChatItem(
+              chat.id,
+              id,
+              run2.userId,
+              run2.teamId ?? null,
+              result.logs
+            );
           }
           if (result.output) {
-            await this.prisma.chatItem.create({
-              data: {
-                chatId: chat.id,
-                type: 'output',
-                role: 'assistant',
-                content: result.output as any,
-                runId: id,
-                userId: run2.userId,
-                teamId: run2.teamId ?? null,
-              },
-            });
+            await this.chatService.createOutputChatItem(
+              chat.id,
+              id,
+              run2.userId,
+              run2.teamId ?? null,
+              result.output
+            );
           }
           if (result.error) {
-            await this.prisma.chatItem.create({
-              data: {
-                chatId: chat.id,
-                type: 'error',
-                role: 'assistant',
-                content: result.error as any,
-                runId: id,
-                userId: run2.userId,
-                teamId: run2.teamId ?? null,
-              },
-            });
+            await this.chatService.createErrorChatItem(
+              chat.id,
+              id,
+              run2.userId,
+              run2.teamId ?? null,
+              result.error
+            );
           }
         }
       }
@@ -768,8 +758,11 @@ export class RunsService {
       throw new UnauthorizedException('User not found in database');
     }
 
-    const { updated, steps: postSteps, missingCredSteps } =
-      await this.reResolveRunStepCredentials(runId, user.id);
+    const {
+      updated,
+      steps: postSteps,
+      missingCredSteps,
+    } = await this.reResolveRunStepCredentials(runId, user.id);
 
     // Update run.plan JSON to reflect the updated credentialIds
     if (updated > 0) {
@@ -840,10 +833,7 @@ export class RunsService {
     }
 
     const { updated } = await this.reResolveRunStepCredentials(runId, user.id);
-    this.logger.log(
-      `Re-resolved step credentials for chat hydration on run ${runId}`,
-      { updated },
-    );
+    this.logger.log(`Re-resolved step credentials for chat hydration on run ${runId}`, { updated });
     return { updated };
   }
 
@@ -921,9 +911,10 @@ export class RunsService {
     });
   }
 
+
   private async reResolveRunStepCredentials(
     runId: string,
-    userId: number,
+    userId: number
   ): Promise<{
     updated: number;
     steps: Step[];
@@ -939,7 +930,7 @@ export class RunsService {
       try {
         const { credentialId } = await this.stepsService.reResolveAppAndCredential(
           step.tool,
-          userId,
+          userId
         );
         if (!credentialId) continue;
         await this.prisma.step.update({ where: { id: step.id }, data: { credentialId } });
@@ -954,7 +945,7 @@ export class RunsService {
 
     const postSteps = await this.prisma.step.findMany({ where: { runId } });
     const missingCredSteps = postSteps.filter(
-      (st) => st.appId && (st.credentialId === null || st.credentialId === undefined),
+      (st) => st.appId && (st.credentialId === null || st.credentialId === undefined)
     );
 
     return { updated, steps: postSteps, missingCredSteps };
@@ -1005,6 +996,7 @@ export class RunsService {
     goal: Goal | null;
     plan: PlanStep[];
     missing: MissingField[];
+    no_ws_socket_notify?: boolean;
   }) {
     return this.creationService.createPlanRun(data);
   }
@@ -1097,5 +1089,40 @@ export class RunsService {
     await this.enqueue(runId, { scratch });
 
     this.logger.log('✅ Plan execution enqueued with resumeFrom=executor', { runId });
+  }
+
+  async getChatItem(runId: string, chatItemId: string, userSub: string) {
+    await this.get(runId, userSub);
+
+    const chatItem = await this.prisma.chatItem.findFirst({
+      where: {
+        id: chatItemId,
+        hideInChat: false,
+      },
+    });
+    if (!chatItem || chatItem.runId !== runId) {
+      throw new NotFoundException('Chat item not found');
+    }
+    return chatItem;
+  }
+
+  async hideQuestionChatItems(runId: string) {
+    const result = await this.prisma.chatItem.updateMany({
+      where: {
+        runId,
+        type: 'questions',
+        hideInChat: false,
+      },
+      data: {
+        hideInChat: true,
+      },
+    });
+
+    this.logger.debug('🙈 Hid questions chat items', {
+      runId,
+      updated: result.count,
+    });
+
+    return result.count;
   }
 }

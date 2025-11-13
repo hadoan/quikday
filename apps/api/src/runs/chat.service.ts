@@ -1,5 +1,7 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger, Inject } from '@nestjs/common';
 import { PrismaService } from '@quikday/prisma';
+import type { RunEventBus } from '@quikday/libs/pubsub/event-bus';
+import { CHANNEL_WEBSOCKET } from '@quikday/libs';
 
 /**
  * ChatService handles all chat and chat item CRUD operations.
@@ -9,7 +11,52 @@ import { PrismaService } from '@quikday/prisma';
 export class ChatService {
   private readonly logger = new Logger(ChatService.name);
 
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    private prisma: PrismaService,
+    @Inject('RunEventBus') private eventBus: RunEventBus
+  ) { }
+
+  private async notifyChatUpdated(
+    runId: string,
+    chatItemId: string,
+    meta?: Record<string, unknown>,
+    options?: { hideInChat?: boolean }
+  ) {
+    if (options?.hideInChat) {
+      this.logger.debug('Skipping chat_updated emit for hidden chat item', {
+        runId,
+        chatItemId,
+      });
+      return;
+    }
+
+    try {
+      this.logger.debug('📡 Emitting chat_updated', {
+        runId,
+        chatItemId,
+        meta,
+      });
+
+      await this.eventBus.publish(
+        runId,
+        {
+          type: 'chat_updated',
+          payload: {
+            runId,
+            chatItemId,
+            ...(meta ?? {}),
+          },
+        },
+        CHANNEL_WEBSOCKET
+      );
+    } catch (error) {
+      this.logger.error('Failed to publish chat_updated event', {
+        runId,
+        chatItemId,
+        error: error instanceof Error ? error.message : String(error),
+      });
+    }
+  }
 
   /**
    * Find existing chat or create new one for a run
@@ -38,9 +85,10 @@ export class ChatService {
     data: {
       intent: string;
       steps: any[];
+      no_ws_socket_notify?: boolean;
     }
   ) {
-    return this.prisma.chatItem.create({
+    const chatItem = await this.prisma.chatItem.create({
       data: {
         chatId,
         type: 'plan',
@@ -57,6 +105,10 @@ export class ChatService {
         teamId,
       },
     });
+    if (!data.no_ws_socket_notify) {
+      await this.notifyChatUpdated(runId, chatItem.id, { type: 'plan' }, { hideInChat: chatItem.hideInChat });
+    }
+    return chatItem;
   }
 
   /**
@@ -68,7 +120,8 @@ export class ChatService {
     runId: string,
     userId: number,
     teamId: number | null,
-    steps: any[]
+    steps: any[],
+    no_ws_socket_notify?: boolean
   ) {
     const stepsNeedingCredentials = steps.filter(
       (s) => s.appId && (s.credentialId === null || s.credentialId === undefined)
@@ -78,7 +131,7 @@ export class ChatService {
       return null;
     }
 
-    return this.prisma.chatItem.create({
+    const chatItem = await this.prisma.chatItem.create({
       data: {
         chatId,
         type: 'app_credentials',
@@ -98,6 +151,10 @@ export class ChatService {
         teamId,
       },
     });
+    if (!no_ws_socket_notify) {
+      await this.notifyChatUpdated(runId, chatItem.id, { type: 'app_credentials' }, { hideInChat: chatItem.hideInChat });
+    }
+    return chatItem;
   }
 
   /**
@@ -112,9 +169,12 @@ export class ChatService {
       questions: any[];
       steps: any[];
       hasMissingCredentials?: boolean;
+      answered?: boolean;
+      answeredAt?: Date;
+      no_ws_socket_notify?: boolean;
     }
   ) {
-    return this.prisma.chatItem.create({
+    const chatItem = await this.prisma.chatItem.create({
       data: {
         chatId,
         type: 'questions',
@@ -124,12 +184,18 @@ export class ChatService {
           questions: data.questions,
           steps: data.steps,
           hasMissingCredentials: data.hasMissingCredentials || false,
+          answered: data.answered ?? false,
+          answeredAt: data.answeredAt ?? null,
         } as any,
         runId,
         userId,
         teamId,
       },
     });
+    if (!data.no_ws_socket_notify) {
+      await this.notifyChatUpdated(runId, chatItem.id, { type: 'questions' }, { hideInChat: chatItem.hideInChat });
+    }
+    return chatItem;
   }
 
   /**
@@ -140,9 +206,10 @@ export class ChatService {
     runId: string,
     userId: number,
     teamId: number | null,
-    text: string
+    text: string,
+    no_ws_socket_notify?: boolean
   ) {
-    return this.prisma.chatItem.create({
+    const chatItem = await this.prisma.chatItem.create({
       data: {
         chatId,
         type: 'assistant',
@@ -153,6 +220,10 @@ export class ChatService {
         teamId,
       },
     });
+    if (!no_ws_socket_notify) {
+    await this.notifyChatUpdated(runId, chatItem.id, { type: 'assistant' }, { hideInChat: chatItem.hideInChat });
+    }
+    return chatItem;
   }
 
   /**
@@ -165,7 +236,7 @@ export class ChatService {
     teamId: number | null,
     entries: any[]
   ) {
-    return this.prisma.chatItem.create({
+    const chatItem = await this.prisma.chatItem.create({
       data: {
         chatId,
         type: 'log',
@@ -176,6 +247,8 @@ export class ChatService {
         teamId,
       },
     });
+    await this.notifyChatUpdated(runId, chatItem.id, { type: 'log' }, { hideInChat: chatItem.hideInChat });
+    return chatItem;
   }
 
   /**
@@ -188,7 +261,7 @@ export class ChatService {
     teamId: number | null,
     output: any
   ) {
-    return this.prisma.chatItem.create({
+    const chatItem = await this.prisma.chatItem.create({
       data: {
         chatId,
         type: 'output',
@@ -199,6 +272,8 @@ export class ChatService {
         teamId,
       },
     });
+    await this.notifyChatUpdated(runId, chatItem.id, { type: 'output' }, { hideInChat: chatItem.hideInChat });
+    return chatItem;
   }
 
   /**
@@ -211,7 +286,7 @@ export class ChatService {
     teamId: number | null,
     error: any
   ) {
-    return this.prisma.chatItem.create({
+    const chatItem = await this.prisma.chatItem.create({
       data: {
         chatId,
         type: 'error',
@@ -222,6 +297,8 @@ export class ChatService {
         teamId,
       },
     });
+    await this.notifyChatUpdated(runId, chatItem.id, { type: 'error' }, { hideInChat: chatItem.hideInChat });
+    return chatItem;
   }
 
   /**
@@ -235,7 +312,41 @@ export class ChatService {
     eventType: string,
     payload: any
   ) {
-    return this.prisma.chatItem.create({
+    if (eventType === 'run_status') {
+      const lastStatusItem = await this.prisma.chatItem.findFirst({
+        where: {
+          runId,
+          type: 'status',
+        },
+        orderBy: { createdAt: 'desc' },
+      });
+
+      if (lastStatusItem) {
+        const lastContent = (lastStatusItem.content as Record<string, unknown>) || {};
+        const lastPayload =
+          (typeof lastContent.payload === 'object' ? (lastContent.payload as any) : undefined) ||
+          {};
+        const incomingStatus =
+          typeof payload?.status === 'string' ? payload.status : payload?.payload?.status;
+        const lastStatusValue =
+          typeof lastPayload?.status === 'string'
+            ? lastPayload.status
+            : typeof (lastContent as any).status === 'string'
+              ? (lastContent as any).status
+              : undefined;
+
+        if (lastStatusValue && incomingStatus && incomingStatus === lastStatusValue) {
+          this.logger.debug('Skipping duplicate run_status chat item', {
+            runId,
+            chatId,
+            status: incomingStatus,
+          });
+          return lastStatusItem;
+        }
+      }
+    }
+
+    const chatItem = await this.prisma.chatItem.create({
       data: {
         chatId,
         type: 'status',
@@ -249,5 +360,17 @@ export class ChatService {
         teamId,
       },
     });
+    await this.notifyChatUpdated(
+      runId,
+      chatItem.id,
+      {
+        type: 'status',
+        eventType,
+      },
+      { hideInChat: chatItem.hideInChat },
+    );
+    return chatItem;
   }
+
+
 }

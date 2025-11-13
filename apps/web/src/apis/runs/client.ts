@@ -27,6 +27,7 @@ import {
   adaptStepsBackendToUi,
   adaptCredentialsBackendToUi,
   adaptChatItemsToUiMessages,
+  adaptChatItemToUiMessage,
   buildPlanMessage,
   buildRunMessage,
   buildLogMessage,
@@ -102,10 +103,7 @@ export class RunApiClient {
   // -------------------------------------------------------------------------
   // Get Run
   // -------------------------------------------------------------------------
-  async getRun(
-    runId: string,
-    options?: { updateCredential?: boolean }
-  ): Promise<GetRunResponse> {
+  async getRun(runId: string, options?: { updateCredential?: boolean }): Promise<GetRunResponse> {
     let data: BackendRun;
 
     // Use POST /retrieve endpoint if updateCredential is true
@@ -132,18 +130,28 @@ export class RunApiClient {
 
     // Check for run-level missing inputs
     const runData = data as Record<string, unknown>;
-    const runLevelMissing = (runData.missing || runData.missingInputs) as UiQuestionItem[] | undefined;
-    console.log('[RunApiClient] Run-level missing/missingInputs:', {
-      runId: data.id,
-      missing: runLevelMissing,
-      steps
-    });
+    const runLevelMissing = (runData.missing || runData.missingInputs) as
+      | UiQuestionItem[]
+      | undefined;
+
 
     // Build messages from run data
     const messages = this.buildMessagesFromRun(data, steps, runLevelMissing);
     run.messages = messages;
-    console.log('[RunApiClient] Built messages for run:', { runId: data.id, messages });
     return { run, steps, events: [] };
+  }
+
+  // -------------------------------------------------------------------------
+  // Chat Items
+  // -------------------------------------------------------------------------
+  async getChatItem(
+    runId: string,
+    chatItemId: string,
+  ): Promise<{ item: BackendChatItem; message: UiMessage }> {
+    const url = `${this.config.apiBaseUrl}/runs/${runId}/chatItems/${chatItemId}`;
+    const response = await this.fetch(url);
+    const item = (await response.json()) as BackendChatItem;
+    return { item, message: adaptChatItemToUiMessage(item) };
   }
 
   // -------------------------------------------------------------------------
@@ -491,7 +499,10 @@ export class RunApiClient {
 
       // Stop polling when terminal
       if (['succeeded', 'failed', 'completed', 'done'].includes(run.status)) {
-        this.logger.info('Run reached terminal status, stopping polling', { runId, status: run.status });
+        this.logger.info('Run reached terminal status, stopping polling', {
+          runId,
+          status: run.status,
+        });
         const p = this.activePollers.get(runId);
         if (p) {
           clearInterval(p.timer);
@@ -625,31 +636,22 @@ export class RunApiClient {
         });
       }
 
-      // Convert chat items to messages
-      this.logger.info('Chat items from backend:', {
-        runId: run.id,
-        items: runWithChat.chat.items,
-      });
       const chatMessages = adaptChatItemsToUiMessages(runWithChat.chat.items);
-      this.logger.info('Converted messages:', {
-        runId: run.id,
-        messages: chatMessages,
-      });
+
 
       // Patch empty questions in chat items with run-level missing inputs
       const patchedMessages = chatMessages.map((msg) => {
-
-        console.log('[RunApiClient] Checking message for question patching:', { runId: run.id, msg });
         if (msg.type === 'questions' && msg.data) {
           const questionData = msg.data as UiQuestionsData;
           const questions = questionData?.questions;
 
           // If questions array is empty but we have run-level missing inputs, use those
-          if ((!questions || questions.length === 0) && runLevelMissing && runLevelMissing.length > 0) {
-            this.logger.info('Patching empty questions with run-level missing inputs', {
-              runId: run.id,
-              runLevelMissingCount: runLevelMissing.length,
-            });
+          if (
+            (!questions || questions.length === 0) &&
+            runLevelMissing &&
+            runLevelMissing.length > 0
+          ) {
+
             return {
               ...msg,
               data: {
@@ -667,10 +669,7 @@ export class RunApiClient {
       return messages;
     }
 
-    // Fallback: Build messages programmatically (for runs without saved chat items)
-    this.logger.debug('Building messages programmatically (no saved chat items)', {
-      runId: run.id,
-    });
+
 
     const messages: UiMessage[] = [];
     const seenAssistantTexts = new Set<string>();

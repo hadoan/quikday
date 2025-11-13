@@ -1,5 +1,11 @@
 import { useCallback } from 'react';
-import type { UiRunSummary, UiPlanData, UiQuestionsData, UiAppCredentialsData, ApiPlanStep } from '@/apis/runs';
+import type {
+  UiRunSummary,
+  UiPlanData,
+  UiQuestionsData,
+  UiAppCredentialsData,
+  ApiPlanStep,
+} from '@/apis/runs';
 import { getDataSource } from '@/lib/flags/featureFlags';
 import { createLogger } from '@/lib/utils/logger';
 import { trackChatSent } from '@/lib/telemetry/telemetry';
@@ -85,13 +91,13 @@ export function useRunActions(params: UseRunActionsParams): UseRunActionsResult 
         prev.map((run) =>
           run.id === activeRunId
             ? {
-              ...run,
-              prompt: run.prompt || prompt,
-              messages: [
-                ...(run.messages ?? []),
-                { role: 'user' as const, content: prompt },
-              ] as UiRunSummary['messages'],
-            }
+                ...run,
+                prompt: run.prompt || prompt,
+                messages: [
+                  ...(run.messages ?? []),
+                  { role: 'user' as const, content: prompt },
+                ] as UiRunSummary['messages'],
+              }
             : run,
         ),
       );
@@ -157,7 +163,7 @@ export function useRunActions(params: UseRunActionsParams): UseRunActionsResult 
               status: 'pending' as const,
               inputsPreview: step.inputs ? JSON.stringify(step.inputs) : undefined,
               credentialId: step.credentialId,
-              appId: step.appId
+              appId: step.appId,
             }));
 
             if (Array.isArray(plan) && plan.length > 0 && !onlyChatRespond) {
@@ -175,7 +181,10 @@ export function useRunActions(params: UseRunActionsParams): UseRunActionsResult 
                 data: planData,
               });
             }
-            const hasMissingCredentials = plan.some((step: ApiPlanStep) => step.appId && (step.credentialId === null || step.credentialId === undefined));
+            const hasMissingCredentials = plan.some(
+              (step: ApiPlanStep) =>
+                step.appId && (step.credentialId === null || step.credentialId === undefined),
+            );
 
             // Add app_credentials message if there are steps with missing credentials
             if (hasMissingCredentials) {

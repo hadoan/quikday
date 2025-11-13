@@ -50,7 +50,7 @@ export interface RetrieveRunDto {
 export class RunsController {
   private readonly logger = new Logger(RunsController.name);
 
-  constructor(private runs: RunsService) {}
+  constructor(private runs: RunsService) { }
 
   @Get()
   async list(@Req() _req: any) {
@@ -218,6 +218,8 @@ export class RunsController {
     this.logger.log(
       `Executing plan for run=${id}${providedKeys.length ? ' with provided answers' : ''}`
     );
+
+    await this.runs.hideQuestionChatItems(id);
     await this.runs.executePlanWithAnswers(id);
 
     this.logger.log(`Submit continueWithAnswers completed for run=${id}`);
@@ -285,12 +287,24 @@ export class RunsController {
     return this.runs.get(id, userId);
   }
 
-  @Post(':id/retrieve')
-  async retrieve(
+  @Get(':id/chatItems/:chatItemId')
+  async getChatItem(
     @Param('id') id: string,
-    @Body() body: RetrieveRunDto,
+    @Param('chatItemId') chatItemId: string,
     @Req() req: any
   ) {
+    const claims = req.user || {};
+    const userId = claims.sub;
+
+    if (!userId) {
+      throw new BadRequestException('User ID not found in claims');
+    }
+
+    return this.runs.getChatItem(id, chatItemId, userId);
+  }
+
+  @Post(':id/retrieve')
+  async retrieve(@Param('id') id: string, @Body() body: RetrieveRunDto, @Req() req: any) {
     const claims = req.user || {};
     const userId = claims.sub;
 

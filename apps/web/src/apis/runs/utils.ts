@@ -36,7 +36,7 @@ export function normalizeQuestionType(t?: string): Question['type'] {
 export async function continueWithAnswers(
   runId: string,
   answers?: Record<string, unknown>,
-  apiClient?: RunApiClient
+  apiClient?: RunApiClient,
 ): Promise<void> {
   if (apiClient) {
     // Use the API client if provided
@@ -69,7 +69,7 @@ export async function continueWithAnswers(
  */
 export async function autoContinue(
   runId: string | undefined,
-  apiClient?: RunApiClient
+  apiClient?: RunApiClient,
 ): Promise<void> {
   try {
     if (!runId) return;

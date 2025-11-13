@@ -13,7 +13,7 @@ export class ChatItemOrchestratorService {
 
   constructor(
     private chatService: ChatService,
-    private enrichmentService: RunEnrichmentService,
+    private enrichmentService: RunEnrichmentService
   ) {}
 
   /**
@@ -28,8 +28,9 @@ export class ChatItemOrchestratorService {
     goal: any;
     plan: any[];
     missing: any[];
+    no_ws_socket_notify?: boolean;
   }) {
-    const { runId, userId, teamId, prompt, goal, plan, missing } = params;
+    const { runId, userId, teamId, prompt, goal, plan, missing, no_ws_socket_notify } = params;
 
     this.logger.debug('Creating chat items for run', { runId });
 
@@ -38,7 +39,7 @@ export class ChatItemOrchestratorService {
       runId,
       userId,
       teamId,
-      prompt.substring(0, 100),
+      prompt.substring(0, 100)
     );
 
     // Fetch enriched steps from database (SINGLE SOURCE OF TRUTH)
@@ -58,6 +59,7 @@ export class ChatItemOrchestratorService {
       await this.chatService.createPlanChatItem(chat.id, runId, userId, teamId, {
         intent: (goal?.outcome as string) || 'Process request',
         steps: chatSteps,
+        no_ws_socket_notify
       });
       this.logger.debug('✅ Plan chat item created', { runId });
     }
@@ -70,6 +72,7 @@ export class ChatItemOrchestratorService {
         userId,
         teamId,
         chatSteps,
+        no_ws_socket_notify
       );
       if (credentialsItem) {
         this.logger.debug('✅ App credentials chat item created', { runId });
@@ -82,6 +85,7 @@ export class ChatItemOrchestratorService {
         questions: missing,
         steps: chatSteps,
         hasMissingCredentials,
+        no_ws_socket_notify
       });
       this.logger.debug('✅ Questions chat item created (with questions)', {
         runId,
@@ -93,6 +97,7 @@ export class ChatItemOrchestratorService {
         questions: [],
         steps: chatSteps,
         hasMissingCredentials,
+        no_ws_socket_notify
       });
       this.logger.debug('✅ Questions chat item created (Continue panel)', { runId });
     }
@@ -108,6 +113,7 @@ export class ChatItemOrchestratorService {
           userId,
           teamId,
           goalText,
+          no_ws_socket_notify
         );
         this.logger.debug('✅ Assistant text chat item created', { runId });
       }
