@@ -10,7 +10,7 @@ import { ErrorCode } from '@quikday/types';
 import type { RunState, RunMode } from '@quikday/agent/state/types';
 import { RunStatus, type Run } from '@prisma/client';
 import { subscribeToRunEvents } from '@quikday/agent/observability/events';
-import { CHANNEL_WORKER, CHANNEL_WEBSOCKET } from '@quikday/libs';
+import { CHANNEL_WORKER } from '@quikday/libs';
 import type { RunEvent as UiRunEvent } from '@quikday/libs/redis/RunEvent';
 import { AgentService } from '../agent/index.js';
 import type { RunEventBus } from '@quikday/libs/pubsub/event-bus';
@@ -656,17 +656,13 @@ export class RunProcessor extends WorkerHost {
   }
 
   /**
-   * Publish event to CHANNEL_WEBSOCKET and save as chat item
+   * Persist status events as chat items (websocket notifications happen inside ChatService).
    */
   private async publishAndSaveChatItem(
     run: Run,
     eventType: UiRunEvent['type'],
     payload: UiRunEvent['payload']
   ) {
-    // Publish to websocket
-    await this.eventBus.publish(run.id, { type: eventType, payload }, CHANNEL_WEBSOCKET);
-
-    // Save as chat item
     try {
       const chat = await this.chatService.findOrCreateChat(
         run.id,

@@ -149,21 +149,57 @@ const MessageItem: React.FC<MessageItemProps> = ({ message: m, runId }) => {
   }
 
   if (m.type === 'output') {
-    const od = m.data as UiOutputData;
+    const raw = (m.data as UiOutputData) || ({} as UiOutputData);
+    const normalizedContent = (() => {
+      if (typeof raw?.content === 'string' && raw.content.trim().length > 0) {
+        return raw.content;
+      }
+
+      const commits = Array.isArray((raw as any)?.commits)
+        ? ((raw as any).commits as Array<Record<string, unknown>>)
+        : Array.isArray((raw as any)?.data?.commits)
+          ? (((raw as any).data.commits as Array<Record<string, unknown>>) ?? [])
+          : [];
+
+      for (const commit of commits) {
+        const result = commit?.result as Record<string, unknown> | undefined;
+        const msg = result?.message;
+        if (typeof msg === 'string' && msg.trim().length > 0) {
+          return msg;
+        }
+      }
+
+      const fallback =
+        (raw as any)?.message ||
+        (raw as any)?.data?.message ||
+        (commits.length > 0 ? JSON.stringify(commits[0], null, 2) : undefined);
+
+      if (typeof fallback === 'string' && fallback.trim().length > 0) {
+        return fallback;
+      }
+
+      try {
+        return JSON.stringify(raw ?? {}, null, 2);
+      } catch {
+        return 'Output available';
+      }
+    })();
+
     const type =
-      od?.type === 'summary'
+      raw?.type === 'summary'
         ? 'summary'
-        : od?.type === 'json' || od?.type === 'markdown'
+        : raw?.type === 'json' || raw?.type === 'markdown'
           ? 'code'
           : 'text';
+
     return (
       <ChatMessage role="assistant">
         <OutputCard
-          title={od?.title || 'Output'}
-          content={String(od?.content || '')}
+          title={raw?.title || 'Output'}
+          content={String(normalizedContent || '')}
           type={type}
-          data={od?.data}
-          presentation={od?.presentation}
+          data={raw?.data ?? raw}
+          presentation={raw?.presentation}
         />
       </ChatMessage>
     );

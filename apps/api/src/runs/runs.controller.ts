@@ -285,6 +285,22 @@ export class RunsController {
     return this.runs.get(id, userId);
   }
 
+  @Get(':id/chatItems/:chatItemId')
+  async getChatItem(
+    @Param('id') id: string,
+    @Param('chatItemId') chatItemId: string,
+    @Req() req: any
+  ) {
+    const claims = req.user || {};
+    const userId = claims.sub;
+
+    if (!userId) {
+      throw new BadRequestException('User ID not found in claims');
+    }
+
+    return this.runs.getChatItem(id, chatItemId, userId);
+  }
+
   @Post(':id/retrieve')
   async retrieve(
     @Param('id') id: string,

@@ -1,5 +1,7 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger, Inject } from '@nestjs/common';
 import { PrismaService } from '@quikday/prisma';
+import type { RunEventBus } from '@quikday/libs/pubsub/event-bus';
+import { CHANNEL_WEBSOCKET } from '@quikday/libs';
 
 /**
  * ChatService handles all chat and chat item CRUD operations.
@@ -9,7 +11,33 @@ import { PrismaService } from '@quikday/prisma';
 export class ChatService {
   private readonly logger = new Logger(ChatService.name);
 
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    private prisma: PrismaService,
+    @Inject('RunEventBus') private eventBus: RunEventBus,
+  ) {}
+
+  private async notifyChatUpdated(runId: string, chatItemId: string, meta?: Record<string, unknown>) {
+    try {
+      await this.eventBus.publish(
+        runId,
+        {
+          type: 'chat_updated',
+          payload: {
+            runId,
+            chatItemId,
+            ...(meta ?? {}),
+          },
+        },
+        CHANNEL_WEBSOCKET,
+      );
+    } catch (error) {
+      this.logger.error('Failed to publish chat_updated event', {
+        runId,
+        chatItemId,
+        error: error instanceof Error ? error.message : String(error),
+      });
+    }
+  }
 
   /**
    * Find existing chat or create new one for a run
@@ -40,7 +68,7 @@ export class ChatService {
       steps: any[];
     }
   ) {
-    return this.prisma.chatItem.create({
+    const chatItem = await this.prisma.chatItem.create({
       data: {
         chatId,
         type: 'plan',
@@ -57,6 +85,8 @@ export class ChatService {
         teamId,
       },
     });
+    await this.notifyChatUpdated(runId, chatItem.id, { type: 'plan' });
+    return chatItem;
   }
 
   /**
@@ -78,7 +108,7 @@ export class ChatService {
       return null;
     }
 
-    return this.prisma.chatItem.create({
+    const chatItem = await this.prisma.chatItem.create({
       data: {
         chatId,
         type: 'app_credentials',
@@ -98,6 +128,8 @@ export class ChatService {
         teamId,
       },
     });
+    await this.notifyChatUpdated(runId, chatItem.id, { type: 'app_credentials' });
+    return chatItem;
   }
 
   /**
@@ -114,7 +146,7 @@ export class ChatService {
       hasMissingCredentials?: boolean;
     }
   ) {
-    return this.prisma.chatItem.create({
+    const chatItem = await this.prisma.chatItem.create({
       data: {
         chatId,
         type: 'questions',
@@ -130,6 +162,8 @@ export class ChatService {
         teamId,
       },
     });
+    await this.notifyChatUpdated(runId, chatItem.id, { type: 'questions' });
+    return chatItem;
   }
 
   /**
@@ -142,7 +176,7 @@ export class ChatService {
     teamId: number | null,
     text: string
   ) {
-    return this.prisma.chatItem.create({
+    const chatItem = await this.prisma.chatItem.create({
       data: {
         chatId,
         type: 'assistant',
@@ -153,6 +187,8 @@ export class ChatService {
         teamId,
       },
     });
+    await this.notifyChatUpdated(runId, chatItem.id, { type: 'assistant' });
+    return chatItem;
   }
 
   /**
@@ -165,7 +201,7 @@ export class ChatService {
     teamId: number | null,
     entries: any[]
   ) {
-    return this.prisma.chatItem.create({
+    const chatItem = await this.prisma.chatItem.create({
       data: {
         chatId,
         type: 'log',
@@ -176,6 +212,8 @@ export class ChatService {
         teamId,
       },
     });
+    await this.notifyChatUpdated(runId, chatItem.id, { type: 'log' });
+    return chatItem;
   }
 
   /**
@@ -188,7 +226,7 @@ export class ChatService {
     teamId: number | null,
     output: any
   ) {
-    return this.prisma.chatItem.create({
+    const chatItem = await this.prisma.chatItem.create({
       data: {
         chatId,
         type: 'output',
@@ -199,6 +237,8 @@ export class ChatService {
         teamId,
       },
     });
+    await this.notifyChatUpdated(runId, chatItem.id, { type: 'output' });
+    return chatItem;
   }
 
   /**
@@ -211,7 +251,7 @@ export class ChatService {
     teamId: number | null,
     error: any
   ) {
-    return this.prisma.chatItem.create({
+    const chatItem = await this.prisma.chatItem.create({
       data: {
         chatId,
         type: 'error',
@@ -222,6 +262,8 @@ export class ChatService {
         teamId,
       },
     });
+    await this.notifyChatUpdated(runId, chatItem.id, { type: 'error' });
+    return chatItem;
   }
 
   /**
@@ -235,7 +277,7 @@ export class ChatService {
     eventType: string,
     payload: any
   ) {
-    return this.prisma.chatItem.create({
+    const chatItem = await this.prisma.chatItem.create({
       data: {
         chatId,
         type: 'status',
@@ -249,5 +291,10 @@ export class ChatService {
         teamId,
       },
     });
+    await this.notifyChatUpdated(runId, chatItem.id, {
+      type: 'status',
+      eventType,
+    });
+    return chatItem;
   }
 }

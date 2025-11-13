@@ -17,6 +17,7 @@ import type { ChatMessage } from '@quikday/agent/state/types';
 import { CurrentUserService, getCurrentUserCtx } from '@quikday/libs';
 import { StepsService } from './steps.service.js';
 import { ChatItemOrchestratorService } from './chat-item-orchestrator.service.js';
+import { ChatService } from './chat.service.js';
 import { RunEnrichmentService } from './run-enrichment.service.js';
 import { RunCreationService } from './run-creation.service.js';
 import { RunQueryService } from './run-query.service.js';
@@ -50,6 +51,7 @@ export class RunsService {
     private readonly creationService: RunCreationService,
     private readonly queryService: RunQueryService,
     private readonly authService: RunAuthorizationService,
+    private readonly chatService: ChatService,
   ) {}
 
   private jsonClone<T>(v: T): T {
@@ -706,43 +708,31 @@ export class RunsService {
         const chat = await this.prisma.chat.findUnique({ where: { runId: id } });
         if (chat) {
           if (Array.isArray(result.logs) && result.logs.length > 0) {
-            await this.prisma.chatItem.create({
-              data: {
-                chatId: chat.id,
-                type: 'log',
-                role: 'assistant',
-                content: { entries: result.logs } as any,
-                runId: id,
-                userId: run2.userId,
-                teamId: run2.teamId ?? null,
-              },
-            });
+            await this.chatService.createLogChatItem(
+              chat.id,
+              id,
+              run2.userId,
+              run2.teamId ?? null,
+              result.logs,
+            );
           }
           if (result.output) {
-            await this.prisma.chatItem.create({
-              data: {
-                chatId: chat.id,
-                type: 'output',
-                role: 'assistant',
-                content: result.output as any,
-                runId: id,
-                userId: run2.userId,
-                teamId: run2.teamId ?? null,
-              },
-            });
+            await this.chatService.createOutputChatItem(
+              chat.id,
+              id,
+              run2.userId,
+              run2.teamId ?? null,
+              result.output,
+            );
           }
           if (result.error) {
-            await this.prisma.chatItem.create({
-              data: {
-                chatId: chat.id,
-                type: 'error',
-                role: 'assistant',
-                content: result.error as any,
-                runId: id,
-                userId: run2.userId,
-                teamId: run2.teamId ?? null,
-              },
-            });
+            await this.chatService.createErrorChatItem(
+              chat.id,
+              id,
+              run2.userId,
+              run2.teamId ?? null,
+              result.error,
+            );
           }
         }
       }
@@ -1097,5 +1087,15 @@ export class RunsService {
     await this.enqueue(runId, { scratch });
 
     this.logger.log('✅ Plan execution enqueued with resumeFrom=executor', { runId });
+  }
+
+  async getChatItem(runId: string, chatItemId: string, userSub: string) {
+    await this.get(runId, userSub);
+
+    const chatItem = await this.prisma.chatItem.findUnique({ where: { id: chatItemId } });
+    if (!chatItem || chatItem.runId !== runId) {
+      throw new NotFoundException('Chat item not found');
+    }
+    return chatItem;
   }
 }

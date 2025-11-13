@@ -27,6 +27,7 @@ import {
   adaptStepsBackendToUi,
   adaptCredentialsBackendToUi,
   adaptChatItemsToUiMessages,
+  adaptChatItemToUiMessage,
   buildPlanMessage,
   buildRunMessage,
   buildLogMessage,
@@ -144,6 +145,19 @@ export class RunApiClient {
     run.messages = messages;
     console.log('[RunApiClient] Built messages for run:', { runId: data.id, messages });
     return { run, steps, events: [] };
+  }
+
+  // -------------------------------------------------------------------------
+  // Chat Items
+  // -------------------------------------------------------------------------
+  async getChatItem(
+    runId: string,
+    chatItemId: string,
+  ): Promise<{ item: BackendChatItem; message: UiMessage }> {
+    const url = `${this.config.apiBaseUrl}/runs/${runId}/chatItems/${chatItemId}`;
+    const response = await this.fetch(url);
+    const item = (await response.json()) as BackendChatItem;
+    return { item, message: adaptChatItemToUiMessage(item) };
   }
 
   // -------------------------------------------------------------------------

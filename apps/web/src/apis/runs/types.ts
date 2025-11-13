@@ -205,7 +205,8 @@ export type UiEventType =
   | 'run_completed'
   | 'run_failed'
   | 'run_status'
-  | 'error';
+  | 'error'
+  | 'chat_updated';
 
 export interface UiEvent {
   type: UiEventType;

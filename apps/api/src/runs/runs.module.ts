@@ -6,7 +6,7 @@ import { QueueModule } from '../queue/queue.module.js';
 import { TelemetryModule } from '../telemetry/telemetry.module.js';
 import { ConfigModule } from '../config/config.module.js';
 import { RunTokenService } from './run-token.service.js';
-import { CurrentUserModule } from '@quikday/libs';
+import { CurrentUserModule, PubSubModule } from '@quikday/libs';
 import { StepsService } from './steps.service.js';
 import { ChatService } from './chat.service.js';
 import { RunEnrichmentService } from './run-enrichment.service.js';
@@ -22,6 +22,7 @@ import { RunAuthorizationService } from './run-authorization.service.js';
     TelemetryModule,
     ConfigModule,
     CurrentUserModule,
+    PubSubModule,
   ],
   providers: [
     RunsService,
