@@ -29,7 +29,7 @@ export function createGraphEventHandler(opts: {
     updater?: (entry: StepLogEntry) => void
   ) => void;
   applyDelta: (target: any, delta: any) => void;
-  safePublish: (type: UiRunEvent['type'], payload: UiRunEvent['payload']) => void;
+  appendStatusMessage: (type: UiRunEvent['type'], payload: UiRunEvent['payload']) => void;
   stepLogs: StepLogEntry[];
   setGraphEmitted: (v: boolean) => void;
   logger: Logger;
@@ -50,7 +50,7 @@ export function createGraphEventHandler(opts: {
     liveStateRef,
     markStep,
     applyDelta,
-    safePublish,
+    appendStatusMessage,
     stepLogs,
     setGraphEmitted,
     logger,
@@ -66,8 +66,8 @@ export function createGraphEventHandler(opts: {
       switch (evt.type) {
         case 'node.enter': {
           const node = (evt.payload as any)?.node;
-          if (node === 'planner') safePublish('run_status', { status: 'planning' });
-          if (node === 'executor') safePublish('run_status', { status: 'executing' });
+          if (node === 'planner') appendStatusMessage('run_status', { status: 'planning' });
+          if (node === 'executor') appendStatusMessage('run_status', { status: 'executing' });
           break;
         }
         case 'node.exit': {
@@ -77,7 +77,7 @@ export function createGraphEventHandler(opts: {
         }
         case 'run_status': {
           logger.log('▶️ LangGraph run started', { runId: run.id });
-          safePublish('run_status', { status: 'running' });
+          appendStatusMessage('run_status', { status: 'running' });
           break;
         }
         case 'plan_generated': {
@@ -96,7 +96,7 @@ export function createGraphEventHandler(opts: {
                   steps: enrichedPlan.length,
                   missingCredentials: enrichedPlan.filter((s) => s.credentialId === null).length,
                 });
-                safePublish('plan_generated', {
+                appendStatusMessage('plan_generated', {
                   intent: liveStateRef.get().scratch?.intent,
                   plan: enrichedPlan,
                   tools: enrichedPlan.map((step: any) => step.tool),
@@ -111,7 +111,7 @@ export function createGraphEventHandler(opts: {
                   error: err?.message || String(err),
                 });
                 // Fallback: publish without enrichment
-                safePublish('plan_generated', {
+                appendStatusMessage('plan_generated', {
                   intent: liveStateRef.get().scratch?.intent,
                   plan,
                   tools: plan.map((step: any) => step.tool),
@@ -122,7 +122,7 @@ export function createGraphEventHandler(opts: {
               });
           } else {
             // No enrichment available, publish as-is
-            safePublish('plan_generated', {
+            appendStatusMessage('plan_generated', {
               intent: liveStateRef.get().scratch?.intent,
               plan,
               tools: plan.map((step: any) => step.tool),
@@ -156,7 +156,7 @@ export function createGraphEventHandler(opts: {
             startedAt,
             planStepId,
           });
-          safePublish('step_started', { tool: name, action: `Executing ${name}`, request: args });
+          appendStatusMessage('step_started', { tool: name, action: `Executing ${name}`, request: args });
           break;
         }
         case 'tool.succeeded': {
@@ -169,7 +169,7 @@ export function createGraphEventHandler(opts: {
             entry.ms = typeof ms === 'number' ? ms : undefined;
             entry.action = `Completed ${name}`;
           });
-          safePublish('step_succeeded', {
+          appendStatusMessage('step_succeeded', {
             tool: name,
             action: `Completed ${name}`,
             response: result,
@@ -189,7 +189,7 @@ export function createGraphEventHandler(opts: {
             entry.errorMessage = error?.message as string | undefined;
             entry.action = `Failed ${name}`;
           });
-          safePublish('step_failed', { tool: name, error });
+          appendStatusMessage('step_failed', { tool: name, error });
           void telemetry
             .track('step_failed', {
               runId: run.id,
@@ -216,33 +216,33 @@ export function createGraphEventHandler(opts: {
           });
 
           // Include pending steps so the UI can render an approval CTA with step ids
-          safePublish('run_status', { status: 'awaiting_approval', approvalId, steps });
+          appendStatusMessage('run_status', { status: 'awaiting_approval', approvalId, steps });
           break;
         }
         case 'fallback': {
           const reason = (evt.payload as any)?.reason ?? 'unspecified';
           const details = (evt.payload as any)?.details;
           logger.warn('⚠️ Run fell back', { runId: run.id, reason, details });
-          safePublish('run_status', { status: 'fallback', reason, details });
+          appendStatusMessage('run_status', { status: 'fallback', reason, details });
           break;
         }
         case 'run_completed': {
           setGraphEmitted(true);
           const output = evt.payload ?? liveStateRef.get().output ?? {};
           logger.log('🎉 LangGraph run completed event', { runId: run.id });
-          safePublish('run_completed', { status: 'done', output });
+          appendStatusMessage('run_completed', { status: 'done', output });
           break;
         }
         case 'step_failed': {
           const error = evt.payload;
           logger.error('🔴 LangGraph run failed event', { runId: run.id, error });
-          safePublish('run_status', { status: 'failed', error });
+          appendStatusMessage('run_status', { status: 'failed', error });
           break;
         }
         case 'awaiting.input': {
           const questions = (evt.payload as any)?.questions ?? [];
           logger.log('⏸️ Awaiting user input', { runId: run.id, questions });
-          safePublish('run_status', { status: 'awaiting_input', questions });
+          appendStatusMessage('run_status', { status: 'awaiting_input', questions });
           break;
         }
         case 'step.executed': {

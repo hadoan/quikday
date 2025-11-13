@@ -300,6 +300,7 @@ function mapEventType(type: string): UiEvent['type'] {
     'assistant.delta': 'assistant.delta',
     'assistant.final': 'assistant.final',
     run_snapshot: 'run_snapshot',
+    chat_updated: 'chat_updated',
   };
 
   return typeMap[type.toLowerCase()] || 'run_status';
@@ -544,6 +545,39 @@ export function adaptChatItemToUiMessage(chatItem: BackendChatItem): UiMessage {
         message.data = chatItem.content;
       }
       break;
+
+    case 'status': {
+      const payload = (chatItem.content?.payload || {}) as Record<string, unknown>;
+      const status =
+        typeof payload.status === 'string' ? (payload.status as string) : undefined;
+      const steps = Array.isArray((payload as any).steps)
+        ? adaptStepsBackendToUi((payload as any).steps)
+        : [];
+
+      if (status === 'awaiting_approval' && steps.length > 0) {
+        message.type = 'plan';
+        message.data = {
+          intent: (payload.intent as string | undefined) || 'Review pending actions',
+          tools: steps.map((s) => s.tool).filter(Boolean),
+          actions: steps.map((s) => s.action || `Execute ${s.tool}`),
+          mode: 'approval',
+          awaitingApproval: true,
+          steps,
+        } satisfies UiPlanData;
+      } else {
+        message.type = 'run';
+        message.data = {
+          status: mapRunStatus(status),
+          started_at:
+            (payload.started_at as string | undefined) ||
+            (payload.startedAt as string | undefined),
+          completed_at:
+            (payload.completed_at as string | undefined) ||
+            (payload.completedAt as string | undefined),
+        } satisfies UiRunData;
+      }
+      break;
+    }
 
     case 'output':
     case 'error':

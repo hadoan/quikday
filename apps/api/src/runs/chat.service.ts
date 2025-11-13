@@ -18,6 +18,12 @@ export class ChatService {
 
   private async notifyChatUpdated(runId: string, chatItemId: string, meta?: Record<string, unknown>) {
     try {
+      this.logger.debug('📡 Emitting chat_updated', {
+        runId,
+        chatItemId,
+        meta,
+      });
+
       await this.eventBus.publish(
         runId,
         {
@@ -277,6 +283,40 @@ export class ChatService {
     eventType: string,
     payload: any
   ) {
+    if (eventType === 'run_status') {
+      const lastStatusItem = await this.prisma.chatItem.findFirst({
+        where: {
+          runId,
+          type: 'status',
+        },
+        orderBy: { createdAt: 'desc' },
+      });
+
+      if (lastStatusItem) {
+        const lastContent = (lastStatusItem.content as Record<string, unknown>) || {};
+        const lastPayload =
+          (typeof lastContent.payload === 'object' ? (lastContent.payload as any) : undefined) ||
+          {};
+        const incomingStatus =
+          typeof payload?.status === 'string' ? payload.status : payload?.payload?.status;
+        const lastStatusValue =
+          typeof lastPayload?.status === 'string'
+            ? lastPayload.status
+            : typeof (lastContent as any).status === 'string'
+              ? (lastContent as any).status
+              : undefined;
+
+        if (lastStatusValue && incomingStatus && incomingStatus === lastStatusValue) {
+          this.logger.debug('Skipping duplicate run_status chat item', {
+            runId,
+            chatId,
+            status: incomingStatus,
+          });
+          return lastStatusItem;
+        }
+      }
+    }
+
     const chatItem = await this.prisma.chatItem.create({
       data: {
         chatId,

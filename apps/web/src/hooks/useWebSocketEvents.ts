@@ -2,7 +2,6 @@ import { useEffect } from 'react';
 import type { UiEvent, UiRunSummary, UiMessage, UiQuestionsData, Question } from '@quikday/types';
 import { normalizeQuestionType } from '@/utils/normalizeQuestionType';
 import type { DataSource } from '@/lib/datasources/DataSource';
-import { buildRunMessage } from '@/utils/messageBuilders';
 
 interface UseWebSocketEventsParams {
   dataSource: DataSource;
@@ -25,7 +24,16 @@ export function useWebSocketEvents({
     if (!activeRunId) return;
 
     const stream = dataSource.connectRunStream(activeRunId, async (event: UiEvent) => {
-      console.log('[useWebSocketEvents] event:', event);
+      console.log('[useWebSocketEvents] connectRunStream event:', event);
+      if (event.type === 'connection_established') {
+        return;
+      }
+
+      if (event.type !== 'chat_updated') {
+        return;
+      }
+
+      console.log('[useWebSocketEvents] chat_updated event:', event);
 
       const payloadRunId =
         (event.payload as { runId?: string } | undefined)?.runId || event.runId || null;
@@ -47,14 +55,6 @@ export function useWebSocketEvents({
         setActiveRunId((cur) => cur || payloadRunId);
       }
 
-      if (event.type === 'connection_established') {
-        return;
-      }
-
-      if (event.type !== 'chat_updated') {
-        return;
-      }
-
       const chatItemId = (event.payload as { chatItemId?: string } | undefined)?.chatItemId;
 
       if (!payloadRunId || !chatItemId) {
@@ -63,33 +63,30 @@ export function useWebSocketEvents({
 
       try {
         const { item, message } = await dataSource.getChatItem(payloadRunId, chatItemId);
-        let nextMessage = message;
-        let appendMessage = true;
-
-        if (item.type === 'status') {
-          const content = (item.content as Record<string, unknown>) || {};
-          const eventType = typeof content.eventType === 'string' ? content.eventType : '';
-          const statusPayload =
-            content.payload && typeof content.payload === 'object' ? (content.payload as any) : {};
-
-          if (['run_status', 'run_completed', 'run_failed'].includes(eventType)) {
-            nextMessage = buildRunMessage({
-              status: statusPayload.status as string,
-              started_at: statusPayload.started_at as string | undefined,
-              completed_at: statusPayload.completed_at as string | undefined,
-              progress: statusPayload.progress as number | undefined,
-            });
-          } else {
-            appendMessage = false;
-          }
-        }
+        const nextMessage = message;
 
         setRuns((prev) =>
           prev.map((run) => {
             if (run.id !== payloadRunId) return run;
-            const nextMessages: UiMessage[] = appendMessage
-              ? [...(run.messages ?? []), nextMessage]
-              : run.messages ?? [];
+
+            const currentMessages = run.messages ?? [];
+            let nextMessages = currentMessages;
+
+            if (nextMessage.type === 'run') {
+              const idx = [...currentMessages]
+                .reverse()
+                .findIndex((msg) => msg?.type === 'run');
+              if (idx !== -1) {
+                const targetIndex = currentMessages.length - 1 - idx;
+                nextMessages = currentMessages.map((msg, i) =>
+                  i === targetIndex ? nextMessage : msg,
+                );
+              } else {
+                nextMessages = [...currentMessages, nextMessage];
+              }
+            } else {
+              nextMessages = [...currentMessages, nextMessage];
+            }
 
             let nextStatus = run.status;
             if (
@@ -116,13 +113,13 @@ export function useWebSocketEvents({
           const qd = (nextMessage.data as UiQuestionsData) || { questions: [] };
           const qs: Question[] = Array.isArray(qd?.questions)
             ? qd.questions.map((q) => ({
-                key: q.key,
-                question: q.question,
-                required: q.required,
-                placeholder: q.placeholder,
-                options: q.options,
-                type: normalizeQuestionType(q.type),
-              }))
+              key: q.key,
+              question: q.question,
+              required: q.required,
+              placeholder: q.placeholder,
+              options: q.options,
+              type: normalizeQuestionType(q.type),
+            }))
             : [];
           setQuestions(qs);
         }

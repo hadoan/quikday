@@ -3,7 +3,6 @@ import { WebSocketServer, WebSocket } from 'ws';
 import { randomUUID } from 'crypto';
 import { Server } from 'http';
 import { PrismaService } from '@quikday/prisma';
-import { RedisPubSubService } from '@quikday/libs';
 import type { RunEventBus } from '@quikday/libs/pubsub/event-bus';
 import { CHANNEL_WEBSOCKET } from '@quikday/libs';
 
@@ -26,7 +25,6 @@ export class WebSocketService implements OnModuleDestroy {
 
   constructor(
     private readonly prisma: PrismaService,
-    // private readonly redisPubSub: RedisPubSubService
     @Inject('RunEventBus') private eventBus: RunEventBus
   ) {}
 
@@ -106,6 +104,16 @@ export class WebSocketService implements OnModuleDestroy {
       }
 
       this.logger.log(`📨 Received Pubsub event for ${runId}: ${event.type}`);
+
+      const isGlobalStream = runId === '*';
+      if (!isGlobalStream && event.type !== 'chat_updated') {
+        this.logger.debug('Skipping non chat_updated event for run stream', {
+          runId,
+          eventType: event.type,
+        });
+        return;
+      }
+
       this.sendMessage(ws, event);
 
       const payloadAny = event.payload as any;
@@ -150,47 +158,7 @@ export class WebSocketService implements OnModuleDestroy {
 
     this.logger.log('📨 Sent initial connection status', { runId });
 
-    // Send a run snapshot to populate UI immediately (lastAssistant helps replay)
-    if (runId !== '*') {
-      (async () => {
-        try {
-          const run = await this.prisma.run.findUnique({ where: { id: runId } });
-          let lastAssistant: string | null = null;
-          if (run && run.output) {
-            const commits = Array.isArray((run.output as any)?.commits)
-              ? (run.output as any).commits
-              : [];
-            const match = [...commits]
-              .reverse()
-              .find(
-                (c: any) => c?.stepId && c?.result && typeof (c.result as any)?.message === 'string'
-              );
-            lastAssistant = match ? (match.result as any).message : null;
-          }
-
-          // Extract missing fields from run (new field) with fallback to legacy location in config
-          const missing = (run as any)?.missing || (run?.config as any)?.missing || [];
-
-          this.sendMessage(ws, {
-            type: 'run_snapshot',
-            payload: {
-              status: run?.status ?? 'unknown',
-              activeNode: null,
-              planPreview: null,
-              lastAssistant,
-              missingFields: missing.length > 0 ? missing : undefined,
-            },
-            ts: new Date().toISOString(),
-            runId,
-          });
-        } catch (err) {
-          this.logger.debug('Could not build run_snapshot', {
-            runId,
-            error: (err as any)?.message,
-          });
-        }
-      })();
-    }
+    // Removed legacy run_snapshot emit; clients hydrate state from chat items instead.
   }
 
   /**
@@ -229,6 +197,7 @@ export class WebSocketService implements OnModuleDestroy {
       runId: this.connState.get(ws)?.runId,
       messageType: message.type,
       timestamp: new Date().toISOString(),
+      message
     });
 
     try {
