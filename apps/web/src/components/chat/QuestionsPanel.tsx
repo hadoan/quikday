@@ -41,31 +41,32 @@ export function QuestionsPanel({
   questions,
   onSubmitted,
   steps,
+  answered,
 }: {
   runId: string;
   questions: Question[];
   onSubmitted?: () => void;
   steps: StepInfo[];
+  answered?: boolean;
 }) {
   const [answers, setAnswers] = React.useState<Record<string, unknown>>({});
   const [loading, setLoading] = React.useState(false);
-  const [submitted, setSubmitted] = React.useState(false);
+  const [submitted, setSubmitted] = React.useState(Boolean(answered));
   const [error, setError] = React.useState<string | null>(null);
   const [fieldErrors, setFieldErrors] = React.useState<Record<string, string | null>>({});
+  React.useEffect(() => {
+    setSubmitted(Boolean(answered));
+  }, [answered]);
 
-  console.log('steps........................');
-  console.log(steps);
   // Filter steps that need credentials installed
   const stepsNeedingInstall = React.useMemo(() => {
     if (!Array.isArray(steps)) {
       console.log('[MissingCredentials] No steps array provided:', steps);
       return [];
     }
-    console.log('[MissingCredentials] Checking steps for missing credentials:', steps);
     const missing = steps.filter(
       (step) => step.appId && (step.credentialId === null || step.credentialId === undefined),
     );
-    console.log('[MissingCredentials] Steps needing install:', missing);
     return missing;
   }, [steps]);
 
@@ -128,7 +129,6 @@ export function QuestionsPanel({
       onSubmit={async (e) => {
         e.preventDefault();
 
-        console.log('[QuestionsPanel] Form submit attempted');
         setLoading(true);
         setError(null);
         // Validate all fields up front and block submit when invalid

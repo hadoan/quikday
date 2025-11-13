@@ -50,7 +50,7 @@ export interface RetrieveRunDto {
 export class RunsController {
   private readonly logger = new Logger(RunsController.name);
 
-  constructor(private runs: RunsService) {}
+  constructor(private runs: RunsService) { }
 
   @Get()
   async list(@Req() _req: any) {

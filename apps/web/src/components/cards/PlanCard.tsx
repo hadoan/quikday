@@ -28,10 +28,26 @@ export const PlanCard = ({ data, onConfirm, onReject, runId }: PlanCardProps) =>
   const [isRejecting, setIsRejecting] = useState(false);
 
   // Check if any steps are missing credentials
-  const stepsNeedingInstall = (data.steps || []).filter(
+  const steps: UiPlanStep[] = Array.isArray(data.steps) ? data.steps : [];
+
+  const stepsNeedingInstall = steps.filter(
     (step) => step.appId && (step.credentialId === null || step.credentialId === undefined),
   );
   const hasMissingCredentials = stepsNeedingInstall.length > 0;
+
+  const uniqueStepsByApp = (() => {
+    const seen = new Set<string>();
+    const deduped: UiPlanStep[] = [];
+    for (const step of steps) {
+      const key = step.appId || `__noapp__${step.id ?? deduped.length}`;
+      if (step.appId) {
+        if (seen.has(step.appId)) continue;
+        seen.add(step.appId);
+      }
+      deduped.push(step);
+    }
+    return deduped;
+  })();
 
   const handleApprove = async () => {
     if (!onConfirm) return;
@@ -95,23 +111,26 @@ export const PlanCard = ({ data, onConfirm, onReject, runId }: PlanCardProps) =>
           </div>
 
           {/* Planned steps detail (if provided) */}
-          {data.steps && data.steps.length > 0 && (
+          {uniqueStepsByApp.length > 0 && (
             <div className="space-y-2">
               <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
                 Planned Steps
               </p>
               <ol className="space-y-1.5 list-decimal list-inside">
-                {data.steps.map((step) => (
-                  <li key={step.id} className="text-sm">
-                    <span className="font-medium">{step.tool}</span>
-                    {step.action && <span className="text-muted-foreground"> — {step.action}</span>}
-                    {step.inputsPreview && (
-                      <div className="text-xs text-muted-foreground mt-0.5 truncate">
-                        {step.inputsPreview}
-                      </div>
-                    )}
-                  </li>
-                ))}
+                {uniqueStepsByApp.map((step, idx) => {
+                  const key = step.id ? `${step.id}-${idx}` : `step-${idx}`;
+                  return (
+                    <li key={key} className="text-sm">
+                      <span className="font-medium">{step.tool}</span>
+                      {step.action && <span className="text-muted-foreground"> — {step.action}</span>}
+                      {step.inputsPreview && (
+                        <div className="text-xs text-muted-foreground mt-0.5 truncate">
+                          {step.inputsPreview}
+                        </div>
+                      )}
+                    </li>
+                  );
+                })}
               </ol>
             </div>
           )}

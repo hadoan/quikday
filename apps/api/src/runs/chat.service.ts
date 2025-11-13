@@ -14,7 +14,7 @@ export class ChatService {
   constructor(
     private prisma: PrismaService,
     @Inject('RunEventBus') private eventBus: RunEventBus
-  ) {}
+  ) { }
 
   private async notifyChatUpdated(
     runId: string,
@@ -76,6 +76,7 @@ export class ChatService {
     data: {
       intent: string;
       steps: any[];
+      no_ws_socket_notify?: boolean;
     }
   ) {
     const chatItem = await this.prisma.chatItem.create({
@@ -95,7 +96,9 @@ export class ChatService {
         teamId,
       },
     });
-    await this.notifyChatUpdated(runId, chatItem.id, { type: 'plan' });
+    if (!data.no_ws_socket_notify) {
+      await this.notifyChatUpdated(runId, chatItem.id, { type: 'plan' });
+    }
     return chatItem;
   }
 
@@ -108,7 +111,8 @@ export class ChatService {
     runId: string,
     userId: number,
     teamId: number | null,
-    steps: any[]
+    steps: any[],
+    no_ws_socket_notify?: boolean
   ) {
     const stepsNeedingCredentials = steps.filter(
       (s) => s.appId && (s.credentialId === null || s.credentialId === undefined)
@@ -138,7 +142,9 @@ export class ChatService {
         teamId,
       },
     });
-    await this.notifyChatUpdated(runId, chatItem.id, { type: 'app_credentials' });
+    if (!no_ws_socket_notify) {
+      await this.notifyChatUpdated(runId, chatItem.id, { type: 'app_credentials' });
+    }
     return chatItem;
   }
 
@@ -154,6 +160,9 @@ export class ChatService {
       questions: any[];
       steps: any[];
       hasMissingCredentials?: boolean;
+      answered?: boolean;
+      answeredAt?: Date;
+      no_ws_socket_notify?: boolean;
     }
   ) {
     const chatItem = await this.prisma.chatItem.create({
@@ -166,13 +175,17 @@ export class ChatService {
           questions: data.questions,
           steps: data.steps,
           hasMissingCredentials: data.hasMissingCredentials || false,
+          answered: data.answered ?? false,
+          answeredAt: data.answeredAt ?? null,
         } as any,
         runId,
         userId,
         teamId,
       },
     });
-    await this.notifyChatUpdated(runId, chatItem.id, { type: 'questions' });
+    if (!data.no_ws_socket_notify) {
+      await this.notifyChatUpdated(runId, chatItem.id, { type: 'questions' });
+    }
     return chatItem;
   }
 
@@ -184,7 +197,8 @@ export class ChatService {
     runId: string,
     userId: number,
     teamId: number | null,
-    text: string
+    text: string,
+    no_ws_socket_notify?: boolean
   ) {
     const chatItem = await this.prisma.chatItem.create({
       data: {
@@ -197,7 +211,9 @@ export class ChatService {
         teamId,
       },
     });
-    await this.notifyChatUpdated(runId, chatItem.id, { type: 'assistant' });
+    if (!no_ws_socket_notify) {
+      await this.notifyChatUpdated(runId, chatItem.id, { type: 'assistant' });
+    }
     return chatItem;
   }
 
@@ -341,4 +357,6 @@ export class ChatService {
     });
     return chatItem;
   }
+
+
 }

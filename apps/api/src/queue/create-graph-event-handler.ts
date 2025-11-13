@@ -64,22 +64,22 @@ export function createGraphEventHandler(opts: {
     if (evt.runId !== run.id) return;
     try {
       switch (evt.type) {
-        case 'node.enter': {
-          const node = (evt.payload as any)?.node;
-          if (node === 'planner') appendStatusMessage('run_status', { status: 'planning' });
-          if (node === 'executor') appendStatusMessage('run_status', { status: 'executing' });
-          break;
-        }
+        // case 'node.enter': {
+        //   const node = (evt.payload as any)?.node;
+        //   if (node === 'planner') appendStatusMessage('run_status', { status: 'planning' });
+        //   if (node === 'executor') appendStatusMessage('run_status', { status: 'executing' });
+        //   break;
+        // }
         case 'node.exit': {
           const delta = (evt.payload as any)?.delta;
           if (delta) applyDelta(liveStateRef.get(), delta);
           break;
         }
-        case 'run_status': {
-          logger.log('▶️ LangGraph run started', { runId: run.id });
-          appendStatusMessage('run_status', { status: 'running' });
-          break;
-        }
+        // case 'run_status': {
+        //   logger.log('▶️ LangGraph run started', { runId: run.id });
+        //   appendStatusMessage('run_status', { status: 'running' });
+        //   break;
+        // }
         case 'plan_generated': {
           const plan = Array.isArray((evt.payload as any)?.plan)
             ? ((evt.payload as any).plan as any[])
@@ -91,11 +91,6 @@ export function createGraphEventHandler(opts: {
           if (enrichPlanWithCredentials) {
             void enrichPlanWithCredentials(plan)
               .then((enrichedPlan) => {
-                logger.debug('📋 Plan enriched with credentials', {
-                  runId: run.id,
-                  steps: enrichedPlan.length,
-                  missingCredentials: enrichedPlan.filter((s) => s.credentialId === null).length,
-                });
                 appendStatusMessage('plan_generated', {
                   intent: liveStateRef.get().scratch?.intent,
                   plan: enrichedPlan,
@@ -156,11 +151,11 @@ export function createGraphEventHandler(opts: {
             startedAt,
             planStepId,
           });
-          appendStatusMessage('step_started', {
-            tool: name,
-            action: `Executing ${name}`,
-            request: args,
-          });
+          // appendStatusMessage('step_started', {
+          //   tool: name,
+          //   action: `Executing ${name}`,
+          //   request: args,
+          // });
           break;
         }
         case 'tool.succeeded': {

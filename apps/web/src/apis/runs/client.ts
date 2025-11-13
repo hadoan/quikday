@@ -133,16 +133,11 @@ export class RunApiClient {
     const runLevelMissing = (runData.missing || runData.missingInputs) as
       | UiQuestionItem[]
       | undefined;
-    console.log('[RunApiClient] Run-level missing/missingInputs:', {
-      runId: data.id,
-      missing: runLevelMissing,
-      steps,
-    });
+
 
     // Build messages from run data
     const messages = this.buildMessagesFromRun(data, steps, runLevelMissing);
     run.messages = messages;
-    console.log('[RunApiClient] Built messages for run:', { runId: data.id, messages });
     return { run, steps, events: [] };
   }
 
@@ -330,7 +325,7 @@ export class RunApiClient {
           // Stop noisy WS reconnects once fallback is active
           try {
             socket.close();
-          } catch {}
+          } catch { }
         }
       },
       onClose: () => {
@@ -525,7 +520,7 @@ export class RunApiClient {
           this.logger.debug('Run not found while polling (will retry)', { runId, message: msg });
           return;
         }
-      } catch {}
+      } catch { }
 
       this.logger.error('Polling error', err as Error);
     }
@@ -566,7 +561,7 @@ export class RunApiClient {
         let errText = '';
         try {
           errText = await response.clone().text();
-        } catch {}
+        } catch { }
         const looksExpired = /jwt\s*expired|token\s*expired|invalid_token/i.test(errText);
         if (looksExpired) {
           response = await doFetch();
@@ -641,23 +636,11 @@ export class RunApiClient {
         });
       }
 
-      // Convert chat items to messages
-      this.logger.info('Chat items from backend:', {
-        runId: run.id,
-        items: runWithChat.chat.items,
-      });
       const chatMessages = adaptChatItemsToUiMessages(runWithChat.chat.items);
-      this.logger.info('Converted messages:', {
-        runId: run.id,
-        messages: chatMessages,
-      });
+
 
       // Patch empty questions in chat items with run-level missing inputs
       const patchedMessages = chatMessages.map((msg) => {
-        console.log('[RunApiClient] Checking message for question patching:', {
-          runId: run.id,
-          msg,
-        });
         if (msg.type === 'questions' && msg.data) {
           const questionData = msg.data as UiQuestionsData;
           const questions = questionData?.questions;
@@ -668,10 +651,7 @@ export class RunApiClient {
             runLevelMissing &&
             runLevelMissing.length > 0
           ) {
-            this.logger.info('Patching empty questions with run-level missing inputs', {
-              runId: run.id,
-              runLevelMissingCount: runLevelMissing.length,
-            });
+
             return {
               ...msg,
               data: {
@@ -689,10 +669,7 @@ export class RunApiClient {
       return messages;
     }
 
-    // Fallback: Build messages programmatically (for runs without saved chat items)
-    this.logger.debug('Building messages programmatically (no saved chat items)', {
-      runId: run.id,
-    });
+
 
     const messages: UiMessage[] = [];
     const seenAssistantTexts = new Set<string>();

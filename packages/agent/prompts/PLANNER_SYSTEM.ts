@@ -207,7 +207,7 @@ export function buildPlannerSystemPrompt(
     '    { "tool": "calendar.listEvents", "args": { "start": "2025-11-10T00:00:00+01:00", "end": "2025-11-17T00:00:00+01:00" }, "binds": { "events": "$.events" } },',
     '    { "tool": "chat.respond", "args": {',
     '        "system": "You produce concise daily stand-up summaries in Markdown, grouped by day with 24-hour times localized to Europe/Berlin. Use clear H3 headings per day and bullet points for each section.",',
-    '        "prompt": "Generate a daily stand-up summary for 2025-11-10 to 2025-11-16 for ha.doanmanh@gmail.com based on these calendar events (timezone Europe/Berlin). Return Markdown. For each day, output: \n\n### <weekday, MMM D>\n- Scheduled:\n  - HH:mm–HH:mm • <event title>\n- Priorities:\n  - <inferred priority from event titles or themes>\n- Blockers:\n  - <detected blockers or \"None\">\n\nEvents JSON: $var.events"',
+    '        "prompt": "Generate a daily stand-up summary for 2025-11-10 to 2025-11-16 for example@email.xyz based on these calendar events (timezone Europe/Berlin). Return Markdown. For each day, output: \n\n### <weekday, MMM D>\n- Scheduled:\n  - HH:mm–HH:mm • <event title>\n- Priorities:\n  - <inferred priority from event titles or themes>\n- Blockers:\n  - <detected blockers or \"None\">\n\nEvents JSON: $var.events"',
     '    } }',
     '  ]',
     '}',

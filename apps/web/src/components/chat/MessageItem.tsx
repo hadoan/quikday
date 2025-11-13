@@ -16,6 +16,7 @@ import type {
   UiPlanData,
   UiPlanStep,
   UiRunData,
+  UiLogData,
   UiOutputData,
   UiParamsData,
   UiUndoData,
@@ -24,6 +25,7 @@ import type {
   UiAppCredentialsData,
   UiMessage,
 } from '@/apis/runs';
+import { LogCard } from '../cards/LogCard';
 
 interface MessageItemProps {
   message: UiMessage;
@@ -47,23 +49,36 @@ const MessageItem: React.FC<MessageItemProps> = ({ message: m, runId }) => {
     return <PlanMessage data={m.data as UiPlanData} runId={runId} toast={toast} />;
   }
 
-  if (m.type === 'run') {
-    const rd = (m.data as UiRunData) || ({} as UiRunData);
-    const st = String(rd?.status || '').toLowerCase();
-    const isTerminal = ['succeeded', 'failed', 'completed', 'done', 'partial'].includes(st);
-    if (isTerminal) return null;
-    return (
-      <ChatMessage role="assistant">
-        <RunCard data={rd} runId={runId} />
-      </ChatMessage>
-    );
-  }
+  // if (m.type === 'run') {
+  //   const rd = (m.data as UiRunData) || ({} as UiRunData);
+  //   const st = String(rd?.status || '').toLowerCase();
+  //   const isTerminal = ['succeeded', 'failed', 'completed', 'done', 'partial'].includes(st);
+  //   if (isTerminal) return null;
+  //   return (
+  //     <ChatMessage role="assistant">
+  //       <RunCard data={rd} runId={runId} />
+  //     </ChatMessage>
+  //   );
+  // }
 
   if (m.type === 'log') {
-    // LogCard logic omitted for brevity
+    const logData = (m.data as UiLogData) || ({} as UiLogData);
+    const entries = Array.isArray(logData.entries) ? logData.entries : [];
+    const logs = entries.map((entry) => ({
+      tool: entry.tool || entry.action || 'Step',
+      action: entry.action || `Completed ${entry.tool ?? 'step'}`,
+      time: entry.time || entry.completedAt || entry.startedAt || '',
+      status: entry.status === 'succeeded' ? 'success' : 'pending',
+      output: typeof entry.outputsPreview === 'string' ? entry.outputsPreview : undefined,
+    }));
+
+    if (logs.length === 0) {
+      return null;
+    }
+
     return (
       <ChatMessage role="assistant">
-        <></>
+        <LogCard logs={logs} />
       </ChatMessage>
     );
   }
@@ -140,6 +155,7 @@ const MessageItem: React.FC<MessageItemProps> = ({ message: m, runId }) => {
           questions={questions}
           onSubmitted={() => {}}
           steps={steps}
+          answered={qd.answered}
         />
       </ChatMessage>
     );

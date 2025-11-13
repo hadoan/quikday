@@ -212,8 +212,9 @@ export class RunCreationService {
     goal: Goal | null;
     plan: PlanStep[];
     missing: MissingField[];
+    no_ws_socket_notify?: boolean;
   }) {
-    const { prompt, userId, teamId, tz, goal, plan, missing } = data;
+    const { prompt, userId, teamId, tz, goal, plan, missing, no_ws_socket_notify } = data;
 
     // Determine status based on whether there are missing inputs
     const status = missing && missing.length > 0 ? RunStatus.AWAITING_INPUT : RunStatus.PLANNING;
@@ -280,6 +281,7 @@ export class RunCreationService {
         goal,
         plan,
         missing,
+        no_ws_socket_notify
       });
     } catch (e) {
       this.logger.warn('Failed to create chat items for plan run', e as any);

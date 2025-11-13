@@ -126,16 +126,7 @@ export class RunProcessor extends WorkerHost {
     return runWithCurrentUser(ctx, async () => {
       // mark running and notify
       await this.runs.updateStatus(run.id, RunStatus.RUNNING);
-      await this.persistStatusChatItem(run, 'run_status', { status: RunStatus.RUNNING });
-
-      this.logger.log('▶️ Starting run execution', {
-        timestamp: new Date().toISOString(),
-        runId: run.id,
-        prompt: run.prompt.substring(0, 50) + (run.prompt.length > 50 ? '...' : ''),
-        mode: run.mode,
-        userId: run.userId,
-        teamId: run.teamId,
-      });
+     
 
       // Build runtime input + ctx
       const { initialState, appendStatusMessage, appendStatusMessageSync } =

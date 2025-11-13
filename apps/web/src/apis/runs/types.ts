@@ -169,6 +169,8 @@ export interface UiQuestionsData {
   questions: UiQuestionItem[];
   steps?: UiPlanStep[];
   hasMissingCredentials?: boolean;
+  answered?: boolean;
+  answeredAt?: string;
 }
 
 export interface UiConfigData {

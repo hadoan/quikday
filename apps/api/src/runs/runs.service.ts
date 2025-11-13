@@ -52,7 +52,7 @@ export class RunsService {
     private readonly queryService: RunQueryService,
     private readonly authService: RunAuthorizationService,
     private readonly chatService: ChatService
-  ) {}
+  ) { }
 
   private jsonClone<T>(v: T): T {
     return JSON.parse(JSON.stringify(v));
@@ -911,6 +911,7 @@ export class RunsService {
     });
   }
 
+
   private async reResolveRunStepCredentials(
     runId: string,
     userId: number
@@ -995,6 +996,7 @@ export class RunsService {
     goal: Goal | null;
     plan: PlanStep[];
     missing: MissingField[];
+    no_ws_socket_notify?: boolean;
   }) {
     return this.creationService.createPlanRun(data);
   }

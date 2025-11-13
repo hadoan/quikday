@@ -27,9 +27,6 @@ function formatTime(value?: string): string {
 }
 
 export const RunCard = ({ data }: RunCardProps) => {
-  console.log('-----------------------------------------------------------------');
-  console.log('RunCard data:', data);
-  console.log('-----------------------------------------------------------------');
   const rawStatus = String(data.status || '').toLowerCase();
   const status = normalizeStatus(data.status);
   const startedAt = data.started_at || undefined;
