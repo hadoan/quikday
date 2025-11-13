@@ -447,14 +447,14 @@ export class RunProcessor extends WorkerHost {
 
         await this.telemetry.track('run_completed', { runId: run.id, status: RunStatus.DONE });
       } catch (err: any) {
-      await this.handleExecutionError({
-        err,
-        run,
-        liveState,
-        formatLogsForPersistence,
-        job,
-        appendStatusMessage,
-      });
+        await this.handleExecutionError({
+          err,
+          run,
+          liveState,
+          formatLogsForPersistence,
+          job,
+          appendStatusMessage,
+        });
       }
     });
   }
@@ -694,7 +694,10 @@ export class RunProcessor extends WorkerHost {
     liveState: RunState;
     formatLogsForPersistence: () => any[];
     job: Job<RunJobData>;
-    appendStatusMessage: (type: UiRunEvent['type'], payload: UiRunEvent['payload']) => Promise<void>;
+    appendStatusMessage: (
+      type: UiRunEvent['type'],
+      payload: UiRunEvent['payload']
+    ) => Promise<void>;
   }) {
     const { err, run, liveState, formatLogsForPersistence, job, appendStatusMessage } = opts;
     this.logger.error('❌ Job execution failed', {

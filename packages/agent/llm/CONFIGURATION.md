@@ -8,11 +8,11 @@ Quik.day supports multiple LLM providers through a unified interface. You can ea
 
 ## Supported Providers
 
-| Provider | Models | Best For |
-|----------|--------|----------|
-| **OpenAI** | GPT-4o, GPT-4o-mini, GPT-4 | General purpose, widely supported |
-| **Azure OpenAI** | Same as OpenAI | Enterprise deployments, compliance requirements |
-| **Anthropic Claude** | Claude 3.5 Haiku, Sonnet, Opus | Cost-effective (Haiku), high quality reasoning |
+| Provider             | Models                         | Best For                                        |
+| -------------------- | ------------------------------ | ----------------------------------------------- |
+| **OpenAI**           | GPT-4o, GPT-4o-mini, GPT-4     | General purpose, widely supported               |
+| **Azure OpenAI**     | Same as OpenAI                 | Enterprise deployments, compliance requirements |
+| **Anthropic Claude** | Claude 3.5 Haiku, Sonnet, Opus | Cost-effective (Haiku), high quality reasoning  |
 
 ## Quick Setup
 
@@ -265,6 +265,7 @@ ANTHROPIC_MODEL=claude-3-opus-20240229
 If you're using the legacy `USE_AZURE_OPENAI=true` flag:
 
 **Before:**
+
 ```bash
 USE_AZURE_OPENAI=true
 AZURE_OPENAI_API_KEY=...
@@ -272,6 +273,7 @@ AZURE_OPENAI_ENDPOINT=...
 ```
 
 **After:**
+
 ```bash
 LLM_PROVIDER=azure  # Explicit provider
 AZURE_OPENAI_API_KEY=...

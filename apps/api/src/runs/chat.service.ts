@@ -13,10 +13,14 @@ export class ChatService {
 
   constructor(
     private prisma: PrismaService,
-    @Inject('RunEventBus') private eventBus: RunEventBus,
+    @Inject('RunEventBus') private eventBus: RunEventBus
   ) {}
 
-  private async notifyChatUpdated(runId: string, chatItemId: string, meta?: Record<string, unknown>) {
+  private async notifyChatUpdated(
+    runId: string,
+    chatItemId: string,
+    meta?: Record<string, unknown>
+  ) {
     try {
       this.logger.debug('📡 Emitting chat_updated', {
         runId,
@@ -34,7 +38,7 @@ export class ChatService {
             ...(meta ?? {}),
           },
         },
-        CHANNEL_WEBSOCKET,
+        CHANNEL_WEBSOCKET
       );
     } catch (error) {
       this.logger.error('Failed to publish chat_updated event', {

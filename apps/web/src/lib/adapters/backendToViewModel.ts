@@ -548,8 +548,7 @@ export function adaptChatItemToUiMessage(chatItem: BackendChatItem): UiMessage {
 
     case 'status': {
       const payload = (chatItem.content?.payload || {}) as Record<string, unknown>;
-      const status =
-        typeof payload.status === 'string' ? (payload.status as string) : undefined;
+      const status = typeof payload.status === 'string' ? (payload.status as string) : undefined;
       const steps = Array.isArray((payload as any).steps)
         ? adaptStepsBackendToUi((payload as any).steps)
         : [];
@@ -569,8 +568,7 @@ export function adaptChatItemToUiMessage(chatItem: BackendChatItem): UiMessage {
         message.data = {
           status: mapRunStatus(status),
           started_at:
-            (payload.started_at as string | undefined) ||
-            (payload.startedAt as string | undefined),
+            (payload.started_at as string | undefined) || (payload.startedAt as string | undefined),
           completed_at:
             (payload.completed_at as string | undefined) ||
             (payload.completedAt as string | undefined),

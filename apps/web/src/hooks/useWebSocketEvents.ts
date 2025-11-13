@@ -73,9 +73,7 @@ export function useWebSocketEvents({
             let nextMessages = currentMessages;
 
             if (nextMessage.type === 'run') {
-              const idx = [...currentMessages]
-                .reverse()
-                .findIndex((msg) => msg?.type === 'run');
+              const idx = [...currentMessages].reverse().findIndex((msg) => msg?.type === 'run');
               if (idx !== -1) {
                 const targetIndex = currentMessages.length - 1 - idx;
                 nextMessages = currentMessages.map((msg, i) =>
@@ -113,13 +111,13 @@ export function useWebSocketEvents({
           const qd = (nextMessage.data as UiQuestionsData) || { questions: [] };
           const qs: Question[] = Array.isArray(qd?.questions)
             ? qd.questions.map((q) => ({
-              key: q.key,
-              question: q.question,
-              required: q.required,
-              placeholder: q.placeholder,
-              options: q.options,
-              type: normalizeQuestionType(q.type),
-            }))
+                key: q.key,
+                question: q.question,
+                required: q.required,
+                placeholder: q.placeholder,
+                options: q.options,
+                type: normalizeQuestionType(q.type),
+              }))
             : [];
           setQuestions(qs);
         }

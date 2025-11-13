@@ -103,10 +103,7 @@ export class RunApiClient {
   // -------------------------------------------------------------------------
   // Get Run
   // -------------------------------------------------------------------------
-  async getRun(
-    runId: string,
-    options?: { updateCredential?: boolean }
-  ): Promise<GetRunResponse> {
+  async getRun(runId: string, options?: { updateCredential?: boolean }): Promise<GetRunResponse> {
     let data: BackendRun;
 
     // Use POST /retrieve endpoint if updateCredential is true
@@ -133,11 +130,13 @@ export class RunApiClient {
 
     // Check for run-level missing inputs
     const runData = data as Record<string, unknown>;
-    const runLevelMissing = (runData.missing || runData.missingInputs) as UiQuestionItem[] | undefined;
+    const runLevelMissing = (runData.missing || runData.missingInputs) as
+      | UiQuestionItem[]
+      | undefined;
     console.log('[RunApiClient] Run-level missing/missingInputs:', {
       runId: data.id,
       missing: runLevelMissing,
-      steps
+      steps,
     });
 
     // Build messages from run data
@@ -331,7 +330,7 @@ export class RunApiClient {
           // Stop noisy WS reconnects once fallback is active
           try {
             socket.close();
-          } catch { }
+          } catch {}
         }
       },
       onClose: () => {
@@ -505,7 +504,10 @@ export class RunApiClient {
 
       // Stop polling when terminal
       if (['succeeded', 'failed', 'completed', 'done'].includes(run.status)) {
-        this.logger.info('Run reached terminal status, stopping polling', { runId, status: run.status });
+        this.logger.info('Run reached terminal status, stopping polling', {
+          runId,
+          status: run.status,
+        });
         const p = this.activePollers.get(runId);
         if (p) {
           clearInterval(p.timer);
@@ -523,7 +525,7 @@ export class RunApiClient {
           this.logger.debug('Run not found while polling (will retry)', { runId, message: msg });
           return;
         }
-      } catch { }
+      } catch {}
 
       this.logger.error('Polling error', err as Error);
     }
@@ -564,7 +566,7 @@ export class RunApiClient {
         let errText = '';
         try {
           errText = await response.clone().text();
-        } catch { }
+        } catch {}
         const looksExpired = /jwt\s*expired|token\s*expired|invalid_token/i.test(errText);
         if (looksExpired) {
           response = await doFetch();
@@ -652,14 +654,20 @@ export class RunApiClient {
 
       // Patch empty questions in chat items with run-level missing inputs
       const patchedMessages = chatMessages.map((msg) => {
-
-        console.log('[RunApiClient] Checking message for question patching:', { runId: run.id, msg });
+        console.log('[RunApiClient] Checking message for question patching:', {
+          runId: run.id,
+          msg,
+        });
         if (msg.type === 'questions' && msg.data) {
           const questionData = msg.data as UiQuestionsData;
           const questions = questionData?.questions;
 
           // If questions array is empty but we have run-level missing inputs, use those
-          if ((!questions || questions.length === 0) && runLevelMissing && runLevelMissing.length > 0) {
+          if (
+            (!questions || questions.length === 0) &&
+            runLevelMissing &&
+            runLevelMissing.length > 0
+          ) {
             this.logger.info('Patching empty questions with run-level missing inputs', {
               runId: run.id,
               runLevelMissingCount: runLevelMissing.length,

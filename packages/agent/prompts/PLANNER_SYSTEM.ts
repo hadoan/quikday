@@ -173,7 +173,7 @@ export function buildPlannerSystemPrompt(
     '    { "tool": "email.send", "args": {',
     '        "to": "recipient@example.com",',
     '        "subject": "Proposed Meeting Slots",',
-    '        "body": "Dear Customer,\\n\\nPlease find below the proposed meeting slots for next week:\\n\\n$fmt.listRange($var.slots, \'start\', \'end\', \'Europe/Berlin\')\\n\\nKindly let us know your preferred slot.\\n\\nBest regards,\\nUser",',
+    "        \"body\": \"Dear Customer,\\n\\nPlease find below the proposed meeting slots for next week:\\n\\n$fmt.listRange($var.slots, 'start', 'end', 'Europe/Berlin')\\n\\nKindly let us know your preferred slot.\\n\\nBest regards,\\nUser\",",
     '        "isHtml": false',
     '    } }',
     '  ]',

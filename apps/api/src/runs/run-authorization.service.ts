@@ -15,7 +15,7 @@ export class RunAuthorizationService {
 
   constructor(
     private prisma: PrismaService,
-    private readonly current: CurrentUserService,
+    private readonly current: CurrentUserService
   ) {}
 
   /**
@@ -116,10 +116,7 @@ export class RunAuthorizationService {
   /**
    * Build policy snapshot for a run
    */
-  async buildPolicySnapshot(
-    teamId: number | null,
-    toolAllowlist?: string[],
-  ): Promise<TeamPolicy> {
+  async buildPolicySnapshot(teamId: number | null, toolAllowlist?: string[]): Promise<TeamPolicy> {
     const base = await getTeamPolicy(teamId !== null ? String(teamId) : undefined);
     const allowlist = new Set<string>(base.allowlist?.tools ?? []);
     if (Array.isArray(toolAllowlist)) {
@@ -142,7 +139,7 @@ export class RunAuthorizationService {
   deriveScopesFromRun(
     run: { toolAllowlist: unknown },
     config: Record<string, unknown>,
-    policy: TeamPolicy | null,
+    policy: TeamPolicy | null
   ): string[] {
     const scopes = new Set<string>(['runs:execute']);
 

@@ -51,7 +51,7 @@ export class RunsService {
     private readonly creationService: RunCreationService,
     private readonly queryService: RunQueryService,
     private readonly authService: RunAuthorizationService,
-    private readonly chatService: ChatService,
+    private readonly chatService: ChatService
   ) {}
 
   private jsonClone<T>(v: T): T {
@@ -713,7 +713,7 @@ export class RunsService {
               id,
               run2.userId,
               run2.teamId ?? null,
-              result.logs,
+              result.logs
             );
           }
           if (result.output) {
@@ -722,7 +722,7 @@ export class RunsService {
               id,
               run2.userId,
               run2.teamId ?? null,
-              result.output,
+              result.output
             );
           }
           if (result.error) {
@@ -731,7 +731,7 @@ export class RunsService {
               id,
               run2.userId,
               run2.teamId ?? null,
-              result.error,
+              result.error
             );
           }
         }
@@ -758,8 +758,11 @@ export class RunsService {
       throw new UnauthorizedException('User not found in database');
     }
 
-    const { updated, steps: postSteps, missingCredSteps } =
-      await this.reResolveRunStepCredentials(runId, user.id);
+    const {
+      updated,
+      steps: postSteps,
+      missingCredSteps,
+    } = await this.reResolveRunStepCredentials(runId, user.id);
 
     // Update run.plan JSON to reflect the updated credentialIds
     if (updated > 0) {
@@ -830,10 +833,7 @@ export class RunsService {
     }
 
     const { updated } = await this.reResolveRunStepCredentials(runId, user.id);
-    this.logger.log(
-      `Re-resolved step credentials for chat hydration on run ${runId}`,
-      { updated },
-    );
+    this.logger.log(`Re-resolved step credentials for chat hydration on run ${runId}`, { updated });
     return { updated };
   }
 
@@ -913,7 +913,7 @@ export class RunsService {
 
   private async reResolveRunStepCredentials(
     runId: string,
-    userId: number,
+    userId: number
   ): Promise<{
     updated: number;
     steps: Step[];
@@ -929,7 +929,7 @@ export class RunsService {
       try {
         const { credentialId } = await this.stepsService.reResolveAppAndCredential(
           step.tool,
-          userId,
+          userId
         );
         if (!credentialId) continue;
         await this.prisma.step.update({ where: { id: step.id }, data: { credentialId } });
@@ -944,7 +944,7 @@ export class RunsService {
 
     const postSteps = await this.prisma.step.findMany({ where: { runId } });
     const missingCredSteps = postSteps.filter(
-      (st) => st.appId && (st.credentialId === null || st.credentialId === undefined),
+      (st) => st.appId && (st.credentialId === null || st.credentialId === undefined)
     );
 
     return { updated, steps: postSteps, missingCredSteps };

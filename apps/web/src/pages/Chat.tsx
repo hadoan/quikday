@@ -61,11 +61,7 @@ const Chat = () => {
     toast,
   });
 
-  const {
-    handleNewPrompt,
-    handleNewTask,
-    ensureDraftForTyping,
-  } = runActions;
+  const { handleNewPrompt, handleNewTask, ensureDraftForTyping } = runActions;
 
   // Merge server-provided sidebar runs with any local draft/unknown runs so
   // that a new chat appears in the sidebar as soon as the user starts typing.
@@ -130,53 +126,60 @@ const Chat = () => {
             runId: runIdParam,
             messageCount: run.messages?.length,
             messages: run.messages,
-            runSteps
+            runSteps,
           });
 
           if (run.messages && Array.isArray(runSteps)) {
             const currentHasMissingCredentials = runSteps.some(
-              (step) => step.appId && (step.credentialId === null || step.credentialId === undefined)
+              (step) =>
+                step.appId && (step.credentialId === null || step.credentialId === undefined),
             );
             console.log('[Chat] Current credential state:', {
               currentHasMissingCredentials,
-              stepsWithMissingCreds: runSteps.filter(s => s.appId && (s.credentialId === null || s.credentialId === undefined)),
+              stepsWithMissingCreds: runSteps.filter(
+                (s) => s.appId && (s.credentialId === null || s.credentialId === undefined),
+              ),
             });
 
-            run.messages = run.messages.map((msg) => {
-              // Update questions message
-              if (msg.type === 'questions' && msg.data) {
-                console.log('[Chat] BEFORE update - questions message:', {
-                  type: msg.type,
-                  data: msg.data,
-                });
+            run.messages = run.messages
+              .map((msg) => {
+                // Update questions message
+                if (msg.type === 'questions' && msg.data) {
+                  console.log('[Chat] BEFORE update - questions message:', {
+                    type: msg.type,
+                    data: msg.data,
+                  });
 
-                // Safely access properties while preserving the questions array
-                const questionData = msg.data as Record<string, unknown>;
-                const updatedData = {
-                  runId: questionData.runId as string | undefined,
-                  questions: (questionData.questions as unknown[]) || [], // Explicitly preserve questions array
-                  steps: runSteps, // Update steps with current credential info
-                  hasMissingCredentials: currentHasMissingCredentials, // Update credential state
-                };
+                  // Safely access properties while preserving the questions array
+                  const questionData = msg.data as Record<string, unknown>;
+                  const updatedData = {
+                    runId: questionData.runId as string | undefined,
+                    questions: (questionData.questions as unknown[]) || [], // Explicitly preserve questions array
+                    steps: runSteps, // Update steps with current credential info
+                    hasMissingCredentials: currentHasMissingCredentials, // Update credential state
+                  };
 
-                console.log('[Chat] AFTER update - questions message:', {
-                  type: msg.type,
-                  data: updatedData,
-                  questionsCount: updatedData.questions.length,
-                });
+                  console.log('[Chat] AFTER update - questions message:', {
+                    type: msg.type,
+                    data: updatedData,
+                    questionsCount: updatedData.questions.length,
+                  });
 
-                return {
-                  ...msg,
-                  data: updatedData,
-                };
-              }
-              // Update app_credentials message (remove it if credentials are now installed)
-              if (msg.type === 'app_credentials' && currentHasMissingCredentials === false) {
-                console.log('[Chat] Removing app_credentials message (credentials now installed)');
-                return null;
-              }
-              return msg;
-            }).filter((msg): msg is typeof msg & object => msg !== null);
+                  return {
+                    ...msg,
+                    data: updatedData,
+                  };
+                }
+                // Update app_credentials message (remove it if credentials are now installed)
+                if (msg.type === 'app_credentials' && currentHasMissingCredentials === false) {
+                  console.log(
+                    '[Chat] Removing app_credentials message (credentials now installed)',
+                  );
+                  return null;
+                }
+                return msg;
+              })
+              .filter((msg): msg is typeof msg & object => msg !== null);
 
             console.log('[Chat] Final messages after update:', {
               messageCount: run.messages.length,
@@ -372,7 +375,6 @@ const Chat = () => {
       // ignore
     }
   }, [location.search]);
-
 
   const handleSelectRun = (runId: string) => {
     // In Chat screen, clicking a run shows details drawer instead of switching chat

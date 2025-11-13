@@ -24,7 +24,7 @@ export class RunCreationService {
     private stepsService: StepsService,
     private chatItemOrchestrator: ChatItemOrchestratorService,
     private authService: RunAuthorizationService,
-    @InjectQueue('runs') private runsQueue: Queue,
+    @InjectQueue('runs') private runsQueue: Queue
   ) {}
 
   /**
@@ -69,7 +69,7 @@ export class RunCreationService {
     // Build policy snapshot
     const policySnapshot = await this.authService.buildPolicySnapshot(
       team?.id ?? null,
-      toolAllowlist,
+      toolAllowlist
     );
 
     // Humanize user name
@@ -216,8 +216,7 @@ export class RunCreationService {
     const { prompt, userId, teamId, tz, goal, plan, missing } = data;
 
     // Determine status based on whether there are missing inputs
-    const status =
-      missing && missing.length > 0 ? RunStatus.AWAITING_INPUT : RunStatus.PLANNING;
+    const status = missing && missing.length > 0 ? RunStatus.AWAITING_INPUT : RunStatus.PLANNING;
 
     this.logger.log('💾 Creating plan run', {
       userId,
@@ -262,7 +261,7 @@ export class RunCreationService {
           planStepId: step.id || `step-${index}`,
           startedAt: new Date(),
         })),
-        userId,
+        userId
       );
 
       this.logger.log('✅ Plan steps created', {
@@ -294,7 +293,7 @@ export class RunCreationService {
    */
   private async enqueueRun(
     runId: string,
-    opts: { delayMs?: number; scratch?: Record<string, unknown> } = {},
+    opts: { delayMs?: number; scratch?: Record<string, unknown> } = {}
   ) {
     this.logger.log('📮 Adding job to BullMQ queue', {
       timestamp: new Date().toISOString(),

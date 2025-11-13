@@ -34,7 +34,6 @@ interface RunListItem {
   tags: unknown[];
 }
 
-
 /**
  * RunQueryService handles querying and retrieving runs.
  * Follows Single Responsibility Principle by focusing only on read operations.
@@ -46,7 +45,7 @@ export class RunQueryService {
   constructor(
     private prisma: PrismaService,
     private readonly current: CurrentUserService,
-    private enrichmentService: RunEnrichmentService,
+    private enrichmentService: RunEnrichmentService
   ) {}
 
   /**
@@ -69,7 +68,7 @@ export class RunQueryService {
     const user = await this.prisma.user.findUnique({ where: { sub: userSub } });
     if (!user) {
       throw new UnauthorizedException(
-        'User not found in database. Please ensure user sync completed.',
+        'User not found in database. Please ensure user sync completed.'
       );
     }
     const numericUserId = user.id;
@@ -126,8 +125,8 @@ export class RunQueryService {
     ]);
 
     const items: RunListItem[] = runs.map((r: RunWithUserAndCount) => {
-      const intentData = (r.intent as { title?: string } | null);
-      const configData = (r.config as { meta?: { source?: string } } | null);
+      const intentData = r.intent as { title?: string } | null;
+      const configData = r.config as { meta?: { source?: string } } | null;
 
       return {
         id: r.id,
@@ -155,7 +154,10 @@ export class RunQueryService {
   /**
    * Get a single run by ID with ownership verification
    */
-  async get(id: string, userSub?: string): Promise<
+  async get(
+    id: string,
+    userSub?: string
+  ): Promise<
     Run & {
       User: User;
       steps: any[];
@@ -191,7 +193,7 @@ export class RunQueryService {
       const user = await this.prisma.user.findUnique({ where: { sub: userSub } });
       if (!user) {
         throw new UnauthorizedException(
-          'User not found in database. Please ensure user sync completed.',
+          'User not found in database. Please ensure user sync completed.'
         );
       }
 
@@ -204,10 +206,7 @@ export class RunQueryService {
 
     let nextPlan = run.plan;
     if (run.plan && Array.isArray(run.plan) && enrichedSteps.length > 0) {
-      nextPlan = this.enrichmentService.mapStepsToPlanFormat(
-        enrichedSteps,
-        run.plan as any,
-      ) as any;
+      nextPlan = this.enrichmentService.mapStepsToPlanFormat(enrichedSteps, run.plan as any) as any;
     }
 
     const hydratedChat =
@@ -230,7 +229,7 @@ export class RunQueryService {
 
     const chatSteps = this.enrichmentService.mapStepsToChatFormat(enrichedSteps);
     const stepsNeedingCredentials = chatSteps.filter(
-      (step) => step.appId && (step.credentialId === null || step.credentialId === undefined),
+      (step) => step.appId && (step.credentialId === null || step.credentialId === undefined)
     );
     const hasMissingCredentials = stepsNeedingCredentials.length > 0;
 

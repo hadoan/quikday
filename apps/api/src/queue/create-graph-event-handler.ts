@@ -156,7 +156,11 @@ export function createGraphEventHandler(opts: {
             startedAt,
             planStepId,
           });
-          appendStatusMessage('step_started', { tool: name, action: `Executing ${name}`, request: args });
+          appendStatusMessage('step_started', {
+            tool: name,
+            action: `Executing ${name}`,
+            request: args,
+          });
           break;
         }
         case 'tool.succeeded': {

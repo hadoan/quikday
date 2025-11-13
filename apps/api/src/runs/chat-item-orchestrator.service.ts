@@ -13,7 +13,7 @@ export class ChatItemOrchestratorService {
 
   constructor(
     private chatService: ChatService,
-    private enrichmentService: RunEnrichmentService,
+    private enrichmentService: RunEnrichmentService
   ) {}
 
   /**
@@ -38,7 +38,7 @@ export class ChatItemOrchestratorService {
       runId,
       userId,
       teamId,
-      prompt.substring(0, 100),
+      prompt.substring(0, 100)
     );
 
     // Fetch enriched steps from database (SINGLE SOURCE OF TRUTH)
@@ -69,7 +69,7 @@ export class ChatItemOrchestratorService {
         runId,
         userId,
         teamId,
-        chatSteps,
+        chatSteps
       );
       if (credentialsItem) {
         this.logger.debug('✅ App credentials chat item created', { runId });
@@ -107,7 +107,7 @@ export class ChatItemOrchestratorService {
           runId,
           userId,
           teamId,
-          goalText,
+          goalText
         );
         this.logger.debug('✅ Assistant text chat item created', { runId });
       }

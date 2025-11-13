@@ -1,12 +1,7 @@
 import * as React from 'react';
 import { getDataSource } from '@/lib/flags/featureFlags';
 import { continueWithAnswers } from '@/apis/runs';
-import {
-  TextInput,
-  SelectInput,
-  MultiselectInput,
-  EmailListField,
-} from '@/components/input';
+import { TextInput, SelectInput, MultiselectInput, EmailListField } from '@/components/input';
 import { normalizeType, validateField, normalizeAnswerValue } from '@/lib/utils/questionValidation';
 
 export type Question = {

@@ -19,7 +19,7 @@ export class AgentController {
     private readonly agent: AgentService,
     private readonly prisma: PrismaService,
     private readonly runsService: RunsService,
-    private readonly enrichmentService: RunEnrichmentService,
+    private readonly enrichmentService: RunEnrichmentService
   ) {}
 
   /**

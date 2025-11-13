@@ -5,7 +5,6 @@ import { Button } from '@/components/ui/button';
 import { Copy } from 'lucide-react';
 import { PlanCard } from '@/components/cards/PlanCard';
 import { RunCard } from '@/components/cards/RunCard';
-import { LogCard } from '@/components/cards/LogCard';
 import { OutputCard } from '@/components/cards/OutputCard';
 import { ParamsCard } from '@/components/cards/ParamsCard';
 import { UndoCard } from '@/components/cards/UndoCard';
@@ -14,11 +13,9 @@ import MissingCredentials from '@/components/chat/MissingCredentials';
 import { useToast } from '@/hooks/use-toast';
 import { getDataSource } from '@/lib/flags/featureFlags';
 import type {
-  UiRunSummary,
   UiPlanData,
   UiPlanStep,
   UiRunData,
-  UiLogData,
   UiOutputData,
   UiParamsData,
   UiUndoData,
@@ -254,7 +251,11 @@ const MessageItem: React.FC<MessageItemProps> = ({ message: m, runId }) => {
 interface PlanMessageProps {
   data: UiPlanData;
   runId?: string;
-  toast: (options: { title: string; description?: string; variant?: 'default' | 'destructive' }) => void;
+  toast: (options: {
+    title: string;
+    description?: string;
+    variant?: 'default' | 'destructive';
+  }) => void;
 }
 
 function PlanMessage({ data, runId, toast }: PlanMessageProps) {
@@ -263,11 +264,7 @@ function PlanMessage({ data, runId, toast }: PlanMessageProps) {
   const awaitingApproval = data?.awaitingApproval === true;
   const dataSource = getDataSource();
   const normalizedMode =
-    data?.mode === 'approval'
-      ? 'approval'
-      : data?.mode === 'plan'
-        ? 'preview'
-        : 'auto';
+    data?.mode === 'approval' ? 'approval' : data?.mode === 'plan' ? 'preview' : 'auto';
   const plan = {
     intent: data?.intent || 'Plan',
     tools: data?.tools || [],
@@ -300,8 +297,7 @@ function PlanMessage({ data, runId, toast }: PlanMessageProps) {
                 : 'Plan approved.',
           });
         } catch (error) {
-          const message =
-            error instanceof Error ? error.message : 'Unable to approve this run.';
+          const message = error instanceof Error ? error.message : 'Unable to approve this run.';
           toast({
             title: 'Approval failed',
             description: message,
@@ -321,8 +317,7 @@ function PlanMessage({ data, runId, toast }: PlanMessageProps) {
             description: 'Execution halted and the plan was discarded.',
           });
         } catch (error) {
-          const message =
-            error instanceof Error ? error.message : 'Unable to cancel this run.';
+          const message = error instanceof Error ? error.message : 'Unable to cancel this run.';
           toast({
             title: 'Cancel failed',
             description: message,

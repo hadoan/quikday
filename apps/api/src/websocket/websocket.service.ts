@@ -197,7 +197,7 @@ export class WebSocketService implements OnModuleDestroy {
       runId: this.connState.get(ws)?.runId,
       messageType: message.type,
       timestamp: new Date().toISOString(),
-      message
+      message,
     });
 
     try {

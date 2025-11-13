@@ -302,11 +302,7 @@ export class RunsController {
   }
 
   @Post(':id/retrieve')
-  async retrieve(
-    @Param('id') id: string,
-    @Body() body: RetrieveRunDto,
-    @Req() req: any
-  ) {
+  async retrieve(@Param('id') id: string, @Body() body: RetrieveRunDto, @Req() req: any) {
     const claims = req.user || {};
     const userId = claims.sub;
 

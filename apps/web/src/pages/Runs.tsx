@@ -17,7 +17,6 @@ import { useNavigate } from 'react-router-dom';
 import RunDetailDrawer from '@/components/runs/RunDetailDrawer';
 import { formatDateTime } from '@/lib/datetime/format';
 
-
 export default function RunsPage() {
   const [q, setQ] = useState('');
   const [status, setStatus] = useState<string[]>([]);
@@ -82,7 +81,10 @@ export default function RunsPage() {
       />
 
       <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
-        <AppHeader title="All Runs" onToggleSidebar={() => setIsSidebarCollapsed(!isSidebarCollapsed)} />
+        <AppHeader
+          title="All Runs"
+          onToggleSidebar={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
+        />
 
         {/* Content */}
         <div className="flex-1 overflow-y-auto">

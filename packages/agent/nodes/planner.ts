@@ -154,7 +154,7 @@ async function planWithLLM(
 ): Promise<string | null> {
   try {
     const config = loadLLMConfig();
-    
+
     return await llm.text({
       system,
       user,
@@ -236,14 +236,25 @@ function patchAndHardenPlan(
   // If the goal contains action verbs but the plan only has chat.respond, reject it
   const goal = (s.scratch as any)?.goal;
   const outcomeText = (goal?.outcome || '').toLowerCase();
-  const actionVerbs = ['send', 'post', 'schedule', 'create', 'update', 'delete', 'set', 'enable', 'draft', 'reply'];
-  const hasActionVerb = actionVerbs.some(verb => outcomeText.includes(verb));
-  const onlyHasChatRespond = steps.length > 0 && steps.every(st => st.tool === 'chat.respond');
+  const actionVerbs = [
+    'send',
+    'post',
+    'schedule',
+    'create',
+    'update',
+    'delete',
+    'set',
+    'enable',
+    'draft',
+    'reply',
+  ];
+  const hasActionVerb = actionVerbs.some((verb) => outcomeText.includes(verb));
+  const onlyHasChatRespond = steps.length > 0 && steps.every((st) => st.tool === 'chat.respond');
 
   if (hasActionVerb && onlyHasChatRespond) {
     console.warn('[Planner] Detected chat.respond for action goal - rejecting plan:', {
       outcome: outcomeText,
-      detectedVerbs: actionVerbs.filter(v => outcomeText.includes(v)),
+      detectedVerbs: actionVerbs.filter((v) => outcomeText.includes(v)),
     });
     // Return empty steps to trigger fallback or missing inputs detection
     steps = [];
@@ -268,12 +279,17 @@ function patchAndHardenPlan(
       });
     } else {
       // Check if it's just a missing required field error (acceptable during planning)
-      const hasNullArgs = Object.values(step.args || {}).some((v) => v === null || v === undefined || v === '');
-      const isRequiredFieldError = validation.error?.includes('Required') || validation.error?.includes('required');
+      const hasNullArgs = Object.values(step.args || {}).some(
+        (v) => v === null || v === undefined || v === '',
+      );
+      const isRequiredFieldError =
+        validation.error?.includes('Required') || validation.error?.includes('required');
 
       if (hasNullArgs && isRequiredFieldError) {
         // Accept the step with null args - missing inputs detection will handle it
-        console.log(`[Planner] Accepting step with null args for missing inputs detection: ${step.tool}`);
+        console.log(
+          `[Planner] Accepting step with null args for missing inputs detection: ${step.tool}`,
+        );
         validatedSteps.push(step);
       } else {
         // Genuinely invalid step - reject it
@@ -715,7 +731,9 @@ export const makePlanner =
 
       // Detect email actions
       if (outcomeText.includes('send') && outcomeText.includes('email')) {
-        console.log('[planner] Detected email send action, creating email.send step with null args');
+        console.log(
+          '[planner] Detected email send action, creating email.send step with null args',
+        );
         steps = finalizeSteps([
           {
             tool: 'email.send',
@@ -728,8 +746,13 @@ export const makePlanner =
         ]);
       }
       // Detect draft email actions
-      else if ((outcomeText.includes('draft') || outcomeText.includes('create')) && outcomeText.includes('email')) {
-        console.log('[planner] Detected email draft action, creating email.draft.create step with null args');
+      else if (
+        (outcomeText.includes('draft') || outcomeText.includes('create')) &&
+        outcomeText.includes('email')
+      ) {
+        console.log(
+          '[planner] Detected email draft action, creating email.draft.create step with null args',
+        );
         steps = finalizeSteps([
           {
             tool: 'email.draft.create',
@@ -862,4 +885,3 @@ export const makePlanner =
       output: { ...s.output, diff },
     };
   };
-

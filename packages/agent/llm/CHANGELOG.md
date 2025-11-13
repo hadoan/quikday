@@ -75,20 +75,23 @@ All existing code continues to work:
 #### From Single Provider (OpenAI only)
 
 **Before:**
+
 ```typescript
 import { makeOpenAiLLM } from '@quikday/agent/llm';
 const llm = makeOpenAiLLM();
 ```
 
 **After (Recommended):**
+
 ```typescript
 import { createLLM } from '@quikday/agent/llm';
-const llm = createLLM();  // Auto-detects from environment
+const llm = createLLM(); // Auto-detects from environment
 ```
 
 #### Environment Configuration
 
 **Before:**
+
 ```bash
 OPENAI_API_KEY=sk-...
 OPENAI_MODEL=gpt-4o
@@ -96,6 +99,7 @@ USE_AZURE_OPENAI=false
 ```
 
 **After (Recommended):**
+
 ```bash
 LLM_PROVIDER=openai  # Explicit provider selection
 OPENAI_API_KEY=sk-...
@@ -103,6 +107,7 @@ OPENAI_MODEL=gpt-4o
 ```
 
 **To Use Claude:**
+
 ```bash
 LLM_PROVIDER=anthropic
 ANTHROPIC_API_KEY=sk-ant-...
@@ -152,6 +157,7 @@ interface LLM {
 #### Observability
 
 Both providers support:
+
 - Database logging (via Prisma `llm_log` table)
 - Langfuse tracing (if configured)
 - Consistent metadata tracking
