@@ -90,7 +90,7 @@ export interface ApiPlanStep {
 
 export interface UiMessage {
   role: UiMessageRole;
-  content?: string;
+  content?: JSON | string | {steps?: ApiPlanStep[]};
   type?: UiMessageType;
   data?: UiMessageData;
 }

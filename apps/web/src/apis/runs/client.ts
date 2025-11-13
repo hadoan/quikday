@@ -12,8 +12,12 @@ import type {
   ListRunsParams,
   ListRunsResponse,
   RunApiConfig,
+  UiMessage,
   UiCredential,
   UiEvent,
+  UiPlanStep,
+  UiQuestionItem,
+  UiQuestionsData,
 } from './types';
 import { createRunSocket, type RunSocket } from './websocket';
 
@@ -128,7 +132,7 @@ export class RunApiClient {
 
     // Check for run-level missing inputs
     const runData = data as Record<string, unknown>;
-    const runLevelMissing = runData.missing || runData.missingInputs;
+    const runLevelMissing = (runData.missing || runData.missingInputs) as UiQuestionItem[] | undefined;
     console.log('[RunApiClient] Run-level missing/missingInputs:', {
       runId: data.id,
       missing: runLevelMissing,
@@ -136,7 +140,7 @@ export class RunApiClient {
     });
 
     // Build messages from run data
-    const messages = this.buildMessagesFromRun(data, steps, runLevelMissing as unknown[] | undefined);
+    const messages = this.buildMessagesFromRun(data, steps, runLevelMissing);
     run.messages = messages;
     console.log('[RunApiClient] Built messages for run:', { runId: data.id, messages });
     return { run, steps, events: [] };
@@ -313,7 +317,7 @@ export class RunApiClient {
           // Stop noisy WS reconnects once fallback is active
           try {
             socket.close();
-          } catch {}
+          } catch { }
         }
       },
       onClose: () => {
@@ -505,7 +509,7 @@ export class RunApiClient {
           this.logger.debug('Run not found while polling (will retry)', { runId, message: msg });
           return;
         }
-      } catch {}
+      } catch { }
 
       this.logger.error('Polling error', err as Error);
     }
@@ -546,7 +550,7 @@ export class RunApiClient {
         let errText = '';
         try {
           errText = await response.clone().text();
-        } catch {}
+        } catch { }
         const looksExpired = /jwt\s*expired|token\s*expired|invalid_token/i.test(errText);
         if (looksExpired) {
           response = await doFetch();
@@ -600,7 +604,11 @@ export class RunApiClient {
     return `${protocol}//${window.location.hostname}:3000`;
   }
 
-  private buildMessagesFromRun(run: BackendRun, steps: any[], runLevelMissing?: unknown[]) {
+  private buildMessagesFromRun(
+    run: BackendRun,
+    steps: UiPlanStep[],
+    runLevelMissing?: UiQuestionItem[],
+  ): UiMessage[] {
     // If chat items exist, use them directly (they're the source of truth)
     const runWithChat = run as BackendRun & { chat?: { items?: BackendChatItem[] } };
     if (runWithChat.chat?.items && runWithChat.chat.items.length > 0) {
@@ -609,7 +617,7 @@ export class RunApiClient {
         itemCount: runWithChat.chat.items.length,
       });
 
-      const messages: any[] = [];
+      const messages: UiMessage[] = [];
       if (run.prompt) {
         messages.push({
           role: 'user',
@@ -630,12 +638,14 @@ export class RunApiClient {
 
       // Patch empty questions in chat items with run-level missing inputs
       const patchedMessages = chatMessages.map((msg) => {
+
+        console.log('[RunApiClient] Checking message for question patching:', { runId: run.id, msg });
         if (msg.type === 'questions' && msg.data) {
-          const questionData = msg.data as Record<string, unknown>;
-          const questions = questionData.questions as unknown[];
+          const questionData = msg.data as UiQuestionsData;
+          const questions = questionData?.questions;
 
           // If questions array is empty but we have run-level missing inputs, use those
-          if ((!questions || questions.length === 0) && runLevelMissing && Array.isArray(runLevelMissing) && runLevelMissing.length > 0) {
+          if ((!questions || questions.length === 0) && runLevelMissing && runLevelMissing.length > 0) {
             this.logger.info('Patching empty questions with run-level missing inputs', {
               runId: run.id,
               runLevelMissingCount: runLevelMissing.length,
@@ -662,7 +672,7 @@ export class RunApiClient {
       runId: run.id,
     });
 
-    const messages: any[] = [];
+    const messages: UiMessage[] = [];
     const seenAssistantTexts = new Set<string>();
     const norm = (s: unknown) => (typeof s === 'string' ? s.trim().replace(/\s+/g, ' ') : '');
 
@@ -685,7 +695,7 @@ export class RunApiClient {
           intent: 'Process request',
           tools: steps.map((s) => s.tool),
           actions: steps.map((s) => s.action || 'Execute'),
-          steps,
+          steps: run.steps ?? [],
           awaitingApproval: run.status === 'awaiting_approval',
           mode: run.status === 'awaiting_approval' ? 'approval' : 'plan',
         }),
