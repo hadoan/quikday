@@ -232,13 +232,34 @@ function patchAndHardenPlan(
   const whitelist = new Set(getToolWhitelist());
   let steps = (drafted.steps ?? []).filter((st) => whitelist.has(st.tool as AllowedTool));
 
-  // 2) Validate and fix arguments for each step using Zod schemas
+  // 2) Detect and reject chat.respond for action goals
+  // If the goal contains action verbs but the plan only has chat.respond, reject it
+  const goal = (s.scratch as any)?.goal;
+  const outcomeText = (goal?.outcome || '').toLowerCase();
+  const actionVerbs = ['send', 'post', 'schedule', 'create', 'update', 'delete', 'set', 'enable', 'draft', 'reply'];
+  const hasActionVerb = actionVerbs.some(verb => outcomeText.includes(verb));
+  const onlyHasChatRespond = steps.length > 0 && steps.every(st => st.tool === 'chat.respond');
+
+  if (hasActionVerb && onlyHasChatRespond) {
+    console.warn('[Planner] Detected chat.respond for action goal - rejecting plan:', {
+      outcome: outcomeText,
+      detectedVerbs: actionVerbs.filter(v => outcomeText.includes(v)),
+    });
+    // Return empty steps to trigger fallback or missing inputs detection
+    steps = [];
+  }
+
+  // 2) Lenient validation for planning phase
+  // Accept steps with null/missing required fields - missing inputs detection will handle them
   const validatedSteps: typeof steps = [];
   const invalidSteps: Array<{ tool: string; error: string }> = [];
 
   for (const step of steps) {
     const validation = validateAndFixToolArgs(step.tool, step.args);
 
+    // During planning, accept steps even if validation fails due to null/missing required fields
+    // The missing inputs detection will prompt for these values later
+    // Only reject steps if the tool itself doesn't exist or args are completely malformed
     if (validation.valid) {
       // Use the validated/coerced arguments from Zod
       validatedSteps.push({
@@ -246,12 +267,22 @@ function patchAndHardenPlan(
         args: validation.args,
       });
     } else {
-      // Log invalid step for debugging
-      console.warn(`[Planner] Invalid arguments for ${step.tool}:`, validation.error);
-      invalidSteps.push({
-        tool: step.tool,
-        error: validation.error || 'Unknown validation error',
-      });
+      // Check if it's just a missing required field error (acceptable during planning)
+      const hasNullArgs = Object.values(step.args || {}).some((v) => v === null || v === undefined || v === '');
+      const isRequiredFieldError = validation.error?.includes('Required') || validation.error?.includes('required');
+
+      if (hasNullArgs && isRequiredFieldError) {
+        // Accept the step with null args - missing inputs detection will handle it
+        console.log(`[Planner] Accepting step with null args for missing inputs detection: ${step.tool}`);
+        validatedSteps.push(step);
+      } else {
+        // Genuinely invalid step - reject it
+        console.warn(`[Planner] Invalid arguments for ${step.tool}:`, validation.error);
+        invalidSteps.push({
+          tool: step.tool,
+          error: validation.error || 'Unknown validation error',
+        });
+      }
     }
   }
 
@@ -675,22 +706,57 @@ export const makePlanner =
       }
     }
 
-    // 3) If no valid steps, fall back to chat.respond
+    // 3) If no valid steps, try to infer action tool from goal before falling back to chat.respond
+    const outcomeText = (goal?.outcome || '').toLowerCase();
+    const provided = (goal?.provided ?? {}) as Record<string, unknown>;
+
     if (!steps || steps.length === 0) {
-      console.warn('[planner] No valid steps from planner, falling back to chat.respond');
-      steps = finalizeSteps([
-        {
-          tool: 'chat.respond',
-          args: {
-            prompt: userText ?? '',
-            system: DEFAULT_ASSISTANT_SYSTEM,
+      console.warn('[planner] No valid steps from planner');
+
+      // Detect email actions
+      if (outcomeText.includes('send') && outcomeText.includes('email')) {
+        console.log('[planner] Detected email send action, creating email.send step with null args');
+        steps = finalizeSteps([
+          {
+            tool: 'email.send',
+            args: {
+              to: (provided.recipient_email as string) || (provided.to as string) || null,
+              subject: (provided.subject as string) || null,
+              body: (provided.body as string) || null,
+            },
           },
-        },
-      ]);
+        ]);
+      }
+      // Detect draft email actions
+      else if ((outcomeText.includes('draft') || outcomeText.includes('create')) && outcomeText.includes('email')) {
+        console.log('[planner] Detected email draft action, creating email.draft.create step with null args');
+        steps = finalizeSteps([
+          {
+            tool: 'email.draft.create',
+            args: {
+              to: (provided.recipient_email as string) || (provided.to as string) || null,
+              subject: (provided.subject as string) || null,
+              body: (provided.body as string) || null,
+            },
+          },
+        ]);
+      }
+      // Fallback to chat.respond only if no action detected
+      else {
+        console.log('[planner] No action detected, falling back to chat.respond');
+        steps = finalizeSteps([
+          {
+            tool: 'chat.respond',
+            args: {
+              prompt: userText ?? '',
+              system: DEFAULT_ASSISTANT_SYSTEM,
+            },
+          },
+        ]);
+      }
     }
 
     // 4) Check for missing inputs using LLM-based intelligent detection
-    const provided = (goal?.provided ?? {}) as Record<string, unknown>;
     const answers = (s.scratch?.answers ?? {}) as Record<string, unknown>;
 
     console.log('[planner] Starting missing inputs detection:', {

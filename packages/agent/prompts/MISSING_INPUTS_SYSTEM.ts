@@ -14,6 +14,12 @@ Given:
 
 Your task: Identify which REQUIRED parameters are truly missing and need to be asked.
 
+**CRITICAL - Detect Invalid Tool Selection:**
+- If the user's message contains ACTION verbs (send, post, schedule, create, update, delete, set, enable) but the planned tool is "chat.respond", this is an ERROR
+- Example: User says "send email to X" but planned tool is "chat.respond" → This is WRONG, should use email.send
+- In this case, return an empty array [] because the planner needs to fix the tool selection first
+- chat.respond should ONLY be used for questions, information requests, or conversations - NOT for actions
+
 Rules:
 - Only flag parameters that are REQUIRED (not optional)
 - Consider the user's message context - they may have provided info implicitly
