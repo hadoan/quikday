@@ -19,8 +19,17 @@ export class ChatService {
   private async notifyChatUpdated(
     runId: string,
     chatItemId: string,
-    meta?: Record<string, unknown>
+    meta?: Record<string, unknown>,
+    options?: { hideInChat?: boolean }
   ) {
+    if (options?.hideInChat) {
+      this.logger.debug('Skipping chat_updated emit for hidden chat item', {
+        runId,
+        chatItemId,
+      });
+      return;
+    }
+
     try {
       this.logger.debug('📡 Emitting chat_updated', {
         runId,
@@ -97,7 +106,7 @@ export class ChatService {
       },
     });
     if (!data.no_ws_socket_notify) {
-      await this.notifyChatUpdated(runId, chatItem.id, { type: 'plan' });
+      await this.notifyChatUpdated(runId, chatItem.id, { type: 'plan' }, { hideInChat: chatItem.hideInChat });
     }
     return chatItem;
   }
@@ -143,7 +152,7 @@ export class ChatService {
       },
     });
     if (!no_ws_socket_notify) {
-      await this.notifyChatUpdated(runId, chatItem.id, { type: 'app_credentials' });
+      await this.notifyChatUpdated(runId, chatItem.id, { type: 'app_credentials' }, { hideInChat: chatItem.hideInChat });
     }
     return chatItem;
   }
@@ -184,7 +193,7 @@ export class ChatService {
       },
     });
     if (!data.no_ws_socket_notify) {
-      await this.notifyChatUpdated(runId, chatItem.id, { type: 'questions' });
+      await this.notifyChatUpdated(runId, chatItem.id, { type: 'questions' }, { hideInChat: chatItem.hideInChat });
     }
     return chatItem;
   }
@@ -212,7 +221,7 @@ export class ChatService {
       },
     });
     if (!no_ws_socket_notify) {
-      await this.notifyChatUpdated(runId, chatItem.id, { type: 'assistant' });
+    await this.notifyChatUpdated(runId, chatItem.id, { type: 'assistant' }, { hideInChat: chatItem.hideInChat });
     }
     return chatItem;
   }
@@ -238,7 +247,7 @@ export class ChatService {
         teamId,
       },
     });
-    await this.notifyChatUpdated(runId, chatItem.id, { type: 'log' });
+    await this.notifyChatUpdated(runId, chatItem.id, { type: 'log' }, { hideInChat: chatItem.hideInChat });
     return chatItem;
   }
 
@@ -263,7 +272,7 @@ export class ChatService {
         teamId,
       },
     });
-    await this.notifyChatUpdated(runId, chatItem.id, { type: 'output' });
+    await this.notifyChatUpdated(runId, chatItem.id, { type: 'output' }, { hideInChat: chatItem.hideInChat });
     return chatItem;
   }
 
@@ -288,7 +297,7 @@ export class ChatService {
         teamId,
       },
     });
-    await this.notifyChatUpdated(runId, chatItem.id, { type: 'error' });
+    await this.notifyChatUpdated(runId, chatItem.id, { type: 'error' }, { hideInChat: chatItem.hideInChat });
     return chatItem;
   }
 
@@ -351,10 +360,15 @@ export class ChatService {
         teamId,
       },
     });
-    await this.notifyChatUpdated(runId, chatItem.id, {
-      type: 'status',
-      eventType,
-    });
+    await this.notifyChatUpdated(
+      runId,
+      chatItem.id,
+      {
+        type: 'status',
+        eventType,
+      },
+      { hideInChat: chatItem.hideInChat },
+    );
     return chatItem;
   }
 

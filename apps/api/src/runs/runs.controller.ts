@@ -218,6 +218,8 @@ export class RunsController {
     this.logger.log(
       `Executing plan for run=${id}${providedKeys.length ? ' with provided answers' : ''}`
     );
+
+    await this.runs.hideQuestionChatItems(id);
     await this.runs.executePlanWithAnswers(id);
 
     this.logger.log(`Submit continueWithAnswers completed for run=${id}`);

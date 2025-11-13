@@ -1094,10 +1094,35 @@ export class RunsService {
   async getChatItem(runId: string, chatItemId: string, userSub: string) {
     await this.get(runId, userSub);
 
-    const chatItem = await this.prisma.chatItem.findUnique({ where: { id: chatItemId } });
+    const chatItem = await this.prisma.chatItem.findFirst({
+      where: {
+        id: chatItemId,
+        hideInChat: false,
+      },
+    });
     if (!chatItem || chatItem.runId !== runId) {
       throw new NotFoundException('Chat item not found');
     }
     return chatItem;
+  }
+
+  async hideQuestionChatItems(runId: string) {
+    const result = await this.prisma.chatItem.updateMany({
+      where: {
+        runId,
+        type: 'questions',
+        hideInChat: false,
+      },
+      data: {
+        hideInChat: true,
+      },
+    });
+
+    this.logger.debug('🙈 Hid questions chat items', {
+      runId,
+      updated: result.count,
+    });
+
+    return result.count;
   }
 }

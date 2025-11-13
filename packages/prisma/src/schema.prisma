@@ -169,6 +169,7 @@ model ChatItem {
     userId    Int?
     teamId    Int?
     createdAt DateTime @default(now())
+    hideInChat Boolean @default(false)
 
     Chat Chat @relation(fields: [chatId], references: [id], onDelete: Cascade)
     Run  Run? @relation("RunChatItems", fields: [runId], references: [id])

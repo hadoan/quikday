@@ -175,6 +175,9 @@ export class RunQueryService {
         chat: {
           include: {
             items: {
+              where: {
+                hideInChat: false,
+              },
               orderBy: {
                 createdAt: 'asc',
               },
