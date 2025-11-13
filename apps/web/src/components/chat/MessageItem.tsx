@@ -52,8 +52,10 @@ const MessageItem: React.FC<MessageItemProps> = ({ message: m, runId }) => {
   // if (m.type === 'run') {
   //   const rd = (m.data as UiRunData) || ({} as UiRunData);
   //   const st = String(rd?.status || '').toLowerCase();
-  //   const isTerminal = ['succeeded', 'failed', 'completed', 'done', 'partial'].includes(st);
-  //   if (isTerminal) return null;
+  //   const showableStatuses = new Set(['succeeded', 'failed', 'done']);
+  //   if (!showableStatuses.has(st)) {
+  //     return null;
+  //   }
   //   return (
   //     <ChatMessage role="assistant">
   //       <RunCard data={rd} runId={runId} />

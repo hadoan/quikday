@@ -656,6 +656,7 @@ export class RunProcessor extends WorkerHost {
     payload: UiRunEvent['payload']
   ) {
     try {
+      const normalizedPayload = this.enrichStatusPayload(run, eventType, payload);
       const chat = await this.chatService.findOrCreateChat(
         run.id,
         run.userId,
@@ -668,7 +669,7 @@ export class RunProcessor extends WorkerHost {
         run.userId,
         run.teamId,
         eventType,
-        payload
+        normalizedPayload
       );
     } catch (err) {
       this.logger.error('❌ Failed to save chat item', {
@@ -677,6 +678,43 @@ export class RunProcessor extends WorkerHost {
         error: (err as any)?.message ?? String(err),
       });
     }
+  }
+
+  private enrichStatusPayload(
+    run: Run,
+    eventType: UiRunEvent['type'],
+    payload: UiRunEvent['payload']
+  ): Record<string, unknown> {
+    const normalized: Record<string, unknown> =
+      payload && typeof payload === 'object' ? { ...payload } : {};
+
+    const hasStartedField =
+      typeof normalized.started_at === 'string' || typeof normalized.startedAt === 'string';
+    if (!hasStartedField && run.createdAt instanceof Date) {
+      normalized.started_at = run.createdAt.toISOString();
+    }
+
+    const statusValue =
+      typeof normalized.status === 'string' ? normalized.status.toLowerCase() : undefined;
+    const terminalStatuses = new Set<string>([
+      RunStatus.DONE,
+      RunStatus.SUCCEEDED,
+      RunStatus.COMPLETED,
+      RunStatus.FAILED,
+      RunStatus.CANCELED,
+    ]);
+
+    const eventImpliesCompletion =
+      eventType === 'run_completed' ||
+      (eventType === 'run_status' && statusValue && terminalStatuses.has(statusValue));
+
+    const hasCompletedField =
+      typeof normalized.completed_at === 'string' || typeof normalized.completedAt === 'string';
+    if (eventImpliesCompletion && !hasCompletedField) {
+      normalized.completed_at = new Date().toISOString();
+    }
+
+    return normalized;
   }
 
   private async handleExecutionError(opts: {
