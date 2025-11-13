@@ -21,7 +21,7 @@ import { RunEnrichmentService } from './run-enrichment.service.js';
 import { RunCreationService } from './run-creation.service.js';
 import { RunQueryService } from './run-query.service.js';
 import { RunAuthorizationService } from './run-authorization.service.js';
-import { RunStatus } from '@prisma/client';
+import { RunStatus, type Step } from '@prisma/client';
 import type { Goal, PlanStep, MissingField } from './types.js';
 
 @Injectable()
@@ -768,32 +768,8 @@ export class RunsService {
       throw new UnauthorizedException('User not found in database');
     }
 
-    const steps = await this.prisma.step.findMany({ where: { runId } });
-    let updated = 0;
-
-    for (const s of steps) {
-      try {
-        if (s.appId && (s.credentialId === null || s.credentialId === undefined)) {
-          const { credentialId } = await this.stepsService.reResolveAppAndCredential(
-            s.tool,
-            user.id
-          );
-          if (credentialId) {
-            await this.prisma.step.update({ where: { id: s.id }, data: { credentialId } });
-            updated += 1;
-          }
-        }
-      } catch (e) {
-        // continue others
-        this.logger.debug('Failed to re-resolve credential for step', { stepId: s.id, err: e });
-      }
-    }
-
-    // Re-fetch steps to determine whether any planned step still lacks credentials
-    const postSteps = await this.prisma.step.findMany({ where: { runId } });
-    const missingCredSteps = postSteps.filter(
-      (st) => st.appId && (st.credentialId === null || st.credentialId === undefined)
-    );
+    const { updated, steps: postSteps, missingCredSteps } =
+      await this.reResolveRunStepCredentials(runId, user.id);
 
     // Update run.plan JSON to reflect the updated credentialIds
     if (updated > 0) {
@@ -852,7 +828,7 @@ export class RunsService {
 
   /**
    * Update credentialId in chat items of type 'app_credentials' for a given run.
-   * Re-resolves credentials for each step and updates the chat item content.
+   * Now uses the same step re-resolution logic so that chat hydration reflects the latest data.
    */
   async updateChatItemCredentials(runId: string): Promise<{ updated: number }> {
     const userSub = this.current.getCurrentUserSub();
@@ -863,74 +839,12 @@ export class RunsService {
       throw new UnauthorizedException('User not found in database');
     }
 
-    // Find all chat items with type 'app_credentials' for this run
-    const chatItems = await this.prisma.chatItem.findMany({
-      where: {
-        runId,
-        type: 'app_credentials',
-      },
-    });
-
-    let totalUpdated = 0;
-
-    for (const item of chatItems) {
-      try {
-        const content = item.content as any;
-        if (!content || !Array.isArray(content.steps)) {
-          continue;
-        }
-
-        let itemUpdated = false;
-        const updatedSteps = await Promise.all(
-          content.steps.map(async (step: any) => {
-            if (step.appId && (step.credentialId === null || step.credentialId === undefined)) {
-              try {
-                const { credentialId } = await this.stepsService.reResolveAppAndCredential(
-                  step.tool,
-                  user.id
-                );
-                if (credentialId) {
-                  itemUpdated = true;
-                  return { ...step, credentialId };
-                }
-              } catch (e) {
-                this.logger.debug('Failed to re-resolve credential for chat item step', {
-                  chatItemId: item.id,
-                  stepTool: step.tool,
-                  err: e,
-                });
-              }
-            }
-            return step;
-          })
-        );
-
-        if (itemUpdated) {
-          await this.prisma.chatItem.update({
-            where: { id: item.id },
-            data: {
-              content: {
-                ...content,
-                steps: updatedSteps,
-              } as any,
-            },
-          });
-          totalUpdated += 1;
-          this.logger.debug('Updated credentials in chat item', {
-            chatItemId: item.id,
-            runId,
-          });
-        }
-      } catch (e) {
-        this.logger.warn('Failed to update chat item credentials', {
-          chatItemId: item.id,
-          err: e,
-        });
-      }
-    }
-
-    this.logger.log(`Updated credentials in ${totalUpdated} chat items for run ${runId}`);
-    return { updated: totalUpdated };
+    const { updated } = await this.reResolveRunStepCredentials(runId, user.id);
+    this.logger.log(
+      `Re-resolved step credentials for chat hydration on run ${runId}`,
+      { updated },
+    );
+    return { updated };
   }
 
   /**
@@ -1005,6 +919,45 @@ export class RunsService {
       runId,
       answersCount: Object.keys(answers || {}).length,
     });
+  }
+
+  private async reResolveRunStepCredentials(
+    runId: string,
+    userId: number,
+  ): Promise<{
+    updated: number;
+    steps: Step[];
+    missingCredSteps: Step[];
+  }> {
+    const steps = await this.prisma.step.findMany({ where: { runId } });
+    let updated = 0;
+
+    for (const step of steps) {
+      if (!step.appId || (step.credentialId !== null && step.credentialId !== undefined)) {
+        continue;
+      }
+      try {
+        const { credentialId } = await this.stepsService.reResolveAppAndCredential(
+          step.tool,
+          userId,
+        );
+        if (!credentialId) continue;
+        await this.prisma.step.update({ where: { id: step.id }, data: { credentialId } });
+        updated += 1;
+      } catch (err) {
+        this.logger.debug('Failed to re-resolve credential for step', {
+          stepId: step.id,
+          err,
+        });
+      }
+    }
+
+    const postSteps = await this.prisma.step.findMany({ where: { runId } });
+    const missingCredSteps = postSteps.filter(
+      (st) => st.appId && (st.credentialId === null || st.credentialId === undefined),
+    );
+
+    return { updated, steps: postSteps, missingCredSteps };
   }
 
   async persistValidationErrors(

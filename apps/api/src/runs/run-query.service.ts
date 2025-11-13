@@ -200,17 +200,79 @@ export class RunQueryService {
       }
     }
 
-    // Enrich the plan and steps with credential information
-    if (run.plan && Array.isArray(run.plan) && run.steps && run.steps.length > 0) {
-      const enrichedSteps = await this.enrichmentService.getEnrichedSteps(run.id, run.userId);
-      const enrichedPlan = this.enrichmentService.mapStepsToPlanFormat(
+    const enrichedSteps = await this.enrichmentService.getEnrichedSteps(run.id, run.userId);
+
+    let nextPlan = run.plan;
+    if (run.plan && Array.isArray(run.plan) && enrichedSteps.length > 0) {
+      nextPlan = this.enrichmentService.mapStepsToPlanFormat(
         enrichedSteps,
         run.plan as any,
-      );
-
-      return { ...run, plan: enrichedPlan as any, steps: enrichedSteps as any };
+      ) as any;
     }
 
-    return run;
+    const hydratedChat =
+      run.chat && run.chat.items?.length
+        ? this.hydrateChatItemsWithSteps(run.chat, enrichedSteps)
+        : run.chat;
+
+    return {
+      ...run,
+      plan: nextPlan,
+      steps: enrichedSteps,
+      chat: hydratedChat,
+    };
+  }
+
+  private hydrateChatItemsWithSteps(chat: any, enrichedSteps: any[]) {
+    if (!Array.isArray(enrichedSteps) || enrichedSteps.length === 0) {
+      return chat;
+    }
+
+    const chatSteps = this.enrichmentService.mapStepsToChatFormat(enrichedSteps);
+    const stepsNeedingCredentials = chatSteps.filter(
+      (step) => step.appId && (step.credentialId === null || step.credentialId === undefined),
+    );
+    const hasMissingCredentials = stepsNeedingCredentials.length > 0;
+
+    return {
+      ...chat,
+      items: (chat.items || []).map((item: any) => {
+        if (!item?.content || typeof item.content !== 'object') {
+          return item;
+        }
+
+        const content = { ...(item.content as Record<string, unknown>) };
+
+        switch (item.type) {
+          case 'plan':
+            return {
+              ...item,
+              content: {
+                ...content,
+                steps: chatSteps,
+              },
+            };
+          case 'app_credentials':
+            return {
+              ...item,
+              content: {
+                ...content,
+                steps: stepsNeedingCredentials,
+              },
+            };
+          case 'questions':
+            return {
+              ...item,
+              content: {
+                ...content,
+                steps: chatSteps,
+                hasMissingCredentials,
+              },
+            };
+          default:
+            return item;
+        }
+      }),
+    };
   }
 }

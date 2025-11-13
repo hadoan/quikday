@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { ChatMessage } from './ChatMessage';
 import MarkdownView from '@/components/common/MarkdownView';
 import { Button } from '@/components/ui/button';
@@ -12,6 +12,7 @@ import { UndoCard } from '@/components/cards/UndoCard';
 import QuestionsPanel from '@/components/chat/QuestionsPanel';
 import MissingCredentials from '@/components/chat/MissingCredentials';
 import { useToast } from '@/hooks/use-toast';
+import { getDataSource } from '@/lib/flags/featureFlags';
 import type {
   UiRunSummary,
   UiPlanData,
@@ -46,21 +47,7 @@ const MessageItem: React.FC<MessageItemProps> = ({ message: m, runId }) => {
 
   // Assistant messages: render structured types with corresponding cards
   if (m.type === 'plan') {
-    const pd = m.data as UiPlanData;
-    const steps: UiPlanStep[] = pd?.steps || [];
-    const plan = {
-      intent: pd?.intent || 'Plan',
-      tools: pd?.tools || [],
-      actions: pd?.actions || [],
-      mode: 'auto' as const,
-      steps: steps,
-    };
-    // Approval logic omitted for brevity; can be added as needed
-    return (
-      <ChatMessage role="assistant">
-        <PlanCard data={plan} runId={runId} />
-      </ChatMessage>
-    );
+    return <PlanMessage data={m.data as UiPlanData} runId={runId} toast={toast} />;
   }
 
   if (m.type === 'run') {
@@ -114,12 +101,8 @@ const MessageItem: React.FC<MessageItemProps> = ({ message: m, runId }) => {
   }
 
   if (m.type === 'questions') {
-    console.log('[MessageItem] Rendering questions panel');
-    console.log('[MessageItem] Questions data:', m);
     const qd = (m.data as UiQuestionsData) || ({} as UiQuestionsData);
     const qs: UiQuestionItem[] = Array.isArray(qd?.questions) ? qd.questions : [];
-  console.log('aaaaaa........................');
-  console.log(m);
 
     // Convert UiQuestionItem[] to Question[] for QuestionsPanel
     const questions = qs.map((q) => ({
@@ -231,5 +214,93 @@ const MessageItem: React.FC<MessageItemProps> = ({ message: m, runId }) => {
     </ChatMessage>
   );
 };
+
+interface PlanMessageProps {
+  data: UiPlanData;
+  runId?: string;
+  toast: (options: { title: string; description?: string; variant?: 'default' | 'destructive' }) => void;
+}
+
+function PlanMessage({ data, runId, toast }: PlanMessageProps) {
+  const [handled, setHandled] = useState(false);
+  const steps: UiPlanStep[] = data?.steps || [];
+  const awaitingApproval = data?.awaitingApproval === true;
+  const dataSource = getDataSource();
+  const normalizedMode =
+    data?.mode === 'approval'
+      ? 'approval'
+      : data?.mode === 'plan'
+        ? 'preview'
+        : 'auto';
+  const plan = {
+    intent: data?.intent || 'Plan',
+    tools: data?.tools || [],
+    actions: data?.actions || [],
+    mode: normalizedMode,
+    steps,
+  };
+
+  const canReview = awaitingApproval && !!runId && !handled;
+  const approvedStepIds = steps
+    .map((step) => {
+      if (typeof step.id === 'string' && step.id.trim()) return step.id;
+      if (typeof step.id === 'number') return String(step.id);
+      return undefined;
+    })
+    .filter((id): id is string => typeof id === 'string' && id.length > 0);
+
+  const handleApprove = canReview
+    ? async () => {
+        try {
+          await dataSource.approve(runId!, approvedStepIds);
+          setHandled(true);
+          toast({
+            title: 'Plan approved',
+            description:
+              approvedStepIds.length > 0
+                ? `Approved ${approvedStepIds.length} step${
+                    approvedStepIds.length === 1 ? '' : 's'
+                  }.`
+                : 'Plan approved.',
+          });
+        } catch (error) {
+          const message =
+            error instanceof Error ? error.message : 'Unable to approve this run.';
+          toast({
+            title: 'Approval failed',
+            description: message,
+            variant: 'destructive',
+          });
+        }
+      }
+    : undefined;
+
+  const handleReject = canReview
+    ? async () => {
+        try {
+          await dataSource.cancel(runId!);
+          setHandled(true);
+          toast({
+            title: 'Run cancelled',
+            description: 'Execution halted and the plan was discarded.',
+          });
+        } catch (error) {
+          const message =
+            error instanceof Error ? error.message : 'Unable to cancel this run.';
+          toast({
+            title: 'Cancel failed',
+            description: message,
+            variant: 'destructive',
+          });
+        }
+      }
+    : undefined;
+
+  return (
+    <ChatMessage role="assistant">
+      <PlanCard data={plan} runId={runId} onConfirm={handleApprove} onReject={handleReject} />
+    </ChatMessage>
+  );
+}
 
 export default MessageItem;
