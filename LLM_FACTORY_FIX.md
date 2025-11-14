@@ -1,15 +1,18 @@
 # LLM Factory Integration Fix
 
 ## Problem
+
 The application was hardcoded to use OpenAI (`makeOpenAiLLM()`) in the agent module, ignoring the `LLM_PROVIDER=anthropic` environment variable configuration.
 
 **Error seen:**
+
 ```
 RateLimitError: 429 You exceeded your current quota
 at async Object.text (/packages/agent/llm/openai.ts:67:19)
 ```
 
 ## Root Cause
+
 In `apps/api/src/agent/agent.module.ts`, the LLM provider was hardcoded:
 
 ```typescript
@@ -22,6 +25,7 @@ const llmProvider: Provider = options.llm
 ```
 
 ## Solution
+
 Changed to use the new multi-provider factory that respects environment configuration:
 
 ```typescript
@@ -36,6 +40,7 @@ const llmProvider: Provider = options.llm
 ## Changes Made
 
 ### File: `apps/api/src/agent/agent.module.ts`
+
 - **Line 5**: Changed import from `makeOpenAiLLM` to `createLLM`
 - **Line 16**: Changed factory call from `makeOpenAiLLM()` to `createLLM()`
 

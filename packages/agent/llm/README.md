@@ -138,6 +138,7 @@ If `LLM_PROVIDER` is not set, the system auto-detects in this order:
 Factory function to create an LLM instance.
 
 **Parameters:**
+
 - `provider` (optional): `'openai'` | `'azure-openai'` | `'anthropic'`
 
 **Returns:** `LLM` instance
@@ -158,6 +159,7 @@ console.log(providers); // ['openai', 'anthropic']
 Generate text completion.
 
 **Options:**
+
 - `system?: string` - System prompt
 - `user: string` - User prompt (required)
 - `temperature?: number` - Default: 0.2
@@ -166,6 +168,7 @@ Generate text completion.
 - `metadata?: LlmCallMetadata` - Tracking metadata
 
 **Example:**
+
 ```typescript
 const response = await llm.text({
   system: 'You are a helpful assistant.',
@@ -214,14 +217,11 @@ import { createLLM, withLlmContext } from '@quikday/agent/llm';
 
 const llm = createLLM();
 
-await withLlmContext(
-  { userId: 123, teamId: 456, runId: 'run_xyz' },
-  async () => {
-    // All LLM calls within this scope automatically include the context
-    const response1 = await llm.text({ user: 'First question' });
-    const response2 = await llm.text({ user: 'Second question' });
-  }
-);
+await withLlmContext({ userId: 123, teamId: 456, runId: 'run_xyz' }, async () => {
+  // All LLM calls within this scope automatically include the context
+  const response1 = await llm.text({ user: 'First question' });
+  const response2 = await llm.text({ user: 'Second question' });
+});
 ```
 
 ## Adding New Providers
@@ -258,6 +258,7 @@ All LLM calls are automatically logged to:
 2. **Langfuse** (if Langfuse keys are configured)
 
 Logged data includes:
+
 - Prompt and completion
 - Token usage
 - Model used

@@ -12,6 +12,26 @@ enum Plan {
     PRO
 }
 
+enum RunStatus {
+    QUEUED               @map("queued")
+    PLANNING             @map("planning")
+    AWAITING_APPROVAL    @map("awaiting_approval")
+    AWAITING_INPUT       @map("awaiting_input")
+    SCHEDULED            @map("scheduled")
+    APPROVED             @map("approved")
+    PENDING              @map("pending")
+    PENDING_APPS_INSTALL @map("pending_apps_install")
+    RUNNING              @map("running")
+    DONE                 @map("done")
+    FAILED               @map("failed")
+    SUCCEEDED            @map("succeeded")
+    COMPLETED            @map("completed")
+    CANCELED             @map("canceled")
+    UNDO_PENDING         @map("undo_pending")
+    UNDONE               @map("undone")
+    UNDO_FAILED          @map("undo_failed")
+}
+
 model User {
     id           Int          @id @default(autoincrement())
     sub          String       @unique
@@ -94,7 +114,7 @@ model Run {
     userId        Int
     prompt        String
     mode          String
-    status        String
+    status        RunStatus
     intent        Json?
     // Goal extracted from the prompt (structured)
     goal          Json?
@@ -149,6 +169,7 @@ model ChatItem {
     userId    Int?
     teamId    Int?
     createdAt DateTime @default(now())
+    hideInChat Boolean @default(false)
 
     Chat Chat @relation(fields: [chatId], references: [id], onDelete: Cascade)
     Run  Run? @relation("RunChatItems", fields: [runId], references: [id])

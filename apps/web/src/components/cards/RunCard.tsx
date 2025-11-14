@@ -2,14 +2,13 @@ import * as React from 'react';
 import { CheckCircle2, Loader2, XCircle } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Progress } from '@/components/ui/progress';
-import type { UiRunData, UiRunStatus, UiStepStatus } from '@/lib/datasources/DataSource';
-import { getDataSource } from '@/lib/flags/featureFlags';
+import { formatDateTime } from '@/lib/datetime/format';
+import type { UiRunData, UiRunStatus, UiStepStatus } from '@/apis/runs';
 
 type CanonicalStatus = 'running' | 'success' | 'error';
 
 interface RunCardProps {
   data: UiRunData;
-  // Optional runId so the card's awaiting-input form can submit answers
   runId?: string;
 }
 
@@ -21,72 +20,22 @@ function normalizeStatus(status?: UiRunData['status']): CanonicalStatus {
   return 'running';
 }
 
-function formatTime(value?: string): string {
+function formatTimestamp(value?: string): string {
   if (!value) return '—';
   const d = new Date(value);
-  if (isNaN(d.getTime())) return '—';
-  return d.toLocaleTimeString();
+  if (Number.isNaN(d.getTime())) return '—';
+  try {
+    return formatDateTime(d, { dateStyle: 'medium', timeStyle: 'short' });
+  } catch {
+    return d.toLocaleString();
+  }
 }
 
-export const RunCard = ({ data, runId }: RunCardProps) => {
-  const rawStatus = String((data as any).status || '').toLowerCase();
+export const RunCard = ({ data }: RunCardProps) => {
+  const rawStatus = String(data.status || '').toLowerCase();
   const status = normalizeStatus(data.status);
-  const awaitingQuestions =
-    (data as any).awaitingQuestions || (data as any).awaiting?.questions || [];
-
-  const dsAny = getDataSource() as unknown as { applyAnswers?: Function; confirm?: Function };
-  const [answers, setAnswers] = React.useState<Record<string, string>>({});
-  const [submitting, setSubmitting] = React.useState(false);
-  const [submitted, setSubmitted] = React.useState(false);
-
-  React.useEffect(() => {
-    const seed: Record<string, string> = {};
-    for (const q of awaitingQuestions) seed[q.key] = (answers[q.key] ?? '') as string;
-    setAnswers(seed);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [awaitingQuestions?.map?.((q: any) => q.key).join('|')]);
-
-  const onChange = (k: string, v: string) => setAnswers((prev) => ({ ...prev, [k]: v }));
-
-  const onSubmit = async () => {
-    if (!runId) {
-      alert('Run ID unavailable for submitting answers');
-      return;
-    }
-    setSubmitting(true);
-    try {
-      if (dsAny.applyAnswers && typeof dsAny.applyAnswers === 'function') {
-        await dsAny.applyAnswers(runId, answers);
-      } else {
-        // Fallback to native fetch
-        await fetch(`/runs/${runId}/continueWithAnswers`, {
-          method: 'POST',
-          headers: { 'content-type': 'application/json' },
-          body: JSON.stringify({ answers }),
-        }).then((r) => {
-          if (!r.ok) throw new Error('applyAnswers failed');
-        });
-      }
-
-      if (dsAny.confirm && typeof dsAny.confirm === 'function') {
-        await dsAny.confirm(runId);
-      } else {
-        await fetch(`/runs/${runId}/confirm`, { method: 'POST' }).then((r) => {
-          if (!r.ok) throw new Error('confirm failed');
-        });
-      }
-
-      // Mark as submitted to show read-only view
-      setSubmitted(true);
-    } catch (e) {
-      console.error('Submit failed', e);
-      alert('Could not submit answers. Please check values and try again.');
-    } finally {
-      setSubmitting(false);
-    }
-  };
-  const startedAt = (data.started_at as string | undefined) || (data as any).startedAt;
-  const completedAt = (data.completed_at as string | undefined) || (data as any).completedAt;
+  const startedAt = data.started_at || undefined;
+  const completedAt = data.completed_at || undefined;
 
   const getStatusIcon = () => {
     switch (status) {
@@ -121,80 +70,6 @@ export const RunCard = ({ data, runId }: RunCardProps) => {
     }
   };
 
-  // If run is awaiting input, render the input form inline (per UX copy)
-  if (rawStatus === 'awaiting_input' || (awaitingQuestions && awaitingQuestions.length > 0)) {
-    const qs = awaitingQuestions as any[];
-
-    return (
-      <div className="card border rounded-xl p-4 bg-card">
-        <h3 className="font-semibold text-lg">
-          {submitted ? 'Input Submitted' : 'I need a couple details to proceed'}
-        </h3>
-        <p className="text-sm text-muted-foreground mb-4">
-          {submitted
-            ? 'Your inputs have been submitted. Processing will continue automatically.'
-            : "Please fill these in. I'll continue automatically once you submit."}
-        </p>
-
-        <div className="space-y-3">
-          {qs.map((q) => (
-            <div key={q.key} className="flex flex-col">
-              <label className="text-sm font-medium">{q.question}</label>
-              {q.rationale && <span className="text-xs text-gray-500 mb-1">{q.rationale}</span>}
-
-              {q.options?.length ? (
-                <select
-                  value={answers[q.key] ?? ''}
-                  onChange={(e) => onChange(q.key, e.target.value)}
-                  disabled={submitted}
-                  className="border rounded px-2 py-1 disabled:bg-muted disabled:cursor-not-allowed disabled:opacity-75"
-                >
-                  <option value="" disabled>
-                    Select an option…
-                  </option>
-                  {q.options.map((opt: string) => (
-                    <option key={opt} value={opt}>
-                      {opt}
-                    </option>
-                  ))}
-                </select>
-              ) : (
-                <input
-                  type="text"
-                  placeholder="e.g., 2025-10-24T10:00:00Z"
-                  value={answers[q.key] ?? ''}
-                  onChange={(e) => onChange(q.key, e.target.value)}
-                  disabled={submitted}
-                  readOnly={submitted}
-                  className="border rounded px-2 py-1 disabled:bg-muted disabled:cursor-not-allowed disabled:opacity-75"
-                />
-              )}
-            </div>
-          ))}
-        </div>
-
-        {!submitted && (
-          <div className="mt-4 flex gap-2">
-            <button
-              onClick={onSubmit}
-              disabled={submitting || qs.some((q) => !(answers[q.key] ?? '').trim())}
-              className="bg-black text-white rounded px-3 py-2 disabled:opacity-50 hover:bg-black/90 transition-colors"
-            >
-              {submitting ? 'Submitting…' : 'Submit & Continue'}
-            </button>
-          </div>
-        )}
-
-        {submitted && (
-          <div className="mt-4 flex items-center gap-2 text-sm text-success">
-            <CheckCircle2 className="h-4 w-4" />
-            <span>Submitted successfully</span>
-          </div>
-        )}
-      </div>
-    );
-  }
-
   return (
     <div
       className={cn(
@@ -208,11 +83,24 @@ export const RunCard = ({ data, runId }: RunCardProps) => {
         <div className="flex-1 space-y-3">
           <div>
             <h3 className="font-semibold text-foreground mb-1">{getStatusText()}</h3>
-            <p className="text-sm text-muted-foreground">
-              {status === 'error' && (data as any).error
-                ? (data as any).error
-                : `Started at ${formatTime(startedAt)}`}
-            </p>
+            {status === 'error' && data.error ? (
+              <p className="text-sm text-muted-foreground">{data.error}</p>
+            ) : (
+              <div className="grid gap-1 text-sm text-muted-foreground">
+                <div className="flex items-center justify-between gap-3 text-xs sm:text-sm">
+                  <span className="text-muted-foreground/70 uppercase tracking-wide">Started</span>
+                  <span className="font-medium text-foreground">{formatTimestamp(startedAt)}</span>
+                </div>
+                <div className="flex items-center justify-between gap-3 text-xs sm:text-sm">
+                  <span className="text-muted-foreground/70 uppercase tracking-wide">
+                    Completed
+                  </span>
+                  <span className="font-medium text-foreground">
+                    {formatTimestamp(completedAt)}
+                  </span>
+                </div>
+              </div>
+            )}
           </div>
 
           {status === 'running' && data.progress !== undefined && (
@@ -220,10 +108,6 @@ export const RunCard = ({ data, runId }: RunCardProps) => {
               <Progress value={data.progress} className="h-2" />
               <p className="text-xs text-muted-foreground text-right">{data.progress}%</p>
             </div>
-          )}
-
-          {completedAt && (
-            <p className="text-xs text-muted-foreground">Completed at {formatTime(completedAt)}</p>
           )}
         </div>
       </div>

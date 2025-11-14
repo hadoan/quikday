@@ -56,7 +56,7 @@ const args3 = {
   title: 'Sync with Ha',
   start: '2025-11-03T10:00:00+01:00',
   end: '2025-11-03T10:15:00+01:00',
-  attendees: ['ha.doanmanh@gmail.com'],
+  attendees: ['example@email.xyz'],
   notifyAttendees: true,
 };
 

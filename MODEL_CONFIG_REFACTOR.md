@@ -7,18 +7,21 @@ Refactored hardcoded LLM model references to use the centralized config and fact
 ## Changes Made
 
 ### 1. **packages/agent/llm/openai.ts**
+
 - Added `loadLLMConfig` import
 - Replaced hardcoded `DEFAULT_MODEL = 'gpt-4o'` with `getDefaultModel()` function
 - Now reads from config: `config.openai?.model || config.azure?.deployment || 'gpt-4o'`
 - Maintains fallback to `gpt-4o` if config not available
 
 ### 2. **packages/agent/llm/anthropic.ts**
+
 - Added `loadLLMConfig` import
 - Replaced hardcoded `DEFAULT_MODEL = 'claude-3-5-haiku-20241022'` with `getDefaultModel()` function
 - Now reads from config: `config.anthropic?.model || 'claude-3-5-haiku-20241022'`
 - Maintains fallback to `claude-3-5-haiku-20241022` if config not available
 
 ### 3. **packages/agent/nodes/planner.ts**
+
 - Removed hardcoded `model: 'gpt-4o'` from LLM call metadata
 - Added `loadLLMConfig` import to access configuration
 - Changed to use provider-agnostic `PLANNER_MODEL` env var (works with OpenAI, Azure, or Anthropic)
@@ -26,6 +29,7 @@ Refactored hardcoded LLM model references to use the centralized config and fact
 - **Breaking change**: `OPENAI_PLANNER_MODEL` replaced with `PLANNER_MODEL` for consistency
 
 ### 4. **packages/agent/evaluation/test-goal-generation.ts**
+
 - Changed hardcoded `model: 'gpt-4o-mini'` to `model: process.env.OPENAI_MODEL || 'gpt-4o-mini'`
 - Updated console log to show actual model being used from env var
 - Allows test suite to use configured model instead of always gpt-4o-mini
@@ -33,11 +37,13 @@ Refactored hardcoded LLM model references to use the centralized config and fact
 ## How Models Are Now Selected
 
 ### Priority Order:
+
 1. **Metadata override** (e.g., `PLANNER_MODEL` for planner calls)
 2. **Provider default from config** (from `loadLLMConfig()`)
 3. **Hardcoded fallback** (as last resort if config loading fails)
 
 ### Example Flow:
+
 ```typescript
 // For OpenAI
 const config = loadLLMConfig();
@@ -81,6 +87,7 @@ All model selection now respects these env vars (in priority order):
 ## Database Schema Note
 
 The database schema still has:
+
 ```prisma
 model String @default("gpt-4o-mini")
 ```
@@ -99,6 +106,7 @@ This is appropriate as it's the actual value stored in the database for logged L
 **Date**: November 11, 2025  
 **Branch**: refactor-frontend  
 **Related Files**:
+
 - `packages/agent/llm/config.ts` (config source)
 - `packages/agent/llm/factory.ts` (factory pattern)
 - `packages/agent/llm/openai.ts` (OpenAI implementation)

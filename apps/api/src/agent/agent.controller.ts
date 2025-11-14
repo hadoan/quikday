@@ -3,7 +3,7 @@ import { AgentService } from './agent.service.js';
 import { KindeGuard } from '../auth/kinde.guard.js';
 import { PrismaService } from '@quikday/prisma';
 import { RunsService } from '../runs/runs.service.js';
-import { StepsService } from '../runs/steps.service.js';
+import { RunEnrichmentService } from '../runs/run-enrichment.service.js';
 
 type ChatMessageDto = {
   role: 'system' | 'user' | 'assistant' | 'tool';
@@ -19,7 +19,7 @@ export class AgentController {
     private readonly agent: AgentService,
     private readonly prisma: PrismaService,
     private readonly runsService: RunsService,
-    private readonly stepsService: StepsService
+    private readonly enrichmentService: RunEnrichmentService
   ) {}
 
   /**
@@ -102,37 +102,14 @@ export class AgentController {
         goal: result.goal,
         plan: result.plan,
         missing: result.missing,
+        no_ws_socket_notify: true,
       });
 
-      // Fetch enriched steps from database (they were created with appId and credentialId)
-      const enrichedSteps = await this.stepsService.getStepsByRunId(run.id);
-      const enrichedPlan = enrichedSteps.map((step) => {
-        // Find matching original plan step
-        const originalStep = result.plan.find(
-          (p) => p.id === step.planStepId || p.tool === step.tool
-        );
+      // Fetch enriched steps from database (single source of truth)
+      const enrichedSteps = await this.enrichmentService.getEnrichedSteps(run.id);
 
-        // Build base step
-        const enrichedStep: any = {
-          // Spread original plan fields first
-          ...originalStep,
-          // Override with enriched database fields
-          id: step.planStepId || step.id,
-          tool: step.tool,
-          args:
-            typeof step.request === 'object' && step.request !== null
-              ? step.request
-              : originalStep?.args || undefined,
-        };
-
-        // Only include appId and credentialId if the tool uses apps
-        if (step.appId !== null) {
-          enrichedStep.appId = step.appId;
-          enrichedStep.credentialId = step.credentialId ?? null; // Explicitly null if no credential
-        }
-
-        return enrichedStep;
-      });
+      // Map enriched steps to plan format
+      const enrichedPlan = this.enrichmentService.mapStepsToPlanFormat(enrichedSteps, result.plan);
 
       const response = {
         ...result,

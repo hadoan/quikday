@@ -37,5 +37,7 @@ export const GOAL_EXTRACTION_CORE_V1 = [
   '- Example: "Set vacation responder..." is clear even without dates; "Need information about dates" is NOT an outcome',
   '- Be conservative: if unsure, lower confidence',
   '- Focus on the GOAL, not on categorizing into predefined intents',
+  '- The context object must describe task-specific details explicitly mentioned by the user (participants, timing, channel, constraints).',
+  '- NEVER populate context fields with system metadata (current time, timezone, user identity) unless the user explicitly ties their request to that metadata.',
   '- Missing input detection will be handled in the next step based on tool requirements',
 ].join('\n');

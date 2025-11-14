@@ -5,8 +5,12 @@
  * Supports environment variables and runtime overrides via query params.
  */
 
-import type { DataSource, DataSourceConfig } from '../datasources/DataSource';
-import { ApiDataSource } from '../datasources/ApiDataSource';
+import type { RunApiConfig } from '@/apis/runs';
+import { RunApiClient } from '@/apis/runs';
+
+// Backward compatibility types
+type DataSourceConfig = RunApiConfig;
+type DataSource = RunApiClient;
 
 // ============================================================================
 // Types
@@ -131,10 +135,10 @@ export function getDataSource(config?: DataSourceConfig): DataSource {
     return dataSourceInstance;
   }
 
-  // Always use ApiDataSource
+  // Always use RunApiClient
   const mode = flags.dataSource;
-  console.log(`[FeatureFlags] Using ApiDataSource (${mode})`);
-  dataSourceInstance = new ApiDataSource(config);
+  console.log(`[FeatureFlags] Using RunApiClient (${mode})`);
+  dataSourceInstance = new RunApiClient(config);
 
   return dataSourceInstance;
 }

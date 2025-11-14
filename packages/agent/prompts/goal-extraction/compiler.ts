@@ -103,12 +103,12 @@ export function compileGoalUserPrompt(
     '**User request:**',
     userInput,
     '',
-    '**Context:**',
+    '**System metadata (for interpreting relative references only; do NOT mirror it in the extracted context unless the user explicitly mentions it):**',
     `- Current time: ${meta.todayISO}`,
     `- Timezone: ${meta.timezone}`,
     ...(meta.user?.name || meta.user?.email || meta.user?.id
       ? [
-          `- User: ${
+          `- Requesting user: ${
             [meta.user?.name, meta.user?.email]
               .filter((v) => typeof v === 'string' && v.trim().length > 0)
               .join(' <') + (meta.user?.email ? '>' : '') ||
@@ -120,7 +120,11 @@ export function compileGoalUserPrompt(
   ];
 
   if (Object.keys(answers).length > 0) {
-    parts.push('', '**Previously provided answers:**', JSON.stringify(answers, null, 2));
+    parts.push(
+      '',
+      '**Previously provided answers (only reuse if user references them):**',
+      JSON.stringify(answers, null, 2),
+    );
   }
 
   parts.push('', '**Task:** Extract the goal and context from this request. Output JSON only.');

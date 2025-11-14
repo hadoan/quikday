@@ -5,7 +5,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Badge } from '@/components/ui/badge';
 import { Mail, Clock, CheckCircle2, XCircle } from 'lucide-react';
-import type { UiPlanStep } from '@/lib/datasources/DataSource';
+import type { UiPlanStep } from '@/apis/runs';
 import { getDataSource } from '@/lib/flags/featureFlags';
 
 interface EmailFollowupApprovalProps {

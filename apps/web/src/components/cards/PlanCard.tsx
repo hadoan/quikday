@@ -5,7 +5,7 @@ import { ToolBadge } from './ToolBadge';
 import InstallApp from '@/components/apps/InstallApp';
 import { getAppInstallProps } from '@/lib/utils/appConfig';
 import { useState } from 'react';
-import type { UiPlanStep } from '@/lib/datasources/DataSource';
+import type { UiPlanStep } from '@/apis/runs';
 import api from '@/apis/client';
 
 export interface PlanData {
@@ -28,10 +28,26 @@ export const PlanCard = ({ data, onConfirm, onReject, runId }: PlanCardProps) =>
   const [isRejecting, setIsRejecting] = useState(false);
 
   // Check if any steps are missing credentials
-  const stepsNeedingInstall = (data.steps || []).filter(
+  const steps: UiPlanStep[] = Array.isArray(data.steps) ? data.steps : [];
+
+  const stepsNeedingInstall = steps.filter(
     (step) => step.appId && (step.credentialId === null || step.credentialId === undefined),
   );
   const hasMissingCredentials = stepsNeedingInstall.length > 0;
+
+  const uniqueStepsByApp = (() => {
+    const seen = new Set<string>();
+    const deduped: UiPlanStep[] = [];
+    for (const step of steps) {
+      const key = step.appId || `__noapp__${step.id ?? deduped.length}`;
+      if (step.appId) {
+        if (seen.has(step.appId)) continue;
+        seen.add(step.appId);
+      }
+      deduped.push(step);
+    }
+    return deduped;
+  })();
 
   const handleApprove = async () => {
     if (!onConfirm) return;
@@ -95,69 +111,27 @@ export const PlanCard = ({ data, onConfirm, onReject, runId }: PlanCardProps) =>
           </div>
 
           {/* Planned steps detail (if provided) */}
-          {data.steps && data.steps.length > 0 && (
+          {uniqueStepsByApp.length > 0 && (
             <div className="space-y-2">
               <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
                 Planned Steps
               </p>
               <ol className="space-y-1.5 list-decimal list-inside">
-                {data.steps.map((step) => (
-                  <li key={step.id} className="text-sm">
-                    <span className="font-medium">{step.tool}</span>
-                    {step.action && <span className="text-muted-foreground"> — {step.action}</span>}
-                    {step.inputsPreview && (
-                      <div className="text-xs text-muted-foreground mt-0.5 truncate">
-                        {step.inputsPreview}
-                      </div>
-                    )}
-                  </li>
-                ))}
+                {uniqueStepsByApp.map((step, idx) => {
+                  const key = step.id ? `${step.id}-${idx}` : `step-${idx}`;
+                  return (
+                    <li key={key} className="text-sm">
+                      <span className="font-medium">{step.tool}</span>
+                      {step.action && <span className="text-muted-foreground"> — {step.action}</span>}
+                      {step.inputsPreview && (
+                        <div className="text-xs text-muted-foreground mt-0.5 truncate">
+                          {step.inputsPreview}
+                        </div>
+                      )}
+                    </li>
+                  );
+                })}
               </ol>
-            </div>
-          )}
-
-          {/* Show steps that need credentials installed */}
-          {hasMissingCredentials && (
-            <div className="space-y-2 pt-2 border-t">
-              <div className="flex items-center gap-2">
-                <AlertCircle className="h-4 w-4 text-amber-500" />
-                <p className="text-xs font-medium text-amber-600 dark:text-amber-400 uppercase tracking-wide">
-                  Apps Need Installation
-                </p>
-              </div>
-              <div className="space-y-2">
-                {stepsNeedingInstall.map((step) => (
-                  <div
-                    key={step.id}
-                    className="flex items-center justify-between gap-3 p-2 bg-amber-50 dark:bg-amber-900/10 border border-amber-200 dark:border-amber-800 rounded"
-                  >
-                    <div className="flex-1 min-w-0">
-                      <div className="text-sm font-medium text-foreground truncate">
-                        {step.tool}
-                      </div>
-                      <div className="text-xs text-muted-foreground">
-                        Connect {step.appId} to continue
-                      </div>
-                    </div>
-                    <div className="shrink-0">
-                      <InstallApp
-                        {...getAppInstallProps(step.appId!)}
-                        onBeforeInstall={() => {}}
-                        onInstalled={async () => {
-                          try {
-                            if (runId) {
-                              await api.post(`/runs/${runId}/refresh-credentials`);
-                              // no redirect needed for direct/input installs
-                            }
-                          } catch (e) {
-                            console.warn('Failed to refresh credentials after install', e);
-                          }
-                        }}
-                      />
-                    </div>
-                  </div>
-                ))}
-              </div>
             </div>
           )}
         </div>

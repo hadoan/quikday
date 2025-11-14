@@ -2,6 +2,7 @@
 import type { AppMeta } from '@quikday/types';
 import { resolveGoogleCalendarAuthUrl } from './add.js';
 import { callback as googleCalendarCallback } from './callback.js';
+import { extractOAuthParams, buildOAuthState } from '@quikday/appstore';
 
 export { GoogleCalendarModule } from './google-calendar.module.js';
 export { GoogleCalendarProviderService } from './google-calendar.service.js';
@@ -12,16 +13,14 @@ export default function createApp(meta: AppMeta, deps: any) {
     async add(req: any, res: any) {
       const prisma: any = deps?.prisma;
       try {
+        const params = extractOAuthParams(req);
+
         let signedState: string | undefined;
         if (typeof deps?.createSignedState === 'function') {
           try {
             const userId = req?.user?.id || req?.user?.sub;
             if (userId) {
-              signedState = deps.createSignedState({
-                userId,
-                timestamp: Date.now(),
-                returnTo: req.query?.returnTo as string | undefined,
-              });
+              signedState = deps.createSignedState(buildOAuthState(userId, params));
             }
           } catch {
             // ignore

@@ -41,6 +41,8 @@ export type InstallAppProps = {
   inputDialogTitle?: string;
   /** Custom return URL after OAuth installation completes */
   returnTo?: string;
+  /** Optional run ID to associate with this installation (passed to OAuth flow) */
+  runId?: string;
   /** Called right before starting OAuth install (useful to record return context) */
   onBeforeInstall?: (appId: string) => void;
   /** Called after a successful non-OAuth (direct/input) install */
@@ -60,6 +62,7 @@ export default function InstallApp({
   inputKeys,
   inputDialogTitle,
   returnTo,
+  runId,
   onBeforeInstall,
   onInstalled,
 }: InstallAppProps) {
@@ -229,6 +232,7 @@ export default function InstallApp({
           params: {
             format: 'json',
             returnTo: returnUrl,
+            ...(runId && { run_id: runId }),
           },
         });
 

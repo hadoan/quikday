@@ -1,6 +1,7 @@
 import { useState, useRef } from 'react';
-import type { UiRunSummary } from '@/lib/datasources/DataSource';
-import { Question } from '@/components/QuestionsPanel';
+import type { UiRunSummary } from '@/apis/runs';
+import { Question } from '@/components/chat/QuestionsPanel';
+import { StepInfo } from '@/components/chat/MissingCredentials';
 
 export interface ChatState {
   runs: UiRunSummary[];
@@ -8,12 +9,12 @@ export interface ChatState {
   activeRunId: string | undefined;
   setActiveRunId: React.Dispatch<React.SetStateAction<string | undefined>>;
   activeRun: UiRunSummary | undefined;
-  isToolsPanelOpen: boolean;
-  setIsToolsPanelOpen: React.Dispatch<React.SetStateAction<boolean>>;
   isSidebarCollapsed: boolean;
   setIsSidebarCollapsed: React.Dispatch<React.SetStateAction<boolean>>;
   questions: Question[];
   setQuestions: React.Dispatch<React.SetStateAction<Question[]>>;
+  steps: StepInfo[];
+  setSteps: React.Dispatch<React.SetStateAction<StepInfo[]>>;
   isWaitingForResponse: boolean;
   setIsWaitingForResponse: React.Dispatch<React.SetStateAction<boolean>>;
   drawerRunId: string | undefined;
@@ -32,9 +33,9 @@ export interface ChatState {
 export function useChatState(): ChatState {
   const [runs, setRuns] = useState<UiRunSummary[]>([]);
   const [activeRunId, setActiveRunId] = useState<string | undefined>(undefined);
-  const [isToolsPanelOpen, setIsToolsPanelOpen] = useState(true);
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
   const [questions, setQuestions] = useState<Question[]>([]);
+  const [steps, setSteps] = useState<StepInfo[]>([]);
   const [isWaitingForResponse, setIsWaitingForResponse] = useState(false);
   const [drawerRunId, setDrawerRunId] = useState<string | undefined>(undefined);
   const [prefill, setPrefill] = useState<string | undefined>(undefined);
@@ -51,12 +52,12 @@ export function useChatState(): ChatState {
     activeRunId,
     setActiveRunId,
     activeRun,
-    isToolsPanelOpen,
-    setIsToolsPanelOpen,
     isSidebarCollapsed,
     setIsSidebarCollapsed,
     questions,
     setQuestions,
+    steps,
+    setSteps,
     isWaitingForResponse,
     setIsWaitingForResponse,
     drawerRunId,

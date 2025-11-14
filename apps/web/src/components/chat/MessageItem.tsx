@@ -1,30 +1,34 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { ChatMessage } from './ChatMessage';
 import MarkdownView from '@/components/common/MarkdownView';
 import { Button } from '@/components/ui/button';
 import { Copy } from 'lucide-react';
 import { PlanCard } from '@/components/cards/PlanCard';
 import { RunCard } from '@/components/cards/RunCard';
-import { LogCard } from '@/components/cards/LogCard';
 import { OutputCard } from '@/components/cards/OutputCard';
 import { ParamsCard } from '@/components/cards/ParamsCard';
 import { UndoCard } from '@/components/cards/UndoCard';
-import QuestionsPanel from '@/components/QuestionsPanel';
+import QuestionsPanel from '@/components/chat/QuestionsPanel';
+import MissingCredentials from '@/components/chat/MissingCredentials';
 import { useToast } from '@/hooks/use-toast';
+import { getDataSource } from '@/lib/flags/featureFlags';
 import type {
-  UiRunSummary,
   UiPlanData,
   UiPlanStep,
   UiRunData,
   UiLogData,
   UiOutputData,
+  UiParamsData,
   UiUndoData,
   UiQuestionsData,
   UiQuestionItem,
-} from '@/lib/datasources/DataSource';
+  UiAppCredentialsData,
+  UiMessage,
+} from '@/apis/runs';
+import { LogCard } from '../cards/LogCard';
 
 interface MessageItemProps {
-  message: any;
+  message: UiMessage;
   runId?: string;
 }
 
@@ -42,45 +46,70 @@ const MessageItem: React.FC<MessageItemProps> = ({ message: m, runId }) => {
 
   // Assistant messages: render structured types with corresponding cards
   if (m.type === 'plan') {
-    const pd = m.data as UiPlanData;
-    const steps: UiPlanStep[] = pd?.steps || [];
-    const plan = {
-      intent: pd?.intent || 'Plan',
-      tools: pd?.tools || [],
-      actions: pd?.actions || [],
-      mode: (pd?.mode === 'approval'
-        ? 'approval'
-        : pd?.mode === 'auto'
-          ? 'auto'
-          : 'preview') as const,
-      steps: steps,
-    };
-    const awaitingApproval = pd?.awaitingApproval === true || pd?.mode === 'approval';
-    // Approval logic omitted for brevity; can be added as needed
-    return (
-      <ChatMessage role="assistant">
-        <PlanCard data={plan} runId={runId} />
-      </ChatMessage>
-    );
+    return <PlanMessage data={m.data as UiPlanData} runId={runId} toast={toast} />;
   }
 
-  if (m.type === 'run') {
-    const rd = (m.data as UiRunData) || ({} as UiRunData);
-    const st = String(rd?.status || '').toLowerCase();
-    const isTerminal = ['succeeded', 'failed', 'completed', 'done', 'partial'].includes(st);
-    if (isTerminal) return null;
-    return (
-      <ChatMessage role="assistant">
-        <RunCard data={rd} runId={runId} />
-      </ChatMessage>
-    );
-  }
+  // if (m.type === 'run') {
+  //   const rd = (m.data as UiRunData) || ({} as UiRunData);
+  //   const st = String(rd?.status || '').toLowerCase();
+  //   const showableStatuses = new Set(['succeeded', 'failed', 'done']);
+  //   if (!showableStatuses.has(st)) {
+  //     return null;
+  //   }
+  //   return (
+  //     <ChatMessage role="assistant">
+  //       <RunCard data={rd} runId={runId} />
+  //     </ChatMessage>
+  //   );
+  // }
 
   if (m.type === 'log') {
-    // LogCard logic omitted for brevity
+    const logData = (m.data as UiLogData) || ({} as UiLogData);
+    const entries = Array.isArray(logData.entries) ? logData.entries : [];
+    const logs = entries.map((entry) => ({
+      tool: entry.tool || entry.action || 'Step',
+      action: entry.action || `Completed ${entry.tool ?? 'step'}`,
+      time: entry.time || entry.completedAt || entry.startedAt || '',
+      status: entry.status === 'succeeded' ? 'success' : 'pending',
+      output: typeof entry.outputsPreview === 'string' ? entry.outputsPreview : undefined,
+    }));
+
+    if (logs.length === 0) {
+      return null;
+    }
+
     return (
       <ChatMessage role="assistant">
-        <></>
+        <LogCard logs={logs} />
+      </ChatMessage>
+    );
+  }
+
+  if (m.type === 'app_credentials') {
+    const acd = (m.data as UiAppCredentialsData) || ({ steps: [] } as UiAppCredentialsData);
+    const steps = Array.isArray(acd?.steps) ? acd.steps : [];
+
+    // Convert UiPlanStep[] to StepInfo[] (subset of fields needed by MissingCredentials)
+    const stepInfos = steps.map((s) => ({
+      id: s.id,
+      tool: s.tool,
+      appId: s.appId,
+      credentialId: s.credentialId,
+      action: s.action,
+    }));
+
+    return (
+      <ChatMessage role="assistant">
+        <MissingCredentials
+          runId={acd?.runId || runId || ''}
+          steps={stepInfos}
+          onBeforeInstall={(appId) => {
+            console.log('[MessageItem] Starting install for app:', appId);
+          }}
+          onInstalled={(appId) => {
+            console.log('[MessageItem] App installed:', appId);
+          }}
+        />
       </ChatMessage>
     );
   }
@@ -88,44 +117,113 @@ const MessageItem: React.FC<MessageItemProps> = ({ message: m, runId }) => {
   if (m.type === 'questions') {
     const qd = (m.data as UiQuestionsData) || ({} as UiQuestionsData);
     const qs: UiQuestionItem[] = Array.isArray(qd?.questions) ? qd.questions : [];
-    const steps = Array.isArray(qd?.steps) ? qd.steps : [];
+
+    // Convert UiQuestionItem[] to Question[] for QuestionsPanel
+    const questions = qs.map((q) => ({
+      key: q.key,
+      question: q.question,
+      type: q.type as
+        | 'text'
+        | 'textarea'
+        | 'email'
+        | 'email_list'
+        | 'datetime'
+        | 'date'
+        | 'time'
+        | 'number'
+        | 'select'
+        | 'multiselect'
+        | undefined,
+      required: q.required,
+      placeholder: q.placeholder,
+      options: q.options,
+    }));
+
+    // Convert steps to the format expected by QuestionsPanel
+    const steps = Array.isArray(qd?.steps)
+      ? qd.steps.map((s) => ({
+          id: s.id || '',
+          tool: s.tool || '',
+          appId: s.appId,
+          credentialId: s.credentialId,
+          action: s.action,
+        }))
+      : [];
+
     return (
       <ChatMessage role="assistant">
         <QuestionsPanel
           runId={runId || ''}
-          questions={qs as any}
-          steps={steps as any}
+          questions={questions}
           onSubmitted={() => {}}
+          steps={steps}
+          answered={qd.answered}
         />
       </ChatMessage>
     );
   }
 
   if (m.type === 'output') {
-    const od = m.data as UiOutputData;
+    const raw = (m.data as UiOutputData) || ({} as UiOutputData);
+    const normalizedContent = (() => {
+      if (typeof raw?.content === 'string' && raw.content.trim().length > 0) {
+        return raw.content;
+      }
+
+      const commits = Array.isArray((raw as any)?.commits)
+        ? ((raw as any).commits as Array<Record<string, unknown>>)
+        : Array.isArray((raw as any)?.data?.commits)
+          ? (((raw as any).data.commits as Array<Record<string, unknown>>) ?? [])
+          : [];
+
+      for (const commit of commits) {
+        const result = commit?.result as Record<string, unknown> | undefined;
+        const msg = result?.message;
+        if (typeof msg === 'string' && msg.trim().length > 0) {
+          return msg;
+        }
+      }
+
+      const fallback =
+        (raw as any)?.message ||
+        (raw as any)?.data?.message ||
+        (commits.length > 0 ? JSON.stringify(commits[0], null, 2) : undefined);
+
+      if (typeof fallback === 'string' && fallback.trim().length > 0) {
+        return fallback;
+      }
+
+      try {
+        return JSON.stringify(raw ?? {}, null, 2);
+      } catch {
+        return 'Output available';
+      }
+    })();
+
     const type =
-      od?.type === 'summary'
+      raw?.type === 'summary'
         ? 'summary'
-        : od?.type === 'json' || od?.type === 'markdown'
+        : raw?.type === 'json' || raw?.type === 'markdown'
           ? 'code'
           : 'text';
+
     return (
       <ChatMessage role="assistant">
         <OutputCard
-          title={od?.title || 'Output'}
-          content={String(od?.content || '')}
+          title={raw?.title || 'Output'}
+          content={String(normalizedContent || '')}
           type={type}
-          data={od?.data}
-          presentation={(od as any)?.presentation}
+          data={raw?.data ?? raw}
+          presentation={raw?.presentation}
         />
       </ChatMessage>
     );
   }
 
   if (m.type === 'params') {
-    const data = (m.data as any) || {};
-    const items = Array.isArray(data.items) ? data.items : [];
-    const title = typeof data.title === 'string' ? data.title : 'Inputs';
+    const paramsData = (m.data as UiParamsData) || ({ items: [] } as UiParamsData);
+    const items = Array.isArray(paramsData.items) ? paramsData.items : [];
+    const title = typeof paramsData.title === 'string' ? paramsData.title : 'Inputs';
     return (
       <ChatMessage role="assistant">
         <ParamsCard title={title} items={items} />
@@ -167,5 +265,91 @@ const MessageItem: React.FC<MessageItemProps> = ({ message: m, runId }) => {
     </ChatMessage>
   );
 };
+
+interface PlanMessageProps {
+  data: UiPlanData;
+  runId?: string;
+  toast: (options: {
+    title: string;
+    description?: string;
+    variant?: 'default' | 'destructive';
+  }) => void;
+}
+
+function PlanMessage({ data, runId, toast }: PlanMessageProps) {
+  const [handled, setHandled] = useState(false);
+  const steps: UiPlanStep[] = data?.steps || [];
+  const awaitingApproval = data?.awaitingApproval === true;
+  const dataSource = getDataSource();
+  const normalizedMode =
+    data?.mode === 'approval' ? 'approval' : data?.mode === 'plan' ? 'preview' : 'auto';
+  const plan = {
+    intent: data?.intent || 'Plan',
+    tools: data?.tools || [],
+    actions: data?.actions || [],
+    mode: normalizedMode,
+    steps,
+  };
+
+  const canReview = awaitingApproval && !!runId && !handled;
+  const approvedStepIds = steps
+    .map((step) => {
+      if (typeof step.id === 'string' && step.id.trim()) return step.id;
+      if (typeof step.id === 'number') return String(step.id);
+      return undefined;
+    })
+    .filter((id): id is string => typeof id === 'string' && id.length > 0);
+
+  const handleApprove = canReview
+    ? async () => {
+        try {
+          await dataSource.approve(runId!, approvedStepIds);
+          setHandled(true);
+          toast({
+            title: 'Plan approved',
+            description:
+              approvedStepIds.length > 0
+                ? `Approved ${approvedStepIds.length} step${
+                    approvedStepIds.length === 1 ? '' : 's'
+                  }.`
+                : 'Plan approved.',
+          });
+        } catch (error) {
+          const message = error instanceof Error ? error.message : 'Unable to approve this run.';
+          toast({
+            title: 'Approval failed',
+            description: message,
+            variant: 'destructive',
+          });
+        }
+      }
+    : undefined;
+
+  const handleReject = canReview
+    ? async () => {
+        try {
+          await dataSource.cancel(runId!);
+          setHandled(true);
+          toast({
+            title: 'Run cancelled',
+            description: 'Execution halted and the plan was discarded.',
+          });
+        } catch (error) {
+          const message = error instanceof Error ? error.message : 'Unable to cancel this run.';
+          toast({
+            title: 'Cancel failed',
+            description: message,
+            variant: 'destructive',
+          });
+        }
+      }
+    : undefined;
+
+  return (
+    <ChatMessage role="assistant">
+      <PlanCard data={plan} runId={runId} onConfirm={handleApprove} onReject={handleReject} />
+    </ChatMessage>
+  );
+}
 
 export default MessageItem;

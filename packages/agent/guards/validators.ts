@@ -163,6 +163,144 @@ export function repairJsonOutput(raw: string): string {
 }
 
 /**
+ * Robust JSON parser for LLM outputs
+ * Handles common issues:
+ * - Markdown code fences
+ * - Control characters in strings (newlines, tabs, etc.)
+ * - Extra prose before/after JSON
+ * - Both objects and arrays
+ *
+ * @param raw - Raw LLM output that should contain JSON
+ * @param context - Optional context for better error messages (e.g., "planner", "goal extraction")
+ * @returns Parsed JSON object
+ * @throws Error with detailed message if parsing fails
+ */
+export function parseRobustJson<T = any>(raw: string, context?: string): T {
+  try {
+    // Step 1: Extract and clean JSON
+    const cleaned = extractAndCleanJson(raw);
+
+    // Step 2: Fix control characters in strings
+    const fixed = fixJsonControlCharacters(cleaned);
+
+    // Step 3: Parse the JSON
+    return JSON.parse(fixed) as T;
+  } catch (err) {
+    // Provide helpful error context
+    const errorMsg = err instanceof Error ? err.message : String(err);
+    const preview = raw.slice(0, 200);
+    const contextStr = context ? ` [${context}]` : '';
+
+    throw new Error(
+      `Failed to parse LLM JSON output${contextStr}: ${errorMsg}\n` +
+        `Preview: ${preview}${raw.length > 200 ? '...' : ''}`,
+    );
+  }
+}
+
+/**
+ * Extract JSON from LLM output that may contain markdown fences or prose
+ * Handles both objects {...} and arrays [...]
+ */
+function extractAndCleanJson(output: string): string {
+  let s = (output || '').trim();
+
+  // Remove markdown code fences if present
+  const fence = s.match(/```(?:json)?\s*([\s\S]*?)```/i);
+  if (fence && fence[1]) s = fence[1].trim();
+
+  // Check if it's an array or object
+  const firstBracket = s.indexOf('[');
+  const firstBrace = s.indexOf('{');
+
+  // Determine if we're dealing with an array or object
+  const isArray = firstBracket >= 0 && (firstBrace < 0 || firstBracket < firstBrace);
+
+  if (isArray) {
+    // Extract array
+    const last = s.lastIndexOf(']');
+    if (firstBracket >= 0 && last > firstBracket) {
+      return s.slice(firstBracket, last + 1);
+    }
+  } else {
+    // Extract object
+    const last = s.lastIndexOf('}');
+    if (firstBrace >= 0 && last > firstBrace) {
+      return s.slice(firstBrace, last + 1);
+    }
+  }
+
+  return s;
+}
+
+/**
+ * Escapes control characters in JSON string values.
+ * Handles literal newlines, tabs, carriage returns, etc. that are invalid in JSON.
+ *
+ * This is a stateful parser that tracks whether we're inside a string value or not.
+ * Only control characters inside string values are escaped; structure is preserved.
+ */
+function fixJsonControlCharacters(json: string): string {
+  let result = '';
+  let inString = false;
+  let escapeNext = false;
+
+  for (let i = 0; i < json.length; i++) {
+    const char = json[i];
+
+    if (escapeNext) {
+      // Already escaped character, keep as-is
+      result += char;
+      escapeNext = false;
+      continue;
+    }
+
+    if (char === '\\') {
+      // Start of escape sequence
+      result += char;
+      escapeNext = true;
+      continue;
+    }
+
+    if (char === '"') {
+      // Toggle string state
+      result += char;
+      inString = !inString;
+      continue;
+    }
+
+    if (inString) {
+      // Inside a string, escape control characters
+      switch (char) {
+        case '\n':
+          result += '\\n';
+          break;
+        case '\r':
+          result += '\\r';
+          break;
+        case '\t':
+          result += '\\t';
+          break;
+        case '\b':
+          result += '\\b';
+          break;
+        case '\f':
+          result += '\\f';
+          break;
+        default:
+          // Keep other characters as-is (including Unicode)
+          result += char;
+      }
+    } else {
+      // Outside string, keep as-is
+      result += char;
+    }
+  }
+
+  return result;
+}
+
+/**
  * Schema for missing field validation
  */
 export const MissingFieldSchema = z.object({

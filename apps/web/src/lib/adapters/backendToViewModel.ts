@@ -300,6 +300,7 @@ function mapEventType(type: string): UiEvent['type'] {
     'assistant.delta': 'assistant.delta',
     'assistant.final': 'assistant.final',
     run_snapshot: 'run_snapshot',
+    chat_updated: 'chat_updated',
   };
 
   return typeMap[type.toLowerCase()] || 'run_status';
@@ -463,4 +464,134 @@ export function buildUndoMessage(canUndo: boolean, deadline?: string): UiMessage
       deadline,
     },
   };
+}
+
+// ============================================================================
+// Adapter: Backend ChatItem → UiMessage
+// ============================================================================
+
+export interface BackendChatItem {
+  id: string;
+  type: string;
+  role?: string;
+  content?: any;
+  createdAt: string;
+  [key: string]: unknown;
+}
+
+export function adaptChatItemToUiMessage(chatItem: BackendChatItem): UiMessage {
+  const message: UiMessage = {
+    role: (chatItem.role as 'user' | 'assistant') || 'assistant',
+    type: chatItem.type as UiMessage['type'],
+  };
+
+  // Handle different chat item types
+  switch (chatItem.type) {
+    case 'plan':
+      // Plan message: enrich steps if present
+      if (chatItem.content?.steps) {
+        message.data = {
+          ...chatItem.content,
+          steps: adaptStepsBackendToUi(chatItem.content.steps),
+        };
+      } else {
+        message.data = chatItem.content;
+      }
+      break;
+
+    case 'app_credentials':
+      // App credentials message: enrich steps if present
+      if (chatItem.content?.steps) {
+        message.data = {
+          ...chatItem.content,
+          steps: adaptStepsBackendToUi(chatItem.content.steps),
+        };
+      } else {
+        message.data = chatItem.content;
+      }
+      break;
+
+    case 'questions':
+      // Questions message: enrich steps if present
+      console.log('[Adapter] Processing questions chat item:', {
+        id: chatItem.id,
+        content: chatItem.content,
+        hasSteps: !!chatItem.content?.steps,
+        questions: chatItem.content?.questions,
+      });
+      if (chatItem.content?.steps) {
+        message.data = {
+          ...chatItem.content,
+          steps: adaptStepsBackendToUi(chatItem.content.steps),
+        };
+      } else {
+        message.data = chatItem.content;
+      }
+      console.log('[Adapter] Processed questions message.data:', message.data);
+      break;
+
+    case 'assistant':
+      // Assistant text message
+      message.content = chatItem.content?.text || '';
+      break;
+
+    case 'log':
+      // Log message: enrich entries if present
+      if (chatItem.content?.entries) {
+        message.data = {
+          entries: adaptStepsBackendToUi(chatItem.content.entries),
+        };
+      } else {
+        message.data = chatItem.content;
+      }
+      break;
+
+    case 'status': {
+      const payload = (chatItem.content?.payload || {}) as Record<string, unknown>;
+      const status = typeof payload.status === 'string' ? (payload.status as string) : undefined;
+      const steps = Array.isArray((payload as any).steps)
+        ? adaptStepsBackendToUi((payload as any).steps)
+        : [];
+
+      if (status === 'awaiting_approval' && steps.length > 0) {
+        message.type = 'plan';
+        message.data = {
+          intent: (payload.intent as string | undefined) || 'Review pending actions',
+          tools: steps.map((s) => s.tool).filter(Boolean),
+          actions: steps.map((s) => s.action || `Execute ${s.tool}`),
+          mode: 'approval',
+          awaitingApproval: true,
+          steps,
+        } satisfies UiPlanData;
+      } else {
+        message.type = 'run';
+        message.data = {
+          status: mapRunStatus(status),
+          started_at:
+            (payload.started_at as string | undefined) || (payload.startedAt as string | undefined),
+          completed_at:
+            (payload.completed_at as string | undefined) ||
+            (payload.completedAt as string | undefined),
+        } satisfies UiRunData;
+      }
+      break;
+    }
+
+    case 'output':
+    case 'error':
+      // Output and error messages: pass through content
+      message.data = chatItem.content;
+      break;
+
+    default:
+      // Unknown type: pass through content
+      message.data = chatItem.content;
+      break;
+  }
+
+  return message;
+}
+
+export function adaptChatItemsToUiMessages(chatItems: BackendChatItem[]): UiMessage[] {
+  return chatItems.map(adaptChatItemToUiMessage);
 }
