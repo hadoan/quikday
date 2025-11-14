@@ -111,30 +111,17 @@ const apps: AppListItem[] = [
     categories: ['All', 'Productivity', 'Email', 'Google'],
   },
   {
-    title: 'Slack',
-    description: 'Send messages and notifications in Slack channels.',
-    logoSrc: '/logo/slack.svg',
+    title: 'Notion',
+    description: 'Create or update Notion pages and databases directly from Quikday.',
+    logoSrc: '/logo/notion.svg',
     installProps: {
-      type: 'slack-messaging',
-      slug: 'slack-messaging',
-      variant: 'automation',
+      type: 'notion-productivity',
+      slug: 'notion-productivity',
+      variant: 'productivity',
       allowedMultipleInstalls: false,
       installMethod: 'oauth',
     },
-    categories: ['All', 'Messaging', 'Collaboration'],
-  },
-  {
-    title: 'HubSpot CRM',
-    description: 'Connect HubSpot to manage contacts and create/update meetings.',
-    logoSrc: '/logo/hubspot.svg',
-    installProps: {
-      type: 'hubspot-crm',
-      slug: 'hubspot-crm',
-      variant: 'crm',
-      allowedMultipleInstalls: false,
-      installMethod: 'oauth',
-    },
-    categories: ['All', 'CRM', 'Productivity'],
+    categories: ['All', 'Productivity', 'Docs', 'Notion'],
   },
 ];
 

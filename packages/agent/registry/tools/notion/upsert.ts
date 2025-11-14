@@ -17,7 +17,7 @@ export const NotionUpsertIn = z
       .describe('Target database id for create'),
     pageId: z.string().optional().describe('Existing page id for update'),
     properties: z
-      .record(z.any())
+      .record(z.string(), z.any())
       .describe('Notion page properties payload (Notion API format)'),
     children: z.array(z.any()).optional().describe('Optional Notion block children'),
   })
@@ -89,4 +89,3 @@ export function notionUpsert(moduleRef: ModuleRef): Tool<NotionUpsertArgs, Notio
     },
   };
 }
-

@@ -27,6 +27,7 @@
     "up": "docker compose up -d db redis && pnpm -w dev"
   },
   "dependencies": {
+    "@hubspot/api-client": "^11.2.0",
     "pg": "^8.16.3",
     "ws": "^8.18.3"
   },

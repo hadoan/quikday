@@ -30,5 +30,5 @@ ${JSON.stringify(providedInfo, null, 2)}
 Planned tool calls and their requirements:
 ${JSON.stringify(toolRequirements, null, 2)}
 
-Identify which required parameters are missing and need to be asked. Return only the JSON array.`;
+Identify which required parameters are missing and need to be asked. Respond with a valid JSON array only (no prose, notes, or explanations).`;
 }

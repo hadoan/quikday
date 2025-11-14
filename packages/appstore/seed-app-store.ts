@@ -118,6 +118,20 @@ async function seedFromRegistry() {
         }
       }
 
+      if (slug === 'notion-productivity') {
+        const client_id = process.env.NOTION_CLIENT_ID;
+        const client_secret = process.env.NOTION_CLIENT_SECRET;
+        if (client_id && client_secret) {
+          const base: Record<string, unknown> =
+            keys && typeof keys === 'object' && !Array.isArray(keys) ? (keys as any) : {};
+          keys = {
+            ...base,
+            client_id,
+            client_secret,
+          } as unknown as Prisma.InputJsonValue;
+        }
+      }
+
       await createApp(meta.slug, meta.dirName, categories, slugToType(slug), keys);
     } catch (err) {
       console.warn(`Skipping slug '${slug}' due to error loading metadata:`, err);

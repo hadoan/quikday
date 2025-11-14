@@ -12,8 +12,12 @@ export async function resolveHubspotService(moduleRef: ModuleRef): Promise<any> 
 export async function resolveNumericUserId(moduleRef: ModuleRef, ctx: RunCtx): Promise<number> {
   const prisma = moduleRef.get(PrismaService, { strict: false });
   if (!prisma) throw new Error('PrismaService unavailable');
-  const sub = ctx.userId;
-  const user = await prisma.user.findUnique({ where: { sub } });
+  const identifier = ctx.userId;
+  const where =
+    typeof identifier === 'number'
+      ? { id: identifier }
+      : { sub: String(identifier) };
+  const user = await prisma.user.findUnique({ where });
   if (!user) throw new Error('User not found');
   return user.id;
 }
