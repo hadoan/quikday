@@ -26,7 +26,7 @@ export function notionTodoList(moduleRef: ModuleRef): Tool<NotionTodoListArgs, N
     in: NotionTodoListIn,
     out: NotionTodoListOut,
     apps: ['notion-productivity'],
-    scopes: ['notion:read'],
+    scopes: [],
     rate: '240/m',
     risk: 'low',
     async call(args, _ctx: RunCtx) {

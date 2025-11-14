@@ -3,6 +3,7 @@ import { getDataSource } from '@/lib/flags/featureFlags';
 import { continueWithAnswers } from '@/apis/runs';
 import { TextInput, SelectInput, MultiselectInput, EmailListField } from '@/components/input';
 import { normalizeType, validateField, normalizeAnswerValue } from '@/lib/utils/questionValidation';
+import api from '@/apis/client';
 
 export type Question = {
   key: string;
@@ -54,6 +55,11 @@ export function QuestionsPanel({
   const [submitted, setSubmitted] = React.useState(Boolean(answered));
   const [error, setError] = React.useState<string | null>(null);
   const [fieldErrors, setFieldErrors] = React.useState<Record<string, string | null>>({});
+  const [notionPages, setNotionPages] = React.useState<
+    Array<{ id: string; title: string; icon?: string | null }>
+  >([]);
+  const [loadingNotionPages, setLoadingNotionPages] = React.useState(false);
+  const [notionPageError, setNotionPageError] = React.useState<string | null>(null);
   React.useEffect(() => {
     setSubmitted(Boolean(answered));
   }, [answered]);
@@ -76,6 +82,47 @@ export function QuestionsPanel({
   const getOptionsForQuestion = React.useCallback((q: Question): string[] => {
     return Array.isArray(q.options) ? q.options : [];
   }, []);
+
+  const notionPageQuestionPresent = React.useMemo(
+    () => questions?.some((q) => q.key === 'notionPageId'),
+    [questions],
+  );
+
+  const fetchNotionPages = React.useCallback(async () => {
+    if (!notionPageQuestionPresent) {
+      setNotionPages([]);
+      setNotionPageError(null);
+      return;
+    }
+    setLoadingNotionPages(true);
+    setNotionPageError(null);
+    try {
+      const resp = await api.get('/integrations/notion-productivity/pages', {
+        params: { limit: 50 },
+      });
+      const items = Array.isArray(resp.data?.items) ? resp.data.items : [];
+      setNotionPages(
+        items.map((item: any) => ({
+          id: String(item?.id ?? ''),
+          title:
+            (typeof item?.title === 'string' && item.title.trim().length > 0
+              ? item.title
+              : 'Untitled page') || 'Untitled page',
+          icon: item?.icon ?? null,
+        })),
+      );
+    } catch (error) {
+      console.error('[QuestionsPanel] Failed to fetch Notion pages', error);
+      setNotionPageError('Failed to load Notion pages. Please try again.');
+      setNotionPages([]);
+    } finally {
+      setLoadingNotionPages(false);
+    }
+  }, [notionPageQuestionPresent]);
+
+  React.useEffect(() => {
+    fetchNotionPages();
+  }, [fetchNotionPages]);
 
   React.useEffect(() => {
     // reset answers when questions change
@@ -210,7 +257,42 @@ export function QuestionsPanel({
               </label>
               {q.rationale && <p className="text-xs text-gray-500">{q.rationale}</p>}
 
-              {t === 'textarea' ? (
+              {q.key === 'notionPageId' ? (
+                <div className="space-y-1">
+                  <select
+                    className="border rounded px-2 py-1 disabled:bg-muted disabled:cursor-not-allowed disabled:opacity-75"
+                    value={valueStr}
+                    onChange={(e) => setFieldValue(q.key, e.target.value, q)}
+                    disabled={submitted || loadingNotionPages}
+                    aria-required={required}
+                  >
+                    <option value="" disabled>
+                      {loadingNotionPages ? 'Loading pages…' : 'Select Notion page'}
+                    </option>
+                    {notionPages.map((page) => (
+                      <option key={page.id} value={page.id}>
+                        {page.title}
+                      </option>
+                    ))}
+                  </select>
+                  {loadingNotionPages && (
+                    <p className="text-xs text-muted-foreground">Loading pages…</p>
+                  )}
+                  {!loadingNotionPages && notionPages.length === 0 && (
+                    <button
+                      type="button"
+                      className="text-xs text-primary underline"
+                      onClick={fetchNotionPages}
+                      disabled={submitted}
+                    >
+                      Refresh pages
+                    </button>
+                  )}
+                  {notionPageError && (
+                    <p className="text-xs text-destructive">{notionPageError}</p>
+                  )}
+                </div>
+              ) : t === 'textarea' ? (
                 <TextInput
                   type="text"
                   value={valueStr}

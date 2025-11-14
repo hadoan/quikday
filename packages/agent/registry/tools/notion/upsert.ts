@@ -50,7 +50,7 @@ export function notionUpsert(moduleRef: ModuleRef): Tool<NotionUpsertArgs, Notio
     in: NotionUpsertIn,
     out: NotionUpsertOut,
     apps: ['notion-productivity'],
-    scopes: ['notion:write'],
+    scopes: [],
     rate: '60/m',
     risk: 'low',
     async call(args, _ctx: RunCtx) {

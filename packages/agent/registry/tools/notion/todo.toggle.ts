@@ -27,7 +27,7 @@ export function notionTodoToggle(moduleRef: ModuleRef): Tool<NotionTodoToggleArg
     in: NotionTodoToggleIn,
     out: NotionTodoToggleOut,
     apps: ['notion-productivity'],
-    scopes: ['notion:write'],
+    scopes: [],
     rate: '120/m',
     risk: 'low',
     async call(args, _ctx: RunCtx) {

@@ -645,6 +645,9 @@ importers:
       '@quikday/appstore-google-calendar':
         specifier: workspace:*
         version: link:../appstore/google-calendar
+      '@quikday/appstore-notion-productivity':
+        specifier: workspace:*
+        version: link:../appstore/notion-productivity
       '@quikday/appstore-slack-messaging':
         specifier: workspace:*
         version: link:../appstore/slack-messaging
@@ -895,6 +898,9 @@ importers:
       '@quikday/appstore':
         specifier: workspace:*
         version: link:..
+      '@quikday/libs':
+        specifier: workspace:*
+        version: link:../../libs
       '@quikday/prisma':
         specifier: workspace:*
         version: link:../../prisma

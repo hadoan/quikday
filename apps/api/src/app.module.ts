@@ -25,6 +25,7 @@ import { GmailEmailService, GmailEmailModule } from '@quikday/appstore-gmail-ema
 import { TemplatesModule } from './templates/templates.module.js';
 import { HubspotCrmModule } from '@quikday/appstore-hubspot-crm';
 import { GoogleCalendarModule, GoogleCalendarProviderService } from '@quikday/appstore-google-calendar';
+import { NotionProductivityModule } from '@quikday/appstore-notion-productivity';
 
 import { EmailController } from './email/email.controller.js';
 
@@ -44,6 +45,8 @@ calendarRegistry.set('google', GoogleCalendarProviderService);
     GoogleCalendarModule,
     // Ensure HubSpot service is available to ModuleRef for agent tools
     HubspotCrmModule,
+    // Ensure Notion service is available to ModuleRef for agent tools
+    NotionProductivityModule,
     PubSubModule,
     CurrentUserModule,
     ConfigModule,

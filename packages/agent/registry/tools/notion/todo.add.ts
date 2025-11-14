@@ -4,9 +4,12 @@ import type { RunCtx } from '../../../state/types.js';
 import { ModuleRef } from '@nestjs/core';
 import { PrismaService } from '@quikday/prisma';
 import { CurrentUserService } from '@quikday/libs';
+import { NotionProductivityService } from '@quikday/appstore-notion-productivity';
 
 export const NotionTodoAddIn = z.object({
-  pageId: z.string().describe('The page ID where the to-do will be added'),
+  notionPageId: z
+    .union([z.string().min(1), z.null()])
+    .describe('The Notion page ID where the to-do will be added'),
   text: z.string().min(1).describe('The to-do text content'),
   checked: z.boolean().optional().describe('Whether the to-do is initially checked'),
 });
@@ -28,24 +31,21 @@ export function notionTodoAdd(moduleRef: ModuleRef): Tool<NotionTodoAddArgs, Not
     in: NotionTodoAddIn,
     out: NotionTodoAddOut,
     apps: ['notion-productivity'],
-    scopes: ['notion:write'],
+    scopes: [],
     rate: '120/m',
     risk: 'low',
     async call(args, _ctx: RunCtx) {
       const input = NotionTodoAddIn.parse(args);
-      const pkg = '@quikday/appstore-notion-productivity' as string;
-      const m: any = await import(pkg);
-      const NotionService = (m as any).NotionProductivityService;
-      let svc = moduleRef.get(NotionService as any, { strict: false }) as any;
-      if (!svc) {
-        const prisma = moduleRef.get(PrismaService, { strict: false });
-        const currentUser = moduleRef.get(CurrentUserService, { strict: false });
-        if (!prisma || !currentUser) throw new Error('NotionProductivityService unavailable');
-        svc = new NotionService(prisma as any, currentUser as any);
+      const svc = moduleRef.get(NotionProductivityService, { strict: false }) as any;
+      if (!input.notionPageId || typeof input.notionPageId !== 'string') {
+        throw new Error('notionPageId is required to add a Notion to-do item.');
       }
-      const res = await svc.addTodo({ pageId: input.pageId, text: input.text, checked: input.checked });
+      const res = await svc.addTodo({
+        pageId: input.notionPageId,
+        text: input.text,
+        checked: input.checked,
+      });
       return NotionTodoAddOut.parse(Array.isArray(res?.results) && res.results[0] ? res.results[0] : res);
     },
   };
 }
-

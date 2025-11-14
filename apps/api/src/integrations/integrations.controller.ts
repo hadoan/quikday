@@ -51,4 +51,14 @@ export class IntegrationsController {
     if (!app) return res.status(404).json({ message: 'Unknown integration slug' });
     return app.post(req, res);
   }
+
+  @Get(':slug/pages')
+  @UseGuards(KindeGuard)
+  async pages(@Param('slug') slug: string, @Req() req: Request, @Res() res: Response) {
+    const app = this.store.get(slug);
+    if (!app || typeof (app as any).pages !== 'function') {
+      return res.status(404).json({ message: 'Pages endpoint not available for this integration' });
+    }
+    return (app as any).pages(req, res);
+  }
 }

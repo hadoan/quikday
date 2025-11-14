@@ -26,7 +26,8 @@
   "dependencies": {
     "@nestjs/common": "^10.0.0",
     "@quikday/appstore": "workspace:*",
-    "@quikday/prisma": "workspace:*"
+    "@quikday/prisma": "workspace:*",
+    "@quikday/libs": "workspace:*"
   },
   "devDependencies": {
     "@prisma/client": "^5.18.0",

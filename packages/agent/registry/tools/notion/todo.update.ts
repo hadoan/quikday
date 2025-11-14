@@ -28,7 +28,7 @@ export function notionTodoUpdate(moduleRef: ModuleRef): Tool<NotionTodoUpdateArg
     in: NotionTodoUpdateIn,
     out: NotionTodoUpdateOut,
     apps: ['notion-productivity'],
-    scopes: ['notion:write'],
+    scopes: [],
     rate: '120/m',
     risk: 'low',
     async call(args, _ctx: RunCtx) {
