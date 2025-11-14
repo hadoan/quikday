@@ -14,6 +14,7 @@ import { ChatItemOrchestratorService } from './chat-item-orchestrator.service.js
 import { RunCreationService } from './run-creation.service.js';
 import { RunQueryService } from './run-query.service.js';
 import { RunAuthorizationService } from './run-authorization.service.js';
+import { RunWorkflowService } from './run-workflow.service.js';
 
 @Module({
   imports: [
@@ -34,6 +35,7 @@ import { RunAuthorizationService } from './run-authorization.service.js';
     RunCreationService,
     RunQueryService,
     RunAuthorizationService,
+    RunWorkflowService,
   ],
   controllers: [RunsController],
   exports: [RunsService, StepsService, RunEnrichmentService, ChatService],
