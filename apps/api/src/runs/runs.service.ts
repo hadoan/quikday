@@ -1045,15 +1045,104 @@ export class RunsService {
     if (!run) throw new NotFoundException('Run not found');
 
     const goal = run.goal && typeof run.goal === 'object' ? run.goal : null;
-    const plan = Array.isArray(run.plan) ? run.plan : [];
+    const rawPlan = Array.isArray(run.plan) ? (run.plan as Array<PlanStep | null>) : [];
+    const planSteps = rawPlan.filter(
+      (step): step is PlanStep => !!step && typeof step === 'object' && 'tool' in step
+    );
     const answers =
       run.answers && typeof run.answers === 'object'
         ? (run.answers as Record<string, unknown>)
         : {};
+    const steps = Array.isArray(run.steps) ? run.steps : [];
+
+    const stepsByPlanId = new Map<string, Step>();
+    steps.forEach((step) => {
+      if (step.planStepId) {
+        stepsByPlanId.set(step.planStepId, step);
+      }
+    });
+
+    const credentialIds = new Set<number>();
+    planSteps.forEach((planStep) => {
+      if (typeof planStep.credentialId === 'number') credentialIds.add(planStep.credentialId);
+    });
+    steps.forEach((step) => {
+      if (typeof step.credentialId === 'number') credentialIds.add(step.credentialId);
+    });
+
+    const credentialRecords = credentialIds.size
+      ? await this.prisma.credential.findMany({
+          where: { id: { in: Array.from(credentialIds) } },
+        })
+      : [];
+    const credentialMap = new Map<
+      number,
+      {
+        id: number;
+        appId: string;
+        type: string;
+        key: Record<string, unknown> | unknown[] | null;
+        userId: number | null;
+        teamId: number | null;
+        emailOrUserName: string | null;
+        avatarUrl: string | null;
+        name: string | null;
+        tokenExpiresAt: string | null;
+        vendorAccountId: string | null;
+      }
+    >();
+    credentialRecords.forEach((cred) => {
+      credentialMap.set(cred.id, {
+        id: cred.id,
+        appId: cred.appId,
+        type: cred.type,
+        key: this.jsonClone(cred.key ?? null) as Record<string, unknown> | unknown[] | null,
+        userId: cred.userId ?? null,
+        teamId: cred.teamId ?? null,
+        emailOrUserName: cred.emailOrUserName ?? null,
+        avatarUrl: cred.avatarUrl ?? null,
+        name: cred.name ?? null,
+        tokenExpiresAt: cred.tokenExpiresAt ? cred.tokenExpiresAt.toISOString() : null,
+        vendorAccountId: cred.vendorAccountId ?? null,
+      });
+    });
+
+    const resolveCredential = (credentialId?: number | null) => {
+      if (!credentialId) return null;
+      const cred = credentialMap.get(credentialId);
+      return cred ? this.jsonClone(cred) : null;
+    };
+
+    const toolContexts =
+      planSteps.length > 0
+        ? planSteps.map((planStep) => {
+            const linkedStep = planStep.id ? stepsByPlanId.get(planStep.id) : undefined;
+            const linkedCredentialId =
+              linkedStep?.credentialId ??
+              (typeof planStep.credentialId === 'number' ? planStep.credentialId : null);
+            return {
+              planStepId: planStep.id ?? null,
+              stepId: linkedStep?.id ?? null,
+              tool: planStep.tool,
+              appId: linkedStep?.appId ?? planStep.appId ?? null,
+              credentialId: linkedCredentialId,
+              credential: resolveCredential(linkedCredentialId),
+              userId: run.userId,
+            };
+          })
+        : steps.map((step) => ({
+            planStepId: step.planStepId ?? null,
+            stepId: step.id,
+            tool: step.tool,
+            appId: step.appId ?? null,
+            credentialId: step.credentialId ?? null,
+            credential: resolveCredential(step.credentialId ?? null),
+            userId: run.userId,
+          }));
 
     this.logger.log('🚀 Executing plan with answers', {
       runId,
-      planSteps: plan.length,
+      planSteps: planSteps.length,
       answerKeys: Object.keys(answers),
     });
 
@@ -1064,9 +1153,10 @@ export class RunsService {
     // Reconstruct the run state with answers
     const scratch = {
       goal,
-      plan,
+      plan: rawPlan,
       answers,
       awaiting: null, // Clear awaiting state
+      tools: toolContexts,
     };
 
     // Update config to signal resume from executor

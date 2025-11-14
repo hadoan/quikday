@@ -7,7 +7,7 @@ import { StepsService } from '../runs/steps.service.js';
 import { TelemetryService } from '../telemetry/telemetry.service.js';
 import { ChatService } from '../runs/chat.service.js';
 import { ErrorCode } from '@quikday/types';
-import type { RunState, RunMode } from '@quikday/agent/state/types';
+import type { RunState, RunMode, ToolContext } from '@quikday/agent/state/types';
 import { RunStatus, type Run } from '@prisma/client';
 import { subscribeToRunEvents } from '@quikday/agent/observability/events';
 import { CHANNEL_WORKER } from '@quikday/libs';
@@ -577,6 +577,13 @@ export class RunProcessor extends WorkerHost {
       },
       output: restOutput as RunState['output'],
     };
+
+    if (Array.isArray(initialState.scratch?.tools)) {
+      ctx.tools = structuredClone(initialState.scratch.tools) as ToolContext[];
+    } else {
+      ctx.tools = undefined;
+    }
+    ctx.currentTool = null;
 
     const appendStatusMessage = (type: UiRunEvent['type'], payload: UiRunEvent['payload']) =>
       this.persistStatusChatItem(run, type, payload);

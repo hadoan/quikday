@@ -1,5 +1,6 @@
 import { Queue, QueueEvents, JobsOptions } from 'bullmq';
 import { getCurrentUserCtx } from '@quikday/libs';
+import type { ToolContext } from '../../state/types.js';
 
 export function createQueueHelpers(s: any) {
   let stepQueue: Queue | null = null;
@@ -29,7 +30,13 @@ export function createQueueHelpers(s: any) {
     return stepQueue;
   };
 
-  async function runStepViaQueue(planStepId: string, toolName: string, args: any) {
+  async function runStepViaQueue(
+    planStepId: string,
+    toolName: string,
+    args: any,
+    tools?: ToolContext[],
+    currentTool?: ToolContext | null,
+  ) {
     const q = getStepQueue();
     if (!stepQueueEvents) {
       throw Object.assign(new Error('Step queue events unavailable'), {
@@ -64,6 +71,8 @@ export function createQueueHelpers(s: any) {
         planStepId,
         tool: toolName,
         args,
+        tools: Array.isArray(tools) ? tools : undefined,
+        currentTool: currentTool ?? null,
         __ctx,
       },
       jobOpts,

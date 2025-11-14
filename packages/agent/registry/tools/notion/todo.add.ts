@@ -2,8 +2,6 @@ import { z } from 'zod';
 import type { Tool } from '../../types.js';
 import type { RunCtx } from '../../../state/types.js';
 import { ModuleRef } from '@nestjs/core';
-import { PrismaService } from '@quikday/prisma';
-import { CurrentUserService } from '@quikday/libs';
 import { NotionProductivityService } from '@quikday/appstore-notion-productivity';
 
 export const NotionTodoAddIn = z.object({
@@ -34,17 +32,26 @@ export function notionTodoAdd(moduleRef: ModuleRef): Tool<NotionTodoAddArgs, Not
     scopes: [],
     rate: '120/m',
     risk: 'low',
-    async call(args, _ctx: RunCtx) {
+    async call(args, ctx: RunCtx) {
       const input = NotionTodoAddIn.parse(args);
-      const svc = moduleRef.get(NotionProductivityService, { strict: false }) as any;
+      const svc = moduleRef.get(NotionProductivityService, { strict: false }) as NotionProductivityService;
       if (!input.notionPageId || typeof input.notionPageId !== 'string') {
         throw new Error('notionPageId is required to add a Notion to-do item.');
       }
-      const res = await svc.addTodo({
-        pageId: input.notionPageId,
-        text: input.text,
-        checked: input.checked,
-      });
+      const credentialMeta = ctx?.currentTool?.credential ?? null;
+      const credentialKey =
+        credentialMeta && credentialMeta.key && typeof credentialMeta.key === 'object' && !Array.isArray(credentialMeta.key)
+          ? (credentialMeta.key as Record<string, unknown>)
+          : null;
+      const tokenExpiresAt = credentialMeta?.tokenExpiresAt ?? null;
+      const res = await svc.addTodo(
+        {
+          pageId: input.notionPageId,
+          text: input.text,
+          checked: input.checked,
+        },
+        { credentialKey, tokenExpiresAt }
+      );
       return NotionTodoAddOut.parse(Array.isArray(res?.results) && res.results[0] ? res.results[0] : res);
     },
   };

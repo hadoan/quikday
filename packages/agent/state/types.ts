@@ -3,6 +3,30 @@ import z from 'zod';
 export type RunMode = 'PREVIEW' | 'APPROVAL' | 'AUTO';
 export type Risk = 'low' | 'high';
 
+export interface ToolCredentialDetails {
+  id: number;
+  appId: string;
+  type: string;
+  key: Record<string, unknown> | unknown[] | null;
+  userId: number | null;
+  teamId: number | null;
+  emailOrUserName: string | null;
+  avatarUrl: string | null;
+  name: string | null;
+  tokenExpiresAt: string | null;
+  vendorAccountId: string | null;
+}
+
+export interface ToolContext {
+  planStepId: string | null;
+  stepId: number | null;
+  tool: string;
+  appId: string | null;
+  credentialId: number | null;
+  credential?: ToolCredentialDetails | null;
+  userId: number;
+}
+
 export interface RunCtx {
   runId: string;
   userId: number;
@@ -14,6 +38,8 @@ export interface RunCtx {
   budgetCents?: number;
   // Optional bag for request-scoped metadata passed through the graph
   meta?: Record<string, unknown>;
+  tools?: ToolContext[];
+  currentTool?: ToolContext | null;
 }
 export interface PlanStep {
   id: string;
@@ -118,6 +144,7 @@ export interface RunState {
     // internal routing/fallback info added by guards/policy
     fallbackReason?: string;
     fallbackDetails?: unknown;
+    tools?: ToolContext[];
 
     // Collected answers keyed by input key. May include values persisted
     // from previous pauses (merged by the worker on resume).

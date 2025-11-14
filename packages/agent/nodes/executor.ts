@@ -1,6 +1,6 @@
 // packages/agent/nodes/executor.ts
 import type { Node } from '../runtime/graph.js';
-import type { RunState } from '../state/types.js';
+import type { RunCtx, RunState } from '../state/types.js';
 import type { RunEventBus } from '@quikday/libs';
 import { runWithCurrentUser, getCurrentUserCtx } from '@quikday/libs';
 import { CHANNEL_WEBSOCKET } from '@quikday/libs';
@@ -103,10 +103,26 @@ export const executor: Node<RunState, RunEventBus> = async (s, eventBus) => {
     const currentStep = expanded[0] || step;
 
     // Dependency gating: skip this step if any of its dependencies had no output
+    const basePlanId = (currentStep.id.match(/^step-\d+/) || [currentStep.id])[0];
+    const planArr = Array.isArray(s.scratch?.plan) ? (s.scratch!.plan as any[]) : [];
+    const toolContextList = Array.isArray(s.scratch?.tools)
+      ? (s.scratch!.tools as any[])
+      : undefined;
+    const currentToolContext =
+      toolContextList?.find((ctx: any) => ctx?.planStepId === basePlanId) ??
+      toolContextList?.find((ctx: any) => ctx?.tool === currentStep.tool) ??
+      null;
+    const ctxForCall: RunCtx =
+      toolContextList || currentToolContext
+        ? ({
+            ...s.ctx,
+            ...(toolContextList ? { tools: toolContextList } : {}),
+            currentTool: currentToolContext,
+          } as RunCtx)
+        : s.ctx;
+
     try {
-      const baseId = (currentStep.id.match(/^step-\d+/) || [currentStep.id])[0];
-      const planArr = Array.isArray(s.scratch?.plan) ? (s.scratch!.plan as any[]) : [];
-      const planEntry = planArr.find((p) => p && p.id === baseId);
+      const planEntry = planArr.find((p) => p && p.id === basePlanId);
       const deps: string[] = Array.isArray(planEntry?.dependsOn) ? planEntry.dependsOn : [];
       const blocked = deps.some((depId) => {
         const dep = planArr.find((p) => p && p.id === depId);
@@ -264,9 +280,15 @@ export const executor: Node<RunState, RunEventBus> = async (s, eventBus) => {
         () =>
           isChat
             ? runWithCurrentUser(getCurrentUserCtx(), () =>
-                registry.call(currentStep.tool, args, s.ctx),
+                registry.call(currentStep.tool, args, ctxForCall),
               )
-            : runStepViaQueue(currentStep.id, currentStep.tool, args),
+            : runStepViaQueue(
+                currentStep.id,
+                currentStep.tool,
+                args,
+                toolContextList,
+                currentToolContext,
+              ),
         { retries: 3, baseMs: 500, maxMs: 5_000 },
       );
 

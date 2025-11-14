@@ -4,6 +4,7 @@ import { callback as notionCallback } from './callback.js';
 
 // Export service/module in case tools want to resolve via ModuleRef
 export { NotionProductivityService } from './notion-productivity.service.js';
+export type { NotionCredential, AccessTokenOptions } from './notion-productivity.service.js';
 export { NotionProductivityModule } from './notion-productivity.module.js';
 
 export default function createApp(meta: AppMeta, deps: any) {

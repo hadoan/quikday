@@ -5,12 +5,15 @@ import { Inject, Logger } from '@nestjs/common';
 import { runWithCurrentUser } from '@quikday/libs';
 import type { CurrentUserContext } from '@quikday/types/auth/current-user.types';
 import { registry } from '@quikday/agent/registry/registry';
+import type { ToolContext } from '@quikday/agent/state/types';
 
 type StepRunJobData = {
   runId: string;
   planStepId: string;
   tool: string;
   args: any;
+  tools?: ToolContext[];
+  currentTool?: ToolContext | null;
   __ctx: CurrentUserContext;
 };
 
@@ -19,7 +22,8 @@ export class StepRunProcessor extends WorkerHost {
   private readonly logger = new Logger(StepRunProcessor.name);
 
   async process(job: Job<StepRunJobData>) {
-    const { runId, planStepId, tool, args, __ctx } = job.data || ({} as StepRunJobData);
+    const { runId, planStepId, tool, args, tools, currentTool, __ctx } =
+      job.data || ({} as StepRunJobData);
     if (!runId || !planStepId || !tool) {
       this.logger.error('❌ Invalid step run job payload', {
         jobId: job.id,
@@ -37,13 +41,15 @@ export class StepRunProcessor extends WorkerHost {
       const result = await runWithCurrentUser(__ctx, async () => {
         return registry.call(tool, args, {
           runId: runId,
-          userId: String((__ctx as any).userSub ?? ''),
+          userId: typeof __ctx.userId === 'number' ? __ctx.userId : Number(__ctx.userId ?? 0),
           teamId: __ctx.teamId ?? undefined,
           scopes: __ctx.scopes ?? [],
           traceId: __ctx.traceId ?? `run:${runId}`,
           tz: (__ctx as any).tz ?? 'Europe/Berlin',
           now: new Date(),
           meta: {},
+          tools: Array.isArray(tools) ? tools : undefined,
+          currentTool: currentTool ?? null,
         } as any);
       });
 
