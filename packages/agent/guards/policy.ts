@@ -96,7 +96,8 @@ export type ToolId =
   | 'slack.postMessage'
   | 'email.read'
   | 'email.send'
-  | 'notion.upsert'
+  | 'notion.database.create'
+  | 'notion.database.upsert'
   | 'sheets.read'
   | 'sheets.write'
   | 'github.create_issue'
@@ -110,7 +111,8 @@ export const TOOL_CATEGORY: Record<ToolId, 'safe' | 'read' | 'write' | 'messagin
   'slack.postMessage': 'messaging',
   'email.read': 'read',
   'email.send': 'messaging',
-  'notion.upsert': 'write',
+  'notion.database.create': 'write',
+  'notion.database.upsert': 'write',
   'sheets.read': 'read',
   'sheets.write': 'write',
   'github.create_issue': 'write',
@@ -221,8 +223,9 @@ export function prelimRequiredToolsFromIntent(s: RunState): string[] {
     case 'email.reply':
       return ['email.send'];
     case 'notion.create':
-    case 'notion.upsert':
-      return ['notion.upsert'];
+      return ['notion.database.create'];
+    case 'notion.database.upsert':
+      return ['notion.database.upsert'];
     case 'sheets.write':
       return ['sheets.write'];
     case 'sheets.read':

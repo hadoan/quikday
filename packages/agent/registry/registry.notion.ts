@@ -3,7 +3,8 @@ import { ModuleRef } from '@nestjs/core';
 import * as notionTools from './tools/notion.js';
 
 export function registerNotionTools(registry: ToolRegistry, moduleRef: ModuleRef) {
-  registry.register(notionTools.notionUpsert(moduleRef));
+  registry.register(notionTools.notionDatabaseUpsert(moduleRef));
+  registry.register(notionTools.notionDatabaseCreate(moduleRef));
   registry.register(notionTools.notionPageGet(moduleRef));
   registry.register(notionTools.notionPageArchive(moduleRef));
   registry.register(notionTools.notionPagePropertiesUpdate(moduleRef));

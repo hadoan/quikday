@@ -2,10 +2,9 @@ import { z } from 'zod';
 import type { Tool } from '../../types.js';
 import type { RunCtx } from '../../../state/types.js';
 import { ModuleRef } from '@nestjs/core';
-import { PrismaService } from '@quikday/prisma';
-import { CurrentUserService } from '@quikday/libs';
+import { getNotionAuthFromCtx, getNotionSvc } from './helpers.js';
 
-export const NotionUpsertIn = z
+export const NotionDatabaseUpsertIn = z
   .object({
     behavior: z
       .enum(['auto', 'create', 'update'])
@@ -32,39 +31,33 @@ export const NotionUpsertIn = z
     { message: 'Provide databaseId for create or pageId for update' },
   );
 
-export const NotionUpsertOut = z
+export const NotionDatabaseUpsertOut = z
   .object({
     id: z.string(),
     url: z.string().optional(),
   })
   .passthrough();
 
-export type NotionUpsertArgs = z.infer<typeof NotionUpsertIn>;
-export type NotionUpsertResult = z.infer<typeof NotionUpsertOut>;
+export type NotionDatabaseUpsertArgs = z.infer<typeof NotionDatabaseUpsertIn>;
+export type NotionDatabaseUpsertResult = z.infer<typeof NotionDatabaseUpsertOut>;
 
-export function notionUpsert(moduleRef: ModuleRef): Tool<NotionUpsertArgs, NotionUpsertResult> {
+export function notionDatabaseUpsert(
+  moduleRef: ModuleRef,
+): Tool<NotionDatabaseUpsertArgs, NotionDatabaseUpsertResult> {
   return {
-    name: 'notion.upsert',
+    name: 'notion.database.upsert',
     description:
-      'Create or update a Notion page. Provide databaseId+properties to create; pageId+properties to update. Optionally include children blocks.',
-    in: NotionUpsertIn,
-    out: NotionUpsertOut,
+      'Create or update a page INSIDE AN EXISTING Notion database. Provide a valid databaseId+properties to create a new row, or pageId+properties to update. Never pass null or empty strings for databaseId/pageId—if you only know the database name, first call notion.database.list (to resolve the id) or notion.database.findOrCreate (with that id). This tool does not create brand-new databases.',
+    in: NotionDatabaseUpsertIn,
+    out: NotionDatabaseUpsertOut,
     apps: ['notion-productivity'],
     scopes: [],
     rate: '60/m',
     risk: 'low',
-    async call(args, _ctx: RunCtx) {
-      const input = NotionUpsertIn.parse(args);
-      const pkg = '@quikday/appstore-notion-productivity' as string;
-      const m: any = await import(pkg);
-      const NotionService = (m as any).NotionProductivityService;
-      let svc = moduleRef.get(NotionService as any, { strict: false }) as any;
-      if (!svc) {
-        const prisma = moduleRef.get(PrismaService, { strict: false });
-        const currentUser = moduleRef.get(CurrentUserService, { strict: false });
-        if (!prisma || !currentUser) throw new Error('NotionProductivityService unavailable');
-        svc = new NotionService(prisma as any, currentUser as any);
-      }
+    async call(args, ctx: RunCtx) {
+      const input = NotionDatabaseUpsertIn.parse(args);
+      const svc = getNotionSvc(moduleRef);
+      const auth = getNotionAuthFromCtx(ctx);
 
       const doCreate =
         input.behavior === 'create' || (input.behavior === 'auto' && !input.pageId && !!input.databaseId);
@@ -73,19 +66,22 @@ export function notionUpsert(moduleRef: ModuleRef): Tool<NotionUpsertArgs, Notio
       let res: any;
       if (doCreate) {
         if (!input.databaseId) throw new Error('databaseId is required for create');
-        res = await svc.createPage({
-          databaseId: input.databaseId,
-          properties: input.properties,
-          children: input.children,
-        });
+        res = await svc.createPage(
+          {
+            databaseId: input.databaseId,
+            properties: input.properties,
+            children: input.children,
+          },
+          auth,
+        );
       } else if (doUpdate) {
         if (!input.pageId) throw new Error('pageId is required for update');
-        res = await svc.updatePage({ pageId: input.pageId, properties: input.properties });
+        res = await svc.updatePage({ pageId: input.pageId, properties: input.properties }, auth);
       } else {
         throw new Error('Unable to determine action (create/update)');
       }
 
-      return NotionUpsertOut.parse(res);
+      return NotionDatabaseUpsertOut.parse(res);
     },
   };
 }

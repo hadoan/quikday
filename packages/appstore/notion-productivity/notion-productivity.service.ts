@@ -175,6 +175,50 @@ export class NotionProductivityService {
     return json;
   }
 
+  async createDatabase(
+    input: {
+      title: string;
+      parentPageId: string;
+      properties: Record<string, any>;
+      icon?: any;
+      cover?: any;
+    },
+    opts?: AccessTokenOptions,
+  ): Promise<any> {
+    if (!input.parentPageId || !input.parentPageId.trim()) {
+      throw new Error('parentPageId is required to create a Notion database');
+    }
+    const token = await this.resolveAccessToken(opts);
+    const parent = { page_id: input.parentPageId.trim() };
+
+    const resp = await fetch('https://api.notion.com/v1/databases', {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${token}`,
+        'Content-Type': 'application/json',
+        'Notion-Version': this.apiVersion,
+      },
+      body: JSON.stringify({
+        parent,
+        title: [
+          {
+            type: 'text',
+            text: { content: input.title },
+          },
+        ],
+        properties: input.properties,
+        ...(input.icon ? { icon: input.icon } : {}),
+        ...(input.cover ? { cover: input.cover } : {}),
+      }),
+    });
+    const json = await resp.json();
+    if (!resp.ok) {
+      const error = (json as any)?.message || 'unknown_error';
+      throw new Error(`Notion API error: ${error}`);
+    }
+    return json;
+  }
+
   async updatePage(
     input: { pageId: string; properties: Record<string, any> },
     opts?: AccessTokenOptions,

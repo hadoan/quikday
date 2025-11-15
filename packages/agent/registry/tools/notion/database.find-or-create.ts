@@ -42,7 +42,7 @@ export function notionDatabaseFindOrCreate(
   return {
     name: 'notion.database.findOrCreate',
     description:
-      'Query a database for a row by filter (or property match) and create it if missing. Returns whether a new entry was created.',
+      'Find (by filter or property match) or create a ROW inside a known Notion database. Requires a real databaseId; use notion.database.list or ask the user to supply it before calling. This does NOT create brand-new databases.',
     in: NotionDatabaseFindOrCreateIn,
     out: NotionDatabaseFindOrCreateOut,
     apps: ['notion-productivity'],
