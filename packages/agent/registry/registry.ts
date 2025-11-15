@@ -6,40 +6,12 @@ import { requireScopes } from '../guards/policy.js';
 import { z } from 'zod';
 import { chatRespondTool } from './tools/chatRespond.js';
 import { LLM } from '../llm/types.js';
-import {
-  calendarCreateEvent,
-  calendarListEvents,
-  calendarGetEvent,
-  calendarFreeBusy,
-  calendarUpdateEvent,
-  calendarCancelEvent,
-  calendarSuggestSlots,
-  calendarCheckAvailability,
-} from './tools/calendar.js';
-import {
-  emailSend,
-  emailRead,
-  emailMessageGet,
-  emailThreadGet,
-  emailDraftCreate,
-  emailDraftSend,
-  emailLabelsChange,
-  emailArchive,
-  emailSnooze,
-  emailSearchNoReply,
-  emailGenerateFollowup,
-  emailSendFollowup,
-  emailSetOutOfOffice,
-} from './tools/email.js';
 import { ModuleRef } from '@nestjs/core';
-import { slackPostMessage, slackChannelsList } from './tools/slack.js';
-import {
-  hubspotFindContactsByEmail,
-  hubspotCreateContacts,
-  hubspotCreateMeeting,
-  hubspotUpdateMeeting,
-} from './tools/hubspot.js';
-import { notionUpsert, notionTodoAdd, notionTodoList, notionTodoToggle, notionTodoUpdate } from './tools/notion.js';
+import { registerEmailTools } from './registry.email.js';
+import { registerCalendarTools } from './registry.calendar.js';
+import { registerHubspotTools } from './registry.hubspot.js';
+import { registerSlackTools } from './registry.slack.js';
+import { registerNotionTools } from './registry.notion.js';
 
 export class ToolRegistry {
   private tools = new Map<string, Tool<any, any>>();
@@ -146,45 +118,9 @@ registry.register({
 export function registerToolsWithLLM(llm: LLM, moduleRef: ModuleRef) {
   registry.register(chatRespondTool(llm, moduleRef));
 
-  //Email tools
-  registry.register(emailSend(moduleRef));
-  registry.register(emailRead(moduleRef));
-  registry.register(emailMessageGet(moduleRef));
-  registry.register(emailThreadGet(moduleRef));
-  registry.register(emailDraftCreate(moduleRef));
-  registry.register(emailDraftSend(moduleRef));
-  registry.register(emailLabelsChange(moduleRef));
-  registry.register(emailArchive(moduleRef));
-  registry.register(emailSnooze(moduleRef));
-  registry.register(emailSearchNoReply(moduleRef));
-  registry.register(emailGenerateFollowup(moduleRef, llm));
-  registry.register(emailSendFollowup(moduleRef));
-  registry.register(emailSetOutOfOffice(moduleRef));
-
-  //Calendar tools
-  registry.register(calendarCheckAvailability(moduleRef));
-  registry.register(calendarCreateEvent(moduleRef));
-  registry.register(calendarListEvents(moduleRef));
-  registry.register(calendarGetEvent(moduleRef));
-  registry.register(calendarFreeBusy(moduleRef));
-  registry.register(calendarUpdateEvent(moduleRef));
-  registry.register(calendarCancelEvent(moduleRef));
-  registry.register(calendarSuggestSlots(moduleRef));
-
-  // HubSpot CRM tools
-  registry.register(hubspotFindContactsByEmail(moduleRef));
-  registry.register(hubspotCreateContacts(moduleRef));
-  registry.register(hubspotCreateMeeting(moduleRef));
-  registry.register(hubspotUpdateMeeting(moduleRef));
-
-  // Slack tools requiring Prisma via ModuleRef
-  registry.register(slackChannelsList(moduleRef));
-  registry.register(slackPostMessage(moduleRef));
-
-  // Notion tools
-  registry.register(notionUpsert(moduleRef));
-  registry.register(notionTodoAdd(moduleRef));
-  registry.register(notionTodoList(moduleRef));
-  registry.register(notionTodoToggle(moduleRef));
-  registry.register(notionTodoUpdate(moduleRef));
+  registerEmailTools(registry, moduleRef, llm);
+  registerCalendarTools(registry, moduleRef);
+  registerHubspotTools(registry, moduleRef);
+  registerSlackTools(registry, moduleRef);
+  registerNotionTools(registry, moduleRef);
 }

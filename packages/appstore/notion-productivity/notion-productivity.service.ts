@@ -141,12 +141,16 @@ export class NotionProductivityService {
 
   async createPage(
     input: {
-      databaseId: string;
+      databaseId?: string;
+      parentPageId?: string;
       properties: Record<string, any>;
       children?: any[];
     },
     opts?: AccessTokenOptions,
   ): Promise<any> {
+    if (!input.databaseId && !input.parentPageId) {
+      throw new Error('databaseId or parentPageId is required to create a Notion page');
+    }
     const token = await this.resolveAccessToken(opts);
     const resp = await fetch('https://api.notion.com/v1/pages', {
       method: 'POST',
@@ -156,7 +160,9 @@ export class NotionProductivityService {
         'Notion-Version': this.apiVersion,
       },
       body: JSON.stringify({
-        parent: { database_id: input.databaseId },
+        parent: input.databaseId
+          ? { database_id: input.databaseId }
+          : { page_id: input.parentPageId },
         properties: input.properties,
         ...(input.children ? { children: input.children } : {}),
       }),
@@ -410,5 +416,241 @@ export class NotionProductivityService {
     }
 
     return { items, nextCursor: json?.next_cursor || undefined };
+  }
+
+  async getPage(
+    input: { pageId: string },
+    opts?: AccessTokenOptions,
+  ): Promise<Record<string, unknown>> {
+    const token = await this.resolveAccessToken(opts);
+    const resp = await fetch(`https://api.notion.com/v1/pages/${input.pageId}`, {
+      headers: {
+        Authorization: `Bearer ${token}`,
+        'Notion-Version': this.apiVersion,
+      },
+    });
+    const json = await resp.json();
+    if (!resp.ok) {
+      const error = (json as any)?.message || 'unknown_error';
+      throw new Error(`Notion API error: ${error}`);
+    }
+    return json;
+  }
+
+  async archivePage(
+    input: { pageId: string; archived?: boolean },
+    opts?: AccessTokenOptions,
+  ): Promise<Record<string, unknown>> {
+    const token = await this.resolveAccessToken(opts);
+    const resp = await fetch(`https://api.notion.com/v1/pages/${input.pageId}`, {
+      method: 'PATCH',
+      headers: {
+        Authorization: `Bearer ${token}`,
+        'Content-Type': 'application/json',
+        'Notion-Version': this.apiVersion,
+      },
+      body: JSON.stringify({ archived: input.archived ?? true }),
+    });
+    const json = await resp.json();
+    if (!resp.ok) {
+      const error = (json as any)?.message || 'unknown_error';
+      throw new Error(`Notion API error: ${error}`);
+    }
+    return json;
+  }
+
+  async appendBlocks(
+    input: { blockId: string; children: any[] },
+    opts?: AccessTokenOptions,
+  ): Promise<Record<string, unknown>> {
+    if (!Array.isArray(input.children) || input.children.length === 0) {
+      throw new Error('children are required to append blocks');
+    }
+    const token = await this.resolveAccessToken(opts);
+    const resp = await fetch(`https://api.notion.com/v1/blocks/${input.blockId}/children`, {
+      method: 'PATCH',
+      headers: {
+        Authorization: `Bearer ${token}`,
+        'Content-Type': 'application/json',
+        'Notion-Version': this.apiVersion,
+      },
+      body: JSON.stringify({ children: input.children }),
+    });
+    const json = await resp.json();
+    if (!resp.ok) {
+      const error = (json as any)?.message || 'unknown_error';
+      throw new Error(`Notion API error: ${error}`);
+    }
+    return json;
+  }
+
+  async replaceBlocks(
+    input: { blockId: string; children: any[] },
+    opts?: AccessTokenOptions,
+  ): Promise<Record<string, unknown>> {
+    if (!Array.isArray(input.children) || input.children.length === 0) {
+      throw new Error('children are required to replace blocks');
+    }
+    const token = await this.resolveAccessToken(opts);
+    const resp = await fetch(`https://api.notion.com/v1/blocks/${input.blockId}/children`, {
+      method: 'PATCH',
+      headers: {
+        Authorization: `Bearer ${token}`,
+        'Content-Type': 'application/json',
+        'Notion-Version': this.apiVersion,
+      },
+      body: JSON.stringify({
+        children: input.children,
+        replace_children: true,
+      }),
+    });
+    const json = await resp.json();
+    if (!resp.ok) {
+      const error = (json as any)?.message || 'unknown_error';
+      throw new Error(`Notion API error: ${error}`);
+    }
+    return json;
+  }
+
+  async queryDatabase(
+    input: {
+      databaseId: string;
+      filter?: Record<string, any>;
+      sorts?: Array<Record<string, any>>;
+      startCursor?: string;
+      pageSize?: number;
+    },
+    opts?: AccessTokenOptions,
+  ): Promise<any> {
+    const token = await this.resolveAccessToken(opts);
+    const body: Record<string, any> = {};
+    if (input.filter) body.filter = input.filter;
+    if (input.sorts) body.sorts = input.sorts;
+    if (input.startCursor) body.start_cursor = input.startCursor;
+    if (input.pageSize) body.page_size = Math.max(1, Math.min(100, input.pageSize));
+    const resp = await fetch(`https://api.notion.com/v1/databases/${input.databaseId}/query`, {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${token}`,
+        'Content-Type': 'application/json',
+        'Notion-Version': this.apiVersion,
+      },
+      body: JSON.stringify(body),
+    });
+    const json = await resp.json();
+    if (!resp.ok) {
+      const error = (json as any)?.message || 'unknown_error';
+      throw new Error(`Notion API error: ${error}`);
+    }
+    return json;
+  }
+
+  async listDatabaseEntries(
+    input: {
+      databaseId: string;
+      filter?: Record<string, any>;
+      sorts?: Array<Record<string, any>>;
+      startCursor?: string;
+      pageSize?: number;
+    },
+    opts?: AccessTokenOptions,
+  ): Promise<{ items: any[]; nextCursor?: string }> {
+    const json = await this.queryDatabase(input, opts);
+    const results: any[] = Array.isArray(json.results) ? json.results : [];
+    return { items: results, nextCursor: json?.next_cursor || undefined };
+  }
+
+  async findOrCreateDatabaseEntry(
+    input: {
+      databaseId: string;
+      properties: Record<string, any>;
+      matchProperty?: string;
+      matchValue?: string;
+      filter?: Record<string, any>;
+      children?: any[];
+      updateOnMatch?: Record<string, any>;
+    },
+    opts?: AccessTokenOptions,
+  ): Promise<{ page: any; created: boolean }> {
+    const filter =
+      input.filter ||
+      (input.matchProperty && input.matchValue
+        ? {
+            property: input.matchProperty,
+            rich_text: { equals: input.matchValue },
+          }
+        : undefined);
+
+    let existing: any | undefined;
+    if (filter) {
+      const query = await this.queryDatabase(
+        {
+          databaseId: input.databaseId,
+          filter,
+          pageSize: 1,
+        },
+        opts,
+      );
+      existing = Array.isArray(query?.results) && query.results.length > 0 ? query.results[0] : undefined;
+    }
+
+    if (existing) {
+      if (input.updateOnMatch || input.properties) {
+        await this.updatePage(
+          {
+            pageId: existing.id,
+            properties: input.updateOnMatch || input.properties,
+          },
+          opts,
+        );
+        const refreshed = await this.getPage({ pageId: existing.id }, opts);
+        return { page: refreshed, created: false };
+      }
+      return { page: existing, created: false };
+    }
+
+    const created = await this.createPage(
+      {
+        databaseId: input.databaseId,
+        properties: input.properties,
+        children: input.children,
+      },
+      opts,
+    );
+    return { page: created, created: true };
+  }
+
+  async syncRelationProperty(
+    input: { pageId: string; propertyName: string; relationIds: string[] },
+    opts?: AccessTokenOptions,
+  ): Promise<Record<string, unknown>> {
+    const relations = (input.relationIds || []).map((id) => ({ id }));
+    return this.updatePage(
+      {
+        pageId: input.pageId,
+        properties: {
+          [input.propertyName]: {
+            relation: relations,
+          },
+        },
+      },
+      opts,
+    );
+  }
+
+  async deleteBlock(input: { blockId: string }, opts?: AccessTokenOptions): Promise<void> {
+    const token = await this.resolveAccessToken(opts);
+    const resp = await fetch(`https://api.notion.com/v1/blocks/${input.blockId}`, {
+      method: 'DELETE',
+      headers: {
+        Authorization: `Bearer ${token}`,
+        'Notion-Version': this.apiVersion,
+      },
+    });
+    if (!resp.ok) {
+      const json = await resp.json().catch(() => ({}));
+      const error = (json as any)?.message || 'unknown_error';
+      throw new Error(`Notion API error: ${error}`);
+    }
   }
 }
