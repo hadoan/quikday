@@ -2,5 +2,9 @@
   "installCommand": "cd ../.. && npx -y pnpm@9.12.3 install",
   "buildCommand": "cd ../.. && npx -y pnpm@9.12.3 --filter @quikday/web run build",
   "framework": null,
-  "outputDirectory": "dist"
+  "outputDirectory": "dist",
+  "routes": [
+    { "handle": "filesystem" },
+    { "src": "/.*", "dest": "/index.html" }
+  ]
 }
