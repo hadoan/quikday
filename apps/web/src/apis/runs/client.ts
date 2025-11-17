@@ -3,7 +3,7 @@
  * Core API operations for run management
  */
 
-import { getAccessTokenProvider } from '@/apis/client';
+import { getAccessTokenProvider, getApiBaseUrl } from '@/apis/client';
 import { createLogger } from '@/lib/utils/logger';
 import type {
   CreateRunParams,
@@ -589,16 +589,7 @@ export class RunApiClient {
   }
 
   private getDefaultApiUrl(): string {
-    if (typeof window === 'undefined') {
-      return 'http://localhost:3000';
-    }
-
-    const viteApiUrl = import.meta.env?.VITE_API_BASE_URL;
-    if (viteApiUrl) {
-      return viteApiUrl;
-    }
-
-    return `${window.location.protocol}//${window.location.hostname}:3000`;
+    return getApiBaseUrl();
   }
 
   private getDefaultWsUrl(): string {

@@ -8,7 +8,7 @@ import MarkdownView from '@/components/common/MarkdownView';
 import { getAppInstallProps } from '@/lib/utils/appConfig';
 import type { UiEvent, UiPlanStep, UiRunSummary } from '@/apis/runs';
 import { getDataSource } from '@/lib/flags/featureFlags';
-import { getAccessTokenProvider } from '@/apis/client';
+import { getAccessTokenProvider, getApiBaseUrl } from '@/apis/client';
 import { formatDateTime, formatTime } from '@/lib/datetime/format';
 
 interface Props {
@@ -86,8 +86,7 @@ export default function RunDetailDrawer({ runId, open, onClose }: Props) {
       }
       // Fetch backend run directly to access raw output (diff/commits/summary)
       try {
-        const base = (import.meta as any)?.env?.VITE_API_BASE_URL || 'http://localhost:3000';
-        const url = `${base}/runs/${runId}`;
+        const url = `${getApiBaseUrl()}/runs/${runId}`;
         const headers = new Headers({ 'Content-Type': 'application/json' });
         try {
           const provider = getAccessTokenProvider();
