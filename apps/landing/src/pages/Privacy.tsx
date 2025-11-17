@@ -34,7 +34,7 @@ const sections = [
   {
     title: 'Your Choices & Rights',
     body:
-      'Depending on your location, you may have rights to access, correct, download, or delete personal data, object to processing, or withdraw consent. Workspace admins manage most workspace data; we will forward requests to the appropriate controller when needed. To exercise a right, email hello@quik.day and we will respond within 30 days.',
+      'Depending on your location, you may have rights to access, correct, download, or delete personal data, object to processing, or withdraw consent. Workspace admins manage most workspace data; we will forward requests to the appropriate controller when needed. To exercise a right, emailquikday@oneway8x.com and we will respond within 30 days.',
   },
   {
     title: 'International Transfers & Retention',
@@ -54,7 +54,7 @@ const sections = [
   {
     title: 'Changes & Contact',
     body:
-      'We may update this Privacy Policy to reflect product, legal, or operational changes. When updates are material, we will notify you via email or in-app notice. Continued use of Quik.day after changes become effective constitutes acceptance. Questions? Email hello@quik.day.',
+      'We may update this Privacy Policy to reflect product, legal, or operational changes. When updates are material, we will notify you via email or in-app notice. Continued use of Quik.day after changes become effective constitutes acceptance. Questions? Emailquikday@oneway8x.com.',
   },
 ];
 
@@ -106,7 +106,7 @@ const PrivacyPage = () => {
         <div className="text-sm text-muted-foreground">
           Need a signed DPA or sub-processor list? Reach us anytime at{' '}
           <a className="underline" href="mailto:hello@quik.day">
-            hello@quik.day
+           quikday@oneway8x.com
           </a>
           .
         </div>

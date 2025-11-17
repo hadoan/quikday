@@ -68,7 +68,7 @@ const sections = [
   {
     title: 'Contact',
     body:
-      'Questions about these Terms? Email hello@quik.day and we will be happy to help.',
+      'Questions about these Terms? Emailquikday@oneway8x.com and we will be happy to help.',
   },
 ];
 
@@ -119,7 +119,7 @@ const TermsPage = () => {
         <div className="text-sm text-muted-foreground">
           Need something in writing (PO, DPA, MSLA exception)? Email{' '}
           <a className="underline" href="mailto:hello@quik.day">
-            hello@quik.day
+           quikday@oneway8x.com
           </a>
           .
         </div>
