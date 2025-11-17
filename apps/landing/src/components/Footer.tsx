@@ -59,8 +59,8 @@ export const Footer = () => {
       { label: 'Community', href: '#community' },
     ],
     Legal: [
-      { label: 'Privacy', href: '#privacy' },
-      { label: 'Terms', href: '#terms' },
+      { label: 'Privacy', href: '/privacy' },
+      { label: 'Terms', href: '/terms' },
       { label: 'Security', href: '#security' },
       { label: 'AGPL License', href: 'https://github.com/hadoan/quikday/blob/main/LICENSE' },
       { label: 'Contact', href: '#contact' },
@@ -141,10 +141,24 @@ export const Footer = () => {
         </div>
 
         {/* Bottom Bar */}
-        <div className="pt-8 border-t border-border flex flex-col md:flex-row justify-between items-center gap-4">
-          <p className="text-sm text-muted-foreground">
-            © 2025 Quik.day. Open source. Built in public.
-          </p>
+        <div className="pt-8 border-t border-border flex flex-col md:flex-row justify-between items-center gap-4 text-center md:text-left">
+          <div className="space-y-1">
+            <p className="text-sm text-muted-foreground">
+              © 2025 Quik.day. Open source. Built in public.
+            </p>
+            <p className="text-xs text-muted-foreground">
+              Quik.day is a product of{' '}
+              <a
+                href="https://oneway8x.com"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="underline underline-offset-4"
+              >
+                oneway8x.com
+              </a>
+              .
+            </p>
+          </div>
 
           <div className="flex items-center gap-4">
             <a
