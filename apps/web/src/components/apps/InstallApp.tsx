@@ -11,7 +11,7 @@ import {
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import { useToast } from '@/hooks/use-toast';
-import api, { getApiBaseUrl, getWebBaseUrl } from '@/apis/client';
+import api, { getWebBaseUrl } from '@/apis/client';
 import axios from 'axios';
 
 /**
@@ -159,13 +159,6 @@ export default function InstallApp({
     }
   };
 
-  const getApiBaseUrl = () => {
-    if (typeof window === 'undefined') return 'http://localhost:3000';
-    const fromEnv = import.meta.env?.VITE_API_BASE_URL as string | undefined;
-    if (fromEnv) return fromEnv;
-    return `${window.location.protocol}//${window.location.hostname}:3000`;
-  };
-
   // Fetch existing credentials for this app on mount
   useEffect(() => {
     let mounted = true;
@@ -218,7 +211,6 @@ export default function InstallApp({
     // Handle OAuth flow - redirect to backend OAuth initiation endpoint
     // Convention: /integrations/{slug}/add
     if (installMethod === 'oauth') {
-      const apiBaseUrl = getApiBaseUrl();
       try {
         onBeforeInstall?.(type);
       } catch {

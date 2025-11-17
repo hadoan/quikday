@@ -4,6 +4,7 @@
  */
 
 import type { Question } from '@/components/chat/QuestionsPanel';
+import { getApiBaseUrl } from '@/apis/client';
 import { RunApiClient } from './client';
 
 /**
@@ -43,11 +44,7 @@ export async function continueWithAnswers(
     await apiClient.applyAnswers(runId, answers || {});
   } else {
     // Fallback to direct fetch
-    const apiBase =
-      typeof window !== 'undefined'
-        ? `${window.location.protocol}//${window.location.hostname}:3000`
-        : 'http://localhost:3000';
-    const url = `${apiBase}/runs/${runId}/continueWithAnswers`;
+    const url = `${getApiBaseUrl()}/runs/${runId}/continueWithAnswers`;
     const body = JSON.stringify({ answers: answers || {} });
 
     const res = await fetch(url, {

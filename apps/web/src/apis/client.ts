@@ -10,11 +10,31 @@ export const setAccessTokenProvider = (provider: AccessTokenProvider) => {
 
 export const getAccessTokenProvider = (): AccessTokenProvider | undefined => accessTokenProvider;
 
+const DEV_API_BASE_URL = 'http://localhost:3000';
+const PROD_API_BASE_URL = 'https://api.quik.day';
+
+const sanitizeBaseUrl = (value?: string): string | undefined =>
+  value ? value.replace(/\/+$/, '') : undefined;
+
 const computeApiBaseUrl = (): string => {
-  if (typeof window === 'undefined') return 'http://localhost:3000';
-  const fromEnv = (import.meta as any)?.env?.VITE_API_BASE_URL as string | undefined;
+  const envAny = (import.meta as any)?.env as Record<string, unknown> | undefined;
+  const fromEnv = sanitizeBaseUrl(envAny?.VITE_API_BASE_URL as string | undefined);
   if (fromEnv) return fromEnv;
-  return `${window.location.protocol}//${window.location.hostname}:3000`;
+
+  if (typeof window === 'undefined') return DEV_API_BASE_URL;
+
+  const hostname = window.location.hostname;
+  const lowerHost = hostname?.toLowerCase?.() ?? '';
+  if (
+    lowerHost === 'localhost' ||
+    lowerHost === '127.0.0.1' ||
+    lowerHost === '[::1]' ||
+    lowerHost.endsWith('.local')
+  ) {
+    return `${window.location.protocol}//${hostname}:3000`;
+  }
+
+  return PROD_API_BASE_URL;
 };
 
 export const getApiBaseUrl = computeApiBaseUrl;

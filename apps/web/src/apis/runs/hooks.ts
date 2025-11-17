@@ -4,7 +4,7 @@
  */
 
 import { useQuery } from '@tanstack/react-query';
-import { getAccessTokenProvider } from '@/apis/client';
+import { getAccessTokenProvider, getApiBaseUrl } from '@/apis/client';
 import type { RunsListResponse, RunsQueryParams } from './types';
 
 /**
@@ -20,7 +20,7 @@ export function useRunsQuery(params: RunsQueryParams) {
   if (params.sortDir) qs.set('sortDir', params.sortDir);
   (params.status ?? []).forEach((s) => qs.append('status', s));
 
-  const url = `${import.meta.env.VITE_API_BASE_URL || ''}/runs?${qs.toString()}`;
+  const url = `${getApiBaseUrl()}/runs?${qs.toString()}`;
 
   return useQuery<RunsListResponse>({
     queryKey: ['runs', params],
