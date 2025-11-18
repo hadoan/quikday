@@ -45,13 +45,13 @@ export const Trust = () => {
         </div>
 
         <div className="text-center mt-6 text-sm">
-          <a href="#privacy" className="underline underline-offset-4 mr-4">
+          <a href="/privacy" className="underline underline-offset-4 mr-4">
             Privacy
           </a>
           <a href="#security" className="underline underline-offset-4 mr-4">
             Security
           </a>
-          <a href="#terms" className="underline underline-offset-4">
+          <a href="/terms" className="underline underline-offset-4">
             Terms
           </a>
         </div>

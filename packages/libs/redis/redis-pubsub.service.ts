@@ -25,13 +25,28 @@ export class RedisPubSubService implements OnModuleDestroy {
     (process.env.REDIS_IGNORE_SELF_ORIGIN ?? 'false').toLowerCase() === 'true';
 
   constructor() {
+    const needsTls = this.redisUrl.startsWith('rediss://');
+    let servername: string | undefined;
+    try {
+      servername = new URL(this.redisUrl).hostname;
+    } catch {
+      // ignore parse error – TLS will still use default SNI
+    }
+
     const connection = {
-      // Use the full REDIS URL (supports rediss:// for TLS endpoints like Upstash)
+      // Use the full REDIS URL (supports rediss:// for TLS endpoints like Redis Cloud/Upstash)
       url: this.redisUrl,
       // Helpful for serverless environments
       maxRetriesPerRequest: null,
       enableReadyCheck: false,
       lazyConnect: true,
+      tls: needsTls
+        ? {
+            servername,
+            rejectUnauthorized:
+              (process.env.REDIS_TLS_REJECT_UNAUTHORIZED ?? 'false').toLowerCase() === 'true',
+          }
+        : undefined,
     } as any;
 
     this.publisher = new Redis(connection);

@@ -16,21 +16,38 @@ import { AgentModule } from '../agent/index.js';
     forwardRef(() => RunsModule),
     ConfigModule,
     CredentialsModule,
-    RedisModule,
+    // RedisModule,
     PubSubModule,
     CurrentUserModule,
     AgentModule.forRoot(),
     BullModule.forRootAsync({
       imports: [ConfigModule],
-      useFactory: (config: ConfigService) => ({
-        connection: {
-          url: config.env.REDIS_URL,
-          // serverless-friendly options
-          maxRetriesPerRequest: null,
-          enableReadyCheck: false,
-          lazyConnect: true,
-        },
-      }),
+      useFactory: (config: ConfigService) => {
+        const url = config.env.REDIS_URL;
+        const needsTls = url.startsWith('rediss://');
+        let servername: string | undefined;
+        try {
+          servername = new URL(url).hostname;
+        } catch (err) {
+          console.warn('[QueueModule] Failed to parse REDIS_URL for TLS SNI:', err);
+        }
+        return {
+          connection: {
+            url,
+            // serverless-friendly options
+            maxRetriesPerRequest: null,
+            enableReadyCheck: false,
+            lazyConnect: true,
+            tls: needsTls
+              ? {
+                  servername,
+                  rejectUnauthorized:
+                    (process.env.REDIS_TLS_REJECT_UNAUTHORIZED ?? 'false').toLowerCase() === 'true',
+                }
+              : undefined,
+          },
+        };
+      },
       inject: [ConfigService],
     }),
     BullModule.registerQueue({ name: 'runs' }),
