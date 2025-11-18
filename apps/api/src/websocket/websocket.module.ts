@@ -4,7 +4,7 @@ import { PrismaModule } from '@quikday/prisma';
 import { RedisModule, PubSubModule } from '@quikday/libs';
 
 @Module({
-  imports: [PrismaModule, RedisModule, PubSubModule],
+  imports: [PrismaModule, PubSubModule],
   providers: [WebSocketService],
   exports: [WebSocketService],
 })
